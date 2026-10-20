@@ -22,11 +22,22 @@ platforms:
   amd64:
   arm64:
 
+slots:
+  application-dbus:
+    interface: dbus
+    bus: session
+    name: io.github.SigmaCodez.NeutronDrive
+  demo-dbus:
+    interface: dbus
+    bus: session
+    name: io.github.SigmaCodez.NeutronDrive.Demo
+
 apps:
   neutrondrive:
     command: usr/bin/neutrondrive
     desktop: usr/share/applications/io.github.SigmaCodez.NeutronDrive.desktop
     extensions: [gnome]
+    slots: [application-dbus, demo-dbus]
     plugs:
       - home
       - network

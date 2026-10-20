@@ -253,7 +253,8 @@ class Application(Gtk.Application):
         titles.append(label("Sicher gespeichert. Auf Linux zu Hause.", "subtitle"))
         title_row.append(titles)
         self.search = Gtk.SearchEntry()
-        self.search.set_placeholder_text("In diesem Ordner suchen")
+        # The property predates the convenience setter (introduced in GTK 4.10).
+        self.search.set_property("placeholder-text", "In diesem Ordner suchen")
         self.search.set_valign(Gtk.Align.CENTER)
         self.search.set_size_request(230, -1)
         self.search.connect("search-changed", lambda *_: self.render_nodes())

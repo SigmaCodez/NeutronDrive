@@ -13,6 +13,8 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
+![NeutronDrive's native GTK interface with explicitly labelled demo data](docs/demo.png)
+
 ## Features
 
 - Browser-based sign-in on `account.proton.me`; no password field in NeutronDrive.

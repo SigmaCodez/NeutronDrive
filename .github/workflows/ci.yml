@@ -2,7 +2,9 @@ name: Tests and Linux packages
 
 on:
   push:
+    paths-ignore: ['docs/**', '*.md']
   pull_request:
+    paths-ignore: ['docs/**', '*.md']
   workflow_dispatch:
 
 permissions:
@@ -13,6 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  gtk-lts:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the oldest supported GTK runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 xvfb
+      - name: Exercise GTK 4.6 on Ubuntu 22.04
+        run: xvfb-run -a env PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
+
   tests:
     runs-on: ubuntu-24.04
     strategy:
