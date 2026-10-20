@@ -49,7 +49,13 @@ backend at `/usr/lib/neutrondrive/bin/proton-drive`, avoiding conflicts with an
 independently installed official CLI. Artifacts are written to `dist/`.
 
 RPM dependency names are selected for the build distribution: build Fedora RPMs
-on Fedora and openSUSE RPMs on openSUSE. CI runs both variants. An RPM made on a
+on Fedora and openSUSE RPMs on openSUSE. CI runs both variants. Fedora does not
+provide pyfuse3, so its build compiles the unmodified, SHA256-pinned 3.4.2 source
+privately against the distribution's Python ABI. The RPM includes the complete
+source archive, LGPL license and replacement/rebuild instructions. Trio remains
+a distribution dependency. openSUSE uses its packaged pyfuse3. Build dependencies
+and exact pin are in the CI workflow and `rpm/pyfuse3-lock.json`; no pip command
+runs on application startup or installation. An RPM made on a
 Debian/Ubuntu build host uses the Fedora dependency names and is only a packaging
 smoke check, not a substitute for the distribution's native build.
 

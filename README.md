@@ -166,6 +166,8 @@ the desktop portal implementation. `--sync-status` and `--stop-background` provi
 headless control. No tray icon is provided. Automatic sync does not propagate
 deletions or track renames as moves; resolve these explicitly.
 
+![Background sync configuration, explicitly labeled demo mode](docs/background-demo.png)
+
 ## Online drive and offline files
 
 Open **Online-Laufwerk**, choose an empty local mount directory and an existing
@@ -197,6 +199,8 @@ online drive is explicitly unavailable there. Use the native DEB/RPM for online
 files; connecting extra interfaces does not remove this limitation.
 FUSE mounts cannot be used as automatic sync roots, and overlapping jobs or
 mounts are rejected.
+
+![Online drive configuration, explicitly labeled demo mode](docs/ondemand-demo.png)
 
 ## Known limits
 

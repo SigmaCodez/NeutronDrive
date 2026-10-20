@@ -2,7 +2,11 @@ Name:           neutrondrive
 Version:        0.2.0~alpha1
 Release:        1%{?dist}
 Summary:        Independent GTK client for Proton Drive (alpha)
+%if 0%{?neutrondrive_vendor_pyfuse3}
+License:        MIT AND LGPL-2.1-or-later
+%else
 License:        MIT
+%endif
 URL:            https://github.com/SigmaCodez/NeutronDrive
 Source0:        neutrondrive-payload.tar.gz
 ExclusiveArch:  x86_64 aarch64
@@ -10,7 +14,12 @@ Requires:       python3 >= 3.10
 Requires:       python3-gobject
 Requires:       xdg-utils
 Requires:       ca-certificates
+%if 0%{?neutrondrive_vendor_pyfuse3}
+Requires:       python(abi) = %{neutrondrive_python_abi}
+Provides:       bundled(python3dist(pyfuse3)) = 3.4.2
+%else
 Requires:       python3dist(pyfuse3)
+%endif
 Requires:       python3dist(trio)
 Requires:       fuse3
 %if 0%{?suse_version}

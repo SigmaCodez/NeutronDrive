@@ -50,7 +50,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-gi gir1.2-gtk-4.0 xvfb
       - name: Exercise GTK 4.6 on Ubuntu 22.04
-        run: xvfb-run -a env PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
+        run: xvfb-run -a env GSK_RENDERER=cairo PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
 
   tests:
     runs-on: ubuntu-24.04
@@ -92,7 +92,7 @@ jobs:
       - name: Build bundled DEB
         run: python3 scripts/build-deb --arch '${{ matrix.architecture }}'
       - name: Exercise native GTK interface on a virtual X11 display
-        run: xvfb-run -a env PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
+        run: xvfb-run -a env GSK_RENDERER=cairo PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
       - name: Inspect package and smoke-test bundled CLI
         run: |
           dpkg-deb --info dist/*.deb
@@ -111,11 +111,12 @@ jobs:
     needs: tests
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - distribution: fedora
             container: fedora:44
-            install: dnf install -y git python3 rpm-build
+            install: dnf install -y git python3 rpm-build gcc pkgconf-pkg-config fuse3-devel python3-devel python3-pip python3-setuptools python3-setuptools_scm python3-cython python3-wheel python3-trio
             install_package: dnf install -y ./dist/*.rpm
           - distribution: opensuse
             container: opensuse/tumbleweed:latest
@@ -133,7 +134,8 @@ jobs:
       - name: Install package and verify runtime dependencies
         run: |
           ${{ matrix.install_package }}
-          python3 -c 'import pyfuse3, trio, gi'
+          PYTHONPATH=/usr/lib/neutrondrive python3 -c 'import pyfuse3, trio, gi; print(pyfuse3.__file__)'
+          PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_ondemand.py -v
           neutrondrive --diagnose
       - uses: actions/upload-artifact@v4
         with:

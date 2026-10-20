@@ -55,7 +55,9 @@ class GtkApplicationTests(unittest.TestCase):
         cls._check_callback_errors()
         if cls.app.window is None or not hasattr(cls.app, "stack"):
             raise AssertionError("do_activate did not construct the application window and page stack")
-        cls._pump_until(lambda: not cls.app.busy)
+        # Cold software-renderer/font initialization on LTS CI can exceed the
+        # short interaction budget. Keep a finite startup-specific allowance.
+        cls._pump_until(lambda: not cls.app.busy, timeout=20)
         if len(cls.app.nodes) != 6:
             raise AssertionError("The initial read-only demo directory did not load completely")
 
@@ -78,7 +80,12 @@ class GtkApplicationTests(unittest.TestCase):
             if predicate():
                 return
             time.sleep(0.005)
-        raise AssertionError("GTK did not reach the expected state within the bounded event-loop wait")
+        raise AssertionError(
+            f"GTK did not reach the expected state within {timeout}s; "
+            f"busy={getattr(cls.app, 'busy', None)}, "
+            f"page={getattr(cls.app, 'current_page', None)}, "
+            f"callbacks={len(cls.callback_errors)}"
+        )
 
     @classmethod
     def _close_application(cls):

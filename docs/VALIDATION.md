@@ -6,8 +6,11 @@ The previous release evidence is preserved in [VALIDATION-0.1.md](VALIDATION-0.1
 ## Local tests
 
 The full Python suite, with opt-in GTK, isolated D-Bus and actual Linux kernel
-FUSE tests enabled, passed on Ubuntu 26.04.1 x86_64 / Python 3.14.4. The final
-count and package CI run are recorded below after release validation.
+FUSE tests enabled, passed **175 tests without skips** on Ubuntu 26.04.1 x86_64 /
+Python 3.14.4. This includes nine GUI tests and seventeen desktop integration
+tests. The nine GUI checks also passed after the startup-budget adjustment.
+Both new pages were visually checked at 1280×720 with clearly labeled demo data;
+the online page scrolls to its lower helper and recovery controls.
 
 Coverage includes command serialization/cancellation, partial transfers,
 SHA1/SHA256 verification, manual sync safety, inotify, event acknowledgement and
@@ -34,9 +37,14 @@ trash/restore, manual two-way changes, local backup retention and conflicts.
 
 `scripts/smoke-background-live` exercises a real daemon subprocess, local inotify
 uploads, external uploads followed by actual Drive-event downloads, pause/resume
-and stop/restart. `scripts/smoke-fuse-live` exercises real kernel mounts against
+and stop/restart. **All nine checks, including cleanup, passed** with the real
+SDK event source; the daemon was confirmed stopped afterward.
+
+`scripts/smoke-fuse-live` exercises real kernel mounts against
 Proton, download on open, pin/offline remount, editing/revisions, editor replacement,
-folder/file operations and eviction. Final outcomes are recorded with the release.
+folder/file operations and eviction. **All seven checks passed**, followed by
+confirmed cleanup to trash. Remote SHA1 and downloaded SHA256 content were
+verified. Writes used separate application processes, as in normal desktop use.
 
 An initial FUSE harness ran client I/O and the service in one process, causing
 an inherited-file-descriptor deadlock when a backend child closed its FUSE fd.
@@ -45,7 +53,7 @@ D-Bus service architecture. Only that synthetic test connection was aborted.
 
 ## Packaging boundaries
 
-Native DEB/RPM include pyfuse3/Trio dependencies and the D-Bus helper. CI tests
+Native DEB/RPM provide pyfuse3/Trio and the D-Bus helper. CI tests
 actual FUSE mounts and D-Bus activation without cloud credentials, native package
 installation/runtime dependencies, both DEB architectures and both RPM families.
 Flatpak and strict Snap are built separately.
