@@ -68,3 +68,39 @@ verification on target desktops.
 
 No claim of error-free operation, complete Windows/macOS parity, security audit,
 all-distribution compatibility or Flathub/Snap Store publication is made.
+
+## Final package run and release identity
+
+All **13 jobs** in [GitHub Actions run 39492373435](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39492373435)
+passed at build source `86f9a77360c70130eea7e65033f6d4bfe5b0d574`. Release packages
+come from this run. The matrix tests Python 3.10–3.13, GTK 4.6 on Ubuntu 22.04,
+real FUSE and isolated D-Bus, the event protocol and all six packages. GUI CI
+uses a software renderer and a bounded 20-second cold-start budget; interactions
+retain their shorter timeout.
+
+| Package | Observed final result |
+| --- | --- |
+| DEB x86_64 / ARM64 | Built and installed on respective native Ubuntu 24.04 runners; backend, imports and all nine GTK checks passed |
+| Fedora 44 RPM x86_64 | Pinned pyfuse3 source compiled; package installed; private extension imported; 36 on-demand tests passed |
+| openSUSE Tumbleweed RPM x86_64 | Package installed using distro pyfuse3; imports and 36 on-demand tests passed |
+| Flatpak x86_64 | Full SDK build; exact final bundle installed in isolation, backend diagnosed, GTK mapped on Wayland, helper D-Bus transport checked |
+| Snap amd64 | Strict core24 package built and bundled backend reverified; installed-account/autostart flows remain untested |
+
+The exact final Flatpak SHA256 is
+`926c8e7573432c8b5f1c2c3f0dd88fedbb5342aa3da5aaa3e53174cc3873fb00`.
+Its actual packaged permissions displayed a GTK 4.22.5 Wayland demo with six
+entries, all six pages, both new scrollable pages and zero callback errors.
+The sandbox successfully called a native source helper using a fake backend,
+without added privileges or credential copying. The existing helper name was
+unowned before testing; the test owner was verified and stopped afterward.
+The temporary installation was removed. No new account login was performed.
+
+The final source-built pyfuse3 3.4.2 binding additionally passed all five native
+kernel tests locally. Fedora ships its complete source archive, LGPL notice and
+replacement instructions alongside the extension.
+
+Release `BUILD_INFO.json` records source/SDK identities, CI job results and all
+package hashes; `TEST_RESULTS.json` records sanitized test evidence.
+`BUILD_SOURCE_SHA256SUMS` maps original CI filenames, while `SHA256SUMS` verifies
+the final download names. Renaming package files does not change their contents
+or internal package versions.
