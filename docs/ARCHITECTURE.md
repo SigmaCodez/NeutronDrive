@@ -90,10 +90,15 @@ Baseline version 2 binds each converged path to local device/inode, cloud UID an
 revision, type/content and known descendants. Old version 1 entries are promoted
 only after verified two-sided convergence; missing-side v1 entries remain
 conflicts. Deletion of a known path propagates only to its unchanged counterpart.
-A folder is one top-level trash operation, never a cascade of unchecked children;
-new, ignored, unsupported or changed descendants block it. Fresh absence and
+The production backend cannot enumerate directly trashed folders. Whole-folder
+deletion therefore remains a conflict before any mutation; no child cascade is
+attempted. Individual file deletions in retained directories are supported. Fresh absence and
 identity checks bypass cached listings, and moved remote UIDs or missing/trashed
 root ancestors block deletion.
+
+Public SDK nodes expose `trashTime`, while SDK events expose `isTrashed`.
+`Node.parse` validates the serialized date and normalizes a semantic trash flag
+for all consumers; malformed timestamps fail closed.
 
 Pending deletion records are persisted before mutation with an operation UUID.
 Retries verify the original missing side and target proof; confirmed absence on

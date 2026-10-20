@@ -2,8 +2,10 @@
 import importlib.machinery
 import importlib.util
 from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from test_sync import FakeBackend
 
 
 loader = importlib.machinery.SourceFileLoader(
@@ -101,6 +103,44 @@ class DeletionSmokeTests(unittest.TestCase):
                          {"error_type": "BackendError", "error_detail": BUSY})
         self.assertEqual(smoke.error_details(OSError("potentially private exception text")),
                          {"error_type": "OSError"})
+
+    def test_remote_folder_retention_check_rejects_partial_or_changed_trees(self):
+        for change in ("none", "missing-empty", "extra-file", "edited-file"):
+            with self.subTest(change=change):
+                backend = FakeBackend()
+                folder = backend.add("folder")
+                backend.add("folder/nested")
+                backend.add("folder/empty")
+                backend.add("folder/nested/child.txt", b"synthetic")
+                before = smoke.remote_folder_snapshot(backend, folder, b"synthetic")
+                self.assertEqual(set(before), {"", "empty", "nested", "nested/child.txt"})
+                if change == "none":
+                    self.assertEqual(smoke.remote_folder_snapshot(backend, folder, b"synthetic"), before)
+                    continue
+                if change == "missing-empty":
+                    backend.nodes.pop("folder/empty")
+                elif change == "extra-file":
+                    backend.add("folder/extra.txt", b"synthetic")
+                else:
+                    backend.add("folder/nested/child.txt", b"changed")
+                with self.assertRaises(smoke.CheckFailed):
+                    smoke.remote_folder_snapshot(backend, folder, b"synthetic")
+
+    def test_local_folder_retention_check_keeps_identity_and_complete_contents(self):
+        with tempfile.TemporaryDirectory(prefix="neutrondrive-smoke-test-") as temporary:
+            folder = Path(temporary) / "folder"
+            (folder / "nested").mkdir(parents=True)
+            (folder / "empty").mkdir()
+            (folder / "nested/child.txt").write_bytes(b"synthetic")
+            before = smoke.local_folder_snapshot(folder, b"synthetic")
+            self.assertEqual(smoke.local_folder_snapshot(folder, b"synthetic"), before)
+            (folder / "empty").rmdir()
+            with self.assertRaises(smoke.CheckFailed):
+                smoke.local_folder_snapshot(folder, b"synthetic")
+            (folder / "empty").mkdir()
+            (folder / "nested/child.txt").write_bytes(b"changed")
+            with self.assertRaises(smoke.CheckFailed):
+                smoke.local_folder_snapshot(folder, b"synthetic")
 
 
 if __name__ == "__main__":

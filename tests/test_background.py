@@ -3,6 +3,7 @@ from dataclasses import asdict, replace
 import json
 import os
 from pathlib import Path
+import shutil
 import stat
 import struct
 import tempfile
@@ -585,7 +586,7 @@ class DaemonTests(unittest.TestCase):
         self.assertNotEqual(self.cloud.nodes["delete.txt"].uid, node.uid)
         self.assertFalse(self.status()["conflicts"])
 
-    def test_folder_delete_event_trashes_complete_tree_and_rebuilds_watch_once(self):
+    def test_folder_delete_event_retains_complete_local_tree_until_cloud_restore(self):
         from neutrondrive.local_trash import LocalTrash
         (self.local / "folder/nested").mkdir(parents=True)
         (self.local / "folder/nested/child.txt").write_bytes(b"child")
@@ -593,20 +594,64 @@ class DaemonTests(unittest.TestCase):
         self.start(real_watcher=True)
         self.idle()
         node = self.cloud.nodes["folder"]
+        identities = {str(path.relative_to(self.local)): path.stat().st_ino
+                      for path in (self.local / "folder", *(self.local / "folder").rglob("*"))}
         self.cloud.trash([node.path])
         self.events.emit(root_uid="root-1", node_uid=node.uid, parent_uid="root-1",
                          kind="node_updated", is_trashed=True)
-        eventually(lambda: not (self.local / "folder").exists())
+        eventually(lambda: self.status()["state"] == "conflicts")
         self.idle()
-        receipt = next(item for item in LocalTrash().list_entries()
-                       if item.original_path == str(self.local / "folder"))
-        self.assertEqual((Path(receipt.trash_path) / "nested/child.txt").read_bytes(), b"child")
-        self.assertTrue((Path(receipt.trash_path) / "empty").is_dir())
-        time.sleep(0.15)
+        self.assertTrue(any("folder: Folder deletion is blocked:" in line for line in self.status()["conflicts"]))
+        self.assertEqual((self.local / "folder/nested/child.txt").read_bytes(), b"child")
+        self.assertTrue((self.local / "folder/empty").is_dir())
+        self.assertEqual(LocalTrash().list_entries(), [])
+        self.assertEqual(identities, {str(path.relative_to(self.local)): path.stat().st_ino
+                                    for path in (self.local / "folder", *(self.local / "folder").rglob("*"))})
         count = self.cloud.plans
         time.sleep(0.2)
         self.assertEqual(self.cloud.plans, count)
-        self.assertLessEqual(count, 4)
+        before = self.status()["last_sync"]
+        for path, trashed in list(self.cloud.trashed_nodes.items()):
+            self.cloud.nodes[path] = replace(trashed, raw={**trashed.raw, "isTrashed": False})
+        self.cloud.trashed_nodes.clear()
+        self.cloud.contents.update(self.cloud.trashed_contents)
+        self.cloud.trashed_contents.clear()
+        self.events.emit(root_uid="root-1", node_uid=node.uid, parent_uid="root-1",
+                         kind="node_updated", is_trashed=False)
+        eventually(lambda: self.status()["last_sync"] > before and self.status()["state"] == "idle")
+        self.idle()
+        self.assertEqual(self.cloud.contents["folder/nested/child.txt"], b"child")
+        self.assertFalse(self.status()["conflicts"])
+
+    def test_real_inotify_folder_delete_preserves_cloud_then_recreation_resumes_sync(self):
+        from neutrondrive.local_trash import LocalTrash
+        (self.local / "folder/nested").mkdir(parents=True)
+        (self.local / "folder/nested/child.txt").write_bytes(b"child")
+        (self.local / "folder/empty").mkdir()
+        self.start(real_watcher=True)
+        self.idle()
+        nodes, contents = dict(self.cloud.nodes), dict(self.cloud.contents)
+        shutil.rmtree(self.local / "folder")
+        eventually(lambda: self.status()["state"] == "conflicts")
+        self.idle()
+        self.assertTrue(any("folder: Folder deletion is blocked:" in line for line in self.status()["conflicts"]))
+        self.assertEqual(self.cloud.nodes, nodes)
+        self.assertEqual(self.cloud.contents, contents)
+        self.assertFalse(self.cloud.trashed_nodes)
+        self.assertFalse((self.local / "folder").exists())
+        self.assertEqual(LocalTrash().list_entries(), [])
+        before = self.status()["last_sync"]
+        (self.local / "folder/nested").mkdir(parents=True)
+        (self.local / "folder/nested/child.txt").write_bytes(b"child")
+        (self.local / "folder/empty").mkdir()
+        eventually(lambda: self.status()["last_sync"] > before and self.status()["state"] == "idle")
+        self.idle()
+        self.assertEqual(self.cloud.nodes, nodes)
+        self.assertEqual(self.cloud.contents, contents)
+        (self.local / "folder/nested/child.txt").write_bytes(b"changed after manual restoration")
+        eventually(lambda: self.cloud.contents.get("folder/nested/child.txt") == b"changed after manual restoration")
+        self.idle()
+        self.assertFalse(self.status()["conflicts"])
 
     def test_delete_versus_edit_both_directions_stays_conflicted_after_restart(self):
         from neutrondrive.local_trash import LocalTrash

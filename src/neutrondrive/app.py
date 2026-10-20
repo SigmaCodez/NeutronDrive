@@ -358,7 +358,7 @@ class Application(Gtk.Application):
         actions.append(self.plan_button)
         actions.append(self.execute_button)
         box.append(actions)
-        note = label("Automatische Aufträge unter »Automatischer Sync« einrichten. Bestätigte Löschungen werden auf der Gegenseite in den Papierkorb verschoben. Gleichzeitige Änderungen werden als Konflikte behandelt; lokale ersetzte Versionen werden gesichert.", "muted small")
+        note = label("Automatische Aufträge unter »Automatischer Sync« einrichten. Bestätigte Dateilöschungen werden auf der Gegenseite in den Papierkorb verschoben. Ganze Ordnerlöschungen bleiben zur sicheren Prüfung als Konflikt erhalten. Gleichzeitige Änderungen werden als Konflikte behandelt; lokale ersetzte Versionen werden gesichert.", "muted small")
         note.set_wrap(True)
         page.append(note)
         self.sync_text = Gtk.TextView(editable=False, cursor_visible=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR)
@@ -414,7 +414,7 @@ class Application(Gtk.Application):
         scroll.set_propagate_natural_height(True)
         scroll.set_child(self.background_jobs)
         page.append(scroll)
-        note = label("Konflikte bleiben erhalten und erscheinen beim Auftrag. Löschungen werden nur bei unverändertem Gegenstück in den Papierkorb übertragen. Ein entsperrter Schlüsselbund und eine aktive Anmeldung sind erforderlich.", "muted small")
+        note = label("Konflikte bleiben erhalten und erscheinen beim Auftrag. Dateilöschungen werden nur bei unverändertem Gegenstück in den Papierkorb übertragen. Ganze Ordnerlöschungen bleiben als Konflikt erhalten. Ein entsperrter Schlüsselbund und eine aktive Anmeldung sind erforderlich.", "muted small")
         note.set_wrap(True)
         page.append(note)
 

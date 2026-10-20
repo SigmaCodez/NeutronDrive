@@ -8,6 +8,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import dataclasses
+from datetime import datetime
 import fcntl
 import json
 import os
@@ -35,6 +36,21 @@ class Cancelled(BackendError):
 UID = re.compile(r"^(?:[a-zA-Z0-9=_-]{88,108}|[a-zA-Z0-9_-]{22})~(?:[a-zA-Z0-9=_-]{88,108}|[a-zA-Z0-9_-]{22})$")
 ROOTS = {"my-files", "trash", "shared-with-me", "devices"}
 MAX_OUTPUT = 64 * 1024 * 1024
+
+
+def _node_trash_state(value: object) -> bool:
+    """Public SDK nodes expose trashTime; isTrashed belongs to SDK events."""
+    if value is None:
+        return False
+    # JSON.stringify(Date) uses UTC with exactly three fractional digits.
+    # Reject malformed metadata rather than infer either presence or absence.
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", value):
+        raise BackendError("Die Proton-CLI lieferte einen ungültigen Papierkorbstatus.")
+    try:
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError as error:
+        raise BackendError("Die Proton-CLI lieferte einen ungültigen Papierkorbstatus.") from error
+    return True
 
 
 def data_dir() -> Path:
@@ -130,9 +146,12 @@ class Node:
         if not isinstance(size, int) or isinstance(size, bool) or size < 0:
             size = None
         digest = (revision.get("claimedDigests") or {}).get("sha1", "")
+        # Keep one semantic flag for consumers while preserving public SDK
+        # metadata. Never trust an event-only isTrashed field in node JSON.
+        metadata = dict(item, isTrashed=_node_trash_state(item.get("trashTime")))
         return cls(uid, name, kind, size,
                    revision.get("claimedModificationTime") or item.get("modificationTime", ""),
-                   revision.get("uid", ""), digest or "", remote, item, bool(safe), item.get("mediaType", ""))
+                   revision.get("uid", ""), digest or "", remote, metadata, bool(safe), item.get("mediaType", ""))
 
 
 def checked_json(output: str):

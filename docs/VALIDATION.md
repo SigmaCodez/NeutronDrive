@@ -5,14 +5,15 @@ Previous release evidence: [0.2](VALIDATION-0.2.md), [0.1](VALIDATION-0.1.md).
 
 ## Local validation
 
-All **264 Python tests passed without skips** on Ubuntu 26.04.1 x86_64 /
+All **275 Python tests passed without skips** on Ubuntu 26.04.1 x86_64 /
 Python 3.14.4, with GTK, isolated D-Bus and actual kernel FUSE tests enabled.
-The final run includes 64 sync tests, 39 background tests, 35 local trash tests
-and 12 GTK tests, plus six live-harness regression tests. Desktop/AppStream metadata validation and Python compilation
+The final run includes 69 sync tests, 40 background tests, 35 local trash tests
+and 12 GTK tests, plus eight live-harness regression tests. Desktop/AppStream metadata validation and Python compilation
 also passed. The unchanged bridge's nine standalone event protocol tests passed.
 
-Deletion coverage includes v1-to-v2 migration, both directions, complete nested
-folders, new/ignored children, delete-versus-edit/type/inode/UID conflicts,
+Deletion coverage includes v1-to-v2 migration, files in both directions,
+file deletion inside retained nested folders, early whole-folder conflicts,
+retained old pending-folder journals, delete-versus-edit/type/inode/UID conflicts,
 in-tree and out-of-tree cloud moves, stale previews, missing/trashed ancestors,
 ambiguous acknowledgements, persistent retries and restart without resurrection.
 Local trash tests cover no-follow traversal, same-filesystem atomic moves,
@@ -22,7 +23,12 @@ performs an actual isolated restore collision followed by a safe retry.
 
 The background, sync and trash implementation received a second code review.
 It found and corrected final proof ordering, nested-directory durability and
-detectable target and ancestor moves during preflight and pending recovery. The complete suite
+detectable target and ancestor moves during preflight and pending recovery.
+The account test also exposed the public SDK trashTime/event isTrashed distinction;
+central normalization and public-node-format regression tests cover that contract.
+A read-only account probe then confirmed that directly trashed folders cannot be
+enumerated through the pinned public SDK. The production engine now blocks whole-
+folder deletion before mutation; it does not claim a complete trash subtree proof. The complete suite
 was rerun after the final correction. This is not an independent security audit.
 
 ## Account and package validation

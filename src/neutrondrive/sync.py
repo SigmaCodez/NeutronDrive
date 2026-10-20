@@ -1,7 +1,9 @@
 """Explicit, conservative two-way sync using Proton's official CLI adapter.
 
 There is deliberately no watcher or background remote tree polling here.
-Baseline-backed deletions use recoverable trash; uncertain identities,
+Baseline-backed file deletions use recoverable trash. Folder deletions remain
+conflicts because the public SDK cannot enumerate directly trashed folders.
+Uncertain identities,
 ambiguous names, native Proton documents and simultaneous edits need a human.
 Uploads use version history; the CLI does not expose conditional revision writes,
 so another client can still race the final remote check. Local replacements keep
@@ -268,9 +270,16 @@ def _subtree(entries: dict[str, Any], relative: str) -> dict[str, Any]:
     return {path: entry for path, entry in entries.items() if path == relative or path.startswith(relative + "/")}
 
 
+def _require_file_deletion(previous: dict[str, Any]) -> None:
+    if previous.get("kind") == "folder":
+        raise SyncError("Folder deletion is blocked: the public Proton SDK cannot verify all children of a trashed folder. "
+                        "Review this folder's contents manually. Individual files in existing folders remain supported.")
+
+
 def _deletion_proof(relative: str, target: dict[str, _Entry], baseline: dict[str, dict[str, Any]],
                     blocked: set[str], side: str) -> None:
     previous, current = baseline.get(relative, {}), target.get(relative)
+    _require_file_deletion(previous)
     if current is None or not _baseline_matches(current, previous, side):
         raise SyncError("Deletion conflicts with an edit, replacement, or unverified old baseline")
     expected, actual = _subtree(baseline, relative), _subtree(target, relative)
@@ -571,6 +580,7 @@ class SyncEngine:
         return root
 
     def _prove_remote_deletion(self, plan: SyncPlan, root: Any, relative: str) -> None:
+        _require_file_deletion(plan._baseline.get(relative, {}))
         self._assert_remote_ancestors(plan, root, relative)
         if self._lookup_remote(root, relative) is not None:
             raise SyncError("Remote deletion source reappeared")
@@ -619,6 +629,7 @@ class SyncEngine:
 
     def _deletion_preflight(self, plan: SyncPlan, action: SyncAction, root_fd: int) -> dict[str, _Entry]:
         """Fresh identities, absence, ancestors and complete target subtree."""
+        _require_file_deletion(plan._baseline.get(action.relative_path, {}))
         root = self._assert_roots(plan, root_fd)
         local, local_blocked = self._scan_local(root_fd)
         relative = action.relative_path

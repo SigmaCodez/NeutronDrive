@@ -446,6 +446,31 @@ class ValueTests(unittest.TestCase):
         self.assertTrue(node.safe)
         self.assertEqual(node.size, 123)
 
+    def test_public_sdk_trash_time_normalizes_node_state(self):
+        item = node_json(trashTime="2026-10-20T12:00:00.123Z")
+        node = Node.parse(item, "/my-files")
+        self.assertIs(node.raw["isTrashed"], True)
+        self.assertEqual(node.raw["trashTime"], item["trashTime"])
+        self.assertNotIn("isTrashed", item)
+        self.assertTrue(node.safe)
+
+    def test_missing_or_null_trash_time_is_active_not_event_flag(self):
+        for values in ({}, {"trashTime": None}, {"isTrashed": True},
+                       {"trashTime": None, "isTrashed": True}):
+            with self.subTest(values=values):
+                node = Node.parse(node_json(**values), "/my-files")
+                self.assertIs(node.raw["isTrashed"], False)
+        node = Node.parse(node_json(trashTime="2026-10-20T12:00:00.000Z", isTrashed=False), "/my-files")
+        self.assertIs(node.raw["isTrashed"], True)
+
+    def test_malformed_trash_time_fails_closed(self):
+        for value in ("", False, 0, 1792497600, {}, [], "not-a-date", "2026-10-20",
+                      "2026-10-20T12:00:00", "2026-10-20T12:00:00.000+00:00",
+                      "2026-10-20T12:00:00.000Zsuffix", "2026-02-30T12:00:00.000Z",
+                      "2026-10-20T25:00:00.000Z"):
+            with self.subTest(value=value), self.assertRaisesRegex(BackendError, "Papierkorbstatus"):
+                Node.parse(node_json(trashTime=value), "/my-files")
+
     def test_decryption_failure_disables_operations(self):
         item = node_json()
         item["name"] = {"ok": False, "error": {}}

@@ -24,8 +24,10 @@ NeutronDrive does not promise to disable all Proton telemetry.
 Synchronization rejects symlink paths and special files, checks file content and
 identity around copies, retains replaced local data, and stores baselines only
 for verified converged entries. Deletions propagate only against a verified
-identity/content baseline, into recoverable cloud or local trash. Folder deletion
-requires a complete unchanged subtree. Pending deletions are journaled before
+identity/content baseline, into recoverable cloud or local trash. Whole-folder deletion is
+blocked before mutation because the pinned SDK cannot enumerate directly trashed
+folders for a complete subtree proof. File deletions inside retained folders are
+supported. Pending deletions are journaled before
 mutation; unknown outcomes and changed identities block unsafe retries. Local
 trash restoration refuses occupied destinations, replaced parents and changed
 payloads. NeutronDrive has no automatic or permanent trash-emptying operation. A remote compare-and-swap

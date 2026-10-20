@@ -5,7 +5,7 @@ native GTK 4 interface and Proton's open-source SDK/CLI as its encryption and ac
 backend. The interface is currently in German.
 
 **Status: 0.3.0 alpha.** Automatic background synchronization, recoverable
-bidirectional deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
+bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
 NeutronDrive is not affiliated with, endorsed by, or officially supported by
@@ -25,7 +25,7 @@ interface and icon are original; no Windows/macOS application code is copied.
 - Create, copy and revoke public read-only links.
 - Manual two-way synchronization with a preview, SHA1 content comparison,
   conflict detection, a persistent baseline and retained local backup versions.
-- Baseline-verified deletion propagation to Proton trash or recoverable local
+- Baseline-verified file deletion propagation to Proton trash or recoverable local
   trash, with a local restore page and delete-versus-edit conflicts.
 - Automatic two-way background sync: local inotify notifications, remote Drive
   events, persistent jobs, pause/resume, retry/backoff and startup reconciliation.
@@ -175,17 +175,20 @@ moves are retained as conflicts.
 
 ## Deletions, trash and recovery
 
-After a successful common baseline, deleting a local item moves its unchanged
-cloud counterpart to **Proton trash**. Deleting a cloud item moves its unchanged
+After a successful common baseline, deleting a local file moves its unchanged
+cloud counterpart to **Proton trash**. Deleting a cloud file moves its unchanged
 local counterpart to a recoverable **local trash**. An absent item on first sync
 is still treated as a new item on the other side. Baselines from version 0.2 are
 upgraded only after both sides are verified together; a one-sided absence against
 an old baseline remains a conflict.
 
-Folder deletion requires the complete remaining tree to be unchanged and known.
-New, ignored, unsupported or modified children block that deletion. Replaced
-roots, trashed root ancestors, moved cloud identities and uncertain metadata
-also block destructive reconciliation. A durable deletion journal makes retries
+Deleting an entire folder remains a conflict before any counterpart is changed.
+The pinned Proton SDK cannot enumerate a directly trashed folder, so a complete
+subtree proof is unavailable. Individual file deletions inside existing folders
+are supported. Restore the missing folder to resume normal synchronization, or
+resolve the two sides manually after inspecting their contents. Replaced roots,
+trashed root ancestors, moved cloud identities and uncertain metadata also block
+destructive reconciliation. A durable deletion journal makes retries
 and restarts check the original operation before doing any further work.
 
 Open **Lokaler Papierkorb** to see NeutronDrive's local receipts and restore an

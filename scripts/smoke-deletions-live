@@ -60,6 +60,52 @@ def error_details(error):
     return details
 
 
+def remote_folder_snapshot(backend, folder, payload):
+    """Inspect the entire small synthetic tree; never accept a partial listing."""
+    expected = {"": "folder", "empty": "folder", "nested": "folder", "nested/child.txt": "file"}
+    snapshot, seen = {}, set()
+
+    def visit(node, relative, parent_uid=None):
+        if (relative not in expected or node.type != expected[relative] or not node.safe
+                or node.raw.get("isTrashed") or node.uid in seen
+                or (parent_uid is not None and node.raw.get("parentUid") != parent_uid)):
+            raise CheckFailed("synthetic remote folder identity or complete shape changed")
+        seen.add(node.uid)
+        if node.type == "file" and (node.sha1 != hashlib.sha1(payload).hexdigest() or node.size != len(payload)):
+            raise CheckFailed("synthetic remote folder contents changed")
+        snapshot[relative] = (node.uid, node.type, node.revision, node.sha1, node.size, node.raw.get("parentUid"))
+        if node.type == "folder":
+            for child in backend.list_nodes(node.path):
+                child_path = relative + "/" + child.name if relative else child.name
+                if child_path in snapshot:
+                    raise CheckFailed("ambiguous synthetic remote folder child")
+                visit(child, child_path, node.uid)
+
+    current = backend.info(folder.path)
+    if current.uid != folder.uid or current.name != folder.name:
+        raise CheckFailed("synthetic remote folder was replaced")
+    visit(current, "")
+    if set(snapshot) != set(expected):
+        raise CheckFailed("synthetic remote folder subtree is incomplete")
+    return snapshot
+
+
+def local_folder_snapshot(folder, payload):
+    expected = {"": "folder", "empty": "folder", "nested": "folder", "nested/child.txt": "file"}
+    paths = {"": folder, **{path.relative_to(folder).as_posix(): path for path in folder.rglob("*")}}
+    if set(paths) != set(expected):
+        raise CheckFailed("synthetic local folder subtree is incomplete or changed")
+    result = {}
+    for relative, path in paths.items():
+        if path.is_symlink() or (path.is_dir() if expected[relative] == "folder" else path.is_file()) is not True:
+            raise CheckFailed("synthetic local folder type changed")
+        if expected[relative] == "file" and path.read_bytes() != payload:
+            raise CheckFailed("synthetic local folder contents changed")
+        stat = path.stat()
+        result[relative] = (stat.st_dev, stat.st_ino, expected[relative])
+    return result
+
+
 def wait_until(predicate, status, timeout, failure, *, allow_conflicts=False,
                interval=1, retry_busy=False, on_retry=None):
     """One fixed phase deadline; only explicit read assertions may retry busy."""
@@ -150,9 +196,10 @@ def main():
                           allow_conflicts=allow_conflicts,
                           interval=interval, retry_busy=retry_busy, on_retry=retried)
 
-    def settled(*, after=None, allow_conflicts=False):
+    def settled(*, after=None, allow_conflicts=False, previous_conflicts=False):
         return wait_for(lambda: completed_after(status()[1], after, allow_conflicts=allow_conflicts),
-                        "background reconciliation did not settle", allow_conflicts=allow_conflicts)
+                        "background reconciliation did not settle",
+                        allow_conflicts=allow_conflicts or previous_conflicts)
 
     def remote_node(filename):
         matches = [node for node in backend.list_nodes(root.path) if node.name == filename]
@@ -179,13 +226,14 @@ def main():
         current = backend.info(node.path)
         return current.uid == node.uid and current.raw.get("isTrashed") is True
 
-    def restore_cloud(node):
+    def restore_cloud(node, *, allow_conflicts=False):
         def candidate():
             candidates = [entry for entry in backend.list_nodes("/trash") if entry.uid == node.uid]
             check(len(candidates) == 1 and candidates[0].safe and candidates[0].name == node.name,
                   "synthetic cloud trash identity could not be proven")
             return candidates[0]
-        node = wait_for(candidate, "synthetic cloud trash read timed out", interval=4, retry_busy=True)
+        node = wait_for(candidate, "synthetic cloud trash read timed out", interval=4, retry_busy=True,
+                        allow_conflicts=allow_conflicts)
         # Mutations are deliberately outside the read-only retry wrapper.
         backend.restore([node.path])
 
@@ -204,6 +252,19 @@ def main():
         check(not original.exists(), "restore would overwrite a live path")
         restored = local_trash.restore(receipt.id)
         check(restored.status == "restored", "local trash restore was not confirmed")
+
+    def restore_synthetic_folder(filename):
+        target = local / filename
+        check(not target.exists(), "synthetic folder recreation would overwrite a live path")
+        (target / "nested").mkdir(parents=True)
+        (target / "nested/child.txt").write_bytes(payload)
+        (target / "empty").mkdir()
+
+    def folder_conflict(filename, changed_at):
+        settled(after=changed_at, allow_conflicts=True)
+        check(any(filename in line and "Folder deletion is blocked:" in line
+                  for line in status()[1]["conflicts"]),
+              "folder deletion was not explicitly blocked as an unsupported safe operation")
 
     try:
         phase("create-folder-and-daemon-handshake")
@@ -232,6 +293,9 @@ def main():
         settled(after=changed_at)
         nodes = {key: await_remote(filename, None if "folder" in key else payload)
                  for key, filename in names.items()}
+        folder_baselines = {key: wait_for(lambda key=key: remote_folder_snapshot(backend, nodes[key], payload),
+                                         "synthetic folder baseline read timed out", interval=4, retry_busy=True)
+                            for key in ("local-folder", "remote-folder")}
         passed("baseline-files-and-nested-folders-synchronized")
 
         phase("local-file-delete-to-cloud-trash")
@@ -274,33 +338,46 @@ def main():
         await_remote(names["delete-remote"], payload)
         passed("sdk-event-remote-delete-local-trash-and-local-restore")
 
-        phase("local-folder-delete-to-cloud-trash")
+        phase("local-folder-delete-conflict-retains-cloud-subtree")
         changed_at = time.time()
         shutil.rmtree(local / names["local-folder"])
-        settled(after=changed_at)
-        wait_for(lambda: cloud_trashed(nodes["local-folder"]), "local folder deletion did not reach cloud trash",
-                 interval=4, retry_busy=True)
-        phase("cloud-folder-restore-to-local")
+        folder_conflict(names["local-folder"], changed_at)
+        observed = wait_for(lambda: remote_folder_snapshot(backend, nodes["local-folder"], payload),
+                            "retained cloud folder read timed out", interval=4, retry_busy=True,
+                            allow_conflicts=True)
+        check(observed == folder_baselines["local-folder"], "blocked local folder deletion changed the cloud subtree")
+        check(not (local / names["local-folder"]).exists(), "conflicted local folder deletion was resurrected")
+        passed("local-folder-delete-blocked-complete-cloud-subtree-retained")
+        phase("local-folder-recreation-clears-conflict")
         changed_at = time.time()
-        restore_cloud(nodes["local-folder"])
-        wait_for(lambda: (local / names["local-folder"] / "nested/child.txt").is_file()
-                 and (local / names["local-folder"] / "nested/child.txt").read_bytes() == payload,
-                 "restored cloud folder lost its nested child")
-        settled(after=changed_at)
-        check((local / names["local-folder"] / "empty").is_dir(), "restored empty folder missing")
-        passed("local-folder-delete-cloud-trash-and-complete-subtree-restore")
+        restore_synthetic_folder(names["local-folder"])
+        settled(after=changed_at, previous_conflicts=True)
+        local_folder_snapshot(local / names["local-folder"], payload)
+        observed = wait_for(lambda: remote_folder_snapshot(backend, nodes["local-folder"], payload),
+                            "reconciled cloud folder read timed out", interval=4, retry_busy=True)
+        check(observed == folder_baselines["local-folder"], "manual recreation changed the cloud subtree")
+        passed("manual-local-folder-recreation-converges")
 
-        phase("remote-folder-delete-to-local-trash")
+        phase("remote-folder-delete-conflict-retains-local-subtree")
+        local_before = local_folder_snapshot(local / names["remote-folder"], payload)
         changed_at = time.time()
         backend.trash([nodes["remote-folder"].path])
-        wait_for(lambda: not (local / names["remote-folder"]).exists(), "remote folder deletion did not reach local trash")
-        settled(after=changed_at)
-        phase("local-folder-restore-to-cloud")
+        folder_conflict(names["remote-folder"], changed_at)
+        check(local_folder_snapshot(local / names["remote-folder"], payload) == local_before,
+              "blocked remote folder deletion changed the local subtree")
+        wait_for(lambda: cloud_trashed(nodes["remote-folder"]), "conflicted remote folder deletion was resurrected",
+                 interval=4, retry_busy=True, allow_conflicts=True)
+        passed("remote-folder-delete-blocked-complete-local-subtree-retained")
+        phase("cloud-folder-restore-clears-conflict")
         changed_at = time.time()
-        restore_local(names["remote-folder"], None)
-        settled(after=changed_at)
-        await_remote(names["remote-folder"], None)
-        passed("remote-folder-delete-local-trash-and-complete-subtree-restore")
+        restore_cloud(nodes["remote-folder"], allow_conflicts=True)
+        settled(after=changed_at, previous_conflicts=True)
+        check(local_folder_snapshot(local / names["remote-folder"], payload) == local_before,
+              "cloud folder restoration changed the retained local subtree")
+        observed = wait_for(lambda: remote_folder_snapshot(backend, nodes["remote-folder"], payload),
+                            "restored cloud folder read timed out", interval=4, retry_busy=True)
+        check(observed == folder_baselines["remote-folder"], "cloud folder restoration changed subtree identities")
+        passed("manual-cloud-folder-restore-converges")
 
         phase("delete-versus-edit-conflicts")
         controller.command("pause", job.id)

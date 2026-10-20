@@ -248,25 +248,75 @@ class SyncTests(unittest.TestCase):
         result = self.engine.execute(self.plan())
         self.assertTrue(result.ok, result)
 
-    def test_complete_folder_deletion_uses_one_remote_trash_operation(self):
+    def test_local_folder_deletion_blocks_before_remote_mutation(self):
         self.establish_tree()
         shutil.rmtree(self.local / "folder")
         plan = self.plan()
-        self.assertEqual([(a.kind, a.relative_path) for a in plan.actions], [("trash_remote", "folder")])
+        self.assertFalse(plan.actions)
+        self.assertTrue(any("Folder deletion is blocked" in item.reason for item in plan.conflicts))
         result = self.engine.execute(plan)
-        self.assertTrue(result.ok, result)
-        self.assertEqual(self.backend.trashed_contents["folder/nested/file.txt"], b"valuable")
-        self.assertEqual([call for call in self.backend.calls if call[0] == "trash"], [("trash", "folder")])
+        self.assertFalse(result.ok)
+        self.assertEqual(self.backend.contents["folder/nested/file.txt"], b"valuable")
+        self.assertFalse(self.backend.trashed_nodes)
+        self.assertFalse(self.baseline()[1]["pending_deletions"])
 
-    def test_complete_remote_folder_deletion_retains_local_subtree_in_trash(self):
+    def test_remote_folder_deletion_blocks_before_local_mutation(self):
         self.establish_tree()
         self.backend.trash([self.backend.nodes["folder"].path])
+        with patch.object(self.backend, "info", wraps=self.backend.info) as info:
+            plan = self.plan()
+            result = self.engine.execute(plan)
+        self.assertFalse(plan.actions)
+        self.assertTrue(any("Folder deletion is blocked" in item.reason for item in plan.conflicts))
+        self.assertFalse(result.ok)
+        self.assertFalse(result.trashed)
+        self.assertEqual((self.local / "folder/nested/file.txt").read_bytes(), b"valuable")
+        self.assertTrue((self.local / "folder/empty").is_dir())
+        self.assertFalse(self.trash.list_entries())
+        self.assertFalse(self.baseline()[1]["pending_deletions"])
+        self.assertNotIn(self.backend.trashed_nodes["folder"].path, [call.args[0] for call in info.call_args_list])
+
+    def test_file_deletion_inside_retained_folder_remains_supported(self):
+        self.establish_tree()
+        (self.local / "folder/nested/file.txt").unlink()
         result = self.engine.execute(self.plan())
         self.assertTrue(result.ok, result)
-        self.assertEqual(result.trashed, ["folder"])
-        receipt = self.trash.list_entries()[0]
-        self.assertEqual((Path(receipt.trash_path) / "nested/file.txt").read_bytes(), b"valuable")
-        self.assertTrue((Path(receipt.trash_path) / "empty").is_dir())
+        self.assertEqual(result.trashed, ["folder/nested/file.txt"])
+        self.assertIn("folder/nested", self.backend.nodes)
+        self.assertTrue((self.local / "folder/nested").is_dir())
+
+    def test_remote_file_deletion_inside_retained_folder_remains_supported(self):
+        self.establish_tree()
+        self.backend.trash([self.backend.nodes["folder/nested/file.txt"].path])
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+        self.assertEqual(result.trashed, ["folder/nested/file.txt"])
+        self.assertTrue((self.local / "folder/nested").is_dir())
+
+    def test_public_sdk_trash_time_confirms_remote_deletion(self):
+        self.establish()
+        original = self.backend.nodes["a.txt"]
+        self.backend.trash([original.path])
+        public_node = {
+            "uid": original.uid, "name": {"ok": True, "value": original.name}, "type": "file",
+            "parentUid": self.backend.nodes[""].uid, "trashTime": "2026-10-20T12:00:00.000Z",
+            "activeRevision": {"uid": original.revision, "claimedSize": original.size,
+                               "claimedDigests": {"sha1": original.sha1}},
+        }
+        self.assertNotIn("isTrashed", public_node)
+        self.backend.trashed_nodes["a.txt"] = replace(Node.parse(public_node, "/my-files"), path=original.path)
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+        self.assertEqual(result.trashed, ["a.txt"])
+        self.assertFalse((self.local / "a.txt").exists())
+        self.assertEqual(Path(self.trash.list_entries()[0].trash_path).read_bytes(), b"original")
+
+    def test_public_sdk_trash_time_blocks_selected_root(self):
+        public_node = {"uid": "root-1", "name": {"ok": True, "value": "My files"}, "type": "folder",
+                       "trashTime": "2026-10-20T12:00:00.000Z"}
+        self.backend.nodes[""] = replace(Node.parse(public_node, "/my-files"), path="/my-files")
+        with self.assertRaisesRegex(SyncError, "Trashed"):
+            self.plan()
 
     def test_folder_remote_new_child_blocks_whole_deletion_without_cascade(self):
         self.establish_tree()
@@ -589,17 +639,21 @@ class SyncTests(unittest.TestCase):
         self.backend.add("ancestor/selected/folder")
         self.backend.add("ancestor/selected/folder/child", b"valuable")
         self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
-        shutil.rmtree(self.local / "folder")
+        (self.local / "folder/child").unlink()
         plan = self.engine.plan(self.local, selected.path)
-        scan = self.engine._scan_remote
+        scan = self.engine._scan_local
+        scans = 0
         def race(*args, **kwargs):
+            nonlocal scans
             result = scan(*args, **kwargs)
-            if kwargs.get("fresh"):
+            scans += 1
+            if scans == 2:
                 self.backend.nodes["ancestor"] = replace(ancestor, raw={**ancestor.raw, "isTrashed": True})
             return result
-        with patch.object(self.engine, "_scan_remote", side_effect=race):
+        with patch.object(self.engine, "_scan_local", side_effect=race):
             result = self.engine.execute(plan)
         self.assertFalse(result.ok)
+        self.assertEqual(scans, 2)
         self.assertIn("ancestor/selected/folder/child", self.backend.nodes)
         self.assertFalse(any(call[0] == "trash" for call in self.backend.calls))
 
@@ -632,19 +686,30 @@ class SyncTests(unittest.TestCase):
         self.assertIn("folder/new.txt", self.backend.nodes)
         self.assertFalse(self.backend.trashed_nodes)
 
-    def test_folder_new_child_during_remote_trash_retains_journal_and_conflict(self):
+    def assert_old_folder_intent_is_preserved(self, direction):
         self.establish_tree()
+        path, baseline = self.baseline()
         shutil.rmtree(self.local / "folder")
-        plan = self.plan()
-        self.backend.on_trash = lambda _paths: self.backend.add("folder/new.txt", b"new")
-        result = self.engine.execute(plan)
+        self.backend.trash([self.backend.nodes["folder"].path])
+        baseline["pending_deletions"] = {"folder": {"direction": direction, "operation_id": "1" * 32}}
+        path.write_text(json.dumps(baseline))
+        self.backend.calls.clear()
+        result = self.engine.execute(self.plan())
         self.assertTrue(result.conflicts)
         self.assertFalse(result.trashed)
-        self.assertEqual(self.backend.trashed_contents["folder/new.txt"], b"new")
-        self.assertIn("folder", self.baseline()[1]["pending_deletions"])
+        self.assertTrue(any("Folder deletion is blocked" in item for item in result.conflicts))
+        self.assertFalse(self.backend.calls)
+        self.assertEqual(self.baseline()[1]["pending_deletions"], baseline["pending_deletions"])
+        self.assertEqual(self.baseline()[1]["entries"], baseline["entries"])
         retried = self.engine.execute(self.plan())
         self.assertTrue(retried.conflicts)
         self.assertIn("folder", self.baseline()[1]["entries"])
+
+    def test_old_remote_folder_trash_intent_remains_recoverable(self):
+        self.assert_old_folder_intent_is_preserved("remote")
+
+    def test_old_local_folder_trash_intent_remains_recoverable(self):
+        self.assert_old_folder_intent_is_preserved("local")
 
     def test_local_root_replacement_invalidates_v2_baseline(self):
         self.establish()
