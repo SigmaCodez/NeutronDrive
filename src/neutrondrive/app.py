@@ -22,13 +22,13 @@ headerbar { background: #151f29; border-bottom: 1px solid #293541; box-shadow: n
 button { border-radius: 8px; padding: 7px 12px; }
 button.suggested-action { background: #67dfbf; color: #092d25; font-weight: 700; }
 button.destructive-action { background: #843e48; color: white; }
-.sidebar { background: #151f29; border-right: 1px solid #293541; padding: 20px 14px; }
+.sidebar { background: #151f29; border-right: 1px solid #293541; padding: 16px 14px; }
 .brand { font-size: 23px; font-weight: 800; letter-spacing: -0.5px; }
 .brand-icon { color: #67dfbf; }
 .eyebrow { font-size: 10px; letter-spacing: 1.5px; color: #8e9daa; font-weight: 700; }
 .muted { color: #a2afba; }
 .small { font-size: 12px; }
-.nav { background: transparent; border: none; box-shadow: none; padding: 12px; }
+.nav { background: transparent; border: none; box-shadow: none; padding: 8px 12px; }
 .nav.active { background: #24453f; color: #91edd2; }
 .title { font-size: 30px; font-weight: 750; letter-spacing: -0.5px; }
 .subtitle { color: #a2afba; font-size: 13px; }
@@ -133,7 +133,7 @@ class Application(Gtk.Application):
         provider.load_from_data(CSS)
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         self.window = Gtk.ApplicationWindow(application=self, title="NeutronDrive" + (" · DEMO" if self.demo else ""))
-        self.window.set_default_size(1180, 790)
+        self.window.set_default_size(1180, 760)
         self.window.set_size_request(850, 580)
         self.window.connect("close-request", self._close)
         self._build()
@@ -174,7 +174,7 @@ class Application(Gtk.Application):
         brand_box.append(label("Neutron", "brand"))
         sidebar.append(brand_box)
         desc = label("Deine Dateien. Dein Linux.", "muted small")
-        desc.set_margin_bottom(30)
+        desc.set_margin_bottom(20)
         sidebar.append(desc)
         sidebar.append(label("CLOUD", "eyebrow"))
         for title, icon, path in [
@@ -187,7 +187,7 @@ class Application(Gtk.Application):
             sidebar.append(nav)
             self.nav_buttons[path] = nav
         section = label("ARBEITSPLATZ", "eyebrow")
-        section.set_margin_top(28)
+        section.set_margin_top(18)
         sidebar.append(section)
         for title, icon, page in [
             ("Synchronisierung", "emblem-synchronizing-symbolic", "sync"),

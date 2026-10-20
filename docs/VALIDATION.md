@@ -12,6 +12,10 @@ Date: 2026-10-20. This file records evidence, not universal compatibility.
   changes, concurrent writes, conflicts, local backups, failed-install recovery,
   symlink/FIFO rejection, checksum failures, cancellation and mtime preservation.
 - Python sources compile. Desktop entry and AppStream metadata validate.
+- Five additional opt-in native GTK tests pass on a Broadway display, covering
+  page construction, navigation, filtering, unsafe-entry action controls and busy
+  sync state. The normal test run reports 68 passed and five UI tests skipped;
+  explicitly enabling the UI suite exercises all 73 checks.
 - Official CLI 0.9.0 was executed: reports SDK 0.22.2. SHA512 matches the official
   release manifest. Real argument parsing, including `--`, was checked.
 
