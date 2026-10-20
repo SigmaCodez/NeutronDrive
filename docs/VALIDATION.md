@@ -5,10 +5,10 @@ Previous release evidence: [0.2](VALIDATION-0.2.md), [0.1](VALIDATION-0.1.md).
 
 ## Local validation
 
-All **256 Python tests passed without skips** on Ubuntu 26.04.1 x86_64 /
+All **264 Python tests passed without skips** on Ubuntu 26.04.1 x86_64 /
 Python 3.14.4, with GTK, isolated D-Bus and actual kernel FUSE tests enabled.
-The final run includes 62 sync tests, 39 background tests, 35 local trash tests
-and 12 GTK tests. Desktop/AppStream metadata validation and Python compilation
+The final run includes 64 sync tests, 39 background tests, 35 local trash tests
+and 12 GTK tests, plus six live-harness regression tests. Desktop/AppStream metadata validation and Python compilation
 also passed. The unchanged bridge's nine standalone event protocol tests passed.
 
 Deletion coverage includes v1-to-v2 migration, both directions, complete nested
@@ -22,7 +22,7 @@ performs an actual isolated restore collision followed by a safe retry.
 
 The background, sync and trash implementation received a second code review.
 It found and corrected final proof ordering, nested-directory durability and
-a detectable move between fresh listing and UID lookup. The complete suite
+detectable target and ancestor moves during preflight and pending recovery. The complete suite
 was rerun after the final correction. This is not an independent security audit.
 
 ## Account and package validation

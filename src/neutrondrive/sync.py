@@ -571,6 +571,7 @@ class SyncEngine:
         return root
 
     def _prove_remote_deletion(self, plan: SyncPlan, root: Any, relative: str) -> None:
+        self._assert_remote_ancestors(plan, root, relative)
         if self._lookup_remote(root, relative) is not None:
             raise SyncError("Remote deletion source reappeared")
         expected = _subtree(plan._baseline, relative)
@@ -604,6 +605,17 @@ class SyncEngine:
             if (blocked or set(actual) != set(expected) - {relative}
                     or any(not _baseline_matches(entry, expected[path], "remote") for path, entry in actual.items())):
                 raise SyncError("Deleted remote folder changed or contains unverified children; inspect the recoverable trash")
+        self._assert_remote_ancestors(plan, root, relative)
+
+    def _assert_remote_ancestors(self, plan: SyncPlan, root: Any, relative: str) -> None:
+        """A stable parent UID alone cannot prove its original location."""
+        parts = _parts(relative)
+        for index in range(1, len(parts)):
+            parent = "/".join(parts[:index])
+            current = self._lookup_remote(root, parent)
+            if (current is None or current.kind != "folder"
+                    or not _baseline_matches(current, plan._baseline.get(parent, {}), "remote")):
+                raise SyncError("Remote deletion ancestor disappeared, moved, or was replaced")
 
     def _deletion_preflight(self, plan: SyncPlan, action: SyncAction, root_fd: int) -> dict[str, _Entry]:
         """Fresh identities, absence, ancestors and complete target subtree."""
@@ -624,6 +636,7 @@ class SyncEngine:
             self._prove_remote_deletion(plan, root, relative)
             _deletion_proof(relative, local, plan._baseline, set(local_blocked), "local")
             self._assert_roots(plan, root_fd)
+            self._assert_remote_ancestors(plan, root, relative)
             return _subtree(local, relative)
         if local.get(relative) is not None:
             raise SyncError("Locally deleted path reappeared")
@@ -649,6 +662,7 @@ class SyncEngine:
             blocked = {relative + "/" + path for path in problems}
         _deletion_proof(relative, target, plan._baseline, blocked, "remote")
         self._assert_roots(plan, root_fd)
+        self._assert_remote_ancestors(plan, root, relative)
         return target
 
     def _trash_store(self):

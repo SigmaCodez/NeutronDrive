@@ -399,6 +399,62 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((self.local / "a.txt").read_bytes(), b"valuable")
         self.assertFalse(self.trash.list_entries())
 
+    def test_parent_moved_during_target_info_prevents_remote_trash(self):
+        selected = self.backend.add("selected")
+        outside = self.backend.add("outside")
+        folder = self.backend.add("selected/folder")
+        node = self.backend.add("selected/folder/a.txt", b"valuable")
+        self.write("folder/a.txt", b"valuable")
+        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
+        (self.local / "folder/a.txt").unlink()
+        plan = self.engine.plan(self.local, selected.path)
+        info = self.backend.info
+        target_lookups = 0
+        def move_parent_before_info(path):
+            nonlocal target_lookups
+            if path == node.path:
+                target_lookups += 1
+            if path == node.path and target_lookups == 2:
+                self.backend.nodes["outside/folder"] = replace(
+                    self.backend.nodes.pop("selected/folder"), raw={"parentUid": outside.uid})
+                self.backend.nodes["outside/folder/a.txt"] = self.backend.nodes.pop("selected/folder/a.txt")
+                self.backend.contents["outside/folder/a.txt"] = self.backend.contents.pop("selected/folder/a.txt")
+            return info(path)
+        with patch.object(self.backend, "info", side_effect=move_parent_before_info):
+            result = self.engine.execute(plan)
+        self.assertTrue(result.conflicts)
+        self.assertEqual(target_lookups, 2)
+        self.assertEqual(self.backend.contents["outside/folder/a.txt"], b"valuable")
+        self.assertEqual(self.backend.nodes["outside/folder/a.txt"].raw["parentUid"], folder.uid)
+        self.assertFalse(self.backend.trashed_nodes)
+        self.assertFalse(any(call[0] == "trash" for call in self.backend.calls))
+
+    def test_parent_moved_after_lost_trash_ack_retains_pending_recovery(self):
+        selected = self.backend.add("selected")
+        outside = self.backend.add("outside")
+        self.backend.add("selected/folder")
+        self.backend.add("selected/folder/a.txt", b"valuable")
+        self.write("folder/a.txt", b"valuable")
+        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
+        (self.local / "folder/a.txt").unlink()
+        trash = self.backend.trash
+        def lost_ack(paths):
+            trash(paths)
+            raise BackendError("lost acknowledgement")
+        with patch.object(self.backend, "trash", side_effect=lost_ack):
+            result = self.engine.execute(self.engine.plan(self.local, selected.path))
+        self.assertTrue(result.errors)
+        recovery_plan = self.engine.plan(self.local, selected.path)
+        self.backend.nodes["outside/folder"] = replace(
+            self.backend.nodes.pop("selected/folder"), raw={"parentUid": outside.uid})
+        recovered = self.engine.execute(recovery_plan)
+        self.assertFalse(recovered.ok)
+        self.assertFalse(recovered.trashed)
+        baseline = self.baseline()[1]
+        self.assertIn("folder/a.txt", baseline["pending_deletions"])
+        self.assertIn("folder/a.txt", baseline["entries"])
+        self.assertEqual(self.backend.trashed_contents["selected/folder/a.txt"], b"valuable")
+
     def test_legacy_missing_side_conflicts_but_converged_entries_migrate(self):
         self.establish("missing.txt")
         self.establish("present.txt")

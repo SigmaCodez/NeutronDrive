@@ -17,7 +17,7 @@ import time
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from neutrondrive.backend import Backend
+from neutrondrive.backend import Backend, BackendError
 from neutrondrive.background import Controller, JobStore
 from neutrondrive.local_trash import LocalTrash
 
@@ -27,9 +27,60 @@ class CheckFailed(RuntimeError):
 
 
 class BoundedBackend(Backend):
+    last_call = None
+
     def _run(self, args, **options):
         options["timeout"] = min(float(options.get("timeout", 60)), 60)
-        return super()._run(args, **options)
+        started = time.monotonic()
+        # Only command names are recorded, never paths, UIDs or process output.
+        self.last_call = {"operation": " ".join(args[:2]), "outcome": "running"}
+        try:
+            result = super()._run(args, **options)
+            self.last_call["outcome"] = "success"
+            return result
+        except Exception as error:
+            self.last_call.update(outcome="error", error_type=type(error).__name__)
+            raise
+        finally:
+            self.last_call["seconds"] = round(time.monotonic() - started, 3)
+
+
+def completed_after(current, after=None, *, allow_conflicts=False):
+    allowed = {"idle", "conflicts"} if allow_conflicts else {"idle"}
+    return (current.get("last_sync") is not None
+            and (after is None or current["last_sync"] > after)
+            and current.get("state") in allowed and not current.get("pending"))
+
+
+def error_details(error):
+    """BackendError is sanitized by the adapter; other exceptions may not be."""
+    details = {"error_type": type(error).__name__}
+    if isinstance(error, (CheckFailed, BackendError)):
+        details["error_detail"] = str(error)
+    return details
+
+
+def wait_until(predicate, status, timeout, failure, *, allow_conflicts=False,
+               interval=1, retry_busy=False, on_retry=None):
+    """One fixed phase deadline; only explicit read assertions may retry busy."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        _, current = status()
+        if not allow_conflicts and current["state"] == "conflicts":
+            raise CheckFailed("unexpected deletion conflict")
+        try:
+            value = predicate()
+            if value and time.monotonic() < deadline:
+                return value
+        except BackendError as error:
+            if not retry_busy or str(error) != "Das Backend ist noch beschäftigt. Bitte erneut versuchen.":
+                raise
+            if on_retry:
+                on_retry()
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            time.sleep(min(interval, remaining))
+    raise CheckFailed(failure)
 
 
 def main():
@@ -47,7 +98,9 @@ def main():
     local, peer, state = (temporary / part for part in ("local", "peer", "state"))
     local.mkdir()
     peer.mkdir()
-    report = {"test_folder": name, "passed": [], "success": False}
+    report = {"test_folder": name, "passed": [], "success": False, "phase": "setup",
+              "busy_read_retries": 0}
+    phase_deadline = time.monotonic() + args.timeout
     root = controller = job = None
     stopped = True
     local_trash = LocalTrash()
@@ -64,30 +117,42 @@ def main():
         report["passed"].append(step)
         print("PASS " + step, flush=True)
 
+    def phase(step):
+        nonlocal phase_deadline
+        report["phase"] = step
+        phase_deadline = time.monotonic() + args.timeout
+        print("PHASE " + step, flush=True)
+
     def status():
         value = controller.command("status", timeout=5)
         check(value.get("running"), "background daemon stopped unexpectedly")
         current = next((entry for entry in value.get("jobs", []) if entry["id"] == job.id), None)
         check(current is not None, "synthetic test job missing")
+        report["daemon_status"] = {key: current.get(key) for key in
+                                   ("state", "pending", "last_sync", "completed")}
+        report["daemon_status"].update(conflict_count=len(current.get("conflicts", [])),
+                                       skipped_count=len(current.get("skipped", [])),
+                                       has_error=bool(current.get("error")),
+                                       event_state=value.get("event_source", {}).get("state"))
         check(current["state"] != "blocked", "synthetic test job is blocked")
         return value, current
 
-    def wait_for(predicate, failure, *, allow_conflicts=False, interval=1):
-        deadline = time.monotonic() + args.timeout
-        while time.monotonic() < deadline:
-            _, current = status()
-            check(allow_conflicts or current["state"] != "conflicts", "unexpected deletion conflict")
-            value = predicate()
-            if value:
-                return value
-            time.sleep(interval)
-        raise CheckFailed(failure)
+    def wait_for(predicate, failure, *, allow_conflicts=False, interval=1, retry_busy=False):
+        def retried():
+            report["busy_read_retries"] += 1
+        def verify():
+            # A later SDK event can schedule another cycle after settled().
+            # Read assertions keep yielding while that cycle is in progress.
+            if retry_busy and not completed_after(status()[1], allow_conflicts=allow_conflicts):
+                return False
+            return predicate()
+        return wait_until(verify, status, max(0, phase_deadline - time.monotonic()), failure,
+                          allow_conflicts=allow_conflicts,
+                          interval=interval, retry_busy=retry_busy, on_retry=retried)
 
-    def settled(*, allow_conflicts=False):
-        return wait_for(lambda: status()[1]["last_sync"] is not None
-                        and status()[1]["state"] in ({"idle", "conflicts"} if allow_conflicts else {"idle"})
-                        and not status()[1]["pending"], "background reconciliation did not settle",
-                        allow_conflicts=allow_conflicts)
+    def settled(*, after=None, allow_conflicts=False):
+        return wait_for(lambda: completed_after(status()[1], after, allow_conflicts=allow_conflicts),
+                        "background reconciliation did not settle", allow_conflicts=allow_conflicts)
 
     def remote_node(filename):
         matches = [node for node in backend.list_nodes(root.path) if node.name == filename]
@@ -106,7 +171,7 @@ def main():
                 return node if node.type == "folder" else False
             observed = node.sha1 or backend.info(node.path).sha1
             return node if observed == hashlib.sha1(expected).hexdigest() else False
-        return wait_for(verify, "synthetic upload did not converge", interval=4)
+        return wait_for(verify, "synthetic upload did not converge", interval=4, retry_busy=True)
 
     def cloud_trashed(node):
         if remote_node(node.name) is not None:
@@ -115,10 +180,14 @@ def main():
         return current.uid == node.uid and current.raw.get("isTrashed") is True
 
     def restore_cloud(node):
-        candidates = [entry for entry in backend.list_nodes("/trash") if entry.uid == node.uid]
-        check(len(candidates) == 1 and candidates[0].safe and candidates[0].name == node.name,
-              "synthetic cloud trash identity could not be proven")
-        backend.restore([candidates[0].path])
+        def candidate():
+            candidates = [entry for entry in backend.list_nodes("/trash") if entry.uid == node.uid]
+            check(len(candidates) == 1 and candidates[0].safe and candidates[0].name == node.name,
+                  "synthetic cloud trash identity could not be proven")
+            return candidates[0]
+        node = wait_for(candidate, "synthetic cloud trash read timed out", interval=4, retry_busy=True)
+        # Mutations are deliberately outside the read-only retry wrapper.
+        backend.restore([node.path])
 
     def restore_local(filename, expected):
         original = local / filename
@@ -137,17 +206,21 @@ def main():
         check(restored.status == "restored", "local trash restore was not confirmed")
 
     try:
+        phase("create-folder-and-daemon-handshake")
         root = backend.mkdir("/my-files", name)
         check(root.safe and root.type == "folder" and root.name == name, "test folder creation failed")
         job = JobStore(state).add(local, root.path, name="Synthetic deletion test")
         controller = Controller(state, executable=backend.executable)
         stopped = False
+        changed_at = time.time()
         controller.start()
         wait_for(lambda: status()[0]["event_source"]["state"] == "connected"
                  and status()[1]["last_sync"] is not None, "real SDK event handshake timed out")
-        settled()
+        settled(after=changed_at)
         passed("dedicated-folder-and-real-daemon-event-handshake")
 
+        phase("baseline-files-and-nested-folders")
+        changed_at = time.time()
         for key, filename in names.items():
             target = local / filename
             if "folder" in key:
@@ -156,59 +229,80 @@ def main():
                 (target / "empty").mkdir()
             else:
                 target.write_bytes(payload)
+        settled(after=changed_at)
         nodes = {key: await_remote(filename, None if "folder" in key else payload)
                  for key, filename in names.items()}
-        settled()
         passed("baseline-files-and-nested-folders-synchronized")
 
+        phase("local-file-delete-to-cloud-trash")
+        changed_at = time.time()
         (local / names["delete-local"]).unlink()
-        wait_for(lambda: cloud_trashed(nodes["delete-local"]), "local deletion did not reach cloud trash", interval=4)
-        settled()
+        settled(after=changed_at)
+        wait_for(lambda: cloud_trashed(nodes["delete-local"]), "local deletion did not reach cloud trash",
+                 interval=4, retry_busy=True)
         check(not (local / names["delete-local"]).exists(), "deleted local file was resurrected")
+        phase("restart-with-confirmed-deletion")
         controller.stop()
         stopped = not controller.socket_path.exists()
         check(stopped, "daemon did not stop before restart test")
         stopped = False
+        changed_at = time.time()
         controller.start()
-        settled()
-        check(not (local / names["delete-local"]).exists() and cloud_trashed(nodes["delete-local"]),
-              "restart resurrected a confirmed deletion")
+        settled(after=changed_at)
+        wait_for(lambda: not (local / names["delete-local"]).exists() and cloud_trashed(nodes["delete-local"]),
+                 "restart resurrected a confirmed deletion", interval=4, retry_busy=True)
         passed("inotify-local-delete-cloud-trash-and-no-resurrection-after-restart")
+        phase("cloud-file-restore-to-local")
+        changed_at = time.time()
         restore_cloud(nodes["delete-local"])
         wait_for(lambda: (local / names["delete-local"]).is_file()
                  and (local / names["delete-local"]).read_bytes() == payload,
                  "restored cloud file did not return through SDK events")
-        settled()
+        settled(after=changed_at)
         passed("cloud-trash-restore-propagates-to-local")
 
+        phase("remote-file-delete-to-local-trash")
+        changed_at = time.time()
         backend.trash([nodes["delete-remote"].path])
         wait_for(lambda: not (local / names["delete-remote"]).exists(),
                  "remote deletion did not reach local trash")
-        settled()
+        settled(after=changed_at)
+        phase("local-file-restore-to-cloud")
+        changed_at = time.time()
         restore_local(names["delete-remote"], payload)
+        settled(after=changed_at)
         await_remote(names["delete-remote"], payload)
-        settled()
         passed("sdk-event-remote-delete-local-trash-and-local-restore")
 
+        phase("local-folder-delete-to-cloud-trash")
+        changed_at = time.time()
         shutil.rmtree(local / names["local-folder"])
-        wait_for(lambda: cloud_trashed(nodes["local-folder"]), "local folder deletion did not reach cloud trash", interval=4)
-        settled()
+        settled(after=changed_at)
+        wait_for(lambda: cloud_trashed(nodes["local-folder"]), "local folder deletion did not reach cloud trash",
+                 interval=4, retry_busy=True)
+        phase("cloud-folder-restore-to-local")
+        changed_at = time.time()
         restore_cloud(nodes["local-folder"])
         wait_for(lambda: (local / names["local-folder"] / "nested/child.txt").is_file()
                  and (local / names["local-folder"] / "nested/child.txt").read_bytes() == payload,
                  "restored cloud folder lost its nested child")
-        settled()
+        settled(after=changed_at)
         check((local / names["local-folder"] / "empty").is_dir(), "restored empty folder missing")
         passed("local-folder-delete-cloud-trash-and-complete-subtree-restore")
 
+        phase("remote-folder-delete-to-local-trash")
+        changed_at = time.time()
         backend.trash([nodes["remote-folder"].path])
         wait_for(lambda: not (local / names["remote-folder"]).exists(), "remote folder deletion did not reach local trash")
-        settled()
+        settled(after=changed_at)
+        phase("local-folder-restore-to-cloud")
+        changed_at = time.time()
         restore_local(names["remote-folder"], None)
+        settled(after=changed_at)
         await_remote(names["remote-folder"], None)
-        settled()
         passed("remote-folder-delete-local-trash-and-complete-subtree-restore")
 
+        phase("delete-versus-edit-conflicts")
         controller.command("pause", job.id)
         wait_for(lambda: status()[1]["state"] == "paused", "pause did not settle")
         edited = payload + b"Preserve concurrent edit\n"
@@ -218,22 +312,31 @@ def main():
         backend.upload([peer_file], root.path, file_strategy="create-new-revision", folder_strategy="skip")
         backend.trash([nodes["conflict-remote-delete"].path])
         (local / names["conflict-remote-delete"]).write_bytes(edited)
+        changed_at = time.time()
         controller.command("resume", job.id)
         wait_for(lambda: all(any(filename in line for line in status()[1]["conflicts"])
                              for filename in (names["conflict-local-delete"], names["conflict-remote-delete"])),
                  "delete-versus-edit conflicts were not reported in both directions", allow_conflicts=True)
-        settled(allow_conflicts=True)
-        left = remote_node(names["conflict-local-delete"])
-        check(left is not None and backend.info(left.path).sha1 == hashlib.sha1(edited).hexdigest(),
-              "remote concurrent edit was not preserved")
+        settled(after=changed_at, allow_conflicts=True)
+        def remote_edit_preserved():
+            left = remote_node(names["conflict-local-delete"])
+            return left is not None and backend.info(left.path).sha1 == hashlib.sha1(edited).hexdigest()
+        wait_for(remote_edit_preserved, "remote concurrent edit was not preserved",
+                 allow_conflicts=True, interval=4, retry_busy=True)
         check(not (local / names["conflict-local-delete"]).exists(), "conflicted local deletion was resurrected")
         check((local / names["conflict-remote-delete"]).read_bytes() == edited,
               "local concurrent edit was not preserved")
-        check(cloud_trashed(nodes["conflict-remote-delete"]), "conflicted remote deletion was resurrected")
+        wait_for(lambda: cloud_trashed(nodes["conflict-remote-delete"]),
+                 "conflicted remote deletion was resurrected", allow_conflicts=True,
+                 interval=4, retry_busy=True)
         passed("delete-versus-edit-conflicts-preserve-both-directions")
         report["success"] = True
     except Exception as error:
         report["error"] = str(error) if isinstance(error, CheckFailed) else type(error).__name__
+        report.update(error_details(error))
+        report["failed_phase"] = report["phase"]
+        if backend.last_call is not None:
+            report["last_backend_call"] = dict(backend.last_call)
     finally:
         if controller is not None and not stopped:
             try:
@@ -251,8 +354,9 @@ def main():
                 backend.trash([root.path])
                 report["cleanup"] = "synthetic-folder-moved-to-trash"
                 passed("cleanup-to-trash")
-            except Exception:
+            except Exception as error:
                 report["cleanup"] = "synthetic-folder-retained-for-manual-cleanup"
+                report["cleanup_error"] = error_details(error)
                 report["success"] = False
         elif root is not None:
             report["cleanup"] = "retained-because-daemon-stop-unconfirmed"
