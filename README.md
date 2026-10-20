@@ -57,7 +57,7 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.1.0~alpha1-1_amd64.deb
+sudo apt install ./neutrondrive_0.1.0-alpha1-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
 sudo dnf install ./neutrondrive-0.1.0-alpha1-fedora-x86_64.rpm
