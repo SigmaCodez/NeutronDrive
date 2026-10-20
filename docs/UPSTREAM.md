@@ -1,7 +1,7 @@
 # Upstream evidence and provenance
 
 Checked on 2026-10-20 against the public source checkout and built executables.
-NeutronDrive 0.2 uses a source-built, additive event bridge over Proton's MIT
+NeutronDrive 0.3 retains the 0.2 bridge and uses a source-built, additive event bridge over Proton's MIT
 Drive SDK/CLI. It does not redistribute an unmodified official CLI under an
 unrelated version number, copy the GPL desktop clients, or implement its own
 Proton authentication or cryptography.

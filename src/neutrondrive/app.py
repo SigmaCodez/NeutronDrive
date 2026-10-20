@@ -13,7 +13,7 @@ gi.require_version("Gdk", "4.0")
 from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from . import APP_ID, __version__
-from .backend import BackendError, data_dir
+from .backend import BackendError, Cancelled, data_dir
 from .sync import SyncError
 
 
@@ -146,7 +146,7 @@ class Application(Gtk.Application):
             self.refresh()
         else:
             self.show_page("settings")
-            self.message("Die offizielle Proton Drive CLI wurde nicht gefunden. Installationshinweise stehen unter Einstellungen.", error=True)
+            self.message("Das Proton-SDK-Backend wurde nicht gefunden. Installationshinweise stehen unter Einstellungen.", error=True)
 
     def _build(self):
         header = Gtk.HeaderBar()
@@ -200,6 +200,7 @@ class Application(Gtk.Application):
             ("Synchronisierung", "emblem-synchronizing-symbolic", "sync"),
             ("Automatischer Sync", "view-refresh-symbolic", "background"),
             ("Online-Laufwerk", "network-server-symbolic", "ondemand"),
+            ("Lokaler Papierkorb", "user-trash-symbolic", "local-trash"),
             ("Aktivität", "document-open-recent-symbolic", "activity"),
             ("Einstellungen", "preferences-system-symbolic", "settings"),
         ]:
@@ -242,6 +243,7 @@ class Application(Gtk.Application):
         self._sync_page()
         self._background_page()
         self._ondemand_page()
+        self._local_trash_page()
         self._activity_page()
         self._settings_page()
         footer = Gtk.Box(spacing=10)
@@ -356,7 +358,7 @@ class Application(Gtk.Application):
         actions.append(self.plan_button)
         actions.append(self.execute_button)
         box.append(actions)
-        note = label("Automatische Aufträge unter »Automatischer Sync« einrichten. Löschungen werden nicht weitergegeben. Gleichzeitige Änderungen werden als Konflikte behandelt; lokale ersetzte Versionen werden gesichert.", "muted small")
+        note = label("Automatische Aufträge unter »Automatischer Sync« einrichten. Bestätigte Löschungen werden auf der Gegenseite in den Papierkorb verschoben. Gleichzeitige Änderungen werden als Konflikte behandelt; lokale ersetzte Versionen werden gesichert.", "muted small")
         note.set_wrap(True)
         page.append(note)
         self.sync_text = Gtk.TextView(editable=False, cursor_visible=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR)
@@ -412,7 +414,7 @@ class Application(Gtk.Application):
         scroll.set_propagate_natural_height(True)
         scroll.set_child(self.background_jobs)
         page.append(scroll)
-        note = label("Konflikte bleiben erhalten und erscheinen beim Auftrag. Löschungen werden weiterhin nicht automatisch übertragen. Ein entsperrter Schlüsselbund und eine aktive Anmeldung sind erforderlich.", "muted small")
+        note = label("Konflikte bleiben erhalten und erscheinen beim Auftrag. Löschungen werden nur bei unverändertem Gegenstück in den Papierkorb übertragen. Ein entsperrter Schlüsselbund und eine aktive Anmeldung sind erforderlich.", "muted small")
         note.set_wrap(True)
         page.append(note)
 
@@ -472,6 +474,95 @@ class Application(Gtk.Application):
         page.append(self.mount_notice)
         page.append(button("Laufwerkshelfer bei Proton anmelden", "avatar-default-symbolic", lambda: self.mount_action("login")))
 
+    def _local_trash_page(self):
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        self.stack.add_named(page, "local-trash")
+        page.append(label("Lokaler Papierkorb", "title"))
+        note = label("Dateien, die NeutronDrive nach einer Cloud-Löschung lokal in den Papierkorb verschoben hat. Cloud-Dateien findest du im Papierkorb unter CLOUD.", "subtitle")
+        note.set_wrap(True)
+        page.append(note)
+        refresh = button("Aktualisieren", "view-refresh-symbolic", self.refresh_local_trash)
+        refresh.set_halign(Gtk.Align.START)
+        page.append(refresh)
+        self.local_trash_status = label("Noch keine Einträge geladen.", "muted small")
+        self.local_trash_status.set_wrap(True)
+        page.append(self.local_trash_status)
+        self.local_trash_rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        self.local_trash_rows.add_css_class("file-list")
+        self.local_trash_empty = label("Keine von NeutronDrive registrierten Papierkorbeinträge.", "empty")
+        self.local_trash_empty.set_wrap(True)
+        self.local_trash_rows.set_placeholder(self.local_trash_empty)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+        scroll.set_child(self.local_trash_rows)
+        page.append(scroll)
+        note = label("Wiederherstellen überschreibt keine vorhandenen Dateien. Bei aktivem Sync wird die Wiederherstellung erneut synchronisiert. NeutronDrive leert den Papierkorb nicht automatisch.", "muted small")
+        note.set_wrap(True)
+        page.append(note)
+
+    def refresh_local_trash(self):
+        if self.demo:
+            self.render_local_trash([])
+            return
+        def work():
+            from .local_trash import LocalTrash
+            state = data_dir() / "local-trash"
+            try:
+                return [(str(state), entry) for entry in LocalTrash(state).list_entries()] if state.exists() else []
+            except (OSError, ValueError) as exc:
+                raise SyncError(str(exc)) from exc
+        self.submit("Lokalen Papierkorb laden", work, self.render_local_trash)
+
+    def render_local_trash(self, values):
+        while (row := self.local_trash_rows.get_row_at_index(0)) is not None:
+            self.local_trash_rows.remove(row)
+        self.local_trash_status.set_text(f"{len(values)} registrierte Einträge" + (" · Demo ohne Dateizugriff" if self.demo else ""))
+        for state, entry in values:
+            row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
+            title = label(str(entry.original_path), "file-name")
+            title.set_wrap(True)
+            title.set_selectable(True)
+            row.append(title)
+            states = {"prepared":"Vorbereitet", "trashed":"Im Papierkorb", "restoring":"Wiederherstellung läuft", "restored":"Wiederhergestellt", "recovery":"Prüfung erforderlich", "missing":"Nicht mehr im Papierkorb", "aborted":"Abgebrochen"}
+            detail = label(states.get(entry.status, entry.status) + " · " + str(entry.trash_path), "muted small")
+            detail.set_wrap(True)
+            detail.set_selectable(True)
+            row.append(detail)
+            if getattr(entry, "error", ""):
+                reason = label(entry.error, "small")
+                reason.set_wrap(True)
+                row.append(reason)
+            if getattr(entry, "restore_path", ""):
+                destination = label("Wiederherstellungsziel: " + entry.restore_path, "muted small")
+                destination.set_wrap(True)
+                destination.set_selectable(True)
+                row.append(destination)
+            restore = button("Am ursprünglichen Ort wiederherstellen" if entry.status == "trashed" else "Wiederherstellung prüfen", "edit-undo-symbolic",
+                             lambda s=state,i=entry.id:self.restore_local_trash(s, i))
+            restore.set_halign(Gtk.Align.START)
+            restore.set_sensitive(not self.demo and entry.status in {"trashed", "prepared", "restoring", "recovery"})
+            row.append(restore)
+            self.local_trash_rows.append(row)
+
+    def restore_local_trash(self, state, receipt_id):
+        if self.demo:
+            self.message("Der Demo-Modus stellt keine Dateien wieder her.")
+            return
+        def work():
+            from .local_trash import LocalTrash
+            def check_cancel():
+                if self.backend.cancel_event.is_set():
+                    raise Cancelled("Wiederherstellung abgebrochen; erhaltene Daten bleiben im Papierkorb oder Wiederherstellungsziel.")
+            try:
+                return LocalTrash(Path(state)).restore(receipt_id, check_cancel=check_cancel)
+            except (OSError, ValueError) as exc:
+                raise SyncError(str(exc)) from exc
+        def done(_):
+            self.message("Datei wiederhergestellt; bestehende Dateien wurden nicht überschrieben.")
+            self.refresh_local_trash()
+        self.submit("Datei wiederherstellen", work, done)
+
     def background_clients(self):
         from .background import Controller, JobStore
         state = data_dir() / "background"
@@ -510,7 +601,7 @@ class Application(Gtk.Application):
                 request_portal_background(True, permission)
             else:
                 self.submit("Hintergrund-Sync aktivieren", work, self.render_background_status)
-        self.confirm("Automatischen Sync aktivieren?", "Neue und geänderte Dateien dieses Ordners werden künftig automatisch übertragen. Konflikte und Löschungen bleiben zur manuellen Klärung erhalten. Flatpak fragt zusätzlich nach Hintergrundbetrieb und Autostart.", activate)
+        self.confirm("Automatischen Sync aktivieren?", "Neue und geänderte Dateien werden künftig automatisch übertragen. Nach einem bestätigten gemeinsamen Stand werden Löschungen auf der Gegenseite in den Papierkorb übernommen. Bei gleichzeitigen Änderungen bleiben Dateien als Konflikt erhalten. Flatpak fragt zusätzlich nach Hintergrundbetrieb und Autostart.", activate)
 
     def background_action(self, action, job_id=None):
         if self.demo:
@@ -542,7 +633,7 @@ class Application(Gtk.Application):
         if value.get("error"):
             self.background_status.set_text(self.background_status.get_text() + " · " + str(value["error"]))
         self.clear_box(self.background_jobs)
-        names = {"idle":"Aktuell", "syncing":"Wird synchronisiert", "paused":"Pausiert", "error":"Fehler", "conflict":"Konflikt", "waiting":"Wartet", "offline":"Offline"}
+        names = {"idle":"Aktuell", "syncing":"Wird synchronisiert", "paused":"Pausiert", "error":"Fehler", "conflict":"Konflikt", "conflicts":"Konflikt", "blocked":"Blockiert", "waiting":"Wartet", "offline":"Offline"}
         for job in value.get("jobs", []):
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
             title = label(job.get("name") or job.get("local_root", "Sync-Ordner"), "file-name")
@@ -690,7 +781,7 @@ class Application(Gtk.Application):
         startup.append(button("Autostart aktivieren", callback=lambda:self.change_autostart(True)))
         startup.append(button("Autostart deaktivieren", callback=lambda:self.change_autostart(False)))
         page.append(startup)
-        limits = label("Alpha-Version: noch kein vollständiger Ersatz der Windows-/macOS-App. Hintergrund-Sync ist verfügbar. Das Online-Laufwerk benötigt das native Paket; Flatpak nutzt dessen Helfer, Snap unterstützt es noch nicht. Automatische Löschweitergabe, Versionsverwaltung und Proton Docs/Sheets sind noch nicht integriert. Datei- und Kontozugriffe erfolgen über den Proton SDK; die Datenschutzregeln des Dienstes gelten weiter.", "muted small")
+        limits = label("Alpha-Version: noch kein vollständiger Ersatz der Windows-/macOS-App. Hintergrund-Sync ist verfügbar. Das Online-Laufwerk benötigt das native Paket; Flatpak nutzt dessen Helfer, Snap unterstützt es noch nicht. Löschungen verwenden den Papierkorb; Konflikte bleiben erhalten. Versionsverwaltung und Proton Docs/Sheets sind noch nicht integriert. Datei- und Kontozugriffe erfolgen über den Proton SDK; die Datenschutzregeln des Dienstes gelten weiter.", "muted small")
         limits.set_wrap(True)
         page.append(limits)
 
@@ -705,6 +796,8 @@ class Application(Gtk.Application):
         self.current_page = page
         self.stack.set_visible_child_name(page)
         self._set_nav(self.path.split("/", 2)[0] + "/" + self.path.split("/", 2)[1] if page == "files" else page)
+        if page == "local-trash":
+            self.refresh_local_trash()
 
     def navigate_root(self, title, path):
         if self.busy:
@@ -1116,8 +1209,11 @@ class Application(Gtk.Application):
     def sync_preview(self, plan):
         self.sync_plan = plan
         lines = [plan.summary(), ""]
+        actions = {"upload":"Hochladen", "download":"Herunterladen", "mkdir_local":"Lokalen Ordner anlegen",
+                   "mkdir_remote":"Cloud-Ordner anlegen", "trash_local":"In lokalen Papierkorb",
+                   "trash_remote":"In Cloud-Papierkorb"}
         for action in plan.actions:
-            lines.append(f"{action.kind:14} {action.relative_path}")
+            lines.append(f"{actions.get(action.kind, action.kind)}: {action.relative_path}")
         for conflict in plan.conflicts:
             lines.append(f"KONFLIKT: {conflict}")
         for skipped in plan.skipped:
@@ -1140,6 +1236,7 @@ class Application(Gtk.Application):
         lines += ["KONFLIKT: " + str(x) for x in result.conflicts]
         lines += ["FEHLER: " + str(x) for x in result.errors]
         lines += ["LOKALE SICHERUNG: " + str(x) for x in result.backups]
+        lines += ["PAPIERKORB: " + str(x) for x in result.trashed]
         lines += ["ÜBERSPRUNGEN: " + str(x) for x in result.skipped]
         self.sync_text.get_buffer().set_text("\n".join(lines))
         if self.records:

@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+"""Explicit live deletion/restore test using an already authorized test account.
+
+All cloud writes are confined to one newly created UUID-named folder and its
+synthetic children. Exercises the real background subprocess, inotify and SDK
+events. No login, permanent deletion, credentials or raw API payloads are used.
+Local trash receipts are matched to this run's exact temporary source paths.
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import time
+import uuid
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from neutrondrive.backend import Backend
+from neutrondrive.background import Controller, JobStore
+from neutrondrive.local_trash import LocalTrash
+
+
+class CheckFailed(RuntimeError):
+    pass
+
+
+class BoundedBackend(Backend):
+    def _run(self, args, **options):
+        options["timeout"] = min(float(options.get("timeout", 60)), 60)
+        return super()._run(args, **options)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--live", action="store_true", required=True)
+    parser.add_argument("--cli", required=True)
+    parser.add_argument("--timeout", type=float, default=240, help="Maximum seconds per phase (30–600)")
+    args = parser.parse_args()
+    if not 30 <= args.timeout <= 600:
+        parser.error("--timeout must be between 30 and 600 seconds")
+    backend = BoundedBackend(args.cli)
+    run_id = uuid.uuid4().hex
+    name = "NeutronDrive-Deletion-Test-" + run_id
+    temporary = Path(tempfile.mkdtemp(prefix="neutrondrive-deletion-live-"))
+    local, peer, state = (temporary / part for part in ("local", "peer", "state"))
+    local.mkdir()
+    peer.mkdir()
+    report = {"test_folder": name, "passed": [], "success": False}
+    root = controller = job = None
+    stopped = True
+    local_trash = LocalTrash()
+    payload = ("Synthetic deletion test " + run_id + "\n").encode()
+    names = {key: key + "-" + run_id + ("" if "folder" in key else ".txt")
+             for key in ("delete-local", "delete-remote", "local-folder", "remote-folder",
+                         "conflict-local-delete", "conflict-remote-delete")}
+
+    def check(condition, message):
+        if not condition:
+            raise CheckFailed(message)
+
+    def passed(step):
+        report["passed"].append(step)
+        print("PASS " + step, flush=True)
+
+    def status():
+        value = controller.command("status", timeout=5)
+        check(value.get("running"), "background daemon stopped unexpectedly")
+        current = next((entry for entry in value.get("jobs", []) if entry["id"] == job.id), None)
+        check(current is not None, "synthetic test job missing")
+        check(current["state"] != "blocked", "synthetic test job is blocked")
+        return value, current
+
+    def wait_for(predicate, failure, *, allow_conflicts=False, interval=1):
+        deadline = time.monotonic() + args.timeout
+        while time.monotonic() < deadline:
+            _, current = status()
+            check(allow_conflicts or current["state"] != "conflicts", "unexpected deletion conflict")
+            value = predicate()
+            if value:
+                return value
+            time.sleep(interval)
+        raise CheckFailed(failure)
+
+    def settled(*, allow_conflicts=False):
+        return wait_for(lambda: status()[1]["last_sync"] is not None
+                        and status()[1]["state"] in ({"idle", "conflicts"} if allow_conflicts else {"idle"})
+                        and not status()[1]["pending"], "background reconciliation did not settle",
+                        allow_conflicts=allow_conflicts)
+
+    def remote_node(filename):
+        matches = [node for node in backend.list_nodes(root.path) if node.name == filename]
+        check(len(matches) <= 1, "ambiguous synthetic filename")
+        if matches:
+            check(matches[0].safe, "unsafe synthetic metadata")
+            return matches[0]
+        return None
+
+    def await_remote(filename, expected):
+        def verify():
+            node = remote_node(filename)
+            if node is None:
+                return False
+            if expected is None:
+                return node if node.type == "folder" else False
+            observed = node.sha1 or backend.info(node.path).sha1
+            return node if observed == hashlib.sha1(expected).hexdigest() else False
+        return wait_for(verify, "synthetic upload did not converge", interval=4)
+
+    def cloud_trashed(node):
+        if remote_node(node.name) is not None:
+            return False
+        current = backend.info(node.path)
+        return current.uid == node.uid and current.raw.get("isTrashed") is True
+
+    def restore_cloud(node):
+        candidates = [entry for entry in backend.list_nodes("/trash") if entry.uid == node.uid]
+        check(len(candidates) == 1 and candidates[0].safe and candidates[0].name == node.name,
+              "synthetic cloud trash identity could not be proven")
+        backend.restore([candidates[0].path])
+
+    def restore_local(filename, expected):
+        original = local / filename
+        matches = [entry for entry in local_trash.list_entries()
+                   if entry.original_path == str(original) and entry.status == "trashed"]
+        check(len(matches) == 1, "synthetic local trash receipt missing or ambiguous")
+        receipt = matches[0]
+        stored = Path(receipt.trash_path)
+        if expected is None:
+            check((stored / "nested/child.txt").read_bytes() == payload,
+                  "nested synthetic trash contents changed")
+        else:
+            check(stored.read_bytes() == expected, "synthetic trash contents changed")
+        check(not original.exists(), "restore would overwrite a live path")
+        restored = local_trash.restore(receipt.id)
+        check(restored.status == "restored", "local trash restore was not confirmed")
+
+    try:
+        root = backend.mkdir("/my-files", name)
+        check(root.safe and root.type == "folder" and root.name == name, "test folder creation failed")
+        job = JobStore(state).add(local, root.path, name="Synthetic deletion test")
+        controller = Controller(state, executable=backend.executable)
+        stopped = False
+        controller.start()
+        wait_for(lambda: status()[0]["event_source"]["state"] == "connected"
+                 and status()[1]["last_sync"] is not None, "real SDK event handshake timed out")
+        settled()
+        passed("dedicated-folder-and-real-daemon-event-handshake")
+
+        for key, filename in names.items():
+            target = local / filename
+            if "folder" in key:
+                (target / "nested").mkdir(parents=True)
+                (target / "nested/child.txt").write_bytes(payload)
+                (target / "empty").mkdir()
+            else:
+                target.write_bytes(payload)
+        nodes = {key: await_remote(filename, None if "folder" in key else payload)
+                 for key, filename in names.items()}
+        settled()
+        passed("baseline-files-and-nested-folders-synchronized")
+
+        (local / names["delete-local"]).unlink()
+        wait_for(lambda: cloud_trashed(nodes["delete-local"]), "local deletion did not reach cloud trash", interval=4)
+        settled()
+        check(not (local / names["delete-local"]).exists(), "deleted local file was resurrected")
+        controller.stop()
+        stopped = not controller.socket_path.exists()
+        check(stopped, "daemon did not stop before restart test")
+        stopped = False
+        controller.start()
+        settled()
+        check(not (local / names["delete-local"]).exists() and cloud_trashed(nodes["delete-local"]),
+              "restart resurrected a confirmed deletion")
+        passed("inotify-local-delete-cloud-trash-and-no-resurrection-after-restart")
+        restore_cloud(nodes["delete-local"])
+        wait_for(lambda: (local / names["delete-local"]).is_file()
+                 and (local / names["delete-local"]).read_bytes() == payload,
+                 "restored cloud file did not return through SDK events")
+        settled()
+        passed("cloud-trash-restore-propagates-to-local")
+
+        backend.trash([nodes["delete-remote"].path])
+        wait_for(lambda: not (local / names["delete-remote"]).exists(),
+                 "remote deletion did not reach local trash")
+        settled()
+        restore_local(names["delete-remote"], payload)
+        await_remote(names["delete-remote"], payload)
+        settled()
+        passed("sdk-event-remote-delete-local-trash-and-local-restore")
+
+        shutil.rmtree(local / names["local-folder"])
+        wait_for(lambda: cloud_trashed(nodes["local-folder"]), "local folder deletion did not reach cloud trash", interval=4)
+        settled()
+        restore_cloud(nodes["local-folder"])
+        wait_for(lambda: (local / names["local-folder"] / "nested/child.txt").is_file()
+                 and (local / names["local-folder"] / "nested/child.txt").read_bytes() == payload,
+                 "restored cloud folder lost its nested child")
+        settled()
+        check((local / names["local-folder"] / "empty").is_dir(), "restored empty folder missing")
+        passed("local-folder-delete-cloud-trash-and-complete-subtree-restore")
+
+        backend.trash([nodes["remote-folder"].path])
+        wait_for(lambda: not (local / names["remote-folder"]).exists(), "remote folder deletion did not reach local trash")
+        settled()
+        restore_local(names["remote-folder"], None)
+        await_remote(names["remote-folder"], None)
+        settled()
+        passed("remote-folder-delete-local-trash-and-complete-subtree-restore")
+
+        controller.command("pause", job.id)
+        wait_for(lambda: status()[1]["state"] == "paused", "pause did not settle")
+        edited = payload + b"Preserve concurrent edit\n"
+        (local / names["conflict-local-delete"]).unlink()
+        peer_file = peer / names["conflict-local-delete"]
+        peer_file.write_bytes(edited)
+        backend.upload([peer_file], root.path, file_strategy="create-new-revision", folder_strategy="skip")
+        backend.trash([nodes["conflict-remote-delete"].path])
+        (local / names["conflict-remote-delete"]).write_bytes(edited)
+        controller.command("resume", job.id)
+        wait_for(lambda: all(any(filename in line for line in status()[1]["conflicts"])
+                             for filename in (names["conflict-local-delete"], names["conflict-remote-delete"])),
+                 "delete-versus-edit conflicts were not reported in both directions", allow_conflicts=True)
+        settled(allow_conflicts=True)
+        left = remote_node(names["conflict-local-delete"])
+        check(left is not None and backend.info(left.path).sha1 == hashlib.sha1(edited).hexdigest(),
+              "remote concurrent edit was not preserved")
+        check(not (local / names["conflict-local-delete"]).exists(), "conflicted local deletion was resurrected")
+        check((local / names["conflict-remote-delete"]).read_bytes() == edited,
+              "local concurrent edit was not preserved")
+        check(cloud_trashed(nodes["conflict-remote-delete"]), "conflicted remote deletion was resurrected")
+        passed("delete-versus-edit-conflicts-preserve-both-directions")
+        report["success"] = True
+    except Exception as error:
+        report["error"] = str(error) if isinstance(error, CheckFailed) else type(error).__name__
+    finally:
+        if controller is not None and not stopped:
+            try:
+                controller.stop()
+                stopped = not controller.socket_path.exists()
+            except Exception:
+                stopped = False
+        report["daemon_stopped"] = stopped
+        if root is not None and stopped:
+            try:
+                backend.reset_cancel()
+                current = backend.info(root.path)
+                check(current.safe and current.uid == root.uid and current.name == name,
+                      "cleanup identity check failed")
+                backend.trash([root.path])
+                report["cleanup"] = "synthetic-folder-moved-to-trash"
+                passed("cleanup-to-trash")
+            except Exception:
+                report["cleanup"] = "synthetic-folder-retained-for-manual-cleanup"
+                report["success"] = False
+        elif root is not None:
+            report["cleanup"] = "retained-because-daemon-stop-unconfirmed"
+            report["success"] = False
+        if stopped and report["success"]:
+            try:
+                owned_recovery = [entry for entry in local_trash.list_entries()
+                                  if Path(entry.original_path).is_relative_to(local)
+                                  and entry.status not in {"restored", "aborted"}]
+                check(not owned_recovery, "synthetic local recovery entries still need attention")
+            except Exception:
+                report["success"] = False
+                report["local_recovery_retained"] = True
+        if stopped and report["success"]:
+            shutil.rmtree(temporary)
+        else:
+            report["local_artifacts_retained"] = str(temporary)
+        print(json.dumps(report, indent=2), flush=True)
+    return 0 if report["success"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

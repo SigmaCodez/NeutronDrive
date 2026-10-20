@@ -11,6 +11,7 @@ from dataclasses import replace
 import os
 from pathlib import Path
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -130,7 +131,7 @@ class GtkApplicationTests(unittest.TestCase):
         self.assertIn("DEMO", self.app.window.get_title())
         self.assertEqual(len(self.rows()), 6)
         self.assertEqual(self.app.path, "/my-files")
-        for page in ("files", "sync", "background", "ondemand", "activity", "settings"):
+        for page in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings"):
             with self.subTest(page=page):
                 self.assertIsNotNone(self.app.stack.get_child_by_name(page))
                 self.app.show_page(page)
@@ -206,6 +207,61 @@ class GtkApplicationTests(unittest.TestCase):
                 self.assertIsInstance(page, self.Gtk.ScrolledWindow)
                 self.assertEqual(page.get_policy(), (self.Gtk.PolicyType.NEVER, self.Gtk.PolicyType.AUTOMATIC))
                 self.assertIsNotNone(page.get_child())
+
+    def test_demo_local_trash_never_reads_or_restores_personal_files(self):
+        with mock.patch("neutrondrive.local_trash.LocalTrash") as trash:
+            self.app.show_page("local-trash")
+            self.app.refresh_local_trash()
+            self.assertIn("Demo ohne Dateizugriff", self.app.local_trash_status.get_text())
+            self.assertIsNotNone(self.app.local_trash_empty.get_parent())
+            self.app.restore_local_trash("/tmp/not-a-real-registry", "not-a-real-entry")
+            self.assertIn("Demo", self.app.notice_label.get_text())
+            trash.assert_not_called()
+
+    def test_local_trash_recovery_can_be_checked_but_missing_entries_are_disabled(self):
+        entries = [SimpleNamespace(id=str(i), original_path="/tmp/example.txt", trash_path="/tmp/trash/example.txt", status=status)
+                   for i, status in enumerate(("trashed", "recovery", "missing", "restored"))]
+        with mock.patch.object(self.app, "demo", False), mock.patch.object(self.app, "restore_local_trash") as restore:
+            self.app.render_local_trash([("/tmp/registry", entry) for entry in entries])
+            for i in range(4):
+                row = self.app.local_trash_rows.get_row_at_index(i).get_child()
+                action = row.get_last_child()
+                self.assertEqual(action.get_sensitive(), i in {0, 1})
+                if i == 0:
+                    action.emit("clicked")
+            restore.assert_called_once_with("/tmp/registry", "0")
+        self.app.refresh_local_trash()
+
+    def test_local_restore_reports_collision_and_retries_without_overwriting(self):
+        from neutrondrive.local_trash import DIR, LocalTrash, _snapshot
+        with tempfile.TemporaryDirectory(prefix="neutrondrive-ui-trash-") as temporary:
+            base = Path(temporary)
+            root = base / "sync"
+            root.mkdir()
+            target = root / "synthetic.txt"
+            target.write_bytes(b"preserved original")
+            service = LocalTrash(base / "state", data_home=base / "data")
+            fd = os.open(root, DIR)
+            try:
+                receipt = service.trash(fd, target.name, _snapshot(fd, target.name)[""], root_path=root)
+            finally:
+                os.close(fd)
+            target.write_bytes(b"concurrent new file")
+            with mock.patch.object(self.app, "demo", False), \
+                    mock.patch.object(self.app.backend, "cancel_event", threading.Event(), create=True), \
+                    mock.patch.object(self.app, "refresh_local_trash") as refresh:
+                self.app.restore_local_trash(str(service.state_dir), receipt.id)
+                self._pump_until(lambda: not self.app.busy)
+                self.assertIn("Fehlgeschlagen", self.app.records[0][2])
+                self.assertEqual(target.read_bytes(), b"concurrent new file")
+                self.assertEqual(Path(receipt.trash_path).read_bytes(), b"preserved original")
+                refresh.assert_not_called()
+                target.unlink()  # Resolve only this isolated synthetic collision.
+                self.app.restore_local_trash(str(service.state_dir), receipt.id)
+                self._pump_until(lambda: not self.app.busy)
+                self.assertEqual(target.read_bytes(), b"preserved original")
+                self.assertIn("wiederhergestellt", self.app.notice_label.get_text())
+                refresh.assert_called_once()
 
     def test_snap_explains_and_blocks_mount_without_starting_a_helper(self):
         # Construct the real page without activating another window or starting

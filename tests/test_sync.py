@@ -4,13 +4,15 @@ from dataclasses import replace
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path, PurePosixPath
 import tempfile
 import threading
 import unittest
 from unittest.mock import patch
 
-from neutrondrive.backend import Cancelled, Node
+from neutrondrive.backend import BackendError, Cancelled, Node
+from neutrondrive.local_trash import LocalTrash
 from neutrondrive.sync import SyncEngine, SyncError
 
 
@@ -22,11 +24,14 @@ class FakeBackend:
     def __init__(self):
         self.nodes = {"": Node("root-1", "My files", "folder", path="/my-files")}
         self.contents = {}
+        self.trashed_nodes = {}
+        self.trashed_contents = {}
         self.calls = []
         self.history = []
         self.counter = 0
         self.on_upload = None
         self.on_download = None
+        self.on_trash = None
         self.cancel_event = threading.Event()
 
     def add(self, relative, data=None, **overrides):
@@ -35,6 +40,9 @@ class FakeBackend:
         node = Node(uid, PurePosixPath(relative).name, "folder" if data is None else "file",
                     size=0 if data is None else len(data), revision="" if data is None else f"r{self.counter}",
                     sha1="" if data is None else sha1(data), path=f"/my-files/{uid}")
+        parent = str(PurePosixPath(relative).parent)
+        parent = "" if parent == "." else parent
+        overrides.setdefault("raw", {"parentUid": self.nodes.get(parent, self.nodes[""]).uid})
         self.nodes[relative] = replace(node, **overrides)
         if data is not None:
             self.contents[relative] = data
@@ -47,11 +55,33 @@ class FakeBackend:
         raise RuntimeError(f"Remote path not found: {path}")
 
     def info(self, path):
-        return self.nodes[self.relative(path)]
+        for node in [*self.nodes.values(), *self.trashed_nodes.values()]:
+            if node.path == path:
+                return node
+        raise RuntimeError("Remote path not found")
+
+    def trash(self, paths):
+        if self.on_trash:
+            self.on_trash(paths)
+        for path in paths:
+            relative = self.relative(path)
+            self.calls.append(("trash", relative))
+            for name in list(self.nodes):
+                if name == relative or name.startswith(relative + "/"):
+                    node = self.nodes.pop(name)
+                    self.trashed_nodes[name] = replace(node, raw={**node.raw, "isTrashed": True})
+                    if name in self.contents:
+                        self.trashed_contents[name] = self.contents.pop(name)
+        return {}
 
     def list_nodes(self, path):
-        parent = self.relative(path)
-        return [node for relative, node in self.nodes.items()
+        try:
+            parent = self.relative(path)
+            source = self.nodes
+        except RuntimeError:
+            parent = next(relative for relative, node in self.trashed_nodes.items() if node.path == path)
+            source = self.trashed_nodes
+        return [node for relative, node in source.items()
                 if relative and str(PurePosixPath(relative).parent) == (parent or ".")]
 
     def mkdir(self, parent, name):
@@ -95,7 +125,8 @@ class SyncTests(unittest.TestCase):
         self.local.mkdir()
         self.state = self.base / "state"
         self.backend = FakeBackend()
-        self.engine = SyncEngine(self.backend, self.state)
+        self.trash = LocalTrash(self.base / "trash-state", data_home=self.base / "trash-data")
+        self.engine = SyncEngine(self.backend, self.state, local_trash=self.trash)
 
     def write(self, relative, data):
         path = self.local / relative
@@ -178,18 +209,414 @@ class SyncTests(unittest.TestCase):
         self.assertFalse(plan.actions)
         self.assertIn("Both sides changed", plan.conflicts[0].reason)
 
-    def test_deletions_never_propagate_or_resurrect(self):
+    def test_verified_local_deletion_moves_remote_to_trash_without_resurrection(self):
         self.establish("local.txt")
+        (self.local / "local.txt").unlink()
+        plan = self.plan()
+        self.assertEqual([(action.kind, action.relative_path) for action in plan.actions], [("trash_remote", "local.txt")])
+        result = self.engine.execute(plan)
+        self.assertTrue(result.ok, result)
+        self.assertEqual(result.trashed, ["local.txt"])
+        self.assertEqual(self.backend.trashed_contents["local.txt"], b"original")
+        self.assertNotIn("local.txt", self.backend.nodes)
+        self.assertEqual(self.plan().actions, [])
+
+    def test_verified_remote_trash_moves_local_to_recoverable_trash(self):
         self.establish("remote.txt")
-        for side in ("local", "remote"):
-            with self.subTest(side=side):
-                if side == "local":
-                    (self.local / f"{side}.txt").unlink()
-                else:
-                    del self.backend.nodes[f"{side}.txt"]
-                plan = self.plan()
-                self.assertFalse(plan.actions)
-                self.assertTrue(any(item.relative_path == f"{side}.txt" for item in plan.conflicts))
+        self.backend.trash([self.backend.nodes["remote.txt"].path])
+        plan = self.plan()
+        self.assertEqual([action.kind for action in plan.actions], ["trash_local"])
+        result = self.engine.execute(plan)
+        self.assertTrue(result.ok, result)
+        self.assertFalse((self.local / "remote.txt").exists())
+        receipt = self.trash.list_entries()[0]
+        self.assertEqual(Path(receipt.trash_path).read_bytes(), b"original")
+        self.assertEqual(result.trashed, ["remote.txt"])
+        self.assertFalse(self.plan().actions)
+
+    def baseline(self):
+        path = next(self.state.glob("*.json"))
+        return path, json.loads(path.read_text())
+
+    def establish_tree(self):
+        self.write("folder/nested/file.txt", b"valuable")
+        (self.local / "folder/empty").mkdir()
+        self.backend.add("folder")
+        self.backend.add("folder/nested")
+        self.backend.add("folder/nested/file.txt", b"valuable")
+        self.backend.add("folder/empty")
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+
+    def test_complete_folder_deletion_uses_one_remote_trash_operation(self):
+        self.establish_tree()
+        shutil.rmtree(self.local / "folder")
+        plan = self.plan()
+        self.assertEqual([(a.kind, a.relative_path) for a in plan.actions], [("trash_remote", "folder")])
+        result = self.engine.execute(plan)
+        self.assertTrue(result.ok, result)
+        self.assertEqual(self.backend.trashed_contents["folder/nested/file.txt"], b"valuable")
+        self.assertEqual([call for call in self.backend.calls if call[0] == "trash"], [("trash", "folder")])
+
+    def test_complete_remote_folder_deletion_retains_local_subtree_in_trash(self):
+        self.establish_tree()
+        self.backend.trash([self.backend.nodes["folder"].path])
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+        self.assertEqual(result.trashed, ["folder"])
+        receipt = self.trash.list_entries()[0]
+        self.assertEqual((Path(receipt.trash_path) / "nested/file.txt").read_bytes(), b"valuable")
+        self.assertTrue((Path(receipt.trash_path) / "empty").is_dir())
+
+    def test_folder_remote_new_child_blocks_whole_deletion_without_cascade(self):
+        self.establish_tree()
+        shutil.rmtree(self.local / "folder")
+        self.backend.add("folder/new.txt", b"new")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(any(c.relative_path == "folder" for c in plan.conflicts))
+        self.engine.execute(plan)
+        self.assertIn("folder/nested/file.txt", self.backend.nodes)
+
+    def test_folder_local_ignored_child_blocks_whole_deletion(self):
+        self.establish_tree()
+        self.write("folder/.neutrondrive-backup-important", b"keep")
+        self.backend.trash([self.backend.nodes["folder"].path])
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.engine.execute(plan)
+        self.assertEqual((self.local / "folder/.neutrondrive-backup-important").read_bytes(), b"keep")
+
+    def test_folder_unsupported_remote_child_blocks_deletion(self):
+        self.establish_tree()
+        shutil.rmtree(self.local / "folder")
+        self.backend.add("folder/document", b"doc", media_type="application/vnd.proton.doc")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+
+    def test_delete_versus_local_edit_conflicts(self):
+        self.establish()
+        self.backend.trash([self.backend.nodes["a.txt"].path])
+        self.write("a.txt", b"edited locally")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.engine.execute(plan)
+        self.assertEqual((self.local / "a.txt").read_bytes(), b"edited locally")
+
+    def test_delete_versus_same_content_local_replacement_conflicts(self):
+        self.establish()
+        self.backend.trash([self.backend.nodes["a.txt"].path])
+        old = self.local / "a.txt"
+        moved = self.base / "old.txt"
+        old.rename(moved)
+        old.write_bytes(b"original")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.engine.execute(plan)
+        self.assertEqual(old.read_bytes(), b"original")
+
+    def test_delete_versus_new_remote_revision_even_same_content_conflicts(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        self.backend.add("a.txt", b"original")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.assertIn("a.txt", self.backend.nodes)
+
+    def test_local_move_blocks_both_old_and_new_paths(self):
+        self.establish()
+        (self.local / "a.txt").rename(self.local / "renamed.txt")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.engine.execute(plan)
+        self.assertIn("a.txt", self.backend.nodes)
+        self.assertNotIn("renamed.txt", self.backend.nodes)
+
+    def test_active_uid_moved_outside_selected_remote_tree_is_not_trash(self):
+        selected = self.backend.add("selected")
+        outside = self.backend.add("outside")
+        self.write("a.txt", b"original")
+        node = self.backend.add("selected/a.txt", b"original")
+        self.engine.execute(self.engine.plan(self.local, selected.path))
+        self.backend.nodes["outside/a.txt"] = replace(self.backend.nodes.pop("selected/a.txt"), raw={"parentUid": outside.uid})
+        self.backend.contents["outside/a.txt"] = self.backend.contents.pop("selected/a.txt")
+        plan = self.engine.plan(self.local, selected.path)
+        self.assertFalse(plan.actions)
+        self.assertTrue(any("active elsewhere" in c.reason for c in plan.conflicts))
+        self.assertEqual((self.local / "a.txt").read_bytes(), b"original")
+
+    def test_missing_uid_without_confirmed_trash_is_not_local_deletion_proof(self):
+        self.establish()
+        self.backend.nodes.pop("a.txt")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.assertTrue((self.local / "a.txt").exists())
+
+    def test_uid_moved_between_listing_and_info_is_not_trashed(self):
+        selected = self.backend.add("selected")
+        outside = self.backend.add("outside")
+        self.write("a.txt", b"valuable")
+        node = self.backend.add("selected/a.txt", b"valuable")
+        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
+        (self.local / "a.txt").unlink()
+        plan = self.engine.plan(self.local, selected.path)
+        info = self.backend.info
+        def move_before_info(path):
+            if path == node.path and "selected/a.txt" in self.backend.nodes:
+                self.backend.nodes["outside/a.txt"] = replace(
+                    self.backend.nodes.pop("selected/a.txt"), raw={"parentUid": outside.uid})
+                self.backend.contents["outside/a.txt"] = self.backend.contents.pop("selected/a.txt")
+            return info(path)
+        with patch.object(self.backend, "info", side_effect=move_before_info):
+            result = self.engine.execute(plan)
+        self.assertTrue(result.conflicts)
+        self.assertEqual(self.backend.contents["outside/a.txt"], b"valuable")
+        self.assertFalse(self.backend.trashed_nodes)
+        self.assertFalse(any(call[0] == "trash" for call in self.backend.calls))
+
+    def test_uid_moved_outside_then_trashed_does_not_delete_local_copy(self):
+        selected = self.backend.add("selected")
+        outside = self.backend.add("outside")
+        self.write("a.txt", b"valuable")
+        node = self.backend.add("selected/a.txt", b"valuable")
+        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
+        self.backend.nodes["outside/a.txt"] = replace(
+            self.backend.nodes.pop("selected/a.txt"), raw={"parentUid": outside.uid})
+        self.backend.contents["outside/a.txt"] = self.backend.contents.pop("selected/a.txt")
+        self.backend.trash([node.path])
+        plan = self.engine.plan(self.local, selected.path)
+        self.assertFalse(plan.actions)
+        self.assertTrue(any("different parent" in conflict.reason for conflict in plan.conflicts))
+        result = self.engine.execute(plan)
+        self.assertFalse(result.ok)
+        self.assertEqual((self.local / "a.txt").read_bytes(), b"valuable")
+        self.assertFalse(self.trash.list_entries())
+
+    def test_legacy_missing_side_conflicts_but_converged_entries_migrate(self):
+        self.establish("missing.txt")
+        self.establish("present.txt")
+        path, baseline = self.baseline()
+        baseline["version"] = 1
+        for row in baseline["entries"].values():
+            for key in list(row):
+                if key not in {"kind", "sha1", "remote_uid", "remote_revision"}:
+                    row.pop(key)
+        path.write_text(json.dumps(baseline))
+        (self.local / "missing.txt").unlink()
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(any(c.relative_path == "missing.txt" for c in plan.conflicts))
+        self.engine.execute(plan)
+        _, updated = self.baseline()
+        self.assertEqual(updated["version"], 2)
+        self.assertEqual(updated["entries"]["missing.txt"]["identity_version"], 1)
+        self.assertEqual(updated["entries"]["present.txt"]["identity_version"], 2)
+        self.assertIn("missing.txt", self.backend.nodes)
+
+    def test_stale_deletion_preview_never_trashes_reappeared_local_source(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        plan = self.plan()
+        self.write("a.txt", b"reappeared")
+        result = self.engine.execute(plan)
+        self.assertTrue(result.conflicts)
+        self.assertIn("a.txt", self.backend.nodes)
+        self.assertEqual((self.local / "a.txt").read_bytes(), b"reappeared")
+
+    def test_stale_deletion_preview_never_trashes_edited_local_target(self):
+        self.establish()
+        self.backend.trash([self.backend.nodes["a.txt"].path])
+        plan = self.plan()
+        self.write("a.txt", b"new local")
+        result = self.engine.execute(plan)
+        self.assertTrue(result.conflicts)
+        self.assertEqual((self.local / "a.txt").read_bytes(), b"new local")
+        self.assertEqual(self.trash.list_entries(), [])
+
+    def test_failed_remote_trash_retries_only_after_fresh_proof(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        def fail(_paths):
+            self.backend.on_trash = None
+            raise BackendError("temporary failure")
+        self.backend.on_trash = fail
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.errors)
+        self.assertIn("a.txt", self.baseline()[1]["pending_deletions"])
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+        self.assertEqual(self.baseline()[1]["pending_deletions"], {})
+        self.assertEqual(self.backend.trashed_contents["a.txt"], b"original")
+
+    def test_remote_trash_lost_ack_is_reconciled_without_reupload(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        real_trash = self.backend.trash
+        def lost_ack(paths):
+            real_trash(paths)
+            raise BackendError("response lost after server operation")
+        with patch.object(self.backend, "trash", side_effect=lost_ack):
+            result = self.engine.execute(self.plan())
+        self.assertTrue(result.errors)
+        self.assertTrue(self.baseline()[1]["pending_deletions"])
+        recovered = self.engine.execute(self.plan())
+        self.assertTrue(recovered.ok, recovered)
+        self.assertEqual(recovered.trashed, ["a.txt"])
+        self.assertEqual(self.baseline()[1]["entries"], {})
+        self.assertEqual(self.baseline()[1]["pending_deletions"], {})
+        self.assertFalse((self.local / "a.txt").exists())
+
+    def test_local_trash_lost_ack_requires_matching_persisted_receipt(self):
+        self.establish()
+        self.backend.trash([self.backend.nodes["a.txt"].path])
+        real_trash = self.trash.trash
+        def lost_ack(*args, **kwargs):
+            real_trash(*args, **kwargs)
+            raise BackendError("response lost after local rename")
+        with patch.object(self.trash, "trash", side_effect=lost_ack):
+            result = self.engine.execute(self.plan())
+        self.assertTrue(result.errors)
+        recovered = self.engine.execute(self.plan())
+        self.assertTrue(recovered.ok, recovered)
+        self.assertEqual(recovered.trashed, ["a.txt"])
+        self.assertEqual(len(self.trash.list_entries()), 1)
+        self.assertEqual(self.baseline()[1]["pending_deletions"], {})
+
+    def test_crash_after_durable_intent_preserves_retryable_deletion(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        with patch.object(self.backend, "trash", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self.engine.execute(self.plan())
+        self.assertTrue(self.baseline()[1]["pending_deletions"])
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+        self.assertNotIn("a.txt", self.backend.nodes)
+
+    def test_failed_intent_persistence_prevents_remote_mutation(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        with patch.object(self.engine, "_save", side_effect=OSError("disk full")):
+            result = self.engine.execute(self.plan())
+        self.assertTrue(result.errors)
+        self.assertIn("a.txt", self.backend.nodes)
+        self.assertFalse(self.backend.trashed_nodes)
+
+    def test_both_deleted_cleans_baseline_without_new_operations(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        self.backend.trash([self.backend.nodes["a.txt"].path])
+        self.backend.calls.clear()
+        result = self.engine.execute(self.plan())
+        self.assertTrue(result.ok, result)
+        self.assertEqual(self.backend.calls, [])
+        self.assertEqual(self.baseline()[1]["entries"], {})
+
+    def test_trashed_selected_ancestor_blocks_plan(self):
+        parent = self.backend.add("parent")
+        selected = self.backend.add("parent/selected")
+        self.backend.nodes["parent"] = replace(parent, raw={**parent.raw, "isTrashed": True})
+        with self.assertRaisesRegex(SyncError, "Trashed"):
+            self.engine.plan(self.local, selected.path)
+
+    def test_ancestor_trashed_during_last_preflight_scan_blocks_remote_trash(self):
+        ancestor = self.backend.add("ancestor")
+        selected = self.backend.add("ancestor/selected")
+        self.write("folder/child", b"valuable")
+        self.backend.add("ancestor/selected/folder")
+        self.backend.add("ancestor/selected/folder/child", b"valuable")
+        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
+        shutil.rmtree(self.local / "folder")
+        plan = self.engine.plan(self.local, selected.path)
+        scan = self.engine._scan_remote
+        def race(*args, **kwargs):
+            result = scan(*args, **kwargs)
+            if kwargs.get("fresh"):
+                self.backend.nodes["ancestor"] = replace(ancestor, raw={**ancestor.raw, "isTrashed": True})
+            return result
+        with patch.object(self.engine, "_scan_remote", side_effect=race):
+            result = self.engine.execute(plan)
+        self.assertFalse(result.ok)
+        self.assertIn("ancestor/selected/folder/child", self.backend.nodes)
+        self.assertFalse(any(call[0] == "trash" for call in self.backend.calls))
+
+    def test_ancestor_trashed_during_last_preflight_scan_blocks_local_trash(self):
+        ancestor = self.backend.add("ancestor")
+        selected = self.backend.add("ancestor/selected")
+        self.write("a.txt", b"valuable")
+        node = self.backend.add("ancestor/selected/a.txt", b"valuable")
+        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
+        self.backend.trash([node.path])
+        plan = self.engine.plan(self.local, selected.path)
+        scan = self.engine._scan_local
+        def race(*args, **kwargs):
+            result = scan(*args, **kwargs)
+            self.backend.nodes["ancestor"] = replace(ancestor, raw={**ancestor.raw, "isTrashed": True})
+            return result
+        with patch.object(self.engine, "_scan_local", side_effect=race):
+            result = self.engine.execute(plan)
+        self.assertFalse(result.ok)
+        self.assertEqual((self.local / "a.txt").read_bytes(), b"valuable")
+        self.assertFalse(self.trash.list_entries())
+
+    def test_folder_new_child_after_preview_blocks_remote_trash(self):
+        self.establish_tree()
+        shutil.rmtree(self.local / "folder")
+        plan = self.plan()
+        self.backend.add("folder/new.txt", b"new")
+        result = self.engine.execute(plan)
+        self.assertTrue(result.conflicts)
+        self.assertIn("folder/new.txt", self.backend.nodes)
+        self.assertFalse(self.backend.trashed_nodes)
+
+    def test_folder_new_child_during_remote_trash_retains_journal_and_conflict(self):
+        self.establish_tree()
+        shutil.rmtree(self.local / "folder")
+        plan = self.plan()
+        self.backend.on_trash = lambda _paths: self.backend.add("folder/new.txt", b"new")
+        result = self.engine.execute(plan)
+        self.assertTrue(result.conflicts)
+        self.assertFalse(result.trashed)
+        self.assertEqual(self.backend.trashed_contents["folder/new.txt"], b"new")
+        self.assertIn("folder", self.baseline()[1]["pending_deletions"])
+        retried = self.engine.execute(self.plan())
+        self.assertTrue(retried.conflicts)
+        self.assertIn("folder", self.baseline()[1]["entries"])
+
+    def test_local_root_replacement_invalidates_v2_baseline(self):
+        self.establish()
+        self.local.rename(self.base / "old-root")
+        self.local.mkdir()
+        with self.assertRaisesRegex(SyncError, "root identity changed"):
+            self.plan()
+        self.assertIn("a.txt", self.backend.nodes)
+
+    def test_delete_versus_type_change_conflicts(self):
+        self.establish()
+        self.backend.trash([self.backend.nodes["a.txt"].path])
+        (self.local / "a.txt").unlink()
+        self.write("a.txt/child", b"keep")
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.assertEqual((self.local / "a.txt/child").read_bytes(), b"keep")
+
+    def test_same_content_remote_uid_replacement_is_not_original_trash_target(self):
+        self.establish()
+        (self.local / "a.txt").unlink()
+        old = self.backend.nodes.pop("a.txt")
+        self.backend.add("a.txt", b"original", revision=old.revision)
+        plan = self.plan()
+        self.assertFalse(plan.actions)
+        self.assertTrue(plan.conflicts)
+        self.assertFalse(self.backend.trashed_nodes)
 
     def test_file_folder_conflict_blocks_children(self):
         self.write("thing/child", b"keep")

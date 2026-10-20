@@ -4,8 +4,8 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native GTK 4 interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface is currently in German.
 
-**Status: 0.2.0 alpha.** Automatic background synchronization and real on-demand
-files are implemented. Full Windows/macOS feature parity is not yet reached.
+**Status: 0.3.0 alpha.** Automatic background synchronization, recoverable
+bidirectional deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
 NeutronDrive is not affiliated with, endorsed by, or officially supported by
@@ -25,6 +25,8 @@ interface and icon are original; no Windows/macOS application code is copied.
 - Create, copy and revoke public read-only links.
 - Manual two-way synchronization with a preview, SHA1 content comparison,
   conflict detection, a persistent baseline and retained local backup versions.
+- Baseline-verified deletion propagation to Proton trash or recoverable local
+  trash, with a local restore page and delete-versus-edit conflicts.
 - Automatic two-way background sync: local inotify notifications, remote Drive
   events, persistent jobs, pause/resume, retry/backoff and startup reconciliation.
 - A real FUSE online drive: metadata-only directory entries, verified download on
@@ -65,21 +67,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.2.0-alpha1-1_amd64.deb
+sudo apt install ./neutrondrive_0.3.0-alpha1-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.2.0-alpha1-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.3.0-alpha1-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.2.0-alpha1-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.3.0-alpha1-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.2.0a1-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.3.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.2.0-alpha1_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.3.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -137,8 +139,10 @@ retained beside it as `.neutrondrive-backup-<random-id>`; these files are exclud
 from sync. They may contain sensitive plaintext and need the same protection as
 the original local folder.
 
-Different contents on both sides, ambiguous names and deletions require manual
-resolution. **Deletions are not propagated.** Renames are not tracked as moves.
+Different contents on both sides and ambiguous names require manual resolution.
+Confirmed deletions propagate only when the remaining counterpart still matches
+the last shared baseline, including its identity. Delete-versus-edit and
+delete-versus-replacement cases remain conflicts. Renames are not tracked as moves.
 The SDK provides Drive events but no conditional revision writes through this
 CLI contract. A recheck reduces write races but
 cannot make remote updates atomic; uploads of an existing file create a new
@@ -163,10 +167,42 @@ Closing the native window leaves the daemon running. **Settings → Autostart**
 starts it at the next desktop login. Flatpak asks the Background portal for
 permission; its hidden primary process keeps the sandbox alive. This depends on
 the desktop portal implementation. `--sync-status` and `--stop-background` provide
-headless control. No tray icon is provided. Automatic sync does not propagate
-deletions or track renames as moves; resolve these explicitly.
+headless control. No tray icon is provided. Deletions follow the same verified
+trash policy as manual sync. Renames are not tracked as moves; ambiguous
+moves are retained as conflicts.
 
 ![Background sync configuration, explicitly labeled demo mode](docs/background-demo.png)
+
+## Deletions, trash and recovery
+
+After a successful common baseline, deleting a local item moves its unchanged
+cloud counterpart to **Proton trash**. Deleting a cloud item moves its unchanged
+local counterpart to a recoverable **local trash**. An absent item on first sync
+is still treated as a new item on the other side. Baselines from version 0.2 are
+upgraded only after both sides are verified together; a one-sided absence against
+an old baseline remains a conflict.
+
+Folder deletion requires the complete remaining tree to be unchanged and known.
+New, ignored, unsupported or modified children block that deletion. Replaced
+roots, trashed root ancestors, moved cloud identities and uncertain metadata
+also block destructive reconciliation. A durable deletion journal makes retries
+and restarts check the original operation before doing any further work.
+
+Open **Lokaler Papierkorb** to see NeutronDrive's local receipts and restore an
+item at its original location. Restoration never overwrites an occupied path;
+a changed root, parent or trash payload requires manual recovery from the shown
+trash path. **Wiederherstellung prüfen** retries an interrupted operation after
+validating its retained data; it also verifies a restore that already completed
+before a journal write was interrupted. Local trash uses a private, same-filesystem desktop trash when
+available, otherwise an application-managed location outside the sync root.
+The app never permanently deletes trash or empties it automatically. Desktop
+trash managers can independently restore or empty standard trash entries.
+
+Use **CLOUD → Papierkorb** for cloud restoration, or Proton's web app if names
+are ambiguous. Restoring an item while its job is active synchronizes it again.
+Local trash and its registry contain plaintext data and paths; keep them private.
+There is no server-side conditional trash operation in this CLI: final checks
+reduce concurrency races, while recovery relies on retained trash contents.
 
 ## Online drive and offline files
 
@@ -204,7 +240,7 @@ mounts are rejected.
 
 ## Known limits
 
-- No automatic deletion propagation, multi-account UI or automatic updater.
+- No multi-account UI or automatic updater.
 - No integrated Photos timeline/albums, Proton Docs/Sheets export, historical
   revision browser, member invitations or advanced link settings.
 - Native Proton documents cannot be downloaded as regular files by this CLI.

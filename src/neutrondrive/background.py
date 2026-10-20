@@ -69,6 +69,11 @@ class RemoteTreeCache:
         with self._lock:
             self._uid_paths[node.uid] = node.path
             self._aliases[path] = node.path
+            if node.raw.get("isTrashed"):
+                self.invalidate_tree(node.path)
+                for parent in self._parents.get(node.uid, ()):
+                    self.invalidate(parent)
+                return node
             for parent in self._parents.get(node.uid, ()):
                 listing = self._listings.get(parent)
                 if listing is not None:
@@ -123,6 +128,10 @@ class RemoteTreeCache:
             if parent_uid in self._uid_paths:
                 affected.add(self._uid_paths[parent_uid])
             if node_uid in self._uid_paths:
+                # A folder can be trashed/restored or moved together with all
+                # descendants. Its old cached children must not survive that
+                # event and reappear in a later reconciliation.
+                self.invalidate_tree(self._uid_paths[node_uid])
                 affected.add(self._uid_paths[node_uid])
             if affected:
                 for path in affected:
@@ -144,6 +153,30 @@ class RemoteTreeCache:
             return self.backend.mkdir(parent, name)
         finally:
             self.invalidate(parent)
+
+    def trash(self, paths):
+        # Keep old parent relationships before the mutation. They also cover
+        # ambiguous outcomes: an exception may follow a successful server write.
+        with self._lock:
+            targets = {self._path(path) for path in paths}
+            known_targets = {path for uid, path in self._uid_paths.items()
+                             if path in targets and self._parents.get(uid)}
+            parents = {parent for uid, path in self._uid_paths.items() if path in targets
+                       for parent in self._parents.get(uid, ())}
+        try:
+            return self.backend.trash(paths)
+        finally:
+            with self._lock:
+                for target in targets:
+                    self.invalidate_tree(target)
+                if targets <= known_targets:
+                    for parent in parents:
+                        self.invalidate(parent)
+                else:
+                    # An uncached UID cannot be assigned a safe old parent.
+                    # Drop metadata only; the next event/job reads it afresh.
+                    self._generation += 1
+                    self._listings.clear()
 
 
 def _private_directory(path: Path) -> Path:
@@ -554,10 +587,14 @@ def _echo_snapshot(plan: Any, result: Any) -> dict[str, Any]:
         converged = remote is not None and local.kind == remote.kind and (local.kind == "folder" or local.sha1 == remote.sha1)
         if converged or local == plan._local.get(path):
             settled[path] = local
-    # A disappearance during execution still needs its deletion conflict to be
-    # reported. Keeping its old metadata makes the cheap lstat comparison fail.
+    # Confirmed trash operations already observed absence on both sides. Their
+    # inotify echoes must not reschedule or resurrect the deleted subtree.
+    trashed = set(getattr(result, "trashed", ()))
+    # An unrelated disappearance during execution still needs reconciliation.
+    # Keeping its old metadata makes the cheap lstat comparison fail.
     for path, old in {**plan._local, **result._remote_snapshot}.items():
-        if path not in result._local_snapshot:
+        settled_trash = any(path == root or path.startswith(root + "/") for root in trashed)
+        if path not in result._local_snapshot and not settled_trash:
             settled[path] = old
     return settled
 
@@ -835,7 +872,7 @@ class BackgroundDaemon:
 
     def _resolve(self, runtime: _Runtime) -> Job:
         account = self.backend.info("/my-files")
-        if not account.safe or account.type != "folder" or not account.uid:
+        if not account.safe or account.type != "folder" or not account.uid or account.raw.get("isTrashed"):
             raise _Blocked("Proton-Kontowurzel konnte nicht sicher bestätigt werden.")
         active = [job for job in self.store.list() if not job.paused]
         pinned = []
@@ -844,7 +881,7 @@ class BackgroundDaemon:
             if job.account_root_uid and job.account_root_uid != account.uid:
                 raise _Blocked("Proton-Konto wurde gewechselt; betroffene Jobs bewusst neu anlegen.")
             node = self.backend.info(job.remote_root)
-            if not node.safe or node.type != "folder" or not node.uid:
+            if not node.safe or node.type != "folder" or not node.uid or node.raw.get("isTrashed"):
                 raise _Blocked("Ein Remote-Sync-Ordner ist nicht sicher verfügbar.")
             if job.remote_uid and job.remote_uid != node.uid:
                 raise _Blocked("Remote-Wurzel wurde geändert; Job bewusst neu anlegen.")
@@ -861,27 +898,29 @@ class BackgroundDaemon:
         all_ids = {entry.remote_uid for entry in pinned}
         if len(all_ids) != len(pinned):
             raise _Blocked("Mehrere Sync-Jobs verweisen auf denselben Remote-Ordner.")
-        if len(pinned) > 1:
-            for entry in pinned:
-                current, visited = nodes[entry.id], {entry.remote_uid}
-                for _ in range(128):
-                    if current.uid == account.uid:
-                        break
-                    parent_uid = current.raw.get("parentUid")
-                    if not parent_uid:
-                        raise _Blocked("Remote-Ordnerabgrenzung nicht nachweisbar; Jobs überlappen möglicherweise.")
-                    if parent_uid in all_ids:
-                        raise _Blocked("Remote-Sync-Jobs dürfen keine gemeinsamen Unterbäume haben.")
-                    if parent_uid == account.uid:
-                        break
-                    if parent_uid in visited:
-                        raise _Blocked("Zyklische Remote-Ordnerstruktur.")
-                    visited.add(parent_uid)
-                    current = self.backend.info("/my-files/" + parent_uid)
-                    if not current.safe or current.type != "folder" or current.uid != parent_uid:
-                        raise _Blocked("Remote-Ordnerabgrenzung konnte nicht sicher bestätigt werden.")
-                else:
-                    raise _Blocked("Remote-Ordnerstruktur überschreitet die sichere maximale Tiefe.")
+        # Also check ancestry for a single job: a selected subfolder inside a
+        # trashed ancestor must not be interpreted as many individual deletions.
+        for entry in pinned:
+            current, visited = nodes[entry.id], {entry.remote_uid}
+            for _ in range(128):
+                if current.uid == account.uid:
+                    break
+                parent_uid = current.raw.get("parentUid")
+                if not parent_uid:
+                    raise _Blocked("Remote-Ordnerabgrenzung nicht nachweisbar; Jobs überlappen möglicherweise.")
+                if parent_uid in all_ids:
+                    raise _Blocked("Remote-Sync-Jobs dürfen keine gemeinsamen Unterbäume haben.")
+                if parent_uid == account.uid:
+                    break
+                if parent_uid in visited:
+                    raise _Blocked("Zyklische Remote-Ordnerstruktur.")
+                visited.add(parent_uid)
+                current = self.backend.info("/my-files/" + parent_uid)
+                if (not current.safe or current.type != "folder" or current.uid != parent_uid
+                        or current.raw.get("isTrashed")):
+                    raise _Blocked("Remote-Ordnerabgrenzung konnte nicht sicher bestätigt werden.")
+            else:
+                raise _Blocked("Remote-Ordnerstruktur überschreitet die sichere maximale Tiefe.")
         # Validate the entire set before canonicalizing persisted paths: aliases
         # must never leave a half-updated, overlapping configuration behind.
         pinned = [self.store._pin(entry.id, entry.remote_uid, entry.account_root_uid, entry.remote_root) for entry in pinned]

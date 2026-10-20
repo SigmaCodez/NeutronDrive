@@ -1,6 +1,7 @@
 """Explicit, conservative two-way sync using Proton's official CLI adapter.
 
-There is deliberately no watcher or background remote tree polling. Deletions,
+There is deliberately no watcher or background remote tree polling here.
+Baseline-backed deletions use recoverable trash; uncertain identities,
 ambiguous names, native Proton documents and simultaneous edits need a human.
 Uploads use version history; the CLI does not expose conditional revision writes,
 so another client can still race the final remote check. Local replacements keep
@@ -23,7 +24,7 @@ import threading
 from typing import Any, Callable, Iterator
 import uuid
 
-from .backend import Cancelled
+from .backend import Cancelled, data_dir
 
 
 class SyncError(RuntimeError):
@@ -73,7 +74,8 @@ class SyncPlan:
     skipped: list[str] = field(default_factory=list)
     _local: dict[str, _Entry] = field(default_factory=dict, repr=False)
     _remote: dict[str, _Entry] = field(default_factory=dict, repr=False)
-    _baseline: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
+    _baseline: dict[str, dict[str, Any]] = field(default_factory=dict, repr=False)
+    _pending_deletions: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
     _state_digest: str = field(default="", repr=False)
     _state_key: str = field(default="", repr=False)
     _root_identity: tuple[int, int] = field(default=(0, 0), repr=False)
@@ -86,7 +88,7 @@ class SyncPlan:
         for action in self.actions:
             counts[action.kind] = counts.get(action.kind, 0) + 1
         changes = ", ".join(f"{kind}: {count}" for kind, count in sorted(counts.items()))
-        return f"{changes or 'No transfers'}; conflicts: {len(self.conflicts)}; skipped: {len(self.skipped)}. No deletions."
+        return f"{changes or 'No changes'}; conflicts: {len(self.conflicts)}; skipped: {len(self.skipped)}. Deletions use trash."
 
 
 @dataclass
@@ -96,6 +98,7 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
     backups: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    trashed: list[str] = field(default_factory=list)
     # End-of-run observations let the event-driven daemon ignore its own
     # filesystem writes without an additional content scan or lost events.
     _local_snapshot: dict[str, _Entry] = field(default_factory=dict, repr=False)
@@ -107,7 +110,7 @@ class SyncResult:
 
     def summary(self) -> str:
         return (f"Completed: {len(self.completed)}; conflicts: {len(self.conflicts)}; "
-                f"errors: {len(self.errors)}; skipped: {len(self.skipped)}; local backups: {len(self.backups)}.")
+                f"errors: {len(self.errors)}; skipped: {len(self.skipped)}; trashed: {len(self.trashed)}; local backups: {len(self.backups)}.")
 
 
 _RESERVED = ".neutrondrive-"
@@ -203,7 +206,8 @@ def _local_entry(parent_fd: int, name: str, check_cancel: Callable[[], None] | N
     except FileNotFoundError:
         return None
     if stat.S_ISDIR(info.st_mode):
-        return _Entry("folder", inode=info.st_ino, device=info.st_dev)
+        return _Entry("folder", mtime_ns=info.st_mtime_ns, inode=info.st_ino,
+                      device=info.st_dev, ctime_ns=info.st_ctime_ns)
     if not stat.S_ISREG(info.st_mode):
         raise SyncError("Symbolic links and non-regular files are excluded")
     fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=parent_fd)
@@ -222,9 +226,11 @@ def _kind(node: Any) -> str:
     return "folder" if value in {"folder", "directory"} else value
 
 
-def _remote_entry(node: Any) -> _Entry:
+def _remote_entry(node: Any, *, allow_trashed: bool = False) -> _Entry:
     if not getattr(node, "safe", True):
         raise SyncError("Remote metadata or decrypted name is not trustworthy")
+    if getattr(node, "raw", {}).get("isTrashed") is True and not allow_trashed:
+        raise SyncError("Trashed remote nodes are not active sync entries")
     media_type = str(getattr(node, "media_type", "") or "").lower()
     if "proton" in media_type and any(word in media_type for word in ("doc", "sheet")):
         raise SyncError("Native Proton Docs/Sheets cannot be exported by the CLI")
@@ -246,14 +252,48 @@ def _same_remote(a: _Entry | None, b: _Entry | None) -> bool:
     return (a.kind, a.uid, a.revision, a.sha1, a.size) == (b.kind, b.uid, b.revision, b.sha1, b.size)
 
 
+def _baseline_matches(entry: _Entry, previous: dict[str, Any], side: str, *, ancestor: bool = False) -> bool:
+    if previous.get("identity_version") != 2 or entry.kind != previous.get("kind"):
+        return False
+    if entry.kind == "file" and (entry.sha1 != previous.get("sha1") or entry.size != previous.get("size")):
+        return False
+    if side == "local":
+        return ((entry.device, entry.inode) == (previous.get("local_device"), previous.get("local_inode"))
+                and ((entry.kind == "folder" and ancestor) or (entry.mtime_ns, entry.ctime_ns) == (previous.get("local_mtime_ns"), previous.get("local_ctime_ns"))))
+    return (entry.uid == previous.get("remote_uid") and entry.revision == previous.get("remote_revision")
+            and (entry.kind == "folder" or bool(entry.revision)))
+
+
+def _subtree(entries: dict[str, Any], relative: str) -> dict[str, Any]:
+    return {path: entry for path, entry in entries.items() if path == relative or path.startswith(relative + "/")}
+
+
+def _deletion_proof(relative: str, target: dict[str, _Entry], baseline: dict[str, dict[str, Any]],
+                    blocked: set[str], side: str) -> None:
+    previous, current = baseline.get(relative, {}), target.get(relative)
+    if current is None or not _baseline_matches(current, previous, side):
+        raise SyncError("Deletion conflicts with an edit, replacement, or unverified old baseline")
+    expected, actual = _subtree(baseline, relative), _subtree(target, relative)
+    if current.kind == "folder":
+        if not previous.get("subtree_complete"):
+            raise SyncError("Folder deletion lacks a complete verified subtree baseline")
+        if any(path == relative or path.startswith(relative + "/") for path in blocked):
+            raise SyncError("Folder contains unsupported, ignored, or unreadable children")
+        if set(expected) != set(actual):
+            raise SyncError("Folder contents changed since the deletion baseline")
+        if any(not _baseline_matches(actual[path], entry, side) for path, entry in expected.items()):
+            raise SyncError("Folder deletion conflicts with changed or replaced descendants")
+
+
 class SyncEngine:
     """Plan first, then execute once after explicit confirmation in the UI."""
 
-    def __init__(self, backend: Any, state_dir: Path):
+    def __init__(self, backend: Any, state_dir: Path, *, local_trash: Any = None):
         self.backend = backend
         self.state_dir = Path(os.path.abspath(state_dir.expanduser()))
         self._lock = threading.RLock()
         self._owner = uuid.uuid4().hex
+        self.local_trash = local_trash
 
     def _check_cancel(self) -> None:
         event = getattr(self.backend, "cancel_event", None)
@@ -271,6 +311,27 @@ class SyncEngine:
         node = self.backend.info(remote_path)
         if _remote_entry(node).kind != "folder":
             raise SyncError("The remote sync root must be a folder")
+        if remote_path == "/my-files" or remote_path.startswith("/my-files/"):
+            account = node if remote_path == "/my-files" else self.backend.info("/my-files")
+            if _remote_entry(account).kind != "folder":
+                raise SyncError("The account root is not safely accessible")
+            current, visited = node, set()
+            for _ in range(128):
+                if current.uid == account.uid:
+                    break
+                if current.uid in visited:
+                    raise SyncError("Remote root has a cyclic ancestor chain")
+                visited.add(current.uid)
+                parent = current.raw.get("parentUid")
+                if not isinstance(parent, str) or not parent:
+                    raise SyncError("Remote root ancestry cannot be verified")
+                if parent == account.uid:
+                    break
+                current = self.backend.info("/my-files/" + parent)
+                if _remote_entry(current).kind != "folder" or current.uid != parent:
+                    raise SyncError("Remote ancestor disappeared or was replaced")
+            else:
+                raise SyncError("Remote root ancestry exceeds the safe maximum depth")
         return node
 
     def _scan_local(self, root_fd: int) -> tuple[dict[str, _Entry], dict[str, str]]:
@@ -312,12 +373,12 @@ class SyncEngine:
         visit(root_fd, "", {(root_stat.st_dev, root_stat.st_ino)})
         return entries, blocked
 
-    def _node_entry(self, node: Any) -> _Entry:
+    def _node_entry(self, node: Any, *, allow_trashed: bool = False) -> _Entry:
         if _kind(node) == "file" and not getattr(node, "sha1", ""):
             node = self.backend.info(node.path)
-        return _remote_entry(node)
+        return _remote_entry(node, allow_trashed=allow_trashed)
 
-    def _scan_remote(self, root: Any) -> tuple[dict[str, _Entry], dict[str, str]]:
+    def _scan_remote(self, root: Any, *, fresh: bool = False, allow_trashed: bool = False) -> tuple[dict[str, _Entry], dict[str, str]]:
         entries: dict[str, _Entry] = {}
         blocked: dict[str, str] = {}
         visited = {str(root.uid)}
@@ -325,7 +386,8 @@ class SyncEngine:
         def visit(path: str, prefix: str) -> None:
             self._check_cancel()
             grouped: dict[str, list[Any]] = {}
-            for node in self.backend.list_nodes(path):
+            listing = getattr(self.backend, "list_nodes_fresh", self.backend.list_nodes) if fresh else self.backend.list_nodes
+            for node in listing(path):
                 grouped.setdefault(node.name, []).append(node)
             for name, nodes in sorted(grouped.items()):
                 self._check_cancel()
@@ -336,7 +398,7 @@ class SyncEngine:
                     continue
                 node = nodes[0]
                 try:
-                    entry = self._node_entry(node)
+                    entry = self._node_entry(node, allow_trashed=allow_trashed)
                     if entry.uid in visited:
                         raise SyncError("Remote tree contains a repeated node identifier")
                     visited.add(entry.uid)
@@ -349,12 +411,12 @@ class SyncEngine:
         visit(str(root.path), "")
         return entries, blocked
 
-    def _load(self, key: str, root: Path, uid: str) -> tuple[dict[str, dict[str, str]], str]:
+    def _load(self, key: str, root: Path, uid: str) -> tuple[dict[str, dict[str, Any]], str, dict, tuple | None]:
         path = self.state_dir / (key + ".json")
         try:
             fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
         except FileNotFoundError:
-            return {}, ""
+            return {}, "", {}, None
         try:
             info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode) or info.st_size > 32 * 1024 * 1024:
@@ -362,16 +424,44 @@ class SyncEngine:
             with os.fdopen(fd, "rb", closefd=False) as stream:
                 raw = stream.read()
             value = json.loads(raw)
-            if (value.get("version") != 1 or value.get("local_root") != str(root)
+            if (value.get("version") not in {1, 2} or value.get("local_root") != str(root)
                     or value.get("remote_root_uid") != uid or not isinstance(value.get("entries"), dict)):
                 raise SyncError("Sync baseline identity/schema does not match")
             entries = value["entries"]
+            identity = value.get("local_root_identity")
+            pending = value.get("pending_deletions", {})
+            if value["version"] == 2:
+                if (not isinstance(identity, list) or len(identity) != 2
+                        or any(type(part) is not int or part < 0 for part in identity)
+                        or not isinstance(pending, dict)):
+                    raise SyncError("Invalid v2 baseline root identity or deletion journal")
+                identity = tuple(identity)
+            else:
+                identity, pending = None, {}
             for relative, entry in entries.items():
                 _parts(relative)
                 if (not isinstance(entry, dict) or entry.get("kind") not in {"folder", "file"}
                         or (entry["kind"] == "file" and not _SHA1.fullmatch(entry.get("sha1", "")))):
                     raise SyncError("Invalid sync baseline entry")
-            return entries, hashlib.sha256(raw).hexdigest()
+                if value["version"] == 1:
+                    entry["identity_version"] = 1
+                if entry.get("identity_version") == 2:
+                    if (any(type(entry.get(key)) is not int or entry[key] < 0
+                            for key in ("size", "local_device", "local_inode", "local_mtime_ns", "local_ctime_ns"))
+                            or not isinstance(entry.get("remote_uid"), str) or not entry["remote_uid"]
+                            or not isinstance(entry.get("remote_revision"), str)
+                            or not isinstance(entry.get("remote_path"), str)
+                            or not isinstance(entry.get("subtree_complete", False), bool)):
+                        raise SyncError("Invalid v2 sync baseline identity")
+                elif entry.get("identity_version") != 1:
+                    raise SyncError("Unknown baseline entry identity version")
+            for relative, record in pending.items():
+                _parts(relative)
+                if (relative not in entries or not isinstance(record, dict)
+                        or record.get("direction") not in {"local", "remote"}
+                        or not re.fullmatch(r"[0-9a-f]{32}", record.get("operation_id", ""))):
+                    raise SyncError("Invalid pending deletion journal")
+            return entries, hashlib.sha256(raw).hexdigest(), pending, identity
         except (ValueError, TypeError, AttributeError) as error:
             raise SyncError(f"Corrupt sync baseline; preserved without changes: {error}") from error
         finally:
@@ -387,24 +477,43 @@ class SyncEngine:
             self._prepare_state()
             remote = self._root(remote_root)
             key = hashlib.sha256((str(root) + "\0" + str(remote.uid)).encode()).hexdigest()
-            baseline, digest = self._load(key, root, str(remote.uid))
+            baseline, digest, pending, saved_identity = self._load(key, root, str(remote.uid))
             with _open_absolute_directory(root) as fd:
                 info = os.fstat(fd)
+                if saved_identity is not None and saved_identity != (info.st_dev, info.st_ino):
+                    raise SyncError("Local sync root identity changed since the saved baseline")
                 local, local_blocked = self._scan_local(fd)
             cloud, cloud_blocked = self._scan_remote(remote)
             blocked = {**local_blocked, **cloud_blocked}
             plan = SyncPlan(root, str(remote.path), str(remote.uid), _local=local, _remote=cloud,
-                            _baseline=baseline, _state_digest=digest, _state_key=key,
+                            _baseline=baseline, _pending_deletions=pending, _state_digest=digest, _state_key=key,
                             _root_identity=(info.st_dev, info.st_ino), _blocked=set(blocked), _owner=self._owner)
             plan.skipped.extend(f"{path}: {reason}" for path, reason in sorted(blocked.items()))
+            # A rename/move inside either scanned tree is not deletion proof.
+            # Block both its old and new locations to avoid a trash+copy cascade.
+            for old, previous in baseline.items():
+                moved = []
+                if old not in local and previous.get("identity_version") == 2:
+                    moved.extend(path for path, entry in local.items()
+                                 if (entry.device, entry.inode) == (previous.get("local_device"), previous.get("local_inode")))
+                if old not in cloud and previous.get("remote_uid"):
+                    moved.extend(path for path, entry in cloud.items() if entry.uid == previous["remote_uid"])
+                if moved:
+                    plan.conflicts.append(SyncConflict(old, "A baseline identity moved to another path; resolve the move first"))
+                    plan._blocked.update([old, *moved])
+            covered_deletions = set()
             for relative in sorted(local.keys() | cloud.keys() | baseline.keys(), key=lambda x: (x.count("/"), x)):
-                if _under(relative, plan._blocked):
+                if _under(relative, plan._blocked | covered_deletions):
                     continue
                 left, right, previous = local.get(relative), cloud.get(relative), baseline.get(relative)
                 reason = ""
                 if left is None and right is None:
                     continue
-                if left is not None and right is not None:
+                pending_root = next((path for path in pending if relative == path or relative.startswith(path + "/")), None)
+                if pending_root and ((left is not None and right is not None)
+                                     or pending[pending_root]["direction"] != ("local" if left is not None else "remote")):
+                    reason = "Earlier trash operation has an uncertain outcome; retained deletion intent requires review"
+                elif left is not None and right is not None:
                     if left.kind != right.kind:
                         reason = "File/folder type conflict"
                     elif left.kind == "folder" or left.sha1 == right.sha1:
@@ -418,7 +527,17 @@ class SyncEngine:
                     else:
                         reason = "Both sides changed since the last successful synchronization"
                 elif previous:
-                    reason = "Deleted on one side; deletions and moves require manual resolution"
+                    try:
+                        side = "local" if left is not None else "remote"
+                        self._check_ancestor_baselines(relative, local, cloud, baseline)
+                        _deletion_proof(relative, local if left is not None else cloud, baseline, set(blocked), side)
+                        if left is not None:
+                            self._prove_remote_deletion(plan, remote, relative)
+                        plan.actions.append(SyncAction("trash_local" if left is not None else "trash_remote", relative,
+                                                       "Propagate verified deletion to recoverable trash"))
+                        covered_deletions.add(relative)
+                    except SyncError as error:
+                        reason = str(error)
                 elif left is not None:
                     plan.actions.append(SyncAction("mkdir_remote" if left.kind == "folder" else "upload", relative))
                 elif right is not None:
@@ -427,6 +546,116 @@ class SyncEngine:
                     plan.conflicts.append(SyncConflict(relative, reason))
                     plan._blocked.add(relative)
             return plan
+
+    def _check_ancestor_baselines(self, relative: str, local: dict[str, _Entry], cloud: dict[str, _Entry],
+                                  baseline: dict[str, dict[str, Any]]) -> None:
+        parts = _parts(relative)
+        for index in range(1, len(parts)):
+            parent = "/".join(parts[:index])
+            previous = baseline.get(parent, {})
+            left, right = local.get(parent), cloud.get(parent)
+            if (left is None or right is None or left.kind != "folder" or right.kind != "folder"
+                    or not _baseline_matches(left, previous, "local", ancestor=True)
+                    or not _baseline_matches(right, previous, "remote")):
+                raise SyncError("Deletion ancestor disappeared, moved, or was replaced")
+
+    def _assert_roots(self, plan: SyncPlan, root_fd: int) -> Any:
+        with _open_absolute_directory(plan.local_root) as current_fd:
+            current, opened = os.fstat(current_fd), os.fstat(root_fd)
+            if ((current.st_dev, current.st_ino) != plan._root_identity
+                    or (opened.st_dev, opened.st_ino) != plan._root_identity):
+                raise SyncError("Local root was moved or replaced during synchronization")
+        root = self._root(plan.remote_root)
+        if str(root.uid) != plan.remote_root_uid:
+            raise SyncError("Remote root/account changed during synchronization")
+        return root
+
+    def _prove_remote_deletion(self, plan: SyncPlan, root: Any, relative: str) -> None:
+        if self._lookup_remote(root, relative) is not None:
+            raise SyncError("Remote deletion source reappeared")
+        expected = _subtree(plan._baseline, relative)
+        deleted_root = None
+        for path, previous in expected.items():
+            try:
+                node = self.backend.info(previous["remote_path"])
+            except Cancelled:
+                raise
+            except Exception as error:
+                raise SyncError("Remote disappearance is not confirmed trash; it may be a move or unavailable metadata") from error
+            entry = _remote_entry(node, allow_trashed=True)
+            if not _baseline_matches(entry, previous, "remote"):
+                raise SyncError("Remote deleted identity was edited or replaced")
+            if path == relative:
+                if node.raw.get("isTrashed") is not True:
+                    raise SyncError("Remote UID is still active elsewhere; a move is not deletion proof")
+                parent = str(PurePosixPath(path).parent)
+                parent_uid = (plan.remote_root_uid if parent == "."
+                              else plan._baseline.get(parent, {}).get("remote_uid"))
+                if not parent_uid or node.raw.get("parentUid") != parent_uid:
+                    raise SyncError("Remote deleted identity moved to a different parent before trash")
+                deleted_root = node
+            else:
+                parent = str(PurePosixPath(path).parent)
+                if node.raw.get("parentUid") != expected[parent]["remote_uid"]:
+                    raise SyncError("A descendant of the deleted folder moved elsewhere")
+        if deleted_root is not None and expected[relative]["kind"] == "folder":
+            children, blocked = self._scan_remote(deleted_root, fresh=True, allow_trashed=True)
+            actual = {relative + "/" + path: entry for path, entry in children.items()}
+            if (blocked or set(actual) != set(expected) - {relative}
+                    or any(not _baseline_matches(entry, expected[path], "remote") for path, entry in actual.items())):
+                raise SyncError("Deleted remote folder changed or contains unverified children; inspect the recoverable trash")
+
+    def _deletion_preflight(self, plan: SyncPlan, action: SyncAction, root_fd: int) -> dict[str, _Entry]:
+        """Fresh identities, absence, ancestors and complete target subtree."""
+        root = self._assert_roots(plan, root_fd)
+        local, local_blocked = self._scan_local(root_fd)
+        relative = action.relative_path
+        if _under(relative, set(local_blocked)):
+            raise SyncError("Local absence or target cannot be proved through an unreadable ancestor")
+        cloud_ancestors = {}
+        parts = _parts(relative)
+        for index in range(1, len(parts)):
+            parent = "/".join(parts[:index])
+            entry = self._lookup_remote(root, parent)
+            if entry is not None:
+                cloud_ancestors[parent] = entry
+        self._check_ancestor_baselines(relative, local, cloud_ancestors, plan._baseline)
+        if action.kind == "trash_local":
+            self._prove_remote_deletion(plan, root, relative)
+            _deletion_proof(relative, local, plan._baseline, set(local_blocked), "local")
+            self._assert_roots(plan, root_fd)
+            return _subtree(local, relative)
+        if local.get(relative) is not None:
+            raise SyncError("Locally deleted path reappeared")
+        previous_tree = _subtree(plan._baseline, relative)
+        previous_ids = {(entry["local_device"], entry["local_inode"]) for entry in previous_tree.values()}
+        if any((entry.device, entry.inode) in previous_ids for entry in local.values()):
+            raise SyncError("Locally deleted identity moved elsewhere in the sync tree")
+        current = self._lookup_remote(root, relative)
+        if current is None:
+            raise SyncError("Remote trash target disappeared after preview")
+        # UID info catches revision and parent changes after the fresh listing.
+        # A moved UID can still resolve normally outside this synchronization.
+        node = self.backend.info(current.remote_path)
+        parent = str(PurePosixPath(relative).parent)
+        parent_uid = str(root.uid) if parent == "." else cloud_ancestors[parent].uid
+        if node.raw.get("parentUid") != parent_uid:
+            raise SyncError("Remote trash target moved to a different parent after preview")
+        current = self._node_entry(node)
+        target, blocked = {relative: current}, set()
+        if current.kind == "folder":
+            children, problems = self._scan_remote(node, fresh=True)
+            target.update({relative + "/" + path: entry for path, entry in children.items()})
+            blocked = {relative + "/" + path for path in problems}
+        _deletion_proof(relative, target, plan._baseline, blocked, "remote")
+        self._assert_roots(plan, root_fd)
+        return target
+
+    def _trash_store(self):
+        if self.local_trash is None:
+            from .local_trash import LocalTrash
+            self.local_trash = LocalTrash(data_dir() / "local-trash")
+        return self.local_trash
 
     def _lookup_remote(self, root: Any, relative: str) -> _Entry | None:
         current = str(root.path)
@@ -513,9 +742,10 @@ class SyncEngine:
                 except FileNotFoundError:
                     pass
 
-    def _save(self, plan: SyncPlan, entries: dict[str, dict[str, str]]) -> None:
-        value = {"version": 1, "local_root": str(plan.local_root), "remote_root_uid": plan.remote_root_uid,
-                 "remote_root": plan.remote_root, "entries": entries}
+    def _save(self, plan: SyncPlan, entries: dict[str, dict[str, Any]], pending: dict | None = None) -> None:
+        value = {"version": 2, "local_root": str(plan.local_root), "remote_root_uid": plan.remote_root_uid,
+                 "remote_root": plan.remote_root, "local_root_identity": list(plan._root_identity),
+                 "entries": entries, "pending_deletions": plan._pending_deletions if pending is None else pending}
         fd, temporary = tempfile.mkstemp(prefix="baseline-", suffix=".tmp", dir=self.state_dir)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
@@ -554,12 +784,14 @@ class SyncEngine:
             root = self._root(plan.remote_root)
             if str(root.uid) != plan.remote_root_uid:
                 raise SyncError("Remote root/account changed; create a new preview")
-            _, digest = self._load(plan._state_key, plan.local_root, plan.remote_root_uid)
+            _, digest, _, _ = self._load(plan._state_key, plan.local_root, plan.remote_root_uid)
             if digest != plan._state_digest:
                 raise SyncError("Another sync changed the baseline; create a new preview")
             result = SyncResult(conflicts=[str(item) for item in plan.conflicts], skipped=list(plan.skipped))
             expected_remote = dict(plan._remote)
             failed = set(plan._blocked)
+            baseline = dict(plan._baseline)
+            pending = dict(plan._pending_deletions)
             with _open_absolute_directory(plan.local_root) as root_fd:
                 info = os.fstat(root_fd)
                 if (info.st_dev, info.st_ino) != plan._root_identity:
@@ -571,6 +803,33 @@ class SyncEngine:
                         result.conflicts.append(f"{relative}: parent operation was blocked")
                         continue
                     try:
+                        if action.kind in {"trash_local", "trash_remote"}:
+                            target = self._deletion_preflight(plan, action, root_fd)
+                            operation = {"direction": "local" if action.kind == "trash_local" else "remote",
+                                         "operation_id": uuid.uuid4().hex}
+                            pending[relative] = operation
+                            # Durable intent precedes either mutation. A crash
+                            # cannot turn this deletion into a new upload.
+                            self._save(plan, baseline, pending)
+                            if action.kind == "trash_remote":
+                                target = self._deletion_preflight(plan, action, root_fd)
+                                self.backend.trash([target[relative].remote_path])
+                            else:
+                                receipt = self._trash_store().trash(
+                                    root_fd, relative, target[relative], root_path=plan.local_root,
+                                    expected_tree=target if target[relative].kind == "folder" else None,
+                                    validate=lambda a=action: self._deletion_preflight(plan, a, root_fd),
+                                    operation_id=operation["operation_id"], check_cancel=self._check_cancel)
+                                if receipt.status != "trashed" or receipt.original_path != str(plan.local_root / relative):
+                                    raise SyncError("Local trash did not return a verified receipt")
+                            current_root = self._assert_roots(plan, root_fd)
+                            local_after, blocked_after = self._scan_local(root_fd)
+                            if relative in local_after or _under(relative, set(blocked_after)):
+                                raise SyncError("Local path reappeared or became unreadable while deletion was propagated")
+                            self._prove_remote_deletion(plan, current_root, relative)
+                            result.trashed.append(relative)
+                            result.completed.append(str(action))
+                            continue
                         expected_local = plan._local.get(relative)
                         with _parent(root_fd, relative) as (parent_fd, name):
                             if _local_entry(parent_fd, name, self._check_cancel) != expected_local:
@@ -633,9 +892,7 @@ class SyncEngine:
                 # A fresh end-of-operation snapshot proves which paths actually
                 # converged. Failed/conflicting paths keep their old baseline.
                 try:
-                    root_now = self._root(plan.remote_root)
-                    if str(root_now.uid) != plan.remote_root_uid:
-                        raise SyncError("Remote root/account changed during sync")
+                    root_now = self._assert_roots(plan, root_fd)
                     local_now, local_blocked = self._scan_local(root_fd)
                     remote_now, remote_blocked = self._scan_remote(root_now)
                     result._local_snapshot = local_now
@@ -650,22 +907,54 @@ class SyncEngine:
                         if _under(relative, failed):
                             continue
                         left, right = local_now.get(relative), remote_now.get(relative)
+                        if action.kind in {"trash_local", "trash_remote"} and left is None and right is None:
+                            continue
                         if (_under(relative, blocked) or left is None or right is None
                                 or left.kind != right.kind or (left.kind == "file" and left.sha1 != right.sha1)):
                             result.conflicts.append(f"{relative}: content changed during sync; convergence was not confirmed")
                             blocked.add(relative)
-                    baseline = dict(plan._baseline)
+                    for relative, operation in list(pending.items()):
+                        if _under(relative, blocked) or relative in local_now or relative in remote_now:
+                            continue
+                        try:
+                            self._prove_remote_deletion(plan, root_now, relative)
+                            if operation["direction"] == "local":
+                                receipt = self._trash_store().get_receipt(operation["operation_id"])
+                                if (receipt is None or receipt.status != "trashed"
+                                        or receipt.original_path != str(plan.local_root / relative)):
+                                    raise SyncError("Uncertain local trash receipt requires recovery review")
+                            pending.pop(relative)
+                            for path in list(_subtree(baseline, relative)):
+                                baseline.pop(path)
+                            if relative not in result.trashed:
+                                result.trashed.append(relative)
+                        except Cancelled:
+                            raise
+                        except Exception as error:
+                            blocked.add(relative)
+                            result.conflicts.append(f"{relative}: {error}")
                     for relative in sorted(local_now.keys() | remote_now.keys() | baseline.keys()):
-                        if _under(relative, blocked):
+                        if _under(relative, blocked | set(pending)):
                             continue
                         left, right = local_now.get(relative), remote_now.get(relative)
                         if left is None and right is None:
-                            baseline.pop(relative, None)
+                            if self._lookup_remote(root_now, relative) is None:
+                                baseline.pop(relative, None)
                         elif left is not None and right is not None and left.kind == right.kind:
                             if left.kind == "folder" or left.sha1 == right.sha1:
-                                baseline[relative] = {"kind": left.kind, "sha1": left.sha1,
-                                                      "remote_uid": right.uid, "remote_revision": right.revision}
-                    self._save(plan, baseline)
+                                descendants = _subtree(local_now, relative)
+                                if left.kind == "folder" and any(path == relative or path.startswith(relative + "/") for path in blocked | set(pending)):
+                                    continue
+                                complete = (set(descendants) == set(_subtree(remote_now, relative))
+                                            and all(entry.kind == remote_now[path].kind
+                                                    and (entry.kind == "folder" or entry.sha1 == remote_now[path].sha1)
+                                                    for path, entry in descendants.items()))
+                                baseline[relative] = {"identity_version": 2, "kind": left.kind, "sha1": left.sha1,
+                                                      "size": left.size, "local_device": left.device, "local_inode": left.inode,
+                                                      "local_mtime_ns": left.mtime_ns, "local_ctime_ns": left.ctime_ns,
+                                                      "remote_uid": right.uid, "remote_revision": right.revision,
+                                                      "remote_path": right.remote_path, "subtree_complete": complete}
+                    self._save(plan, baseline, pending)
                 except Cancelled:
                     raise
                 except Exception as error:

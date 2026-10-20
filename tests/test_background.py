@@ -8,11 +8,13 @@ import struct
 import tempfile
 import threading
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
 from neutrondrive.backend import BackendError, Cancelled
-from neutrondrive.background import BackgroundDaemon, BackgroundError, Controller, InotifyWatcher, JobStore
+from neutrondrive.background import (BackgroundDaemon, BackgroundError, Controller,
+                                    InotifyWatcher, JobStore, RemoteTreeCache, _echo_snapshot)
 from neutrondrive.sync import SyncEngine
 from test_sync import FakeBackend
 
@@ -178,6 +180,52 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(self.store.list()[0].account_root_uid, "account-one")
 
 
+class RemoteCacheTests(unittest.TestCase):
+    def setUp(self):
+        self.cloud = Cloud()
+        self.folder = self.cloud.add("folder")
+        self.nested = self.cloud.add("folder/nested")
+        self.file = self.cloud.add("folder/nested/file.txt", b"old")
+        self.cache = RemoteTreeCache(self.cloud)
+        self.cache.info("/my-files")
+        for path in ("/my-files", self.folder.path, self.nested.path):
+            self.cache.list_nodes(path)
+        self.cloud.listings.clear()
+
+    def test_folder_delete_event_invalidates_parent_and_cached_descendants(self):
+        self.cloud.nodes.pop("folder/nested/file.txt")
+        self.cache.event(self.folder.uid, "root-1", ["/my-files"])
+        self.assertEqual(self.cache.list_nodes(self.nested.path), [])
+        self.assertIn(self.nested.path, self.cloud.listings)
+        self.cache.list_nodes("/my-files")
+        self.assertIn("/my-files", self.cloud.listings)
+
+    def test_own_trash_invalidates_even_if_write_succeeded_before_error(self):
+        def fail_after_write(paths):
+            self.assertEqual(paths, [self.folder.path])
+            self.cloud.nodes.pop("folder/nested/file.txt")
+            raise BackendError("Synthetic lost acknowledgement")
+        with patch.object(self.cloud, "trash", side_effect=fail_after_write, create=True):
+            with self.assertRaises(BackendError):
+                self.cache.trash([self.folder.path])
+        self.assertEqual(self.cache.list_nodes(self.nested.path), [])
+        self.cache.list_nodes("/my-files")
+        self.assertIn("/my-files", self.cloud.listings)
+
+    def test_trashed_uid_metadata_never_reenters_cached_active_listing(self):
+        self.cloud.nodes.pop("folder/nested/file.txt")
+        trashed = replace(self.file, raw={**self.file.raw, "isTrashed": True})
+        with patch.object(self.cloud, "info", return_value=trashed):
+            self.assertEqual(self.cache.info(self.file.path), trashed)
+        self.assertEqual(self.cache.list_nodes(self.nested.path), [])
+
+    def test_confirmed_trash_echo_is_settled_but_unrelated_disappearance_is_dirty(self):
+        old = object()
+        plan = SimpleNamespace(_local={"gone": old, "gone/child": old, "concurrent": old})
+        result = SimpleNamespace(_local_snapshot={}, _remote_snapshot={}, trashed=["gone"])
+        self.assertEqual(_echo_snapshot(plan, result), {"concurrent": old})
+
+
 class DaemonTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -188,6 +236,12 @@ class DaemonTests(unittest.TestCase):
         self.state = self.base / "state"
         self.store = JobStore(self.state)
         self.cloud = Cloud()
+        isolated_environment = patch.dict(os.environ, {
+            "XDG_STATE_HOME": str(self.base / "application-state"),
+            "XDG_DATA_HOME": str(self.base / "desktop-data"),
+        })
+        isolated_environment.start()
+        self.addCleanup(isolated_environment.stop)
         self.events = Events()
         self.failures = []
         self.daemon = None
@@ -197,6 +251,10 @@ class DaemonTests(unittest.TestCase):
 
     def start(self, *, paused=False, remote="/my-files", real_watcher=False):
         job = self.store.add(self.local, remote, paused=paused)
+        self.launch(real_watcher=real_watcher)
+        return job
+
+    def launch(self, *, real_watcher=False):
         self.daemon = BackgroundDaemon(self.state, self.cloud, self.events, debounce=0.03,
                                        retry_base=0.15, retry_max=0.3, engine_factory=ObservedEngine,
                                        watcher_factory=InotifyWatcher if real_watcher else QuietWatcher)
@@ -209,7 +267,6 @@ class DaemonTests(unittest.TestCase):
         self.thread.start()
         eventually(lambda: self.events.callback is not None or self.failures)
         self.assertFalse(self.failures)
-        return job
 
     def stop(self):
         if self.daemon and self.thread and self.thread.is_alive():
@@ -391,6 +448,23 @@ class DaemonTests(unittest.TestCase):
         eventually(lambda: self.status()["state"] == "blocked")
         self.assertEqual(self.store.list()[0].account_root_uid, "root-1")
 
+    def test_trashed_selected_root_blocks_before_local_or_remote_mutation(self):
+        folder = self.cloud.add("folder", raw={"parentUid": "root-1", "isTrashed": True})
+        (self.local / "keep.txt").write_bytes(b"keep")
+        self.start(remote=folder.path)
+        eventually(lambda: self.status()["state"] == "blocked")
+        self.assertEqual(self.cloud.executions, 0)
+        self.assertEqual((self.local / "keep.txt").read_bytes(), b"keep")
+
+    def test_trashed_ancestor_of_single_job_blocks_before_mutation(self):
+        self.cloud.add("parent", raw={"parentUid": "root-1", "isTrashed": True})
+        selected = self.cloud.add("parent/selected")
+        (self.local / "keep.txt").write_bytes(b"keep")
+        self.start(remote=selected.path)
+        eventually(lambda: self.status()["state"] == "blocked")
+        self.assertEqual(self.cloud.executions, 0)
+        self.assertEqual((self.local / "keep.txt").read_bytes(), b"keep")
+
     def test_remote_uid_ancestor_overlap_blocks_all_jobs_before_writes(self):
         parent = self.cloud.add("parent")
         child = self.cloud.add("parent/child")
@@ -444,7 +518,7 @@ class DaemonTests(unittest.TestCase):
         self.idle()
         self.assertEqual(self.cloud.plans, 2)
 
-    def test_concurrent_local_deletion_is_reported_without_remote_delete(self):
+    def test_concurrent_local_deletion_is_reconciled_after_current_transfer(self):
         (self.local / "stable.txt").write_bytes(b"keep")
         self.cloud.add("stable.txt", b"keep")
         self.start()
@@ -456,9 +530,163 @@ class DaemonTests(unittest.TestCase):
         self.cloud.on_upload = during_upload
         (self.local / "trigger.txt").write_bytes(b"trigger")
         self.local_event("trigger.txt")
-        eventually(lambda: bool(self.status()["conflicts"]))
-        self.assertEqual(self.cloud.contents["stable.txt"], b"keep")
+        eventually(lambda: "stable.txt" not in self.cloud.nodes)
+        self.idle()
+        self.assertEqual(self.cloud.trashed_contents["stable.txt"], b"keep")
         self.assertFalse((self.local / "stable.txt").exists())
+
+    def test_real_inotify_local_delete_moves_remote_to_trash_without_echo_loop(self):
+        path = self.local / "delete.txt"
+        path.write_bytes(b"recover me")
+        self.start(real_watcher=True)
+        self.idle()
+        path.unlink()
+        eventually(lambda: "delete.txt" not in self.cloud.nodes)
+        self.idle()
+        self.assertEqual(self.cloud.trashed_contents["delete.txt"], b"recover me")
+        self.assertFalse(path.exists())
+        count = self.cloud.plans
+        time.sleep(0.25)
+        self.assertEqual(self.cloud.plans, count)
+        self.assertFalse(self.status()["conflicts"])
+
+    def test_remote_delete_event_uses_local_trash_and_restart_never_resurrects(self):
+        from neutrondrive.local_trash import LocalTrash
+        original = self.local / "delete.txt"
+        original.write_bytes(b"recover locally")
+        self.start(real_watcher=True)
+        self.idle()
+        node = self.cloud.nodes["delete.txt"]
+        self.cloud.trash([node.path])
+        self.events.emit(root_uid="root-1", node_uid=node.uid, parent_uid="root-1",
+                         kind="node_updated", is_trashed=True)
+        eventually(lambda: not original.exists())
+        self.idle()
+        receipts = [item for item in LocalTrash().list_entries() if item.original_path == str(original)]
+        self.assertEqual(len(receipts), 1)
+        self.assertEqual(receipts[0].status, "trashed")
+        self.assertEqual(Path(receipts[0].trash_path).read_bytes(), b"recover locally")
+        count = self.cloud.plans
+        time.sleep(0.25)
+        self.assertEqual(self.cloud.plans, count)
+        self.stop()
+        self.events = Events()
+        self.launch(real_watcher=True)
+        self.idle()
+        self.assertFalse(original.exists())
+        self.assertNotIn("delete.txt", self.cloud.nodes)
+        self.assertEqual(len(LocalTrash().list_entries()), 1)
+        # A deliberate restore is a new local arrival, unlike an automatic
+        # resurrection from stale cached metadata or an unfinished journal.
+        restored = LocalTrash().restore(receipts[0].id)
+        self.assertEqual(restored.status, "restored")
+        eventually(lambda: self.cloud.contents.get("delete.txt") == b"recover locally")
+        self.idle()
+        self.assertNotEqual(self.cloud.nodes["delete.txt"].uid, node.uid)
+        self.assertFalse(self.status()["conflicts"])
+
+    def test_folder_delete_event_trashes_complete_tree_and_rebuilds_watch_once(self):
+        from neutrondrive.local_trash import LocalTrash
+        (self.local / "folder/nested").mkdir(parents=True)
+        (self.local / "folder/nested/child.txt").write_bytes(b"child")
+        (self.local / "folder/empty").mkdir()
+        self.start(real_watcher=True)
+        self.idle()
+        node = self.cloud.nodes["folder"]
+        self.cloud.trash([node.path])
+        self.events.emit(root_uid="root-1", node_uid=node.uid, parent_uid="root-1",
+                         kind="node_updated", is_trashed=True)
+        eventually(lambda: not (self.local / "folder").exists())
+        self.idle()
+        receipt = next(item for item in LocalTrash().list_entries()
+                       if item.original_path == str(self.local / "folder"))
+        self.assertEqual((Path(receipt.trash_path) / "nested/child.txt").read_bytes(), b"child")
+        self.assertTrue((Path(receipt.trash_path) / "empty").is_dir())
+        time.sleep(0.15)
+        count = self.cloud.plans
+        time.sleep(0.2)
+        self.assertEqual(self.cloud.plans, count)
+        self.assertLessEqual(count, 4)
+
+    def test_delete_versus_edit_both_directions_stays_conflicted_after_restart(self):
+        from neutrondrive.local_trash import LocalTrash
+        for name in ("local-delete.txt", "remote-delete.txt"):
+            (self.local / name).write_bytes(b"baseline")
+        job = self.start()
+        self.idle()
+        self.controller.command("pause", job.id)
+        eventually(lambda: self.status()["state"] == "paused")
+        (self.local / "local-delete.txt").unlink()
+        self.cloud.add("local-delete.txt", b"changed remotely")
+        node = self.cloud.nodes["remote-delete.txt"]
+        self.cloud.trash([node.path])
+        (self.local / "remote-delete.txt").write_bytes(b"changed locally")
+        self.controller.command("resume", job.id)
+        eventually(lambda: len(self.status()["conflicts"]) >= 2)
+        self.idle()
+        self.stop()
+        self.events = Events()
+        self.launch()
+        self.idle()
+        self.assertEqual(self.status()["state"], "conflicts")
+        self.assertEqual(self.cloud.contents["local-delete.txt"], b"changed remotely")
+        self.assertFalse((self.local / "local-delete.txt").exists())
+        self.assertNotIn("remote-delete.txt", self.cloud.nodes)
+        self.assertEqual((self.local / "remote-delete.txt").read_bytes(), b"changed locally")
+        self.assertEqual(LocalTrash().list_entries(), [])
+
+    def test_failed_trash_stays_queued_then_retries_without_resurrection(self):
+        original = self.local / "retry.txt"
+        original.write_bytes(b"recover after failure")
+        self.start()
+        self.idle()
+        trash = self.cloud.trash
+        fail = threading.Event()
+        fail.set()
+        def flaky(paths):
+            if fail.is_set():
+                raise BackendError("Synthetic offline trash")
+            return trash(paths)
+        with patch.object(self.cloud, "trash", side_effect=flaky):
+            original.unlink()
+            self.local_event("retry.txt")
+            eventually(lambda: self.status()["state"] == "offline")
+            persisted = json.loads((self.state / "status.json").read_text())["jobs"][0]
+            self.assertTrue(persisted["pending"])
+            self.assertIn("retry", persisted["reasons"])
+            self.assertFalse(original.exists())
+            self.assertEqual(self.cloud.contents["retry.txt"], b"recover after failure")
+            fail.clear()
+            eventually(lambda: "retry.txt" not in self.cloud.nodes)
+            self.idle()
+        self.assertFalse(original.exists())
+        self.assertFalse(self.status()["conflicts"])
+
+    def test_lost_trash_acknowledgement_never_reuploads_deleted_file(self):
+        original = self.local / "uncertain.txt"
+        original.write_bytes(b"preserved in cloud trash")
+        self.start()
+        self.idle()
+        trash = self.cloud.trash
+        calls = []
+        def lost_ack(paths):
+            calls.append(tuple(paths))
+            trash(paths)
+            raise BackendError("Synthetic lost reply after successful trash")
+        with patch.object(self.cloud, "trash", side_effect=lost_ack):
+            original.unlink()
+            self.local_event("uncertain.txt")
+            eventually(lambda: "uncertain.txt" not in self.cloud.nodes)
+            self.idle()
+        self.assertFalse(original.exists())
+        self.assertEqual(self.cloud.trashed_contents["uncertain.txt"], b"preserved in cloud trash")
+        self.assertEqual(len(calls), 1)
+        self.stop()
+        self.events = Events()
+        self.launch()
+        self.idle()
+        self.assertNotIn("uncertain.txt", self.cloud.nodes)
+        self.assertFalse(original.exists())
 
     def test_singleton_ipc_and_orderly_shutdown(self):
         self.start()

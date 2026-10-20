@@ -1,4 +1,4 @@
-# Architecture: 0.2 alpha
+# Architecture: 0.3 alpha
 
 ```mermaid
 flowchart TD
@@ -86,8 +86,34 @@ Only confirmed converged entries advance the baseline; errors and conflicts do
 not become successful sync state. Local echo suppression also considers ctime
 so an edit with restored mtime is not ignored.
 
-Automatic reconciliation conservatively reports deletion and rename ambiguity;
-it does not promise a complete transactional bidirectional mirror. A local
+Baseline version 2 binds each converged path to local device/inode, cloud UID and
+revision, type/content and known descendants. Old version 1 entries are promoted
+only after verified two-sided convergence; missing-side v1 entries remain
+conflicts. Deletion of a known path propagates only to its unchanged counterpart.
+A folder is one top-level trash operation, never a cascade of unchecked children;
+new, ignored, unsupported or changed descendants block it. Fresh absence and
+identity checks bypass cached listings, and moved remote UIDs or missing/trashed
+root ancestors block deletion.
+
+Pending deletion records are persisted before mutation with an operation UUID.
+Retries verify the original missing side and target proof; confirmed absence on
+both sides completes the journal without resurrecting an item. Changed outcomes
+remain conflicts. Successful trash and ambiguous trash failures invalidate the
+remote directory cache; folder events invalidate cached descendants as well.
+
+`local_trash.py` uses descriptor-relative no-follow traversal and atomic
+`renameat2(RENAME_NOREPLACE)` into same-filesystem trash. Standard desktop trash
+uses freedesktop `.trashinfo` metadata; a private managed fallback stays outside
+the sync root. Both modes keep private receipts under `local-trash/entries` in
+the app state directory. The GUI lists only these receipts. Restoration checks
+the payload and original root/parent identity and refuses existing targets.
+Interrupted moves retain a recovery record. No copy-then-delete fallback or
+permanent-deletion endpoint is provided. An external desktop trash manager may
+restore or empty standard trash, which the registry reports on inspection.
+
+Linux rename and the remote CLI do not provide an atomic identity-conditional
+trash operation. Pre/post checks reduce source-replacement races and retain
+recoverable data, but this is not a complete distributed transaction. A local
 change during a run remains pending or conflicted rather than being swallowed
 as the daemon's own write. Network failures retain pending work with backoff.
 The CLI does not expose an atomic compare-and-swap upload, so pre/post checks
@@ -156,7 +182,7 @@ filesystem checks are separate evidence; a green synthetic test or package build
 does not certify an installed distribution, sandbox or CPU architecture.
 
 Remaining limits include Photos/Docs/Sheets and shared/computer automatic
-subscriptions, multi-account UX, automatic remote deletion/rename mirroring,
+subscriptions, multi-account UX, automatic rename tracking,
 atomic cloud writes and replacements, conflict/recovery management beyond the
 current controls, recursive pinning, cache quota management, long-duration and
 large-tree testing, and full desktop/store integration validation. ARM runtime,
