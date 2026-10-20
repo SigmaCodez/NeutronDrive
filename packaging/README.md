@@ -95,9 +95,12 @@ is compiled in either packaging route. The GNOME 50 runtime is still required
 when installing/running the resulting application.
 
 Home-directory access permits transfers and manually started folder backups. Access to
-`org.freedesktop.secrets` is required by Proton's CLI; it uses the host keyring.
-This permission exposes the session's Secret Service rather than isolating a
-dedicated vault. The application never selects the CLI's plaintext secret mode.
+`org.freedesktop.secrets` permits Proton's CLI to use the host keyring. GNOME 50
+libsecret can instead select its encrypted file backend when the desktop Secret
+portal is available; the portal supplies the encryption key and the app needs a
+separate browser sign-in. The declared Secret Service permission still exposes
+the session's Secret Service. The application never selects the CLI's plaintext
+secret mode.
 For an additional backup directory outside your home, explicitly grant it, e.g.:
 
 ```sh

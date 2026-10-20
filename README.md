@@ -18,7 +18,8 @@ interface and icon are original; no Windows/macOS application code is copied.
 ## Features
 
 - Browser-based sign-in on `account.proton.me`; no password field in NeutronDrive.
-- Session storage in Linux Secret Service (GNOME Keyring/KWallet), or `pass`.
+- Protected session storage through Linux Secret Service or the Flatpak Secret
+  portal; the official CLI also supports `pass` for native installations.
 - Browse My files, shared files, computer backups and trash; search the open folder.
 - Upload/download files and folders, create folders, rename and move items.
 - Restore unambiguous trash entries; move files to trash without permanent deletion.
@@ -26,7 +27,8 @@ interface and icon are original; no Windows/macOS application code is copied.
 - Manual two-way synchronization with a preview, SHA1 content comparison,
   conflict detection, a persistent baseline and retained local backup versions.
 - Cancellation, timeouts, serialized backend calls and in-session activity history.
-- DEB, RPM, Flatpak and Snap build recipes with a checksum-pinned bundled backend.
+- Built DEB, Fedora/openSUSE RPM, Flatpak and Snap packages with a checksum-pinned
+  bundled backend; ARM64 DEB is included alongside x86_64 packages.
 
 The app delegates encryption and service requests to the unmodified official
 Proton Drive CLI **0.9.0**, using Drive SDK **0.22.2**. No custom cryptography or
@@ -58,13 +60,17 @@ After downloading a matching package:
 sudo apt install ./neutrondrive_0.1.0~alpha1-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.1.0~alpha1-1.x86_64.rpm
+sudo dnf install ./neutrondrive-0.1.0-alpha1-fedora-x86_64.rpm
+
+# openSUSE (use the openSUSE artifact)
+sudo zypper install ./neutrondrive-0.1.0-alpha1-opensuse-x86_64.rpm
 
 # Flatpak
+flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install --user ./neutrondrive-0.1.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
-# Snap, after building a local unsigned artifact
+# Snap (unsigned alpha package)
 sudo snap install --dangerous ./neutrondrive_0.1.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
@@ -76,8 +82,10 @@ not open. A sign-in link is single-use: opening it again after completion can
 produce “Invalid code”, even though the app session is already authenticated.
 Refresh the file list to check the session before starting another login.
 
-The official CLI and NeutronDrive share the same keyring session. Signing out in
-one signs out that CLI session. Do not run a separate CLI process concurrently
+Native NeutronDrive and other native uses of the official CLI normally share
+the same keyring session. Signing out can therefore sign out that shared CLI
+session. Flatpak can use a separate, portal-protected credential store and may
+need its own browser sign-in. Do not run a separate CLI process concurrently
 with NeutronDrive operations against the same cache.
 
 ## Run from source

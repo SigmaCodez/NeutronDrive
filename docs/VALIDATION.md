@@ -23,11 +23,18 @@ Date: 2026-10-20. This file records evidence, not universal compatibility.
 
 | Format / architecture | Evidence | Remaining validation |
 | --- | --- | --- |
-| DEB / x86_64 | Built, extracted; packaged launcher finds bundled CLI | Clean Ubuntu/Debian install matrices |
-| RPM / x86_64 | Built with real rpmbuild; Fedora dependency variant | Fedora/openSUSE install and desktop session tests |
-| Flatpak / x86_64 | Assembled and bundled; `--diagnose` passes in GNOME 50 runtime | Browser/keyring login in sandbox, GNOME/KDE portal matrix |
-| Snap / amd64 | Recipe validated and source/backend staged | Actual Snapcraft build, installation and keyring connection |
-| aarch64 | Checksum-pinned binary and build recipes | Native runtime tests on aarch64 hardware |
+| DEB / x86_64 | Built on Ubuntu 24.04; packaged launcher and CLI executed; GTK tests pass | Clean Debian/Mint/Pop!_OS install matrices |
+| DEB / aarch64 | Built on native Ubuntu 24.04 ARM64 runner; bundled CLI, diagnose and GTK tests pass | Account transfers on ARM64 desktop hardware |
+| RPM / x86_64 | Both Fedora 44 and openSUSE Tumbleweed builds pass; RPM metadata inspected | Installed-package account/desktop session tests |
+| Flatpak / x86_64 | Full SDK build; actual final bundle installed in isolated user installation; bundled backend diagnose and mapped GTK window pass | Repeat account transfer/restart tests in installed package, GNOME/KDE portal matrix |
+| Snap / amd64 | Actual strict Snapcraft build passes; application bus slots and payload verified | Installed-package login, interface connections and desktop session |
+| Other aarch64 formats | Checksum-pinned binary and build recipes | Actual RPM/Flatpak/Snap builds and runtime tests |
+
+All eleven jobs in [GitHub Actions run 39485194520](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39485194520)
+passed at source commit `7528cfab4dfa7f29cf50901d9bfc743fc9c0969c`.
+The matrix includes Python 3.10–3.13 adapter/sync tests, five GUI tests against
+GTK 4.6 on Ubuntu 22.04, and GUI/packaged-backend checks on both Ubuntu 24.04
+architectures. Release packages come from this run, not the earlier local builds.
 
 GTK 4 application was launched and visually inspected through GTK's Broadway
 test display with explicitly labelled demo data. This proves UI construction and
@@ -37,7 +44,35 @@ light-theme text contrast issue was found and corrected.
 The complete Flatpak SDK build could not run locally because its SDK exceeded
 the temporary disk quota. The SDK-free assembly path packages the same Python
 source and unmodified verified CLI, uses the manifest's runtime/permissions and
-was tested against the installed runtime. CI retains the regular SDK build.
+was tested against the installed runtime. The regular SDK build subsequently
+completed successfully in GitHub Actions and supplies the release Flatpak.
+
+## Flatpak runtime and credentials
+
+The final CI bundle was installed using a temporary `FLATPAK_USER_DIR`, with the
+existing system GNOME 50 runtime. The packaged `--diagnose` completed successfully
+and an actual GTK window mapped successfully. A read-only account query correctly
+reported no authentication in the new application store. No additional login was
+started for that installation. Only test-created app data and the temporary
+installation were removed; existing installations and the native session were
+preserved. The bundle SHA256 matches the release checksum file.
+
+A preceding assembly sandbox using the same manifest permissions completed an
+official browser login followed by a successful root metadata query in a separate
+CLI process. This tested portal browser launch and credential retrieval between
+processes in that sandbox, not restart/transfer behavior of the installed release.
+Its temporary credential store was removed after testing. It contained no copied
+native credentials and never used plaintext credential mode.
+
+GNOME 50 libsecret 0.21.8.2 selects an encrypted file backend when the desktop
+Secret portal is supported; this store can be separate from native Secret
+Service credentials. This explains why the native login is not automatically
+present in a fresh Flatpak installation. Source references:
+[backend selection](https://github.com/GNOME/libsecret/blob/0.21.8.2/libsecret/secret-backend.c),
+[portal-backed file store](https://github.com/GNOME/libsecret/blob/0.21.8.2/libsecret/secret-file-backend.c).
+The preliminary `flatpak build` probe needed explicit bus-proxy flags and removal
+of build-mode host filesystem access; the final installed-package test used
+normal `flatpak run` permissions without those build-mode adjustments.
 
 ## Real-account testing
 

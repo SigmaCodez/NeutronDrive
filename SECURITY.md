@@ -10,7 +10,9 @@ The desktop app calls a SHA512-pinned, unmodified official Proton CLI. Proton's
 SDK performs encryption, metadata handling, caching, retries and rate limiting.
 Authentication happens in a browser at `https://account.proton.me`. NeutronDrive
 does not receive a password through a form or store session tokens itself.
-The official CLI's Secret Service entry is shared with other uses of that CLI.
+Native uses of the official CLI normally share its Secret Service entry.
+Flatpak's libsecret can instead select a separate encrypted file backend whose
+key is obtained from the desktop Secret portal.
 
 The adapter rejects a custom Proton API endpoint and plaintext credential mode,
 forces encrypted CLI caches, uses subprocess argument lists without a shell,
@@ -30,11 +32,13 @@ protection. Select trusted, stable folders for uploads.
 Local synchronized data and retained backup files are plaintext, as in any local
 filesystem. Use operating-system disk encryption if that is required. The sync
 state directory is private (`0700`); it contains filenames and content hashes.
-Session keys remain in the operating-system keyring or `pass`.
+Session keys are managed by the official CLI through the operating-system
+keyring, the Flatpak Secret portal, or `pass`.
 
 Flatpak requests home-directory and `org.freedesktop.secrets` access. Snap needs
 the explicitly connected `password-manager-service` interface. These permissions
 are necessary for the selected file-transfer/keyring design and are broader than
-an application-private credential vault. Packages are unsigned until a release
+an application-private credential vault, even when libsecret selects its
+portal-backed file store. Packages are unsigned until a release
 signing process is established; SHA256 sums detect accidental corruption but do
 not substitute for a trusted signature.
