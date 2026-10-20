@@ -24,7 +24,7 @@ deb_arch = json.loads(stage.backend.LOCK.read_text())["architectures"][arch]["de
 if not shutil.which("dpkg-deb"):
     parser.error("dpkg-deb is required; install the dpkg package")
 args.output_dir.mkdir(parents=True, exist_ok=True)
-output = args.output_dir.resolve() / f"neutrondrive_0.3.0~alpha1-1_{deb_arch}.deb"
+output = args.output_dir.resolve() / f"neutrondrive_0.4.0~alpha1-1_{deb_arch}.deb"
 with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
     root = Path(temporary)
     stage.stage(root, "/usr", arch, args.backend)
@@ -38,14 +38,14 @@ with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
     control.mkdir()
     size = sum(path.stat().st_size for path in (root / "usr").rglob("*") if path.is_file()) // 1024
     (control / "control").write_text(f'''Package: neutrondrive
-Version: 0.3.0~alpha1-1
+Version: 0.4.0~alpha1-1
 Section: net
 Priority: optional
 Architecture: {deb_arch}
 Maintainer: SigmaCodez <maintainers@users.noreply.github.com>
 Homepage: https://github.com/SigmaCodez/NeutronDrive
 Installed-Size: {size}
-Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.6), libsecret-1-0, xdg-utils, ca-certificates, libc6 (>= 2.17), python3-pyfuse3, python3-trio, fuse3
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.6), libsecret-1-0, xdg-utils, ca-certificates, libc6 (>= 2.34), libgcc-s1, python3-pyfuse3, python3-trio, fuse3
 Recommends: gnome-keyring
 Description: Independent GTK client for Proton Drive (alpha)
  Browse and transfer files using the bundled SDK-based NeutronDrive event bridge.

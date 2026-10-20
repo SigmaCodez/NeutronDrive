@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native GTK 4 interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface is currently in German.
 
-**Status: 0.3.0 alpha.** Automatic background synchronization, recoverable
+**Status: 0.4.0 alpha.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -13,6 +13,10 @@ Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
 ![NeutronDrive's native GTK interface with explicitly labelled demo data](docs/demo.png)
+
+The first Rust migration stage moves sync decisions and background scheduling
+into a required native core. GTK and the guarded Python I/O adapters remain.
+See [migration boundaries](docs/RUST-MIGRATION.md).
 
 ## Features
 
@@ -67,21 +71,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.3.0-alpha1-1_amd64.deb
+sudo apt install ./neutrondrive_0.4.0-alpha1-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.3.0-alpha1-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.4.0-alpha1-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.3.0-alpha1-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.4.0-alpha1-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.3.0a1-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.4.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.3.0-alpha1_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.4.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -104,6 +108,8 @@ Install Python 3.10+ and GTK 4/PyGObject through your distribution. For Debian o
 
 ```sh
 sudo apt install python3 python3-gi gir1.2-gtk-4.0 libsecret-1-0 gnome-keyring xdg-utils python3-pyfuse3 python3-trio fuse3
+rustup toolchain install 1.98.0 --profile minimal
+python3 scripts/build-rust-core
 python3 packaging/fetch-backend.py build/backend/proton-drive
 NEUTRONDRIVE_CLI="$PWD/build/backend/proton-drive" python3 bin/neutrondrive
 ```
@@ -121,7 +127,8 @@ python3 -m unittest discover -s tests -v
 ```
 
 PyGObject is provided by the operating system, not silently installed with pip.
-Core adapter and sync tests use only the Python standard library. Building and
+Core adapter and sync tests use the Python standard library and the built Rust
+shared library. Rust dependencies are vendored; Cargo builds offline. Building and
 running this project does not require a Proton password in an environment file.
 
 ## Manual synchronization

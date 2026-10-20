@@ -221,7 +221,8 @@ class RemoteCacheTests(unittest.TestCase):
         self.assertEqual(self.cache.list_nodes(self.nested.path), [])
 
     def test_confirmed_trash_echo_is_settled_but_unrelated_disappearance_is_dirty(self):
-        old = object()
+        from neutrondrive.sync import _Entry
+        old = _Entry("file", sha1="a" * 40, size=1, inode=123, device=1)
         plan = SimpleNamespace(_local={"gone": old, "gone/child": old, "concurrent": old})
         result = SimpleNamespace(_local_snapshot={}, _remote_snapshot={}, trashed=["gone"])
         self.assertEqual(_echo_snapshot(plan, result), {"concurrent": old})

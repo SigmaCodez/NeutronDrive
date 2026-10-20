@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The published dependency release is `bridge-v0.2.0-alpha1`; application packages
-are in `v0.3.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
+are in `v0.4.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -40,6 +40,19 @@ Account login, transfer round trips, interruption recovery, sandbox keyring acce
 and long-running synchronization must be checked on real target installations.
 No account credentials are used by CI. CI uploads build artifacts; it does not
 publish releases, sign packages or submit to Flathub/Snap Store.
+
+## Rust core
+
+Install the pinned Rust 1.98.0 toolchain for native source builds, then run
+`python3 scripts/build-rust-core`. Cargo uses the committed lockfile and vendored
+sources with `--locked --offline`. End users need no Rust compiler.
+
+For container/sandbox builds, set `NEUTRONDRIVE_CORE_BUILD` to a directory with
+`libneutrondrive_core.so` and `core-build.json` from a matching source build.
+Staging verifies architecture, ABI, source hashes, binary hash and the recorded
+GLIBC requirement. CI builds the shared x86_64 payload on Ubuntu 22.04; ARM64
+DEB builds natively. The core requires at most GLIBC 2.35. Rust dependency and
+standard-library notices, Cargo.lock and build provenance accompany every package.
 
 ## Build dependencies
 
@@ -83,7 +96,7 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.3.0a1-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.4.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
@@ -126,7 +139,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.3.0-alpha1_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.4.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```

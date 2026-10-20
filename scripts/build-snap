@@ -3,6 +3,7 @@
 import argparse
 import importlib.util
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -25,8 +26,17 @@ backend.verify(binary, json.loads(backend.LOCK.read_text())["architectures"][bac
 
 
 def prepare(project):
-    for name in ("src", "data", "packaging"):
-        shutil.copytree(ROOT / name, project / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    rust_spec = importlib.util.spec_from_file_location("rust_build", ROOT / "packaging/rust_core.py")
+    rust_build = importlib.util.module_from_spec(rust_spec)
+    rust_spec.loader.exec_module(rust_build)
+    core = Path(os.environ["NEUTRONDRIVE_CORE_BUILD"]).resolve() if os.environ.get("NEUTRONDRIVE_CORE_BUILD") else rust_build.build()
+    rust_build.verify(core, args.arch)
+    target = project / "native-core" / args.arch
+    target.mkdir(parents=True)
+    for name in (rust_build.LIBRARY, "core-build.json"):
+        shutil.copyfile(core / name, target / name)
+    for name in ("src", "data", "packaging", "core"):
+        shutil.copytree(ROOT / name, project / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "target"))
     shutil.copyfile(ROOT / "LICENSE", project / "LICENSE")
     (project / "snap").mkdir()
     shutil.copyfile(ROOT / "packaging/snap/snapcraft.yaml", project / "snap/snapcraft.yaml")

@@ -1,0 +1,14 @@
+#!/usr/bin/env python3
+"""Build the native decision core from locked, vendored Rust sources."""
+import argparse
+import importlib.util
+from pathlib import Path
+
+root=Path(__file__).resolve().parents[1]
+spec=importlib.util.spec_from_file_location("rust_build",root / "packaging/rust_core.py")
+module=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--output",type=Path)
+args=parser.parse_args()
+print(module.build(args.output))

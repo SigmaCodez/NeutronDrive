@@ -79,6 +79,8 @@ def main(argv=None):
     if args.diagnose:
         result = {"app": __version__, "backend_found": backend.available, "backend": backend.executable}
         try:
+            from .rust_core import call
+            result["rust_core"] = call("info")
             result["backend_version"] = backend.version()
         except BackendError as exc:
             result["error"] = str(exc)

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Build a local Flatpak bundle with installed GNOME 50 SDK/runtime."""
 import argparse
+import importlib.util
+import os
 from pathlib import Path
 import platform
 import shutil
@@ -14,6 +16,16 @@ args = parser.parse_args()
 for tool in ("flatpak", "flatpak-builder"):
     if not shutil.which(tool):
         parser.error(f"{tool} is required")
+spec = importlib.util.spec_from_file_location("rust_build", ROOT / "packaging/rust_core.py")
+rust_build = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(rust_build)
+core_source = Path(os.environ["NEUTRONDRIVE_CORE_BUILD"]).resolve() if os.environ.get("NEUTRONDRIVE_CORE_BUILD") else rust_build.build()
+rust_build.verify(core_source, args.arch)
+core_dest = ROOT / "build/rust"
+if core_source != core_dest:
+    core_dest.mkdir(parents=True, exist_ok=True)
+    for name in (rust_build.LIBRARY, "core-build.json"):
+        shutil.copyfile(core_source / name, core_dest / name)
 build = ROOT / "build" / f"flatpak-{args.arch}"
 repo = ROOT / "build/flatpak-repo"
 dist = ROOT / "dist"
@@ -23,6 +35,6 @@ if args.install_deps:
     command.append("--install-deps-from=flathub")
 command += [str(build), str(ROOT / "packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json")]
 subprocess.run(command, check=True, cwd=ROOT)
-output = dist / f"neutrondrive-0.3.0a1-{args.arch}.flatpak"
+output = dist / f"neutrondrive-0.4.0a1-{args.arch}.flatpak"
 subprocess.run(["flatpak", "build-bundle", f"--arch={args.arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repo), str(output), "io.github.SigmaCodez.NeutronDrive", "master"], check=True)
 print(output)

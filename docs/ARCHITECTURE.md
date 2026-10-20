@@ -1,10 +1,11 @@
-# Architecture: 0.3 alpha
+# Architecture: 0.4 alpha
 
 ```mermaid
 flowchart TD
     GTK[GTK4 application] --> Backend[Python backend adapter]
     GTK --> IPC[Private sync control socket]
     IPC --> Sync[Background scheduler and SyncEngine]
+    Sync --> Rust[Rust planner, baseline and scheduling policy]
     Inotify[Linux inotify] --> Sync
     Events[SDK event source and durable cursor] --> Sync
     Sync --> Cache[Event-invalidated remote directory cache]
@@ -24,6 +25,14 @@ The GUI is a native GTK application with a worker executor. Its demo backend is
 explicitly separate from authenticated operations. The source-built bridge uses
 `external-drive-neutrondrive@0.2.0-alpha`; its exact source/compiler/dependency
 provenance is documented in [UPSTREAM.md](UPSTREAM.md).
+
+## Rust decision boundary
+
+The required Rust shared library decides plans, deletion eligibility, convergence,
+baseline advancement, scheduling, bounded retry and echo suppression. Python
+collects observations and executes guarded effects. Fresh remote absence proofs
+are requested by Rust and supplied only after host-side checks. See
+[RUST-MIGRATION.md](RUST-MIGRATION.md) for the exact migration scope.
 
 ## Backend and process boundaries
 

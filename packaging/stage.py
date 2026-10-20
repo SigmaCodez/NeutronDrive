@@ -13,6 +13,9 @@ APP_ID = "io.github.SigmaCodez.NeutronDrive"
 spec = importlib.util.spec_from_file_location("fetch_backend", ROOT / "packaging/fetch-backend.py")
 backend = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(backend)
+rust_spec = importlib.util.spec_from_file_location("rust_build", ROOT / "packaging/rust_core.py")
+rust_build = importlib.util.module_from_spec(rust_spec)
+rust_spec.loader.exec_module(rust_build)
 
 LAUNCHER = '''#!/usr/bin/env python3
 import os
@@ -42,6 +45,7 @@ def stage(destination, prefix, arch, binary, portal_browser=False, host_services
     binary = Path(binary) if binary else backend.fetch(ROOT / "build/backend" / backend.architecture(arch) / "proton-drive", arch)
     backend.verify(binary, entry["sha512"])
     shutil.copytree(source, app / "neutrondrive", dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    rust_build.stage(app, base, arch)
     (app / "bin").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(binary, app / "bin/proton-drive")
     (app / "bin/proton-drive").chmod(0o755)

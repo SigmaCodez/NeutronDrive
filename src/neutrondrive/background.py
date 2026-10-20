@@ -29,6 +29,7 @@ from typing import Any, Callable, Iterator
 import uuid
 
 from .backend import Backend, BackendError, Cancelled
+from . import rust_core
 from .sync import SyncEngine, SyncError, _open_absolute_directory
 
 
@@ -581,22 +582,10 @@ def _matches_snapshot(root: Path, relative: str, snapshot: dict[str, Any]) -> bo
 
 def _echo_snapshot(plan: Any, result: Any) -> dict[str, Any]:
     """Suppress only settled writes, retaining edits that arrived during a run."""
-    settled = {}
-    for path, local in result._local_snapshot.items():
-        remote = result._remote_snapshot.get(path)
-        converged = remote is not None and local.kind == remote.kind and (local.kind == "folder" or local.sha1 == remote.sha1)
-        if converged or local == plan._local.get(path):
-            settled[path] = local
-    # Confirmed trash operations already observed absence on both sides. Their
-    # inotify echoes must not reschedule or resurrect the deleted subtree.
-    trashed = set(getattr(result, "trashed", ()))
-    # An unrelated disappearance during execution still needs reconciliation.
-    # Keeping its old metadata makes the cheap lstat comparison fail.
-    for path, old in {**plan._local, **result._remote_snapshot}.items():
-        settled_trash = any(path == root or path.startswith(root + "/") for root in trashed)
-        if path not in result._local_snapshot and not settled_trash:
-            settled[path] = old
-    return settled
+    from .sync import _Entry
+    values = rust_core.call("echo", previous=plan._local, current=result._local_snapshot,
+                            remote=result._remote_snapshot, trashed=getattr(result, "trashed", []))
+    return {path: _Entry(**entry) for path, entry in values.items()}
 
 
 @dataclass
@@ -626,6 +615,7 @@ class BackgroundDaemon:
                  debounce: float = 1.5, watcher_factory=InotifyWatcher,
                  engine_factory=SyncEngine, retry_base: float = 30.0, retry_max: float = 900.0,
                  mount_paths: list[Path] = ()):
+        self._core_info = rust_core.call("info")  # Fail before starting a daemon without its native policy core.
         self.store = JobStore(state_dir, mount_paths=mount_paths)
         self.state_dir = self.store.state_dir
         self.backend, self.event_source = backend, event_source
@@ -649,6 +639,7 @@ class BackgroundDaemon:
         now = time.monotonic()
         return {"version": 1, "running": not self._stopping and self._lock_fd is not None,
                 "pid": os.getpid(), "updated_at": time.time(), "event_source": dict(self._event_status),
+                "rust_core": dict(self._core_info),
                 "unresolved_events": list(self._unresolved_events),
                 "jobs": [{**asdict(runtime.job), "state": runtime.state, "pending": runtime.pending,
                           "last_sync": runtime.last_sync, "error": runtime.error,
@@ -661,22 +652,14 @@ class BackgroundDaemon:
         _write_json(self.state_dir / "status.json", self._status())
 
     def _schedule(self, runtime: _Runtime, reason: str, relative: str | None = None, *, immediate=False) -> None:
-        if runtime.job.paused or runtime.state == "blocked":
-            return
-        now = time.monotonic()
-        if not runtime.pending:
-            runtime.first_dirty = now
-        runtime.pending = True
-        runtime.reasons.add(reason)
-        if reason.startswith("local") or reason.startswith("watch") or reason == "inotify-overflow":
-            if len(runtime.paths) < 1024:
-                runtime.paths.add(relative)
-            else:
-                runtime.paths = {None}
-        if reason in {"watch-rebuild", "watch-error", "inotify-overflow"}:
-            runtime.rebuild_watch = True
-        if runtime.state != "offline" or immediate:
-            runtime.due = now if immediate else min(now + self.debounce, (runtime.first_dirty or now) + 10.0)
+        state = {key: getattr(runtime, key) for key in
+                 ("state", "pending", "due", "first_dirty", "paths", "reasons", "rebuild_watch")}
+        state["paused"] = runtime.job.paused
+        updated = rust_core.call("schedule", state=state, reason=reason, relative=relative,
+                                 immediate=immediate, now=time.monotonic(), debounce=self.debounce)
+        for key, value in updated.items():
+            if key != "paused":
+                setattr(runtime, key, set(value) if key in {"paths", "reasons"} else value)
         self._condition.notify_all()
 
     def _local_event(self, job_id: str, relative: str | None, reason: str, token: str | None = None) -> None:
@@ -991,10 +974,9 @@ class BackgroundDaemon:
                 self._condition.notify_all()
 
     def _retry(self, runtime: _Runtime, error: str) -> None:
-        runtime.failures += 1
-        delay = min(self.retry_max, self.retry_base * 2 ** min(runtime.failures - 1, 10))
-        delay = min(self.retry_max, delay * random.uniform(0.9, 1.1))
-        runtime.due = time.monotonic() + delay
+        update = rust_core.call("retry", failures=runtime.failures, now=time.monotonic(),
+                                base=self.retry_base, maximum=self.retry_max, jitter=random.uniform(0.9, 1.1))
+        runtime.failures, runtime.due = update["failures"], update["due"]
         runtime.state, runtime.pending, runtime.error = "offline", True, error
         runtime.reasons.add("retry")
 
@@ -1067,8 +1049,10 @@ class BackgroundDaemon:
                     if event_batch:
                         next_runtime = None
                     else:
-                        candidates = [runtime for runtime in self._jobs.values() if runtime.pending and not runtime.job.paused and runtime.state != "blocked"]
-                        next_runtime = min(candidates, key=lambda item: item.due, default=None)
+                        decision = rust_core.call("select", now=time.monotonic(), jobs=[
+                            {"id": runtime.job.id, "pending": runtime.pending, "paused": runtime.job.paused,
+                             "state": runtime.state, "due": runtime.due} for runtime in self._jobs.values()])
+                        next_runtime = self._jobs[decision["id"]] if decision is not None else None
                     if event_batch:
                         pass
                     elif next_runtime is None:

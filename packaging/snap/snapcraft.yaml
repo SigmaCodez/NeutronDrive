@@ -1,6 +1,6 @@
 name: neutrondrive
 base: core24
-version: '0.3.0-alpha1'
+version: '0.4.0-alpha1'
 summary: Independent Linux client for Proton Drive
 description: |
   Browse and transfer Proton Drive files with a native GTK interface and the
@@ -61,10 +61,10 @@ parts:
     plugin: nil
     source: .
     build-packages: [python3]
-    stage-packages: [python3, python3-gi, libsecret-1-0, ca-certificates]
+    stage-packages: [python3, python3-gi, libsecret-1-0, ca-certificates, libgcc-s1]
     build-attributes: [no-patchelf]
     override-build: |
-      python3 packaging/stage.py \
+      NEUTRONDRIVE_CORE_BUILD="native-core/$CRAFT_ARCH_BUILD_FOR" python3 packaging/stage.py \
         --destdir "$CRAFT_PART_INSTALL" \
         --prefix /usr \
         --arch "$CRAFT_ARCH_BUILD_FOR" \

@@ -278,6 +278,8 @@ def main():
         wait_for(lambda: status()[0]["event_source"]["state"] == "connected"
                  and status()[1]["last_sync"] is not None, "real SDK event handshake timed out")
         settled(after=changed_at)
+        check(status()[0].get("rust_core", {}).get("implementation") == "rust",
+              "background daemon did not load the native Rust core")
         passed("dedicated-folder-and-real-daemon-event-handshake")
 
         phase("baseline-files-and-nested-folders")

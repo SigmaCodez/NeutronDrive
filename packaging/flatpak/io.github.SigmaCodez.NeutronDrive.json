@@ -24,7 +24,7 @@
         "strip": false
       },
       "build-commands": [
-        "python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser"
+        "NEUTRONDRIVE_CORE_BUILD=\"$PWD/prebuilt-core\" python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser"
       ],
       "sources": [
         {
@@ -40,7 +40,8 @@
             "dist",
             ".venv",
             ".flatpak-builder",
-            "__pycache__"
+            "__pycache__",
+            "core/target"
           ]
         },
         {
@@ -60,6 +61,16 @@
           "only-arches": [
             "aarch64"
           ]
+        },
+        {
+          "type": "file",
+          "path": "../../build/rust/libneutrondrive_core.so",
+          "dest": "prebuilt-core"
+        },
+        {
+          "type": "file",
+          "path": "../../build/rust/core-build.json",
+          "dest": "prebuilt-core"
         }
       ]
     }

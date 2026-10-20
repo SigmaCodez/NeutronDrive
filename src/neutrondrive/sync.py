@@ -27,6 +27,7 @@ from typing import Any, Callable, Iterator
 import uuid
 
 from .backend import Cancelled, data_dir
+from . import rust_core
 
 
 class SyncError(RuntimeError):
@@ -255,15 +256,7 @@ def _same_remote(a: _Entry | None, b: _Entry | None) -> bool:
 
 
 def _baseline_matches(entry: _Entry, previous: dict[str, Any], side: str, *, ancestor: bool = False) -> bool:
-    if previous.get("identity_version") != 2 or entry.kind != previous.get("kind"):
-        return False
-    if entry.kind == "file" and (entry.sha1 != previous.get("sha1") or entry.size != previous.get("size")):
-        return False
-    if side == "local":
-        return ((entry.device, entry.inode) == (previous.get("local_device"), previous.get("local_inode"))
-                and ((entry.kind == "folder" and ancestor) or (entry.mtime_ns, entry.ctime_ns) == (previous.get("local_mtime_ns"), previous.get("local_ctime_ns"))))
-    return (entry.uid == previous.get("remote_uid") and entry.revision == previous.get("remote_revision")
-            and (entry.kind == "folder" or bool(entry.revision)))
+    return rust_core.call("baseline_matches", entry=entry, previous=previous, side=side, ancestor=ancestor)
 
 
 def _subtree(entries: dict[str, Any], relative: str) -> dict[str, Any]:
@@ -278,20 +271,10 @@ def _require_file_deletion(previous: dict[str, Any]) -> None:
 
 def _deletion_proof(relative: str, target: dict[str, _Entry], baseline: dict[str, dict[str, Any]],
                     blocked: set[str], side: str) -> None:
-    previous, current = baseline.get(relative, {}), target.get(relative)
-    _require_file_deletion(previous)
-    if current is None or not _baseline_matches(current, previous, side):
-        raise SyncError("Deletion conflicts with an edit, replacement, or unverified old baseline")
-    expected, actual = _subtree(baseline, relative), _subtree(target, relative)
-    if current.kind == "folder":
-        if not previous.get("subtree_complete"):
-            raise SyncError("Folder deletion lacks a complete verified subtree baseline")
-        if any(path == relative or path.startswith(relative + "/") for path in blocked):
-            raise SyncError("Folder contains unsupported, ignored, or unreadable children")
-        if set(expected) != set(actual):
-            raise SyncError("Folder contents changed since the deletion baseline")
-        if any(not _baseline_matches(actual[path], entry, side) for path, entry in expected.items()):
-            raise SyncError("Folder deletion conflicts with changed or replaced descendants")
+    try:
+        rust_core.call("deletion_proof", relative=relative, target=target, baseline=baseline, side=side)
+    except rust_core.CoreError as error:
+        raise SyncError(str(error)) from error
 
 
 class SyncEngine:
@@ -498,62 +481,23 @@ class SyncEngine:
                             _baseline=baseline, _pending_deletions=pending, _state_digest=digest, _state_key=key,
                             _root_identity=(info.st_dev, info.st_ino), _blocked=set(blocked), _owner=self._owner)
             plan.skipped.extend(f"{path}: {reason}" for path, reason in sorted(blocked.items()))
-            # A rename/move inside either scanned tree is not deletion proof.
-            # Block both its old and new locations to avoid a trash+copy cascade.
-            for old, previous in baseline.items():
-                moved = []
-                if old not in local and previous.get("identity_version") == 2:
-                    moved.extend(path for path, entry in local.items()
-                                 if (entry.device, entry.inode) == (previous.get("local_device"), previous.get("local_inode")))
-                if old not in cloud and previous.get("remote_uid"):
-                    moved.extend(path for path, entry in cloud.items() if entry.uid == previous["remote_uid"])
-                if moved:
-                    plan.conflicts.append(SyncConflict(old, "A baseline identity moved to another path; resolve the move first"))
-                    plan._blocked.update([old, *moved])
-            covered_deletions = set()
-            for relative in sorted(local.keys() | cloud.keys() | baseline.keys(), key=lambda x: (x.count("/"), x)):
-                if _under(relative, plan._blocked | covered_deletions):
-                    continue
-                left, right, previous = local.get(relative), cloud.get(relative), baseline.get(relative)
-                reason = ""
-                if left is None and right is None:
-                    continue
-                pending_root = next((path for path in pending if relative == path or relative.startswith(path + "/")), None)
-                if pending_root and ((left is not None and right is not None)
-                                     or pending[pending_root]["direction"] != ("local" if left is not None else "remote")):
-                    reason = "Earlier trash operation has an uncertain outcome; retained deletion intent requires review"
-                elif left is not None and right is not None:
-                    if left.kind != right.kind:
-                        reason = "File/folder type conflict"
-                    elif left.kind == "folder" or left.sha1 == right.sha1:
-                        continue
-                    elif not previous or previous.get("kind") != "file":
-                        reason = "Both sides already exist with different contents; no common baseline"
-                    elif left.sha1 == previous["sha1"]:
-                        plan.actions.append(SyncAction("download", relative, "Remote changed; retain a local backup"))
-                    elif right.sha1 == previous["sha1"]:
-                        plan.actions.append(SyncAction("upload", relative, "Local changed; create a remote revision"))
-                    else:
-                        reason = "Both sides changed since the last successful synchronization"
-                elif previous:
-                    try:
-                        side = "local" if left is not None else "remote"
-                        self._check_ancestor_baselines(relative, local, cloud, baseline)
-                        _deletion_proof(relative, local if left is not None else cloud, baseline, set(blocked), side)
-                        if left is not None:
-                            self._prove_remote_deletion(plan, remote, relative)
-                        plan.actions.append(SyncAction("trash_local" if left is not None else "trash_remote", relative,
-                                                       "Propagate verified deletion to recoverable trash"))
-                        covered_deletions.add(relative)
-                    except SyncError as error:
-                        reason = str(error)
-                elif left is not None:
-                    plan.actions.append(SyncAction("mkdir_remote" if left.kind == "folder" else "upload", relative))
-                elif right is not None:
-                    plan.actions.append(SyncAction("mkdir_local" if right.kind == "folder" else "download", relative))
-                if reason:
-                    plan.conflicts.append(SyncConflict(relative, reason))
-                    plan._blocked.add(relative)
+            request = dict(local=local, remote=cloud, baseline=baseline, pending=pending, blocked=blocked, proofs={})
+            decisions = rust_core.call("plan", **request)
+            # Only fresh SDK observations can prove a remote disappearance.
+            # Rust requests these observations before committing its decisions.
+            for relative in decisions["checks"]:
+                try:
+                    self._prove_remote_deletion(plan, remote, relative)
+                    request["proofs"][relative] = None
+                except SyncError as error:
+                    request["proofs"][relative] = str(error)
+            if decisions["checks"]:
+                decisions = rust_core.call("plan", **request)
+            if decisions["checks"]:
+                raise SyncError("Rust planner requires unresolved deletion proofs")
+            plan.actions = [SyncAction(**action) for action in decisions["actions"]]
+            plan.conflicts = [SyncConflict(**conflict) for conflict in decisions["conflicts"]]
+            plan._blocked = set(decisions["blocked"])
             return plan
 
     def _check_ancestor_baselines(self, relative: str, local: dict[str, _Entry], cloud: dict[str, _Entry],
@@ -927,17 +871,10 @@ class SyncEngine:
                         message = f"{path}: {reason}"
                         if message not in result.skipped:
                             result.skipped.append(message)
-                    for action in plan.actions:
-                        relative = action.relative_path
-                        if _under(relative, failed):
-                            continue
-                        left, right = local_now.get(relative), remote_now.get(relative)
-                        if action.kind in {"trash_local", "trash_remote"} and left is None and right is None:
-                            continue
-                        if (_under(relative, blocked) or left is None or right is None
-                                or left.kind != right.kind or (left.kind == "file" and left.sha1 != right.sha1)):
-                            result.conflicts.append(f"{relative}: content changed during sync; convergence was not confirmed")
-                            blocked.add(relative)
+                    convergence = rust_core.call("convergence", local=local_now, remote=remote_now,
+                                                 actions=plan.actions, failed=failed, blocked=blocked)
+                    result.conflicts.extend(convergence["conflicts"])
+                    blocked = set(convergence["blocked"])
                     for relative, operation in list(pending.items()):
                         if _under(relative, blocked) or relative in local_now or relative in remote_now:
                             continue
@@ -958,27 +895,15 @@ class SyncEngine:
                         except Exception as error:
                             blocked.add(relative)
                             result.conflicts.append(f"{relative}: {error}")
-                    for relative in sorted(local_now.keys() | remote_now.keys() | baseline.keys()):
-                        if _under(relative, blocked | set(pending)):
-                            continue
-                        left, right = local_now.get(relative), remote_now.get(relative)
-                        if left is None and right is None:
-                            if self._lookup_remote(root_now, relative) is None:
-                                baseline.pop(relative, None)
-                        elif left is not None and right is not None and left.kind == right.kind:
-                            if left.kind == "folder" or left.sha1 == right.sha1:
-                                descendants = _subtree(local_now, relative)
-                                if left.kind == "folder" and any(path == relative or path.startswith(relative + "/") for path in blocked | set(pending)):
-                                    continue
-                                complete = (set(descendants) == set(_subtree(remote_now, relative))
-                                            and all(entry.kind == remote_now[path].kind
-                                                    and (entry.kind == "folder" or entry.sha1 == remote_now[path].sha1)
-                                                    for path, entry in descendants.items()))
-                                baseline[relative] = {"identity_version": 2, "kind": left.kind, "sha1": left.sha1,
-                                                      "size": left.size, "local_device": left.device, "local_inode": left.inode,
-                                                      "local_mtime_ns": left.mtime_ns, "local_ctime_ns": left.ctime_ns,
-                                                      "remote_uid": right.uid, "remote_revision": right.revision,
-                                                      "remote_path": right.remote_path, "subtree_complete": complete}
+                    observation = dict(local=local_now, remote=remote_now, baseline=baseline,
+                                       blocked=blocked, pending=set(pending), absent=set())
+                    update = rust_core.call("baseline", **observation)
+                    for relative in update["checks"]:
+                        if self._lookup_remote(root_now, relative) is None:
+                            observation["absent"].add(relative)
+                    if update["checks"]:
+                        update = rust_core.call("baseline", **observation)
+                    baseline = update["baseline"]
                     self._save(plan, baseline, pending)
                 except Cancelled:
                     raise

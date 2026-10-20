@@ -21,3 +21,5 @@ dist/
 .codex/
 .env
 .env.*
+
+core/target/
