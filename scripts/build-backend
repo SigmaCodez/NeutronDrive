@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Build the pinned MIT Proton CLI plus the inspectable NeutronDrive event bridge.
+
+Requires Bun 1.4.2 on PATH or --bun. Downloads source/dependencies only when run
+explicitly, never from the application. Each output gets provenance + SHA512.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import stat
+import subprocess
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+BRIDGE = ROOT / 'packaging' / 'bridge'
+
+
+def run(args, **kwargs):
+    subprocess.run([str(value) for value in args], check=True, timeout=900, **kwargs)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--bun', default=shutil.which('bun') or 'bun')
+    parser.add_argument('--source-dir', type=Path, default=Path(tempfile.gettempdir()) / 'neutrondrive-sdk-build')
+    parser.add_argument('--output', type=Path, default=ROOT / 'build/backend/proton-drive')
+    parser.add_argument('--target', choices=['bun-linux-x64-baseline', 'bun-linux-arm64'], default='bun-linux-x64-baseline')
+    parser.add_argument('--test-only', action='store_true')
+    args = parser.parse_args()
+    lock = json.loads((BRIDGE / 'source-lock.json').read_text())
+    bun = str(Path(args.bun).resolve()) if '/' in args.bun else args.bun
+    version = subprocess.check_output([bun, '--version'], text=True).strip()
+    if version != lock['bun_version']:
+        parser.error(f"Bun {lock['bun_version']} required; got {version}")
+    source = args.source_dir.absolute()
+    source.mkdir(parents=True, exist_ok=True, mode=0o700)
+    source_info = source.lstat()
+    if (not stat.S_ISDIR(source_info.st_mode) or source_info.st_uid != os.getuid()
+            or source_info.st_mode & 0o022):
+        parser.error('Source cache must be an owned directory without group/other write permissions')
+    if not (source / '.git').exists():
+        run(['git', 'init', source])
+        run(['git', '-C', source, 'remote', 'add', 'origin', lock['repository']])
+    remote = subprocess.check_output(['git', '-C', str(source), 'remote', 'get-url', 'origin'], text=True).strip()
+    if remote != lock['repository']:
+        parser.error('Source cache origin does not match the locked upstream repository')
+    run(['git', '-C', source, 'fetch', '--depth', '1', 'origin', lock['commit']])
+    run(['git', '-C', source, 'checkout', '--detach', lock['commit']])
+    actual = subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip()
+    if actual != lock['commit']:
+        parser.error('Source commit verification failed')
+    # Use the public registry for the same integrity-pinned tarballs. Upstream's
+    # generated lock points to a Proton network mirror unavailable to public CI.
+    # Read from Git each time so this is repeatable across cached builds.
+    original_lock = subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:cli/bun.lock'])
+    public_lock = original_lock.replace(b'https://pkg.protontech.ch/npm/npm-public/', b'https://registry.npmjs.org/')
+    (source / 'cli/bun.lock').write_bytes(public_lock)
+    # Keep upstream's two version lines, but do not recommend replacing this
+    # bridge with the unrelated official CLI release in direct or REPL mode.
+    version_file = source / 'cli/src/cli/version.ts'
+    version_file.write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:cli/src/cli/version.ts']))
+    version_patch = BRIDGE / 'version-branding.patch'
+    run(['git', '-C', source, 'apply', '--check', version_patch])
+    run(['git', '-C', source, 'apply', version_patch])
+    dirty = subprocess.check_output(['git', '-C', str(source), 'diff', '--name-only'], text=True).splitlines()
+    if dirty != ['cli/bun.lock', 'cli/src/cli/version.ts']:
+        parser.error('Source cache has unexpected tracked modifications: ' + ', '.join(dirty))
+    for name in ('eventProtocol.ts', 'eventCommands.ts', 'neutrondrive-drive.ts',
+                 'eventProtocol.test.ts', 'versionBranding.test.ts'):
+        shutil.copyfile(BRIDGE / name, source / 'cli/src' / name)
+    # The pinned Bun lock includes local source packages and the official crypto
+    # patch. Keep it frozen; no installer scripts are added by this bridge.
+    run([bun, 'install', '--frozen-lockfile'], cwd=source / 'cli')
+    # The upstream CLI compiles sibling source packages via tsconfig paths.
+    # Make their imports resolve through the same frozen CLI dependency graph;
+    # installing each sibling separately would introduce an unlocked graph.
+    modules = source / 'node_modules'
+    if modules.is_symlink():
+        if os.readlink(modules) != 'cli/node_modules':
+            parser.error('Unexpected node_modules link in source cache')
+    elif modules.exists():
+        parser.error('Unexpected root node_modules directory in source cache')
+    else:
+        modules.symlink_to('cli/node_modules', target_is_directory=True)
+    run([bun, 'test', 'src/eventProtocol.test.ts', 'src/versionBranding.test.ts'], cwd=source / 'cli')
+    run([bun, 'node_modules/typescript/bin/tsc', '--noEmit', '--incremental', 'false'], cwd=source / 'cli')
+    if args.test_only:
+        return
+    output = args.output.absolute()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env.update(CLI_APP_VERSION_NAME=lock['app_name'], CLI_VERSION=lock['app_version'],
+               JS_VERSION=lock['sdk_version'], CLI_OUTPUT_DIR=str(output.parent))
+    env.pop('SENTRY_DSN', None)
+    run([bun, 'run', 'scripts/build-cli.mjs', 'src/neutrondrive-drive.ts', args.target], cwd=source / 'cli', env=env)
+    built = output.parent / 'neutrondrive-drive'
+    if built != output:
+        os.replace(built, output)
+    output.chmod(0o755)
+    digest = hashlib.sha512()
+    with output.open('rb') as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(block)
+    sha512 = digest.hexdigest()
+    provenance = {**lock, 'target': args.target, 'sha512': sha512,
+                  'builder_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                  'source_lock_sha256': hashlib.sha256((BRIDGE / 'source-lock.json').read_bytes()).hexdigest(),
+                  'version_patch_sha256': hashlib.sha256(version_patch.read_bytes()).hexdigest(),
+                  'public_registry_lock_sha256': hashlib.sha256(public_lock).hexdigest(),
+                  'registry_rewrite': 'https://pkg.protontech.ch/npm/npm-public/ -> https://registry.npmjs.org/',
+                  'bridge_files': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in BRIDGE.glob('*.ts')}}
+    output.with_name(output.name + '.provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
+    print(f'Built {output}\nSHA512 {sha512}')
+
+
+if __name__ == '__main__':
+    main()

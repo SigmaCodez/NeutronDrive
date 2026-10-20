@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/ProtonDriveApps/sdk.git",
+  "commit": "8a44654aece1609f0f7218be51c205103945abd8",
+  "bun_version": "1.4.2",
+  "app_name": "external-drive-neutrondrive",
+  "app_version": "0.2.0-alpha",
+  "sdk_version": "0.22.2+8a44654aece1",
+  "protocol": 1
+}

@@ -1,0 +1,16 @@
+diff --git a/cli/src/cli/version.ts b/cli/src/cli/version.ts
+--- a/cli/src/cli/version.ts
++++ b/cli/src/cli/version.ts
+@@ -14,6 +14,12 @@
+     console.log(`Proton Drive CLI ${initOptions.appVersion}`);
+     console.log(`Proton Drive SDK ${initOptions.sdkVersion}`);
+ 
++    // This additive third-party bridge has its own release train. Comparing it
++    // with the official CLI would recommend replacing it and losing events.
++    if (initOptions.appVersion.startsWith('external-drive-neutrondrive@')) {
++        return;
++    }
++
+     const currentVersion = extractSemver(initOptions.appVersion);
+     if (!currentVersion) {
+         return;
