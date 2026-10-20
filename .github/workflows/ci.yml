@@ -1,0 +1,133 @@
+name: Tests and Linux packages
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Test backend and synchronization logic
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+      - name: Compile application and packaging modules
+        run: python -m compileall -q src packaging scripts
+
+  deb:
+    needs: tests
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install validation tools and GUI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 libsecret-1-0 xdg-utils desktop-file-utils appstream xvfb
+      - name: Validate desktop integration
+        run: |
+          desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
+          appstreamcli validate --no-net data/io.github.SigmaCodez.NeutronDrive.metainfo.xml
+      - name: Build bundled DEB
+        run: python3 scripts/build-deb --arch '${{ matrix.architecture }}'
+      - name: Exercise native GTK interface on a virtual X11 display
+        run: xvfb-run -a env PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
+      - name: Inspect package and smoke-test bundled CLI
+        run: |
+          dpkg-deb --info dist/*.deb
+          dpkg-deb --extract dist/*.deb build/deb-check
+          build/deb-check/usr/lib/neutrondrive/bin/proton-drive version --json
+          build/deb-check/usr/bin/neutrondrive --help
+          build/deb-check/usr/bin/neutrondrive --diagnose
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.architecture }}
+          path: dist/*.deb
+          if-no-files-found: error
+
+  rpm:
+    needs: tests
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - distribution: fedora
+            container: fedora:44
+            install: dnf install -y git python3 rpm-build
+          - distribution: opensuse
+            container: opensuse/tumbleweed:latest
+            install: zypper --non-interactive install git python3 rpm-build
+    container: ${{ matrix.container }}
+    steps:
+      - name: Install build tools
+        run: ${{ matrix.install }}
+      - uses: actions/checkout@v4
+      - name: Build bundled RPM
+        run: python3 scripts/build-rpm
+      - name: Inspect package
+        run: rpm -qpi dist/*.rpm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-${{ matrix.distribution }}-x86_64
+          path: dist/*.rpm
+          if-no-files-found: error
+
+  flatpak:
+    needs: tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Flatpak tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: Build bundled Flatpak
+        run: python3 scripts/build-flatpak --install-deps
+      - name: Verify CLI was preserved by the builder
+        run: python3 packaging/fetch-backend.py build/flatpak-x86_64/files/lib/neutrondrive/bin/proton-drive --arch x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-x86_64
+          path: dist/*.flatpak
+          if-no-files-found: error
+
+  snap:
+    needs: tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+      - name: Prepare isolated source and verified backend
+        run: python3 scripts/build-snap --prepare-only build/snap-project
+      - name: Build strict snap on the disposable runner
+        working-directory: build/snap-project
+        run: sudo snapcraft --destructive-mode --build-for=amd64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snap-amd64
+          path: build/snap-project/*.snap
+          if-no-files-found: error

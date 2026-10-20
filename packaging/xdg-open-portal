@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""Open the CLI's sign-in link through the sandbox's desktop portal."""
+import os
+import sys
+from urllib.parse import urlsplit
+
+os.environ["GIO_USE_PORTALS"] = "1"
+import gi
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib
+
+if len(sys.argv) != 2 or urlsplit(sys.argv[1]).scheme not in ("http", "https"):
+    sys.exit("Only HTTP(S) browser URLs are supported")
+
+loop = GLib.MainLoop()
+cancellable = Gio.Cancellable()
+errors = []
+
+
+def completed(_source, result, *_args):
+    try:
+        Gio.AppInfo.launch_default_for_uri_finish(result)
+    except GLib.Error as error:
+        errors.append(error.message)
+    finally:
+        loop.quit()
+
+
+def cancel_timeout():
+    cancellable.cancel()
+    return GLib.SOURCE_REMOVE
+
+
+# Wait for D-Bus activation or portal selection to finish before exiting.
+GLib.timeout_add_seconds(120, cancel_timeout)
+Gio.AppInfo.launch_default_for_uri_async(sys.argv[1], None, cancellable, completed)
+loop.run()
+if errors:
+    sys.exit(f"Could not open the browser through the desktop portal: {errors[0]}")

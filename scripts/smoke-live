@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Opt-in real-account contract test. Creates only synthetic data in a new folder.
+
+Never run by CI. Requires explicit --live and a browser-authenticated test account.
+The generated remote folder is moved to trash, never permanently deleted.
+No account names, file IDs, credentials or share URLs are printed in the report.
+"""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+import tempfile
+import uuid
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from neutrondrive.backend import Backend
+from neutrondrive.sync import SyncEngine
+
+
+def check(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--live", action="store_true", required=True)
+    parser.add_argument("--cli", required=True)
+    args = parser.parse_args()
+    backend = Backend(args.cli)
+    run_id = uuid.uuid4().hex
+    name = "NeutronDrive-Test-" + run_id
+    report = {"test_folder": name, "passed": []}
+    root = None
+
+    def passed(step):
+        report["passed"].append(step)
+        print("PASS " + step, flush=True)
+
+    try:
+        root = backend.mkdir("/my-files", name)
+        check(root.safe and root.type == "folder", "New test folder unavailable")
+        passed("create-folder")
+        with tempfile.TemporaryDirectory(prefix="neutrondrive-live-") as temporary:
+            local = Path(temporary)
+            sample = local / ("Grüße-" + run_id + ".txt")
+            payload = ("NeutronDrive synthetic integration test — keine persönlichen Daten.\n" * 20).encode()
+            sample.write_bytes(payload)
+            backend.upload([sample], root.path)
+            files = backend.list_nodes(root.path)
+            uploaded = next(n for n in files if n.name == sample.name)
+            check(uploaded.size == len(payload), "Remote size mismatch")
+            passed("upload-list-unicode")
+            destination = local / "download"
+            destination.mkdir()
+            backend.download([uploaded.path], destination)
+            check(hashlib.sha256((destination / sample.name).read_bytes()).digest() == hashlib.sha256(payload).digest(), "Download checksum mismatch")
+            passed("download-sha256-roundtrip")
+            renamed = "renamed-" + run_id + ".txt"
+            backend.rename(uploaded.path, renamed)
+            check(backend.info(uploaded.path).name == renamed, "Rename not visible")
+            moved_to = backend.mkdir(root.path, "Moved")
+            backend.move([uploaded.path], moved_to.path)
+            check(any(n.uid == uploaded.uid for n in backend.list_nodes(moved_to.path)), "Move not visible")
+            passed("rename-move")
+            link = backend.create_link(uploaded.path)
+            check((link.get("urlAccess") or {}).get("url", "").startswith("https://drive.proton.me/"), "Sharing link unavailable")
+            backend.remove_link(uploaded.path)
+            check(not (backend.sharing(uploaded.path) or {}).get("urlAccess"), "Link was not revoked")
+            passed("share-link-create-revoke")
+            backend.trash([uploaded.path])
+            backend.restore(["/trash/" + renamed])
+            check(any(n.uid == uploaded.uid for n in backend.list_nodes(moved_to.path)), "Restore not visible")
+            passed("trash-restore")
+
+            sync_remote = backend.mkdir(root.path, "Sync")
+            sync_local = local / "sync"
+            sync_local.mkdir()
+            (sync_local / "local.txt").write_text("first local version\n")
+            engine = SyncEngine(backend, local / "sync-state")
+            plan = engine.plan(sync_local, sync_remote.path)
+            result = engine.execute(plan)
+            check(result.ok and result.completed, "Initial sync failed: " + result.summary())
+            passed("manual-sync-upload")
+            peer = local / "peer"
+            peer.mkdir()
+            (peer / "remote.txt").write_text("remote-only synthetic file\n")
+            backend.upload([peer / "remote.txt"], sync_remote.path)
+            result = engine.execute(engine.plan(sync_local, sync_remote.path))
+            check(result.ok and (sync_local / "remote.txt").read_text() == "remote-only synthetic file\n", "Remote sync download failed: " + result.summary())
+            passed("manual-sync-download")
+            (sync_local / "local.txt").write_text("second local version\n")
+            result = engine.execute(engine.plan(sync_local, sync_remote.path))
+            check(result.ok and result.completed, "Revision sync failed: " + result.summary())
+            passed("manual-sync-revision")
+            (peer / "local.txt").write_text("third remote version\n")
+            backend.upload([peer / "local.txt"], sync_remote.path, file_strategy="create-new-revision")
+            result = engine.execute(engine.plan(sync_local, sync_remote.path))
+            check(result.ok and result.backups and (sync_local / "local.txt").read_text() == "third remote version\n", "Remote change backup failed: " + result.summary())
+            passed("manual-sync-backup")
+            (sync_local / "local.txt").write_text("conflicting local version\n")
+            (peer / "local.txt").write_text("conflicting remote version\n")
+            backend.upload([peer / "local.txt"], sync_remote.path, file_strategy="create-new-revision")
+            plan = engine.plan(sync_local, sync_remote.path)
+            check(plan.conflicts and not plan.actions, "Concurrent edits were not blocked")
+            check((sync_local / "local.txt").read_text() == "conflicting local version\n", "Local conflict was modified")
+            passed("manual-sync-conflict-preserved")
+    finally:
+        if root:
+            try:
+                backend.trash([root.path])
+                report["cleanup"] = "Synthetic test folder moved to Proton trash; not permanently deleted."
+                print("PASS cleanup-to-trash", flush=True)
+            except Exception:
+                report["cleanup"] = "Test folder retained; manual cleanup needed."
+        print(json.dumps(report, indent=2), flush=True)
+
+
+if __name__ == "__main__":
+    main()

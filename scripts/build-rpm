@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Build a bundled RPM with rpmbuild; suitable for Fedora and openSUSE."""
+import argparse
+import gzip
+import importlib.util
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("stage", ROOT / "packaging/stage.py")
+stage = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(stage)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--arch", default=None)
+parser.add_argument("--backend", type=Path)
+parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
+args = parser.parse_args()
+arch = stage.backend.architecture(args.arch)
+if not shutil.which("rpmbuild"):
+    parser.error("rpmbuild is required; install rpm-build (Fedora) or rpm-build (openSUSE)")
+args.output_dir.mkdir(parents=True, exist_ok=True)
+epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "1792454400"))
+with tempfile.TemporaryDirectory(prefix="neutrondrive-rpm-") as temporary:
+    top = Path(temporary)
+    for name in ("BUILD", "BUILDROOT", "RPMS", "SOURCES", "SPECS", "SRPMS", "payload", "tmp", "rpmdb"):
+        (top / name).mkdir()
+    stage.stage(top / "payload", "/usr", arch, args.backend)
+    archive_path = top / "SOURCES/neutrondrive-payload.tar.gz"
+    with archive_path.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=epoch, filename="") as compressed, tarfile.open(fileobj=compressed, mode="w") as archive:
+        for path in sorted((top / "payload").rglob("*")):
+            info = archive.gettarinfo(str(path), arcname=str(path.relative_to(top / "payload")))
+            info.uid = info.gid = 0
+            info.uname = info.gname = "root"
+            info.mtime = epoch
+            if path.is_file():
+                with path.open("rb") as stream:
+                    archive.addfile(info, stream)
+            else:
+                archive.addfile(info)
+    specfile = top / "SPECS/neutrondrive.spec"
+    shutil.copyfile(ROOT / "packaging/rpm/neutrondrive.spec", specfile)
+    subprocess.run([
+        "rpmbuild", "-bb", "--target", arch,
+        "--define", f"_topdir {top}",
+        "--define", f"_tmppath {top / 'tmp'}",
+        "--define", f"_dbpath {top / 'rpmdb'}",
+        "--define", "_build_id_links none",
+        "--define", "_buildhost neutrondrive-builder",
+        "--define", "use_source_date_epoch_as_buildtime 1",
+        str(specfile),
+    ], check=True, env=dict(os.environ, SOURCE_DATE_EPOCH=str(epoch)))
+    for package in (top / "RPMS").rglob("*.rpm"):
+        output = args.output_dir.resolve() / package.name
+        shutil.copyfile(package, output)
+        print(output)

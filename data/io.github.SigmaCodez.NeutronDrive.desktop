@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NeutronDrive
+GenericName=Cloud storage client
+GenericName[de]=Cloud-Speicher-Client
+Comment=Manage Proton Drive files with an independent Linux client
+Comment[de]=Proton-Drive-Dateien mit einem unabhängigen Linux-Client verwalten
+Exec=neutrondrive
+Icon=io.github.SigmaCodez.NeutronDrive
+Terminal=false
+Categories=Network;FileTransfer;
+Keywords=cloud;storage;files;Proton;Drive;
+StartupNotify=true
+DBusActivatable=false

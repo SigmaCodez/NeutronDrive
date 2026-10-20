@@ -1,0 +1,58 @@
+name: neutrondrive
+base: core24
+version: '0.1.0-alpha1'
+summary: Independent Linux client for Proton Drive
+description: |
+  Browse and transfer Proton Drive files with a native GTK interface and the
+  bundled official Proton Drive CLI. This is an alpha community project, not
+  an official Proton application.
+
+  A Proton account, browser and desktop Secret Service are required. Before
+  sign-in, connect the keyring interface with:
+    sudo snap connect neutrondrive:password-manager-service
+grade: devel
+confinement: strict
+license: MIT
+website: https://github.com/SigmaCodez/NeutronDrive
+source-code: https://github.com/SigmaCodez/NeutronDrive
+issues: https://github.com/SigmaCodez/NeutronDrive/issues
+icon: data/io.github.SigmaCodez.NeutronDrive.svg
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  neutrondrive:
+    command: usr/bin/neutrondrive
+    desktop: usr/share/applications/io.github.SigmaCodez.NeutronDrive.desktop
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - network-bind
+      - password-manager-service
+      - removable-media
+    environment:
+      GTK_USE_PORTAL: '1'
+
+parts:
+  neutrondrive:
+    plugin: nil
+    source: .
+    build-packages: [python3]
+    stage-packages: [python3, python3-gi, libsecret-1-0, ca-certificates]
+    build-attributes: [no-patchelf]
+    override-build: |
+      python3 packaging/stage.py \
+        --destdir "$CRAFT_PART_INSTALL" \
+        --prefix /usr \
+        --arch "$CRAFT_ARCH_BUILD_FOR" \
+        --backend "backend/$CRAFT_ARCH_BUILD_FOR/proton-drive" \
+        --portal-browser
+    # Bun executables have appended application data; never strip the backend.
+    override-prime: |
+      craftctl default
+      python3 "$CRAFT_PROJECT_DIR/packaging/fetch-backend.py" \
+        "$CRAFT_PRIME/usr/lib/neutrondrive/bin/proton-drive" \
+        --arch "$CRAFT_ARCH_BUILD_FOR"

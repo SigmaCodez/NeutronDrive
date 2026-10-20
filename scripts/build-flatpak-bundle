@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Assemble a Flatpak from Python sources and the pinned binary, without an SDK.
+
+The normal flatpak-builder recipe remains available. This alternative needs no
+compiler because no native code is built: Python sources and Proton's verified
+standalone executable are installed directly into a standard Flatpak payload.
+"""
+import argparse
+from datetime import datetime, timezone
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("stage", ROOT / "packaging/stage.py")
+stage = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(stage)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--arch", default=None)
+parser.add_argument("--backend", type=Path)
+parser.add_argument("--smoke-test", action="store_true", help="Run diagnostics inside an already installed GNOME 50 runtime")
+args = parser.parse_args()
+arch = stage.backend.architecture(args.arch)
+if not shutil.which("flatpak"):
+    parser.error("flatpak is required")
+manifest = json.loads((ROOT / "packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json").read_text())
+app_id = manifest["app-id"]
+branch = "master"
+timestamp = datetime.fromtimestamp(int(os.environ.get("SOURCE_DATE_EPOCH", "1792454400")), timezone.utc).isoformat()
+(ROOT / "build").mkdir(exist_ok=True)
+(ROOT / "dist").mkdir(exist_ok=True)
+with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") as temporary:
+    work = Path(temporary)
+    payload = work / "app"
+    (payload / "files").mkdir(parents=True)
+    (payload / "var").mkdir()
+    stage.stage(payload / "files", "/", arch, args.backend, portal_browser=True)
+    (payload / "metadata").write_text(
+        f"[Application]\nname={app_id}\n"
+        f"runtime={manifest['runtime']}/{arch}/{manifest['runtime-version']}\n"
+        f"sdk={manifest['sdk']}/{arch}/{manifest['runtime-version']}\n"
+    )
+    subprocess.run(["flatpak", "build-finish", "--no-inherit-permissions", f"--command={manifest['command']}", *manifest["finish-args"], str(payload)], check=True)
+    if args.smoke_test:
+        runtime_command = [
+            "flatpak", "build", "--runtime", "--unshare=network",
+            "--env=XDG_STATE_HOME=/tmp/neutrondrive-state",
+            "--env=XDG_DATA_HOME=/tmp/neutrondrive-data",
+            "--env=XDG_CACHE_HOME=/tmp/neutrondrive-cache",
+            str(payload),
+        ]
+        subprocess.run([
+            *runtime_command, "/app/bin/neutrondrive", "--diagnose",
+        ], check=True)
+        subprocess.run([
+            *runtime_command, "python3", "-c",
+            "import gi, ctypes; gi.require_version('Gtk', '4.0'); "
+            "from gi.repository import Gtk; ctypes.CDLL('libsecret-1.so.0'); "
+            "print('GTK', Gtk.get_major_version(), Gtk.get_minor_version(), 'and libsecret available')",
+        ], check=True)
+    repository = work / "repo"
+    subprocess.run(["flatpak", "build-export", f"--arch={arch}", f"--timestamp={timestamp}", str(repository), str(payload), branch], check=True)
+    output = ROOT / "dist" / f"neutrondrive-0.1.0a1-{arch}.flatpak"
+    subprocess.run(["flatpak", "build-bundle", f"--arch={arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repository), str(output), app_id, branch], check=True)
+    print(output)

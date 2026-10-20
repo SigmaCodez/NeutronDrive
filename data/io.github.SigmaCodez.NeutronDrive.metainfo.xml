@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.SigmaCodez.NeutronDrive</id>
+  <name>NeutronDrive</name>
+  <summary>An independent Linux client for Proton Drive</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.sigmacodez"><name>SigmaCodez and contributors</name></developer>
+  <description>
+    <p>NeutronDrive provides a native GTK interface to the official Proton Drive command-line client. Browse your cloud folders and transfer files using Proton's encryption and browser sign-in.</p>
+    <p>This is an independent community project, not an official Proton application. This alpha release needs a Proton account, a browser, and a running Secret Service such as GNOME Keyring or a compatible KWallet service.</p>
+  </description>
+  <launchable type="desktop-id">io.github.SigmaCodez.NeutronDrive.desktop</launchable>
+  <url type="homepage">https://github.com/SigmaCodez/NeutronDrive</url>
+  <url type="bugtracker">https://github.com/SigmaCodez/NeutronDrive/issues</url>
+  <url type="vcs-browser">https://github.com/SigmaCodez/NeutronDrive</url>
+  <provides><binary>neutrondrive</binary></provides>
+  <content_rating type="oars-1.1"/>
+  <requires><internet>always</internet></requires>
+  <supports><control>pointing</control><control>keyboard</control></supports>
+  <releases><release version="0.1.0a1" date="2026-10-20" type="development"><description><p>Initial alpha release for Linux.</p></description></release></releases>
+</component>

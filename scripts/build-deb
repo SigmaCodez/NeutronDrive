@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""Build a bundled .deb using only Python and dpkg-deb (no root required)."""
+import argparse
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location("stage", ROOT / "packaging/stage.py")
+stage = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(stage)
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--arch", default=None)
+parser.add_argument("--backend", type=Path)
+parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
+args = parser.parse_args()
+arch = stage.backend.architecture(args.arch)
+deb_arch = json.loads(stage.backend.LOCK.read_text())["architectures"][arch]["debian"]
+if not shutil.which("dpkg-deb"):
+    parser.error("dpkg-deb is required; install the dpkg package")
+args.output_dir.mkdir(parents=True, exist_ok=True)
+output = args.output_dir.resolve() / f"neutrondrive_0.1.0~alpha1-1_{deb_arch}.deb"
+with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
+    root = Path(temporary)
+    stage.stage(root, "/usr", arch, args.backend)
+    (root / "usr/share/doc/neutrondrive/copyright").write_text(
+        "NeutronDrive\nSource: https://github.com/SigmaCodez/NeutronDrive\n\n"
+        + (ROOT / "LICENSE").read_text()
+        + "\n\nBundled Proton Drive CLI\nSource: https://github.com/ProtonDriveApps/sdk\n\n"
+        + (ROOT / "packaging/licenses/proton-drive-MIT.txt").read_text()
+    )
+    control = root / "DEBIAN"
+    control.mkdir()
+    size = sum(path.stat().st_size for path in (root / "usr").rglob("*") if path.is_file()) // 1024
+    (control / "control").write_text(f'''Package: neutrondrive
+Version: 0.1.0~alpha1-1
+Section: net
+Priority: optional
+Architecture: {deb_arch}
+Maintainer: SigmaCodez <maintainers@users.noreply.github.com>
+Homepage: https://github.com/SigmaCodez/NeutronDrive
+Installed-Size: {size}
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.6), libsecret-1-0, xdg-utils, ca-certificates, libc6 (>= 2.17)
+Recommends: gnome-keyring
+Description: Independent GTK client for Proton Drive (alpha)
+ Browse and transfer files using the bundled official Proton Drive CLI.
+ Requires a Proton account, a browser and a running Secret Service.
+ This community project is not affiliated with Proton AG.
+''')
+    epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "1792454400"))
+    for path in root.rglob("*"):
+        os.utime(path, (epoch, epoch))
+    env = dict(os.environ, SOURCE_DATE_EPOCH=str(epoch))
+    subprocess.run(["dpkg-deb", "--root-owner-group", "-Zxz", "--build", str(root), str(output)], check=True, env=env)
+print(output)

@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+"""Build a local Flatpak bundle with installed GNOME 50 SDK/runtime."""
+import argparse
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+
+ROOT = Path(__file__).resolve().parent.parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--arch", choices=("x86_64", "aarch64"), default=platform.machine())
+parser.add_argument("--install-deps", action="store_true", help="Install the required runtime/SDK from your existing flathub remote")
+args = parser.parse_args()
+for tool in ("flatpak", "flatpak-builder"):
+    if not shutil.which(tool):
+        parser.error(f"{tool} is required")
+build = ROOT / "build" / f"flatpak-{args.arch}"
+repo = ROOT / "build/flatpak-repo"
+dist = ROOT / "dist"
+dist.mkdir(parents=True, exist_ok=True)
+command = ["flatpak-builder", "--user", "--force-clean", f"--arch={args.arch}", f"--repo={repo}"]
+if args.install_deps:
+    command.append("--install-deps-from=flathub")
+command += [str(build), str(ROOT / "packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json")]
+subprocess.run(command, check=True, cwd=ROOT)
+output = dist / f"neutrondrive-0.1.0a1-{args.arch}.flatpak"
+subprocess.run(["flatpak", "build-bundle", f"--arch={args.arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repo), str(output), "io.github.SigmaCodez.NeutronDrive", "master"], check=True)
+print(output)
