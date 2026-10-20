@@ -1,21 +1,25 @@
 {
-  "version": "0.9.0",
-  "published": "2026-10-05",
-  "manifest": "https://proton.me/download/drive/cli/version.json",
-  "source_repository": "https://github.com/ProtonDriveApps/sdk",
-  "source_tag": "cli/v0.9.0",
-  "source_commit": "df3a717bb8123791abf115a1dd171cb66813e9f4",
-  "binary_build_identifier": "cli-drive@0.9.0+75612299",
+  "version": "0.2.0-alpha1",
+  "published": "2026-10-20",
+  "source_repository": "https://github.com/ProtonDriveApps/sdk.git",
+  "source_commit": "8a44654aece1609f0f7218be51c205103945abd8",
+  "source_lock": "packaging/bridge/source-lock.json",
+  "binary_build_identifier": "external-drive-neutrondrive@0.2.0-alpha",
+  "sdk_version": "0.22.2+8a44654aece1",
   "architectures": {
     "x86_64": {
-      "url": "https://proton.me/download/drive/cli/0.9.0/linux-x64/proton-drive",
-      "sha512": "3533025ba69ae112b64e3e01fbcc1ad0688136a4043f6cf6a72886967d85fdcd9ec235479c2e113171614be5225bfba93427509a05ca5aa6071d924fa7e91ca8",
+      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-x64",
+      "sha512": "d99b2ccb2ec28c7783911eb352fb72364a10eb4a9c77d5a4d8b984a0298d2899368be111e4e4b2224f49abd98c44907ee2fb9b7f04684855000903c9b2e94969",
+      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-x64.provenance.json",
+      "target": "bun-linux-x64-baseline",
       "debian": "amd64",
       "rpm": "x86_64"
     },
     "aarch64": {
-      "url": "https://proton.me/download/drive/cli/0.9.0/linux-arm64/proton-drive",
-      "sha512": "c8d5a6b174e57f06d05cb5483400b9963faf58e743b6b33706bb73ecff718047ffce6b439994255b94b5b226b90d2e91bef7418ec96c1c3f5d8bf39b6cd01321",
+      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-arm64",
+      "sha512": "443d6975b0ab25fbab5aab63faf45d578559282d3a13823a734ec2ef8f22f850d86404adcb7fd3171e8fda9aa381e0cdd67f83ff5c10f754cde2ee6466c468fe",
+      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-arm64.provenance.json",
+      "target": "bun-linux-arm64",
       "debian": "arm64",
       "rpm": "aarch64"
     }

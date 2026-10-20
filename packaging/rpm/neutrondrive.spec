@@ -1,5 +1,5 @@
 Name:           neutrondrive
-Version:        0.1.0~alpha1
+Version:        0.2.0~alpha1
 Release:        1%{?dist}
 Summary:        Independent GTK client for Proton Drive (alpha)
 License:        MIT
@@ -10,6 +10,9 @@ Requires:       python3 >= 3.10
 Requires:       python3-gobject
 Requires:       xdg-utils
 Requires:       ca-certificates
+Requires:       python3dist(pyfuse3)
+Requires:       python3dist(trio)
+Requires:       fuse3
 %if 0%{?suse_version}
 Requires:       python3-gobject-Gdk
 Requires:       typelib-1_0-Gtk-4_0 >= 4.6
@@ -26,8 +29,7 @@ Recommends:     gnome-keyring
 %global __os_install_post %{nil}
 
 %description
-Browse and transfer files with a native GTK interface and the bundled official
-Proton Drive CLI. Requires an account, browser and running Secret Service.
+Browse and transfer files with a native GTK interface and the bundled SDK-based NeutronDrive event bridge. Requires an account, browser and running Secret Service.
 NeutronDrive is a community project not affiliated with Proton AG.
 
 %prep
@@ -42,6 +44,8 @@ cp -a usr %{buildroot}/
 
 %files
 /usr/bin/neutrondrive
+/usr/share/dbus-1/services/io.github.SigmaCodez.NeutronDrive.Service.service
+/usr/lib/systemd/user/neutrondrive-background.service
 /usr/lib/neutrondrive/
 %license /usr/share/licenses/neutrondrive/
 %doc /usr/share/doc/neutrondrive/
@@ -50,5 +54,5 @@ cp -a usr %{buildroot}/
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
 
 %changelog
-* Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.1.0~alpha1-1
-- Initial alpha packaging; bundled upstream CLI 0.9.0.
+* Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.2.0~alpha1-1
+- Background sync, on-demand FUSE files and source-built SDK event bridge.

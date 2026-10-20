@@ -28,7 +28,7 @@ runpy.run_module("neutrondrive", run_name="__main__")
 '''
 
 
-def stage(destination, prefix, arch, binary, portal_browser=False):
+def stage(destination, prefix, arch, binary, portal_browser=False, host_services=True):
     destination = Path(destination)
     prefix = prefix.strip("/")
     if ".." in Path(prefix).parts:
@@ -58,11 +58,21 @@ def stage(destination, prefix, arch, binary, portal_browser=False):
         (ROOT / "LICENSE", "share/licenses/neutrondrive/LICENSE"),
         (ROOT / "packaging/licenses/proton-drive-MIT.txt", "share/licenses/neutrondrive/proton-drive-MIT.txt"),
         (ROOT / "packaging/backend-lock.json", "share/doc/neutrondrive/backend-lock.json"),
+        (ROOT / "packaging/bridge/source-lock.json", "share/doc/neutrondrive/bridge-source-lock.json"),
     ]:
         target = base / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, target)
         target.chmod(0o644)
+    if prefix == "usr" and host_services:
+        for name, relative in [
+            ("io.github.SigmaCodez.NeutronDrive.Service.service", "share/dbus-1/services/io.github.SigmaCodez.NeutronDrive.Service.service"),
+            ("neutrondrive-background.service", "lib/systemd/user/neutrondrive-background.service"),
+        ]:
+            target = base / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / "data" / name, target)
+            target.chmod(0o644)
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "1792454400"))
     for path in sorted(base.rglob("*"), reverse=True):
         os.utime(path, (epoch, epoch), follow_symlinks=False)
@@ -76,5 +86,6 @@ if __name__ == "__main__":
     parser.add_argument("--arch", default=None)
     parser.add_argument("--backend", type=Path, help="Existing binary; SHA-512 is always checked")
     parser.add_argument("--portal-browser", action="store_true", help="Use the desktop portal to open the sign-in URL")
+    parser.add_argument("--no-host-services", action="store_true", help="Omit native host D-Bus/systemd activation files (for Snap)")
     args = parser.parse_args()
-    stage(args.destdir, args.prefix, args.arch, args.backend, args.portal_browser)
+    stage(args.destdir, args.prefix, args.arch, args.backend, args.portal_browser, not args.no_host_services)

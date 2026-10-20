@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=io.github.SigmaCodez.NeutronDrive.Service
+Exec=/usr/bin/neutrondrive --desktop-service

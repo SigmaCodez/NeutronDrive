@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Opt-in real-account Linux FUSE contract test, only in a unique synthetic folder."""
+import argparse
+import errno
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+import subprocess
+import tempfile
+import time
+import uuid
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from neutrondrive.backend import Backend
+from neutrondrive.fuse import MountManager
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--live', action='store_true', required=True)
+    parser.add_argument('--cli', required=True)
+    args = parser.parse_args()
+    backend = Backend(args.cli)
+    report = {'passed': [], 'test_folder': 'NeutronDrive-FUSE-Test-' + uuid.uuid4().hex}
+    root = None
+
+    def passed(step):
+        report['passed'].append(step)
+        print('PASS ' + step, flush=True)
+
+    try:
+        root = backend.mkdir('/my-files', report['test_folder'])
+        with tempfile.TemporaryDirectory(prefix='neutrondrive-live-fuse-') as temporary:
+            local = Path(temporary)
+            sample = local / 'sample.txt'
+            payload = b'Synthetic online-only NeutronDrive test.\n' * 100
+            sample.write_bytes(payload)
+            backend.upload([sample], root.path)
+            manager = MountManager(backend, local / 'state')
+            mount = local / 'mount'
+            def client(code):
+                # Real applications are separate from the FUSE service. Keeping
+                # a client fd in this process deadlocks when a CLI child's exec
+                # closes its inherited FUSE fd while the service awaits exec.
+                setup = 'from pathlib import Path; import os, sys, hashlib; mount=Path(sys.argv[1]); cloud=mount/"sample.txt"\n'
+                subprocess.run([sys.executable, '-c', setup + code, str(mount)],
+                               check=True, timeout=240)
+            try:
+                manager.mount(mount, remote_root=root.path, writable=True)
+                cloud = mount / sample.name
+                client("assert cloud.stat().st_size == 4100; assert os.getxattr(cloud, 'user.neutrondrive.state') == b'online-only'")
+                passed('real-kernel-placeholder-stat-without-hydration')
+                client('assert hashlib.sha256(cloud.read_bytes()).hexdigest() == ' + repr(hashlib.sha256(payload).hexdigest()))
+                passed('download-on-open-sha256')
+                manager.pin(sample.name)
+                client("assert os.getxattr(cloud, 'user.neutrondrive.state') == b'pinned'")
+                manager.unmount()
+                manager.mount(mount, remote_root=root.path, offline=True)
+                client('assert cloud.read_bytes() == ' + repr(payload))
+                passed('pinned-file-offline-remount')
+                manager.unmount()
+                manager.mount(mount, remote_root=root.path, writable=True)
+                changed = b'Changed through actual Linux FUSE fsync.\n'
+                client("with cloud.open('r+b', buffering=0) as target:\n    target.truncate(0)\n    target.write(" + repr(changed) + ")\n    os.fsync(target.fileno())")
+                remote = next(n for n in backend.list_nodes(root.path) if n.name == sample.name)
+                assert remote.sha1 == hashlib.sha1(changed).hexdigest()
+                passed('fuse-edit-upload-new-revision')
+                client("save=mount/'.editor-save'; save.write_bytes(b'Editor temporary replacement.\\n'); os.replace(save, cloud); assert cloud.read_bytes()==b'Editor temporary replacement.\\n'; assert not save.exists()")
+                passed('editor-temporary-file-replace')
+                client("folder=mount/'Created'; folder.mkdir(); new=folder/'new.txt'; new.write_bytes(b'Created through FUSE.\\n'); renamed=folder/'renamed.txt'; new.rename(renamed); assert renamed.read_bytes()==b'Created through FUSE.\\n'; renamed.unlink(); folder.rmdir()")
+                passed('fuse-create-folder-file-rename-trash')
+                manager.evict(sample.name)
+                client("assert os.getxattr(cloud, 'user.neutrondrive.state') == b'online-only'")
+                passed('evict-to-online-only')
+                assert not manager.status()['recovery']
+            finally:
+                manager.unmount()
+    finally:
+        if root:
+            try:
+                backend.trash([root.path])
+                report['cleanup'] = 'Synthetic folder moved to trash; no permanent deletion.'
+            except Exception:
+                report['cleanup'] = 'Synthetic folder retained; cleanup needed.'
+        print(json.dumps(report, indent=2), flush=True)
+
+
+if __name__ == '__main__':
+    main()

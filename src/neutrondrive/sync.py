@@ -60,6 +60,7 @@ class _Entry:
     mtime_ns: int = 0
     inode: int = 0
     device: int = 0
+    ctime_ns: int = field(default=0, compare=False)
 
 
 @dataclass
@@ -95,6 +96,10 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
     backups: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    # End-of-run observations let the event-driven daemon ignore its own
+    # filesystem writes without an additional content scan or lost events.
+    _local_snapshot: dict[str, _Entry] = field(default_factory=dict, repr=False)
+    _remote_snapshot: dict[str, _Entry] = field(default_factory=dict, repr=False)
 
     @property
     def ok(self) -> bool:
@@ -207,7 +212,7 @@ def _local_entry(parent_fd: int, name: str, check_cancel: Callable[[], None] | N
         if (info.st_dev, info.st_ino) != (after.st_dev, after.st_ino):
             raise SyncError("Local file was replaced while being scanned")
         return _Entry("file", sha1, after.st_size, mtime_ns=after.st_mtime_ns,
-                      inode=after.st_ino, device=after.st_dev)
+                      inode=after.st_ino, device=after.st_dev, ctime_ns=after.st_ctime_ns)
     finally:
         os.close(fd)
 
@@ -428,7 +433,10 @@ class SyncEngine:
         components = _parts(relative)
         for index, name in enumerate(components):
             self._check_cancel()
-            matches = [item for item in self.backend.list_nodes(current) if item.name == name]
+            # Background metadata caches must never weaken transfer preflight
+            # checks. A cached adapter explicitly supplies an uncached listing.
+            listing = getattr(self.backend, "list_nodes_fresh", self.backend.list_nodes)
+            matches = [item for item in listing(current) if item.name == name]
             if not matches:
                 return None
             if len(matches) != 1:
@@ -630,6 +638,8 @@ class SyncEngine:
                         raise SyncError("Remote root/account changed during sync")
                     local_now, local_blocked = self._scan_local(root_fd)
                     remote_now, remote_blocked = self._scan_remote(root_now)
+                    result._local_snapshot = local_now
+                    result._remote_snapshot = remote_now
                     blocked = failed | set(local_blocked) | set(remote_blocked)
                     for path, reason in {**local_blocked, **remote_blocked}.items():
                         message = f"{path}: {reason}"

@@ -1,11 +1,15 @@
 name: neutrondrive
 base: core24
-version: '0.1.0-alpha1'
+version: '0.2.0-alpha1'
 summary: Independent Linux client for Proton Drive
 description: |
   Browse and transfer Proton Drive files with a native GTK interface and the
-  bundled official Proton Drive CLI. This is an alpha community project, not
+  bundled SDK-based NeutronDrive event bridge. This is an alpha community project, not
   an official Proton application.
+
+  On-demand FUSE mounts require the native DEB/RPM installation; strict Snap
+  confinement does not support this application's unprivileged FUSE helper.
+  Browsing, transfers and background folder synchronization work inside Snap.
 
   A Proton account, browser and desktop Secret Service are required. Before
   sign-in, connect the keyring interface with:
@@ -27,6 +31,10 @@ slots:
     interface: dbus
     bus: session
     name: io.github.SigmaCodez.NeutronDrive
+  service-dbus:
+    interface: dbus
+    bus: session
+    name: io.github.SigmaCodez.NeutronDrive.SnapService
   demo-dbus:
     interface: dbus
     bus: session
@@ -37,7 +45,8 @@ apps:
     command: usr/bin/neutrondrive
     desktop: usr/share/applications/io.github.SigmaCodez.NeutronDrive.desktop
     extensions: [gnome]
-    slots: [application-dbus, demo-dbus]
+    autostart: io.github.SigmaCodez.NeutronDrive.desktop
+    slots: [application-dbus, demo-dbus, service-dbus]
     plugs:
       - home
       - network
@@ -60,7 +69,8 @@ parts:
         --prefix /usr \
         --arch "$CRAFT_ARCH_BUILD_FOR" \
         --backend "backend/$CRAFT_ARCH_BUILD_FOR/proton-drive" \
-        --portal-browser
+        --portal-browser \
+        --no-host-services
     # Bun executables have appended application data; never strip the backend.
     override-prime: |
       craftctl default

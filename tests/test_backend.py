@@ -325,9 +325,28 @@ class BackendTests(unittest.TestCase):
         lock_path = module.data_dir() / "backend.lock"
         with lock_path.open("w") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            with self.assertRaisesRegex(BackendError, "andere NeutronDrive"):
-                self.backend.logout()
+            with self.assertRaisesRegex(BackendError, "beschäftigt"):
+                self.backend._run(["auth", "logout", "--json"], timeout=0.1)
         self.assertEqual(self.call_records(), [])
+
+    def test_waiting_process_continues_after_other_instance_releases_lock(self):
+        lock_path = module.data_dir() / "backend.lock"
+        failures = []
+        with lock_path.open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            def run():
+                try:
+                    self.backend._run(["version"], timeout=2)
+                except Exception as exc:
+                    failures.append(exc)
+            thread = threading.Thread(target=run)
+            thread.start()
+            self.assertEqual(self.call_records(), [])
+            fcntl.flock(lock, fcntl.LOCK_UN)
+            thread.join(3)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(len(self.call_records()), 2)
 
     def test_plaintext_credentials_store_is_rejected_before_spawn(self):
         os.environ["PROTON_DRIVE_CREDENTIALS_STORE"] = "unsafe_file"

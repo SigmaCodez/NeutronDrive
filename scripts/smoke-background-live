@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""Opt-in background daemon E2E, using an already authorized test session.
+
+Creates synthetic files only in one UUID-named cloud folder. Tests the real
+Controller subprocess, inotify, SDK events, pause/resume and restart. Never
+logs in or prints account/root IDs, credentials, API payloads or private logs.
+Cleanup moves the synthetic cloud folder to trash; no permanent deletion.
+"""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import time
+import uuid
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from neutrondrive.backend import Backend
+from neutrondrive.background import Controller, JobStore
+
+
+class CheckFailed(RuntimeError):
+    pass
+
+
+class BoundedBackend(Backend):
+    def _run(self, args, **options):
+        options["timeout"] = min(float(options.get("timeout", 60)), 60)
+        return super()._run(args, **options)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--live", action="store_true", required=True)
+    parser.add_argument("--cli", required=True, help="Source-built Proton CLI with events bridge")
+    parser.add_argument("--timeout", type=float, default=240, help="Maximum seconds per phase (30–600)")
+    args = parser.parse_args()
+    if not 30 <= args.timeout <= 600:
+        parser.error("--timeout must be between 30 and 600 seconds")
+    backend = BoundedBackend(args.cli)
+    run_id = uuid.uuid4().hex
+    folder_name = "NeutronDrive-Background-Test-" + run_id
+    report = {"test_folder": folder_name, "passed": [], "success": False}
+    temporary = Path(tempfile.mkdtemp(prefix="neutrondrive-background-live-"))
+    local, peer, state = (temporary / part for part in ("local", "peer", "state"))
+    local.mkdir()
+    peer.mkdir()
+    root = controller = job = None
+    daemon_stopped = True
+
+    def check(condition, message):
+        if not condition:
+            raise CheckFailed(message)
+
+    def passed(step):
+        report["passed"].append(step)
+        print("PASS " + step, flush=True)
+
+    def status():
+        value = controller.command("status", timeout=5)
+        check(value.get("running"), "daemon stopped unexpectedly")
+        current = next((entry for entry in value.get("jobs", []) if entry["id"] == job.id), None)
+        check(current is not None, "test job missing from daemon")
+        check(current["state"] not in {"blocked", "conflicts"}, "job blocked or conflicted")
+        return value, current
+
+    def wait_for(predicate, failure):
+        deadline = time.monotonic() + args.timeout
+        while time.monotonic() < deadline:
+            status()
+            if predicate():
+                return
+            time.sleep(1)
+        raise CheckFailed(failure)
+
+    def uploaded(name, payload):
+        # Verification is one shallow listing of our synthetic folder, never
+        # a remote tree scan and never a trigger for the background scheduler.
+        digest = hashlib.sha1(payload).hexdigest()
+        nodes = [node for node in backend.list_nodes(root.path) if node.name == name]
+        if len(nodes) != 1:
+            return False
+        node = nodes[0]
+        if not node.sha1:
+            node = backend.info(node.path)
+        return node.safe and node.sha1 == digest
+
+    def await_upload(name, payload, failure):
+        # Rate-limit explicit assertion reads independently of local polling.
+        next_read = 0
+        def verify():
+            nonlocal next_read
+            if time.monotonic() < next_read:
+                return False
+            next_read = time.monotonic() + 4
+            return uploaded(name, payload)
+        wait_for(verify, failure)
+
+    try:
+        root = backend.mkdir("/my-files", folder_name)
+        check(root.safe and root.type == "folder" and root.name == folder_name, "test folder creation failed")
+        passed("dedicated-synthetic-folder")
+        job = JobStore(state).add(local, root.path, name="Synthetic background test")
+        controller = Controller(state, executable=backend.executable)
+        daemon_stopped = False
+        controller.start()
+        wait_for(lambda: status()[1]["last_sync"] is not None and status()[1]["state"] == "idle"
+                 and status()[0]["event_source"]["state"] == "connected", "initial scan or real event handshake timed out")
+        passed("controller-subprocess-start-and-event-handshake")
+
+        payload = ("Synthetic local inotify content " + run_id + "\n").encode()
+        (local / "inotify-upload.txt").write_bytes(payload)
+        await_upload("inotify-upload.txt", payload, "automatic inotify upload timed out")
+        passed("inotify-automatic-upload")
+
+        remote_payload = ("Synthetic external event content " + run_id + "\n").encode()
+        source = peer / "event-download.txt"
+        source.write_bytes(remote_payload)
+        backend.upload([source], root.path, file_strategy="skip", folder_strategy="skip")
+        destination = local / source.name
+        wait_for(lambda: destination.is_file() and destination.read_bytes() == remote_payload,
+                 "SDK-event automatic download timed out")
+        passed("external-upload-sdk-event-automatic-download")
+
+        controller.command("pause", job.id)
+        wait_for(lambda: status()[1]["state"] == "paused", "pause did not become effective")
+        paused_payload = b"Synthetic file created while job is paused\n"
+        (local / "paused.txt").write_bytes(paused_payload)
+        time.sleep(4)
+        check(not uploaded("paused.txt", paused_payload), "paused job uploaded data")
+        passed("paused-job-does-not-upload")
+        controller.command("resume", job.id)
+        await_upload("paused.txt", paused_payload, "resume reconciliation timed out")
+        passed("resume-reconciles-pending-local-file")
+
+        controller.stop()
+        daemon_stopped = not controller.socket_path.exists()
+        check(daemon_stopped, "daemon did not stop within the shutdown timeout")
+        check(not controller.status().get("running"), "stopped daemon still reports running")
+        passed("orderly-controller-stop")
+        restart_payload = b"Synthetic file created while daemon is stopped\n"
+        (local / "restart.txt").write_bytes(restart_payload)
+        daemon_stopped = False
+        controller.start()
+        await_upload("restart.txt", restart_payload, "persistent job restart reconciliation timed out")
+        check(len(JobStore(state).list()) == 1, "job did not persist across restart")
+        check(bool(list((state / "events").glob("events-*.json"))), "event cursor was not persisted")
+        passed("restart-restores-job-and-event-cursor")
+        report["success"] = True
+    except Exception as error:
+        report["error"] = str(error) if isinstance(error, CheckFailed) else type(error).__name__
+    finally:
+        if controller is not None and not daemon_stopped:
+            try:
+                controller.stop()
+                daemon_stopped = not controller.socket_path.exists()
+            except Exception:
+                daemon_stopped = False
+        report["daemon_stopped"] = daemon_stopped
+        if root is not None and daemon_stopped:
+            try:
+                backend.reset_cancel()
+                current = backend.info(root.path)
+                check(current.safe and current.uid == root.uid and current.name == folder_name,
+                      "cleanup identity check failed")
+                backend.trash([root.path])
+                report["cleanup"] = "synthetic-folder-moved-to-trash"
+                passed("cleanup-to-trash")
+            except Exception:
+                report["cleanup"] = "synthetic-folder-retained-for-manual-cleanup"
+                report["success"] = False
+        elif root is not None:
+            report["cleanup"] = "retained-because-daemon-stop-unconfirmed"
+            report["success"] = False
+        if daemon_stopped and report["success"]:
+            shutil.rmtree(temporary)
+        else:
+            report["local_artifacts_retained"] = str(temporary)
+        print(json.dumps(report, indent=2), flush=True)
+    return 0 if report["success"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

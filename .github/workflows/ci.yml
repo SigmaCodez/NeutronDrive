@@ -15,6 +15,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  linux-filesystem:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native filesystem and D-Bus dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pyfuse3 python3-trio fuse3 python3-gi dbus-daemon
+      - name: Exercise the real Linux FUSE mount
+        env:
+          PYTHONPATH: src
+          NEUTRONDRIVE_FUSE_TEST: '1'
+        run: |
+          /usr/bin/python3 -m unittest discover -s tests -p test_fuse_mount.py -v
+          NEUTRONDRIVE_DBUS_TEST=1 /usr/bin/python3 -m unittest discover -s tests -p test_desktop_integration.py -v
+
+  bridge-protocol:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Validate SDK event bridge protocol
+        run: bun test packaging/bridge/eventProtocol.test.ts
+
   gtk-lts:
     runs-on: ubuntu-22.04
     steps:
@@ -58,7 +84,7 @@ jobs:
       - name: Install validation tools and GUI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 libsecret-1-0 xdg-utils desktop-file-utils appstream xvfb
+          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 libsecret-1-0 xdg-utils desktop-file-utils appstream xvfb python3-pyfuse3 python3-trio fuse3
       - name: Validate desktop integration
         run: |
           desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
@@ -70,10 +96,11 @@ jobs:
       - name: Inspect package and smoke-test bundled CLI
         run: |
           dpkg-deb --info dist/*.deb
-          dpkg-deb --extract dist/*.deb build/deb-check
-          build/deb-check/usr/lib/neutrondrive/bin/proton-drive version --json
-          build/deb-check/usr/bin/neutrondrive --help
-          build/deb-check/usr/bin/neutrondrive --diagnose
+          sudo apt-get install -y ./dist/*.deb
+          /usr/lib/neutrondrive/bin/proton-drive version --json
+          neutrondrive --help
+          neutrondrive --diagnose
+          /usr/bin/python3 -c 'import pyfuse3, trio, gi'
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.architecture }}
@@ -89,9 +116,11 @@ jobs:
           - distribution: fedora
             container: fedora:44
             install: dnf install -y git python3 rpm-build
+            install_package: dnf install -y ./dist/*.rpm
           - distribution: opensuse
             container: opensuse/tumbleweed:latest
             install: zypper --non-interactive install git python3 rpm-build
+            install_package: zypper --non-interactive --no-gpg-checks install --allow-unsigned-rpm ./dist/*.rpm
     container: ${{ matrix.container }}
     steps:
       - name: Install build tools
@@ -101,6 +130,11 @@ jobs:
         run: python3 scripts/build-rpm
       - name: Inspect package
         run: rpm -qpi dist/*.rpm
+      - name: Install package and verify runtime dependencies
+        run: |
+          ${{ matrix.install_package }}
+          python3 -c 'import pyfuse3, trio, gi'
+          neutrondrive --diagnose
       - uses: actions/upload-artifact@v4
         with:
           name: rpm-${{ matrix.distribution }}-x86_64

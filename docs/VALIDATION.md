@@ -1,104 +1,62 @@
-# Validation record
+# Validation record — 0.2.0 alpha1
 
-Date: 2026-10-20. This file records evidence, not universal compatibility.
+Date: 2026-10-20. This records observed results, not universal compatibility.
+The previous release evidence is preserved in [VALIDATION-0.1.md](VALIDATION-0.1.md).
 
-## Automated local checks
+## Local tests
 
-- 68 standard-library adapter/sync tests pass on Python 3.14.4 / Ubuntu 26.04 x86_64.
-- Adapter tests cover JSON contracts, partial failures, login streaming and URL
-  validation, process locks, cancellation, timeouts, output bounds, endpoint/cache
-  protections, option injection, symlinks and glob behavior.
-- Sync tests cover both directions, nested/empty folders, stale plans, root/account
-  changes, concurrent writes, conflicts, local backups, failed-install recovery,
-  symlink/FIFO rejection, checksum failures, cancellation and mtime preservation.
-- Python sources compile. Desktop entry and AppStream metadata validate.
-- Five additional opt-in native GTK tests pass on a Broadway display, covering
-  page construction, navigation, filtering, unsafe-entry action controls and busy
-  sync state. The normal test run reports 68 passed and five UI tests skipped;
-  explicitly enabling the UI suite exercises all 73 checks.
-- Official CLI 0.9.0 was executed: reports SDK 0.22.2. SHA512 matches the official
-  release manifest. Real argument parsing, including `--`, was checked.
+The full Python suite, with opt-in GTK, isolated D-Bus and actual Linux kernel
+FUSE tests enabled, passed on Ubuntu 26.04.1 x86_64 / Python 3.14.4. The final
+count and package CI run are recorded below after release validation.
 
-## Packaging and desktop checks
+Coverage includes command serialization/cancellation, partial transfers,
+SHA1/SHA256 verification, manual sync safety, inotify, event acknowledgement and
+replay, scheduler pause/restart, account/root identity changes, remote metadata
+cache invalidation, on-demand hydration, pins, eviction, failed-write recovery,
+editor replacement, D-Bus activation and desktop autostart argument quoting.
 
-| Format / architecture | Evidence | Remaining validation |
-| --- | --- | --- |
-| DEB / x86_64 | Built on Ubuntu 24.04; packaged launcher and CLI executed; GTK tests pass | Clean Debian/Mint/Pop!_OS install matrices |
-| DEB / aarch64 | Built on native Ubuntu 24.04 ARM64 runner; bundled CLI, diagnose and GTK tests pass | Account transfers on ARM64 desktop hardware |
-| RPM / x86_64 | Both Fedora 44 and openSUSE Tumbleweed builds pass; RPM metadata inspected | Installed-package account/desktop session tests |
-| Flatpak / x86_64 | Full SDK build; actual final bundle installed in isolated user installation; bundled backend diagnose and mapped GTK window pass | Repeat account transfer/restart tests in installed package, GNOME/KDE portal matrix |
-| Snap / amd64 | Actual strict Snapcraft build passes; application bus slots and payload verified | Installed-package login, interface connections and desktop session |
-| Other aarch64 formats | Checksum-pinned binary and build recipes | Actual RPM/Flatpak/Snap builds and runtime tests |
+The source-built backend passed 10 Bun tests and a complete TypeScript typecheck.
+x64-baseline and arm64 ELF artifacts declare GLIBC symbols through 2.17. x64
+uses Bun's baseline target without AVX2; this is not a claim of runtime validation
+on every CPU. Provenance records the exact SDK commit, compiler version,
+patch/source hashes and dependency-lock transformation.
 
-All eleven jobs in [GitHub Actions run 39485194520](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39485194520)
-passed at source commit `7528cfab4dfa7f29cf50901d9bfc743fc9c0969c`.
-The matrix includes Python 3.10–3.13 adapter/sync tests, five GUI tests against
-GTK 4.6 on Ubuntu 22.04, and GUI/packaged-backend checks on both Ubuntu 24.04
-architectures. Release packages come from this run, not the earlier local builds.
+## Authorized account tests
 
-GTK 4 application was launched and visually inspected through GTK's Broadway
-test display with explicitly labelled demo data. This proves UI construction and
-basic display, not Wayland/X11 account flows on every desktop. The initial
-light-theme text contrast issue was found and corrected.
+The existing browser-authenticated test session was used without exposing
+passwords or session keys. Every mutation is confined to newly created,
+uniquely named synthetic test folders. Cleanup moves these folders to trash;
+nothing is permanently deleted.
 
-The complete Flatpak SDK build could not run locally because its SDK exceeded
-the temporary disk quota. The SDK-free assembly path packages the same Python
-source and unmodified verified CLI, uses the manifest's runtime/permissions and
-was tested against the installed runtime. The regular SDK build subsequently
-completed successfully in GitHub Actions and supplies the release Flatpak.
+`scripts/smoke-live` passed against the new bridge: Unicode upload/download,
+checksum verification, rename/move, temporary public-link creation/revocation,
+trash/restore, manual two-way changes, local backup retention and conflicts.
 
-## Flatpak runtime and credentials
+`scripts/smoke-background-live` exercises a real daemon subprocess, local inotify
+uploads, external uploads followed by actual Drive-event downloads, pause/resume
+and stop/restart. `scripts/smoke-fuse-live` exercises real kernel mounts against
+Proton, download on open, pin/offline remount, editing/revisions, editor replacement,
+folder/file operations and eviction. Final outcomes are recorded with the release.
 
-The final CI bundle was installed using a temporary `FLATPAK_USER_DIR`, with the
-existing system GNOME 50 runtime. The packaged `--diagnose` completed successfully
-and an actual GTK window mapped successfully. A read-only account query correctly
-reported no authentication in the new application store. No additional login was
-started for that installation. Only test-created app data and the temporary
-installation were removed; existing installations and the native session were
-preserved. The bundle SHA256 matches the release checksum file.
+An initial FUSE harness ran client I/O and the service in one process, causing
+an inherited-file-descriptor deadlock when a backend child closed its FUSE fd.
+The harness was corrected to use separate client processes, matching the real
+D-Bus service architecture. Only that synthetic test connection was aborted.
 
-A preceding assembly sandbox using the same manifest permissions completed an
-official browser login followed by a successful root metadata query in a separate
-CLI process. This tested portal browser launch and credential retrieval between
-processes in that sandbox, not restart/transfer behavior of the installed release.
-Its temporary credential store was removed after testing. It contained no copied
-native credentials and never used plaintext credential mode.
+## Packaging boundaries
 
-GNOME 50 libsecret 0.21.8.2 selects an encrypted file backend when the desktop
-Secret portal is supported; this store can be separate from native Secret
-Service credentials. This explains why the native login is not automatically
-present in a fresh Flatpak installation. Source references:
-[backend selection](https://github.com/GNOME/libsecret/blob/0.21.8.2/libsecret/secret-backend.c),
-[portal-backed file store](https://github.com/GNOME/libsecret/blob/0.21.8.2/libsecret/secret-file-backend.c).
-The preliminary `flatpak build` probe needed explicit bus-proxy flags and removal
-of build-mode host filesystem access; the final installed-package test used
-normal `flatpak run` permissions without those build-mode adjustments.
+Native DEB/RPM include pyfuse3/Trio dependencies and the D-Bus helper. CI tests
+actual FUSE mounts and D-Bus activation without cloud credentials, native package
+installation/runtime dependencies, both DEB architectures and both RPM families.
+Flatpak and strict Snap are built separately.
 
-## Real-account testing
+Flatpak online files additionally require the native host package/helper and may
+require a separate native browser login. Full GNOME/KDE Background-portal and
+installed-package account/restart combinations remain to be validated.
+Strict Snap online mounts are explicitly disabled: its confinement does not
+provide the required unprivileged FUSE helper. Browsing, transfer and background
+folder sync are included; installed Snap account/autostart behavior still needs
+verification on target desktops.
 
-An owner-authorized test account completed official browser authentication and a
-root metadata query. One browser displayed “Invalid code” after the single-use
-login link was opened twice; the CLI had already completed successfully and the
-authenticated session was independently verified.
-
-The synthetic live contract test in `scripts/smoke-live` completed successfully:
-
-- Folder creation, Unicode upload/listing and SHA256-verified download round trip.
-- Rename and move, public read-only link creation and revocation, trash and restore.
-- Manual sync of new local files to the cloud and new remote files to local storage.
-- Changed local content uploaded as a new revision.
-- Changed remote content downloaded with the previous local version retained.
-- Simultaneous local/remote edits detected as conflicts without overwriting them.
-
-The first live run exposed `sharing remove-url` printing literal `undefined` on
-successful removal of the final share. The adapter now accepts this only for the
-two optional sharing-result commands, with dedicated regression tests; the full
-live run then passed. Both uniquely named synthetic test folders were moved to
-the account's trash. Nothing was permanently deleted. No credentials, account
-identity, remote node IDs or public share URLs are included in the repository.
-
-## Release limitations
-
-No claim of error-free operation, full Windows/macOS parity, security audit,
-all-distribution compatibility or store publication is made. GitHub Actions
-results must be read per job; source recipes alone are not built packages.
+No claim of error-free operation, complete Windows/macOS parity, security audit,
+all-distribution compatibility or Flathub/Snap Store publication is made.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fetch exactly the pinned upstream CLI; never execute unverified downloads."""
+"""Fetch exactly the pinned SDK-based bridge; never execute unverified downloads."""
 
 import argparse
 import hashlib
@@ -41,7 +41,7 @@ def fetch(destination, arch=None):
     destination.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix="proton-drive-", dir=destination.parent)
     try:
-        request = urllib.request.Request(entry["url"], headers={"User-Agent": "NeutronDrive-build/0.1"})
+        request = urllib.request.Request(entry["url"], headers={"User-Agent": "NeutronDrive-build/0.2"})
         with os.fdopen(fd, "wb") as target, urllib.request.urlopen(request, timeout=120) as response:
             for chunk in iter(lambda: response.read(1024 * 1024), b""):
                 target.write(chunk)

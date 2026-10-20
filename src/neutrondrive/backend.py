@@ -201,10 +201,20 @@ class Backend:
             lock_path = data_dir() / "backend.lock"
             lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
             with os.fdopen(lock_fd, "w") as lock:
-                try:
-                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError as exc:
-                    raise BackendError("Eine andere NeutronDrive-Instanz verwendet das Backend bereits.") from exc
+                # The GUI, background worker and on-demand filesystem share a
+                # credential/cache session. Serialize all short CLI calls, but
+                # keep a waiting caller cancellable and bounded.
+                lock_deadline = time.monotonic() + min(timeout, 120)
+                while True:
+                    if self.cancel_event.is_set():
+                        raise Cancelled("Warten auf das Backend abgebrochen.")
+                    try:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError as exc:
+                        if time.monotonic() >= lock_deadline:
+                            raise BackendError("Das Backend ist noch beschäftigt. Bitte erneut versuchen.") from exc
+                        self.cancel_event.wait(0.05)
                 try:
                     process = subprocess.Popen([self.executable, *args], stdin=subprocess.DEVNULL,
                                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,

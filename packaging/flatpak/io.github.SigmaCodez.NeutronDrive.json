@@ -12,13 +12,17 @@
     "--device=dri",
     "--filesystem=home",
     "--talk-name=org.freedesktop.secrets",
+    "--talk-name=io.github.SigmaCodez.NeutronDrive.Service",
     "--env=GTK_USE_PORTAL=1"
   ],
   "modules": [
     {
       "name": "neutrondrive",
       "buildsystem": "simple",
-      "build-options": {"no-debuginfo": true, "strip": false},
+      "build-options": {
+        "no-debuginfo": true,
+        "strip": false
+      },
       "build-commands": [
         "python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser"
       ],
@@ -26,21 +30,36 @@
         {
           "type": "dir",
           "path": "../..",
-          "skip": [".git", ".agents", ".aws", ".codex", ".env", "build", "dist", ".venv", ".flatpak-builder", "__pycache__"]
+          "skip": [
+            ".git",
+            ".agents",
+            ".aws",
+            ".codex",
+            ".env",
+            "build",
+            "dist",
+            ".venv",
+            ".flatpak-builder",
+            "__pycache__"
+          ]
         },
         {
           "type": "file",
-          "url": "https://proton.me/download/drive/cli/0.9.0/linux-x64/proton-drive",
-          "sha512": "3533025ba69ae112b64e3e01fbcc1ad0688136a4043f6cf6a72886967d85fdcd9ec235479c2e113171614be5225bfba93427509a05ca5aa6071d924fa7e91ca8",
+          "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-x64",
+          "sha512": "d99b2ccb2ec28c7783911eb352fb72364a10eb4a9c77d5a4d8b984a0298d2899368be111e4e4b2224f49abd98c44907ee2fb9b7f04684855000903c9b2e94969",
           "dest-filename": "proton-drive",
-          "only-arches": ["x86_64"]
+          "only-arches": [
+            "x86_64"
+          ]
         },
         {
           "type": "file",
-          "url": "https://proton.me/download/drive/cli/0.9.0/linux-arm64/proton-drive",
-          "sha512": "c8d5a6b174e57f06d05cb5483400b9963faf58e743b6b33706bb73ecff718047ffce6b439994255b94b5b226b90d2e91bef7418ec96c1c3f5d8bf39b6cd01321",
+          "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-arm64",
+          "sha512": "443d6975b0ab25fbab5aab63faf45d578559282d3a13823a734ec2ef8f22f850d86404adcb7fd3171e8fda9aa381e0cdd67f83ff5c10f754cde2ee6466c468fe",
           "dest-filename": "proton-drive",
-          "only-arches": ["aarch64"]
+          "only-arches": [
+            "aarch64"
+          ]
         }
       ]
     }

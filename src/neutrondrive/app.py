@@ -4,6 +4,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 
 import gi
@@ -109,6 +110,8 @@ class Application(Gtk.Application):
         self.backend = backend
         self.demo = demo
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="neutrondrive")
+        self.status_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="neutrondrive-status")
+        self.status_polling = False
         self.window = None
         self.busy = False
         self.closing = False
@@ -138,6 +141,7 @@ class Application(Gtk.Application):
         self.window.connect("close-request", self._close)
         self._build()
         self.window.present()
+        self.service_timer = GLib.timeout_add_seconds(3, self.poll_services)
         if self.backend.available:
             self.refresh()
         else:
@@ -165,7 +169,10 @@ class Application(Gtk.Application):
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         sidebar.set_size_request(218, -1)
         sidebar.add_css_class("sidebar")
-        body.append(sidebar)
+        sidebar_scroll = Gtk.ScrolledWindow()
+        sidebar_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sidebar_scroll.set_child(sidebar)
+        body.append(sidebar_scroll)
         brand_box = Gtk.Box(spacing=10)
         brand_icon = Gtk.Image.new_from_icon_name("network-server-symbolic")
         brand_icon.add_css_class("brand-icon")
@@ -191,6 +198,8 @@ class Application(Gtk.Application):
         sidebar.append(section)
         for title, icon, page in [
             ("Synchronisierung", "emblem-synchronizing-symbolic", "sync"),
+            ("Automatischer Sync", "view-refresh-symbolic", "background"),
+            ("Online-Laufwerk", "network-server-symbolic", "ondemand"),
             ("Aktivität", "document-open-recent-symbolic", "activity"),
             ("Einstellungen", "preferences-system-symbolic", "settings"),
         ]:
@@ -200,7 +209,7 @@ class Application(Gtk.Application):
         spacer = Gtk.Box()
         spacer.set_vexpand(True)
         sidebar.append(spacer)
-        privacy = label("Verschlüsselung durch\ndas offizielle Proton-Backend", "muted small")
+        privacy = label("Verschlüsselung durch\ndas Proton SDK", "muted small")
         privacy.set_margin_bottom(12)
         sidebar.append(privacy)
         sidebar.append(button("Bei Proton anmelden", "avatar-default-symbolic", self.login))
@@ -231,6 +240,8 @@ class Application(Gtk.Application):
         content.append(self.stack)
         self._files_page()
         self._sync_page()
+        self._background_page()
+        self._ondemand_page()
         self._activity_page()
         self._settings_page()
         footer = Gtk.Box(spacing=10)
@@ -345,7 +356,7 @@ class Application(Gtk.Application):
         actions.append(self.plan_button)
         actions.append(self.execute_button)
         box.append(actions)
-        note = label("Kein automatischer Hintergrund-Sync. Löschungen werden nicht weitergegeben. Gleichzeitige Änderungen werden als Konflikte behandelt; lokale ersetzte Versionen werden gesichert.", "muted small")
+        note = label("Automatische Aufträge unter »Automatischer Sync« einrichten. Löschungen werden nicht weitergegeben. Gleichzeitige Änderungen werden als Konflikte behandelt; lokale ersetzte Versionen werden gesichert.", "muted small")
         note.set_wrap(True)
         page.append(note)
         self.sync_text = Gtk.TextView(editable=False, cursor_visible=False, monospace=True, wrap_mode=Gtk.WrapMode.WORD_CHAR)
@@ -357,6 +368,284 @@ class Application(Gtk.Application):
         scroll.set_vexpand(True)
         scroll.set_child(self.sync_text)
         page.append(scroll)
+
+    def _background_page(self):
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        page_scroll = Gtk.ScrolledWindow()
+        page_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        page_scroll.set_child(page)
+        self.stack.add_named(page_scroll, "background")
+        page.append(label("Automatischer Sync", "title"))
+        intro = label("Änderungen werden im Hintergrund abgeglichen – auch nach dem Schließen dieses Fensters.", "subtitle")
+        intro.set_wrap(True)
+        page.append(intro)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.add_css_class("panel")
+        page.append(box)
+        row = Gtk.Box(spacing=10)
+        self.background_local = None
+        self.background_local_label = label("Kein lokaler Ordner gewählt", "muted")
+        self.background_local_label.set_hexpand(True)
+        self.background_local_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        row.append(self.background_local_label)
+        row.append(button("Ordner wählen", "folder-open-symbolic", lambda: self.choose("Sync-Ordner wählen", folder=True, callback=self.choose_background_local)))
+        box.append(row)
+        box.append(label("Cloud-Ordner unter /my-files", "small muted"))
+        self.background_remote = Gtk.Entry(text="/my-files")
+        box.append(self.background_remote)
+        controls = Gtk.Box(spacing=8)
+        self.background_add_button = button("Automatischen Sync aktivieren", "emblem-synchronizing-symbolic", self.add_background_job, "suggested-action")
+        self.background_add_button.set_sensitive(not self.demo)
+        controls.append(self.background_add_button)
+        controls.append(button("Dienst starten", callback=lambda: self.background_action("start")))
+        controls.append(button("Dienst stoppen", callback=lambda: self.background_action("stop")))
+        box.append(controls)
+        self.background_status = label("Noch keine Hintergrund-Aufträge geladen.", "muted small")
+        self.background_status.set_wrap(True)
+        page.append(self.background_status)
+        self.background_jobs = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        self.background_jobs.add_css_class("file-list")
+        self.background_jobs.set_placeholder(label("Noch keine automatischen Sync-Ordner eingerichtet.", "empty"))
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_min_content_height(160)
+        scroll.set_max_content_height(320)
+        scroll.set_propagate_natural_height(True)
+        scroll.set_child(self.background_jobs)
+        page.append(scroll)
+        note = label("Konflikte bleiben erhalten und erscheinen beim Auftrag. Löschungen werden weiterhin nicht automatisch übertragen. Ein entsperrter Schlüsselbund und eine aktive Anmeldung sind erforderlich.", "muted small")
+        note.set_wrap(True)
+        page.append(note)
+
+    def _ondemand_page(self):
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        page_scroll = Gtk.ScrolledWindow()
+        page_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        page_scroll.set_child(page)
+        self.stack.add_named(page_scroll, "ondemand")
+        page.append(label("Online-Laufwerk", "title"))
+        intro = label("Dateien im Dateimanager sehen und beim Öffnen laden. Offline vorhalten oder lokalen Speicher wieder freigeben.", "subtitle")
+        intro.set_wrap(True)
+        page.append(intro)
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        panel.add_css_class("panel")
+        page.append(panel)
+        panel.append(label("Leerer lokaler Ordner als Laufwerk", "small muted"))
+        self.mount_local = None
+        self.mount_label = label("Kein Einhängeordner gewählt", "muted")
+        self.mount_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+        row = Gtk.Box(spacing=10)
+        self.mount_label.set_hexpand(True)
+        row.append(self.mount_label)
+        row.append(button("Ordner wählen", "folder-open-symbolic", lambda: self.choose("Leeren Einhängeordner wählen", folder=True, callback=self.choose_mount_local)))
+        panel.append(row)
+        panel.append(label("Cloud-Ordner", "small muted"))
+        self.mount_remote = Gtk.Entry(text="/my-files")
+        panel.append(self.mount_remote)
+        self.mount_writable = Gtk.CheckButton(label="Dateien im Laufwerk auch bearbeiten und hochladen")
+        panel.append(self.mount_writable)
+        self.mount_offline = Gtk.CheckButton(label="Offline aus vorhandenem Cache öffnen")
+        panel.append(self.mount_offline)
+        controls = Gtk.Box(spacing=8)
+        self.mount_button = button("Laufwerk verbinden", "network-server-symbolic", self.mount_drive, "suggested-action")
+        self.mount_button.set_sensitive(not self.demo and not os.environ.get("SNAP"))
+        if os.environ.get("SNAP"):
+            self.mount_button.set_tooltip_text("Online-Laufwerke sind im Snap nicht verfügbar. Bitte das native DEB- oder RPM-Paket verwenden.")
+        controls.append(self.mount_button)
+        controls.append(button("Trennen", callback=lambda: self.mount_action("unmount")))
+        controls.append(button("Aktualisieren", callback=lambda: self.mount_action("refresh")))
+        panel.append(controls)
+        self.mount_status = label("Noch kein Online-Laufwerk verbunden.", "muted")
+        self.mount_status.set_wrap(True)
+        page.append(self.mount_status)
+        cache = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        cache.add_css_class("panel")
+        page.append(cache)
+        cache.append(label("Dateipfad im Laufwerk, z. B. Dokumente/Notizen.txt", "small muted"))
+        self.cache_path = Gtk.Entry()
+        cache.append(self.cache_path)
+        actions = Gtk.Box(spacing=8)
+        actions.append(button("Offline vorhalten", callback=lambda: self.mount_action("pin", path=self.cache_path.get_text())))
+        actions.append(button("Speicher freigeben", callback=lambda: self.mount_action("evict", path=self.cache_path.get_text())))
+        cache.append(actions)
+        self.mount_notice = label("Für Flatpak zusätzlich das native NeutronDrive-Paket als Laufwerkshelfer installieren. Online-Laufwerke sind im Snap derzeit nicht verfügbar; dafür das native DEB- oder RPM-Paket verwenden. Dateien durchsuchen, übertragen und synchronisieren bleibt im Snap möglich. Nicht hochgeladene Änderungen bleiben im Wiederherstellungsspeicher erhalten.", "muted small")
+        self.mount_notice.set_wrap(True)
+        page.append(self.mount_notice)
+        page.append(button("Laufwerkshelfer bei Proton anmelden", "avatar-default-symbolic", lambda: self.mount_action("login")))
+
+    def background_clients(self):
+        from .background import Controller, JobStore
+        state = data_dir() / "background"
+        return JobStore(state), Controller(state, executable=self.backend.executable)
+
+    def choose_background_local(self, paths):
+        self.background_local = paths[0]
+        self.background_local_label.set_text(str(paths[0]))
+
+    def choose_mount_local(self, paths):
+        self.mount_local = paths[0]
+        self.mount_label.set_text(str(paths[0]))
+
+    def add_background_job(self):
+        if self.demo:
+            self.message("Im Demo-Modus werden keine Hintergrund-Aufträge angelegt.")
+            return
+        if not self.background_local:
+            self.message("Bitte zuerst den lokalen Sync-Ordner auswählen.", error=True)
+            return
+        local, remote = self.background_local, self.background_remote.get_text()
+        def work():
+            store, controller = self.background_clients()
+            store.add(local, remote)
+            controller.start()
+            controller.command("reload")
+            return controller.status()
+        def activate():
+            if os.environ.get("FLATPAK_ID"):
+                from .desktop_integration import request_portal_background
+                def permission(ok):
+                    if ok:
+                        self.submit("Hintergrund-Sync aktivieren", work, self.render_background_status)
+                    else:
+                        self.message("Der Desktop hat Hintergrundbetrieb nicht freigegeben. Es wurde kein Auftrag aktiviert.", error=True)
+                request_portal_background(True, permission)
+            else:
+                self.submit("Hintergrund-Sync aktivieren", work, self.render_background_status)
+        self.confirm("Automatischen Sync aktivieren?", "Neue und geänderte Dateien dieses Ordners werden künftig automatisch übertragen. Konflikte und Löschungen bleiben zur manuellen Klärung erhalten. Flatpak fragt zusätzlich nach Hintergrundbetrieb und Autostart.", activate)
+
+    def background_action(self, action, job_id=None):
+        if self.demo:
+            self.message("Der Demo-Modus startet keine Hintergrunddienste.")
+            return
+        def work():
+            store, controller = self.background_clients()
+            if action == "start":
+                controller.start()
+            elif action == "stop":
+                controller.stop()
+            elif action == "remove":
+                if controller.status().get("running"):
+                    controller.command("pause", job_id)
+                store.remove(job_id)
+                if controller.status().get("running"):
+                    controller.command("reload")
+            else:
+                controller.start()
+                controller.command(action, job_id)
+            return controller.status()
+        self.submit("Hintergrund-Sync", work, self.render_background_status)
+
+    def render_background_status(self, value):
+        self.background_status.set_text("Dienst läuft" if value.get("running") else "Dienst ist gestoppt")
+        source = value.get("event_source")
+        if isinstance(source, dict) and source.get("error"):
+            self.background_status.set_text(self.background_status.get_text() + " · " + str(source["error"]))
+        if value.get("error"):
+            self.background_status.set_text(self.background_status.get_text() + " · " + str(value["error"]))
+        self.clear_box(self.background_jobs)
+        names = {"idle":"Aktuell", "syncing":"Wird synchronisiert", "paused":"Pausiert", "error":"Fehler", "conflict":"Konflikt", "waiting":"Wartet", "offline":"Offline"}
+        for job in value.get("jobs", []):
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            title = label(job.get("name") or job.get("local_root", "Sync-Ordner"), "file-name")
+            title.set_ellipsize(Pango.EllipsizeMode.MIDDLE)
+            box.append(title)
+            detail = label(str(job.get("local_root", "")) + " ↔ " + str(job.get("remote_root", "")), "muted small")
+            detail.set_wrap(True)
+            box.append(detail)
+            state = str(job.get("state", "waiting"))
+            detail = label(names.get(state, state) + (" · " + str(job["error"]) if job.get("error") else ""), "muted small")
+            detail.set_wrap(True)
+            box.append(detail)
+            conflicts = job.get("conflicts", [])
+            if conflicts:
+                conflict_label = label("Konflikte: " + "; ".join(str(c) for c in conflicts[:5]), "small")
+                conflict_label.set_wrap(True)
+                box.append(conflict_label)
+            actions = Gtk.Box(spacing=8)
+            paused = job.get("paused", False)
+            job_id = job["id"]
+            actions.append(button("Fortsetzen" if paused else "Pausieren", callback=lambda i=job_id,p=paused:self.background_action("resume" if p else "pause", i)))
+            actions.append(button("Jetzt abgleichen", callback=lambda i=job_id:self.background_action("sync", i)))
+            actions.append(button("Auftrag entfernen", callback=lambda i=job_id:self.background_action("remove", i)))
+            box.append(actions)
+            self.background_jobs.append(box)
+
+    def mount_drive(self):
+        if not self.mount_local:
+            self.message("Bitte zuerst einen leeren Einhängeordner auswählen.", error=True)
+            return
+        self.mount_action("mount", mountpoint=str(self.mount_local), remote_root=self.mount_remote.get_text(),
+                          writable=self.mount_writable.get_active(), offline=self.mount_offline.get_active())
+
+    def mount_action(self, action, **options):
+        if self.demo:
+            self.message("Im Demo-Modus wird kein Laufwerk verbunden oder verändert.")
+            return
+        if action == "mount" and os.environ.get("SNAP"):
+            self.message("Online-Laufwerke sind im Snap nicht verfügbar. Bitte das native DEB- oder RPM-Paket verwenden; Dateien durchsuchen und synchronisieren bleibt im Snap möglich.", error=True)
+            return
+        from .desktop_service import DesktopClient
+        client = DesktopClient(self.backend.executable)
+        def done(value):
+            self.render_mount_status(value)
+            self.message("Laufwerksaktion abgeschlossen.")
+        self.submit("Online-Laufwerk", lambda: client.request(action, **options), done)
+
+    def render_mount_status(self, value):
+        state = "Verbunden" if value.get("mounted") else "Nicht verbunden"
+        path = value.get("mountpoint", "")
+        recovery = value.get("pending_recovery", value.get("recovery", []))
+        text = state + (" · " + str(path) if path else "")
+        if recovery:
+            text += "\nNicht hochgeladene Änderungen im Wiederherstellungsspeicher: " + str(recovery)
+        if value.get("error"):
+            text += "\n" + str(value["error"])
+        self.mount_status.set_text(text)
+        configuration = value.get("configuration", {})
+        if configuration and not self.mount_local:
+            self.mount_local = Path(configuration.get("mountpoint", ""))
+            self.mount_label.set_text(str(self.mount_local))
+            self.mount_remote.set_text(configuration.get("remote_root", "/my-files"))
+
+    def poll_services(self):
+        if self.closing:
+            return GLib.SOURCE_REMOVE
+        if self.demo or self.busy or self.status_polling or self.current_page not in {"background", "ondemand"}:
+            return GLib.SOURCE_CONTINUE
+        self.status_polling = True
+        page = self.current_page
+        def work():
+            if page == "background":
+                return self.background_clients()[1].status()
+            from .desktop_service import DesktopClient
+            return DesktopClient(self.backend.executable).request("status")
+        def finish(future):
+            self.status_polling = False
+            if not self.closing and self.current_page == page:
+                try:
+                    value = future.result()
+                    if page == "background":
+                        self.render_background_status(value)
+                    else:
+                        self.render_mount_status(value)
+                except Exception:
+                    pass  # Explicit actions show errors; a status probe must not interrupt editing.
+            return GLib.SOURCE_REMOVE
+        self.status_executor.submit(work).add_done_callback(lambda f:GLib.idle_add(finish, f))
+        return GLib.SOURCE_CONTINUE
+
+    def change_autostart(self, enabled=True):
+        if self.demo:
+            return
+        import os
+        if os.environ.get("FLATPAK_ID"):
+            from .desktop_integration import request_portal_background
+            request_portal_background(enabled, lambda ok:self.message("Autostart eingerichtet." if ok else "Das Desktop-Portal hat Autostart nicht freigegeben.", error=not ok))
+        else:
+            from .desktop_integration import set_autostart
+            def work():
+                set_autostart(enabled, self.backend.executable)
+                return enabled
+            self.submit("Autostart", work, lambda enabled:self.message("Autostart aktiviert." if enabled else "Autostart deaktiviert."))
 
     def _activity_page(self):
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=18)
@@ -389,7 +678,7 @@ class Application(Gtk.Application):
         row.append(button("Anmelden", callback=self.login))
         row.append(button("Abmelden", callback=self.logout))
         panel.append(row)
-        text = label("Die Anmeldung erfolgt ausschließlich auf account.proton.me im Browser. NeutronDrive fragt kein Proton-Passwort ab. Die offizielle CLI speichert die Sitzung im Linux-Schlüsselbund (GNOME Keyring/KWallet) oder in pass. Ihre CLI-Sitzung wird mit NeutronDrive geteilt.", "muted")
+        text = label("Die Anmeldung erfolgt ausschließlich auf account.proton.me im Browser. NeutronDrive fragt kein Proton-Passwort ab. Das SDK-Backend speichert die Sitzung im Linux-Schlüsselbund (GNOME Keyring/KWallet) oder in pass. Native Sitzungen werden gemeinsam genutzt; Flatpak kann einen getrennten, geschützten Kontospeicher verwenden.", "muted")
         text.set_wrap(True)
         panel.append(text)
         links = Gtk.Box(spacing=10)
@@ -397,7 +686,11 @@ class Application(Gtk.Application):
                           ("Offizielle CLI", "https://proton.me/download/drive/cli/index.html")]:
             links.append(button(text, "web-browser-symbolic", lambda u=url: self.open_url(u)))
         page.append(links)
-        limits = label("Alpha-Version: noch kein vollständiger Ersatz der Windows-/macOS-App. Hintergrund-Sync, Online-Platzhalter, Versionsverwaltung und Proton Docs/Sheets sind noch nicht integriert. Die offizielle CLI kann Diagnose-/Nutzungsdaten an Proton senden; ihre Datenschutzregeln gelten weiter.", "muted small")
+        startup = Gtk.Box(spacing=10)
+        startup.append(button("Autostart aktivieren", callback=lambda:self.change_autostart(True)))
+        startup.append(button("Autostart deaktivieren", callback=lambda:self.change_autostart(False)))
+        page.append(startup)
+        limits = label("Alpha-Version: noch kein vollständiger Ersatz der Windows-/macOS-App. Hintergrund-Sync ist verfügbar. Das Online-Laufwerk benötigt das native Paket; Flatpak nutzt dessen Helfer, Snap unterstützt es noch nicht. Automatische Löschweitergabe, Versionsverwaltung und Proton Docs/Sheets sind noch nicht integriert. Datei- und Kontozugriffe erfolgen über den Proton SDK; die Datenschutzregeln des Dienstes gelten weiter.", "muted small")
         limits.set_wrap(True)
         page.append(limits)
 
@@ -642,8 +935,17 @@ class Application(Gtk.Application):
         return GLib.SOURCE_REMOVE
 
     def logout(self):
-        self.confirm("Von Proton abmelden?", "Dies beendet auch die gemeinsam verwendete Sitzung der offiziellen Proton-CLI.",
-                     lambda: self.submit("Abmelden", self.backend.logout, self.logged_out))
+        def work():
+            if not self.demo:
+                self.background_clients()[1].stop()
+                if not os.environ.get("FLATPAK_ID"):
+                    from .desktop_service import DesktopClient
+                    client = DesktopClient(self.backend.executable)
+                    if client.request("status").get("mounted"):
+                        client.request("unmount")
+            return self.backend.logout()
+        self.confirm("Von Proton abmelden?", "Hintergrund-Sync wird gestoppt. Native Online-Laufwerke müssen vorher alle geöffneten Dateien schließen. Dies beendet auch die gemeinsam verwendete native CLI-Sitzung.",
+                     lambda: self.submit("Abmelden", work, self.logged_out))
 
     def logged_out(self, _):
         self.nodes = []
@@ -795,6 +1097,16 @@ class Application(Gtk.Application):
         if not self.sync_local:
             self.message("Bitte zuerst einen lokalen Ordner auswählen.")
             return
+        if not self.demo:
+            try:
+                for job in self.background_clients()[0].list():
+                    current, automatic = Path(self.sync_local).absolute(), Path(job.local_root)
+                    if not job.paused and (current == automatic or current in automatic.parents or automatic in current.parents):
+                        self.message("Diesen automatischen Auftrag zuerst pausieren, bevor ein manueller Plan erstellt wird.", error=True)
+                        return
+            except (BackendError, SyncError) as exc:
+                self.message(str(exc), error=True)
+                return
         from .sync import SyncEngine
         self.sync_engine = SyncEngine(self.backend, data_dir() / "sync")
         self.invalidate_plan()
@@ -843,5 +1155,16 @@ class Application(Gtk.Application):
                 self.status_label.set_text("Vorgang wird beendet …")
             self.confirm("Laufenden Vorgang abbrechen?", "Bereits übertragene Dateien bleiben erhalten. Die App wartet auf das Ende des Backends.", stop)
             return True
+        if os.environ.get("FLATPAK_ID") and not self.demo:
+            try:
+                if self.background_clients()[1].status().get("running"):
+                    # Keep the sandbox's primary process alive while its worker
+                    # is active. Reopening the app presents this same window.
+                    self.window.hide()
+                    return True
+            except (BackendError, SyncError):
+                pass
+        self.closing = True
         self.executor.shutdown(wait=False, cancel_futures=True)
+        self.status_executor.shutdown(wait=False, cancel_futures=True)
         return False

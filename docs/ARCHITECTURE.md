@@ -1,47 +1,166 @@
-# Architecture and next milestones
+# Architecture: 0.2 alpha
 
-```text
-GTK4 Application (main thread)
-  └─ single worker executor
-       ├─ Backend → serialized official proton-drive 0.9.0 process
-       │             └─ official account + Drive SDK → Proton HTTPS / Secret Service
-       └─ SyncEngine → explicit tree snapshot → reviewed plan → checked execution
+```mermaid
+flowchart TD
+    GTK[GTK4 application] --> Backend[Python backend adapter]
+    GTK --> IPC[Private sync control socket]
+    IPC --> Sync[Background scheduler and SyncEngine]
+    Inotify[Linux inotify] --> Sync
+    Events[SDK event source and durable cursor] --> Sync
+    Sync --> Cache[Event-invalidated remote directory cache]
+    Cache --> Backend
+    GTK --> DBus[Application-specific session D-Bus service]
+    DBus --> FUSE[pyfuse3 and Trio filesystem]
+    FUSE --> Content[Verified local content and recovery journal]
+    FUSE --> Backend
+    Events --> Backend
+    Backend --> CLI[Pinned NeutronDrive SDK bridge process]
+    CLI --> SDK[Official account and Drive SDK]
+    SDK --> Proton[Proton HTTPS]
+    SDK --> Keyring[Secret Service or supported encrypted credential store]
 ```
 
-`backend.py` adapts the released CLI's JSON contract and never uses a shell.
-Operations use UID-based remote paths where supported, explicit conflict
-strategies, a cross-process file lock, cancellation and timeouts. Login reads the
-first JSON line before the process exits. Batch operations inspect every `ok`
-result; exit code zero alone is insufficient. Transfer summaries retain skipped
-counts. Name-based virtual roots are blocked when ambiguous.
+The GUI is a native GTK application with a worker executor. Its demo backend is
+explicitly separate from authenticated operations. The source-built bridge uses
+`external-drive-neutrondrive@0.2.0-alpha`; its exact source/compiler/dependency
+provenance is documented in [UPSTREAM.md](UPSTREAM.md).
 
-`sync.py` is a manual reconciliation engine. A plan captures local inode/content
-identity, remote revision/content identity and the baseline generation. Execute
-checks root/account identity and refuses stale or reused plans. It uses private
-staging, descriptor-relative no-follow file access, no-replace installation and
-backup recovery. Baselines are bound to the remote root UID and local root, not
-just a display path. Every confirmed converged file can become a new baseline;
-failed and conflicted entries cannot be silently accepted as synchronized.
+## Backend and process boundaries
 
-The UI does not periodically crawl the remote tree. The CLI maintains its own
-SDK event/cache behavior, but does not expose an event stream to this adapter.
-The UI is not a browser wrapper: GTK widgets and native file choosers display
-real backend results. `--demo` is an explicit separate read-only data source.
+`backend.py` adapts CLI JSON without invoking a shell. It validates remote names,
+uses UID paths where supported, passes explicit transfer conflict strategies,
+and checks every operation result and transfer summary. Exit code zero does not
+make partial failures successful. Literal `undefined` is accepted only for the
+upstream sharing commands whose result is optional. Browser login delivers its
+validated HTTPS sign-in URL while the process is still running.
 
-## Remaining work before desktop parity
+CLI calls share a private cross-process lock because the GUI, sync daemon and
+filesystem service use the same account/cache. Lock waits and process execution
+are bounded and cancellable. Within a consumer, event polling shares the backend
+mutex but has its own cancellation token; stopping events does not cancel an
+unrelated transfer. The SDK retains responsibility for account sessions,
+cryptography, encrypted cache, API requirements and remote transfers.
 
-1. A maintained SDK sidecar with long-lived authenticated event subscriptions,
-   durable operation journal, recovery and server-aware conflict handling.
-2. Background scheduling, local change notifications and tray/session lifecycle.
-3. Explicit deletion and rename semantics, transactional reconciliation and
-   large-tree/offline/network-partition tests.
-4. A filesystem integration for on-demand content and pinning, independently
-   tested on relevant kernel/FUSE/filesystem combinations.
-5. Revision management, Photos/Docs/Sheets, multi-account UX, accessibility and
-   translations beyond the initial German interface.
-6. Reproducible source backend builds, artifact signing, broader architecture and
-   desktop integration tests, followed by Flathub/Snap Store review if desired.
+## Events and automatic reconciliation
 
-Windows Cloud Files and macOS FileProvider are platform APIs and cannot simply
-be copied into a Linux application. The current integration uses the public
-cross-platform SDK through its CLI. No binary reverse engineering was needed.
+`packaging/bridge/` adds `events poll` and diagnostic `events watch`. The public
+SDK `iterateEvents` API supplies volume events, opaque cursors, refresh and
+removal signals. No recursive listing is used to discover whether something
+changed. Each long-running consumer has persisted cursor state; separate sync
+and filesystem processes may subscribe independently, with CLI access serialized
+through the backend lock.
+
+`events.py` validates a complete JSON batch and delivers identifier/status-only
+`RemoteEvent` objects. The scheduler must persist accepted pending work before
+its callback returns. The source then atomically writes its cursor file with
+mode 0600 in a private directory. Failed callbacks, malformed batches, cancelled
+operations and failed persistence leave the old cursor for at-least-once replay.
+Status events report startup, recovery and transient failure without raw API
+responses. Poll cadence is at least 30 seconds, with error backoff up to ten
+minutes. An empty successful batch causes no tree scan.
+
+`background.py` persists selected jobs and operates one reconciliation at a time.
+It starts with a scan, then responds to inotify, actual SDK events, explicit user
+commands, overflow/recovery signals or retries of unfinished work. Local changes
+are debounced. Known node/parent UIDs scope remote changes; unresolved ancestry
+is durably queued and resolved through metadata outside the acknowledgement
+callback. Events that cannot be safely excluded trigger conservative recovery.
+Remote directory listings are cached and invalidated by affected events/writes;
+identity and revision checks still reach the backend. The cache does not expire
+on a timer or cause periodic remote tree crawling.
+
+Jobs pin the account root UID, remote folder UID and local directory identity.
+Overlapping roots, unsafe symlinks and local FUSE/Autofs/nested-mount roots are
+rejected. Account/root replacement blocks a job. Pause/resume and status use a
+private Unix socket with same-user credential checks. A restart reconciles jobs
+again so work accepted before a crash is not silently lost.
+
+## Sync execution and conflict policy
+
+`sync.py` provides both reviewed manual plans and scheduler execution. A plan
+captures local file identity/content, remote revision/content and baseline
+generation. Execution refuses stale/reused plans and changed root/account
+identity. Files are staged privately using descriptor-relative no-follow access,
+installed without replacement where required, and backed up before replacement.
+Only confirmed converged entries advance the baseline; errors and conflicts do
+not become successful sync state. Local echo suppression also considers ctime
+so an edit with restored mtime is not ignored.
+
+Automatic reconciliation conservatively reports deletion and rename ambiguity;
+it does not promise a complete transactional bidirectional mirror. A local
+change during a run remains pending or conflicted rather than being swallowed
+as the daemon's own write. Network failures retain pending work with backoff.
+The CLI does not expose an atomic compare-and-swap upload, so pre/post checks
+reduce conflict risk but cannot eliminate a concurrent remote writer's race.
+
+## On-demand files and recovery
+
+`ondemand.py` is the filesystem model; `fuse.py` exposes it with pyfuse3 and Trio.
+The mount is read-only by default and restricted to My Files. Directory entries
+are metadata, not zero-filled placeholder files. Opening an uncached file
+hydrates the complete content through the official SDK and verifies size/SHA1
+and remote revision before use. Kernel writeback caching is disabled. Directory
+metadata refreshes on access after its short TTL or event invalidation; no
+background content crawler hydrates the tree.
+
+Cached plaintext is stored in private user-owned files. Pinning retains verified
+file content for explicit offline use; absent offline content produces an error.
+Offline mounts are read-only, recursive folder pinning is not implemented, and
+there is no automatic cache quota/eviction policy. Explicit eviction requires a
+clean, closed, unpinned file. A mount/cache cannot be used concurrently by two
+filesystem instances or recursively selected as a sync root.
+
+Write access is opt-in. Edits use private working copies and fsync'ed recovery
+journals. `flush`/`fsync` own upload and error reporting; closing a handle does not
+silently perform a first upload whose failure could be hidden from the caller.
+Pre/post revision checks guard replacement, but server-side atomic conditional
+writes are unavailable. Uncertain or interrupted writes preserve local recovery
+bytes and are not automatically replayed after a crash. Editor-style replacement
+can require multiple cloud operations and can leave both source and destination
+on interruption. Explicit filesystem deletion moves items to Proton's trash.
+Arbitrary POSIX modes, links, xattrs, timestamp changes and every atomic rename
+variant are not supported.
+
+## Desktop and sandbox lifecycle
+
+`desktop_service.py` exposes a narrow application-specific session D-Bus service
+for mount/unmount, status, login, pin/evict and refresh. It checks the caller's
+Unix UID, bounds JSON request size and provides no arbitrary command or shell
+endpoint. The helper owns the mount and event invalidation so closing the GUI
+need not destroy an online drive. Unsafe account changes block the mount;
+unsaved content stays in recovery. Busy mounts are not forcibly detached.
+
+Native packages install D-Bus activation and an optional user systemd unit.
+The GUI can create a managed XDG autostart entry; `--background` restores saved
+mounts and runs selected sync jobs. A missing optional mount helper does not
+prevent the sync daemon from starting. Users should choose one autostart method.
+
+Flatpak requests persistence/autostart through the Background portal and browser
+launch through the desktop portal. Actual FUSE mounting belongs to the native
+host helper, reached only over its declared D-Bus name; no general host-spawn
+permission is granted. The host helper and Flatpak may use separate encrypted
+credential stores and require separate browser sign-ins. Unprivileged FUSE
+mounting is currently unsupported inside strict Snap confinement, so the Snap
+UI disables online-drive mounting and directs users to a native DEB/RPM package.
+Snap browsing, transfers and background synchronization remain available with
+the required keyring interface.
+
+## Validation boundaries and remaining work
+
+The suite covers subprocess handling, cursor acknowledgement/replay, event
+scoping, scheduler races, local inode/content conflicts, cache verification,
+recovery, service requests and opt-in GTK/FUSE smoke flows. Unit tests use fake
+backends and no account credentials. Source builds type-check the full CLI/SDK
+and run the bridge event/branding tests. Live account checks and kernel-mounted
+filesystem checks are separate evidence; a green synthetic test or package build
+does not certify an installed distribution, sandbox or CPU architecture.
+
+Remaining limits include Photos/Docs/Sheets and shared/computer automatic
+subscriptions, multi-account UX, automatic remote deletion/rename mirroring,
+atomic cloud writes and replacements, conflict/recovery management beyond the
+current controls, recursive pinning, cache quota management, long-duration and
+large-tree testing, and full desktop/store integration validation. ARM runtime,
+GNOME/KDE portal/keyring behavior, installed Snap confinement and Flatpak plus
+host-helper operation require real target testing. There is no claim of parity
+with Windows Cloud Files or macOS FileProvider, signed official Proton releases,
+or universal error-free operation.

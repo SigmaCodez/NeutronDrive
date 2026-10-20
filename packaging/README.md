@@ -1,18 +1,23 @@
 # Linux packaging
 
-These recipes package the native Python/GTK application together with Proton's
-unmodified standalone CLI **0.9.0**, pinned by SHA-512 in
-[`backend-lock.json`](backend-lock.json). Builds refuse an incorrect or corrupt
-backend. No package downloads executable code on application startup.
+These recipes bundle the NeutronDrive event bridge built from Proton's public
+SDK/CLI. `backend-lock.json` pins each release executable by SHA512.
+`bridge/source-lock.json`, the additive patches and `scripts/build-backend`
+define the source recipe; per-target provenance accompanies the bridge release.
+Dependencies retain the upstream lockfile versions and SHA512 integrity. Only
+its unavailable mirror URL prefix is rewritten to the public npm registry.
+The SDK/CLI MIT notice is included unchanged. Nothing downloads executable code
+at application startup.
 
-The CLI download and its published checksum come from
-[Proton's download page](https://proton.me/download/drive/cli/index.html).
-Its [source tag](https://github.com/ProtonDriveApps/sdk/tree/cli/v0.9.0) resolves to
-`df3a717bb8123791abf115a1dd171cb66813e9f4`; the upstream executable reports
-`cli-drive@0.9.0+75612299` and SDK `js@0.22.2+75612299`. The tag commit and embedded
-build identifier differ upstream. The download checksum is the package's binary
-identity; these recipes do not claim a reproducible build of Proton's binary.
-The SDK/CLI MIT license is included unchanged in each package.
+Build the backend (Bun 1.4.2 and network access required):
+
+```sh
+python3 scripts/build-backend --help
+```
+
+The published dependency release is `bridge-v0.2.0-alpha1`; application packages
+are in `v0.2.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
+across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
 
@@ -25,8 +30,8 @@ The SDK/CLI MIT license is included unchanged in each package.
 
 The target architectures are **x86_64** and **aarch64**. Native scripts also accept
 `--arch amd64` / `--arch arm64`. There are no 32-bit, RISC-V or musl-native packages.
-Proton's current x64 binary may need AVX2; the 0.9.0 release manifest has no
-baseline variant. Older CPUs are not certified. The downloaded x64 ELF declares
+The x64 bridge uses Bun's baseline target without AVX2. Older CPUs still need
+runtime testing. The bundled x64 ELF declares
 GLIBC symbols through 2.17; the GUI's Python/GTK requirements are higher than the
 minimum libc requirement. Building for an architecture does not test that CPU.
 
@@ -72,7 +77,7 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.1.0a1-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.2.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
@@ -115,7 +120,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.1.0-alpha1_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.2.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -145,3 +150,25 @@ verify these user-visible flows:
 
 Retain the distro/version, desktop, architecture, package hash and results with
 the release. A green packaging job alone does not complete this checklist.
+
+## Background and on-demand integration
+
+Native packages depend on FUSE 3, pyfuse3 and Trio and install a narrowly scoped
+D-Bus service activation file plus an optional user systemd unit. Enable
+`neutrondrive-background.service` only if you prefer systemd to GUI-managed XDG
+autostart; do not enable both. The GUI can generate an XDG autostart entry.
+
+Flatpak uses the Background portal for session persistence/autostart. Mounting
+online files requires the native NeutronDrive helper on the host. Its manifest
+grants only the application-specific D-Bus name, not general Flatpak host-spawn
+access. Host helper and sandbox can require separate Proton browser sessions.
+
+Snap autostart is declared for snap-userd and uses Snap-specific arguments. Its
+helper has a separate D-Bus name and cannot accidentally use a native instance.
+Host D-Bus activation files and systemd units are excluded from Snap staging.
+Strict Snap's FUSE interface does not supply the unprivileged mount helper needed
+here, so online mounts are explicitly disabled. Browsing and background folder
+sync remain available. Use the native package for on-demand files.
+
+Kernel tests in CI exercise native FUSE; they are not proof of every installed
+Snap/Flatpak portal flow.

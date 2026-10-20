@@ -36,6 +36,7 @@ class GtkApplicationTests(unittest.TestCase):
         if not Gtk.init_check():
             raise AssertionError("GTK display unavailable; run opt-in UI tests under xvfb-run or Broadway")
         cls.GLib = GLib
+        cls.Gtk = Gtk
         cls.callback_errors = []
         # PyGObject can otherwise print callback exceptions while the unittest
         # appears to pass. Retain them and fail at each event-loop boundary.
@@ -85,7 +86,9 @@ class GtkApplicationTests(unittest.TestCase):
         if app is None:
             return
         # Test work is always bounded and uses DemoBackend, never real transfers.
+        app.closing = True
         app.executor.shutdown(wait=True, cancel_futures=True)
+        app.status_executor.shutdown(wait=True, cancel_futures=True)
         context = cls.GLib.MainContext.default()
         for _ in range(64):
             if not context.pending():
@@ -120,7 +123,7 @@ class GtkApplicationTests(unittest.TestCase):
         self.assertIn("DEMO", self.app.window.get_title())
         self.assertEqual(len(self.rows()), 6)
         self.assertEqual(self.app.path, "/my-files")
-        for page in ("files", "sync", "activity", "settings"):
+        for page in ("files", "sync", "background", "ondemand", "activity", "settings"):
             with self.subTest(page=page):
                 self.assertIsNotNone(self.app.stack.get_child_by_name(page))
                 self.app.show_page(page)
@@ -179,6 +182,54 @@ class GtkApplicationTests(unittest.TestCase):
                 self.assertFalse(self.app.action_buttons[name].get_visible())
         self.assertFalse(self.app.upload_button.get_sensitive())
         self.assertFalse(self.app.mkdir_button.get_sensitive())
+
+    def test_demo_never_starts_background_jobs_or_mounts(self):
+        self.assertFalse(self.app.background_add_button.get_sensitive())
+        self.assertFalse(self.app.mount_button.get_sensitive())
+        self.app.background_action("start")
+        self.assertIn("Demo", self.app.notice_label.get_text())
+        self.app.mount_action("mount", mountpoint="/tmp/should-not-exist")
+        self.assertIn("Demo", self.app.notice_label.get_text())
+        self.assertFalse(self.app.busy)
+
+    def test_background_and_online_pages_allow_vertical_scrolling(self):
+        for name in ("background", "ondemand"):
+            with self.subTest(page=name):
+                page = self.app.stack.get_child_by_name(name)
+                self.assertIsInstance(page, self.Gtk.ScrolledWindow)
+                self.assertEqual(page.get_policy(), (self.Gtk.PolicyType.NEVER, self.Gtk.PolicyType.AUTOMATIC))
+                self.assertIsNotNone(page.get_child())
+
+    def test_snap_explains_and_blocks_mount_without_starting_a_helper(self):
+        # Construct the real page without activating another window or starting
+        # status polling. DemoBackend still prevents accidental account access.
+        app = type(self.app)(self.app.backend, demo=False)
+        self.addCleanup(app.executor.shutdown, wait=True, cancel_futures=True)
+        self.addCleanup(app.status_executor.shutdown, wait=True, cancel_futures=True)
+        app.stack = self.Gtk.Stack()
+        with mock.patch.dict(os.environ, {"SNAP": "/snap/neutrondrive/test"}):
+            app._ondemand_page()
+            self.assertFalse(app.mount_button.get_sensitive())
+            self.assertIn("native DEB- oder RPM-Paket", app.mount_button.get_tooltip_text())
+            self.assertIn("im Snap derzeit nicht verfügbar", app.mount_notice.get_text())
+            with mock.patch.object(app, "message") as message, mock.patch.object(app, "submit") as submit:
+                app.mount_action("mount", mountpoint="/tmp/not-mounted-by-ui-test")
+                message.assert_called_once()
+                self.assertIn("im Snap nicht verfügbar", message.call_args.args[0])
+                submit.assert_not_called()
+        # The restriction belongs to the mount operation, not the account UI.
+        self.assertFalse(app.busy)
+
+    def test_background_and_mount_status_show_failures_and_recovery(self):
+        self.app.render_background_status({"running":True,"jobs":[{
+            "id":"test", "local_root":"/tmp/local", "remote_root":"/my-files/test",
+            "state":"conflict", "conflicts":["changed.txt"], "paused":True,
+        }]})
+        self.assertIn("läuft", self.app.background_status.get_text())
+        self.assertIsNotNone(self.app.background_jobs.get_row_at_index(0))
+        self.app.render_mount_status({"mounted":True,"mountpoint":"/tmp/virtual","recovery":["pending.txt"]})
+        self.assertIn("Verbunden", self.app.mount_status.get_text())
+        self.assertIn("pending.txt", self.app.mount_status.get_text())
 
     def test_busy_state_disables_existing_sync_plan_until_new_preview(self):
         plan = SimpleNamespace(actions=[], conflicts=[], skipped=[], summary=lambda: "Local UI test plan")
