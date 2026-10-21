@@ -30,8 +30,8 @@ See [migration boundaries](docs/RUST-MIGRATION.md).
 - Upload/download files and folders, create folders, rename and move items.
 - Restore unambiguous trash entries; move files to trash without permanent deletion.
 - Create, copy and revoke public read-only links.
-- Manual two-way synchronization with a preview, SHA1 content comparison,
-  conflict detection, a persistent baseline and retained local backup versions.
+- SHA1 content comparison, conflict detection, a persistent baseline and retained
+  local backup versions in the automatic synchronization engine.
 - Baseline-verified file deletion propagation to Proton trash or recoverable local
   trash, with a local restore page and delete-versus-edit conflicts.
 - Automatic two-way background sync: local inotify notifications, remote Drive
