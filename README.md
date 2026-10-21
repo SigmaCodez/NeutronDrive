@@ -1,10 +1,10 @@
 # NeutronDrive
 
 An independent, open-source **Linux desktop client for Proton Drive**, with a
-native GTK 4 interface and Proton's open-source SDK/CLI as its encryption and account
+native Qt 6 interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface is currently in German.
 
-**Status: 0.4.0 alpha.** Automatic background synchronization, recoverable
+**Status: 0.5.0 alpha.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -12,10 +12,11 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
-![NeutronDrive's native GTK interface with explicitly labelled demo data](docs/demo.png)
+![NeutronDrive's native Qt interface with explicitly labelled demo data](docs/demo.png)
 
-The first Rust migration stage moves sync decisions and background scheduling
-into a required native core. GTK and the guarded Python I/O adapters remain.
+The Rust core handles sync decisions, background scheduling, SDK event validation
+and delivery planning. The interface now uses Qt 6; guarded Python I/O adapters
+remain.
 See [migration boundaries](docs/RUST-MIGRATION.md).
 
 ## Features
@@ -57,10 +58,14 @@ packages are not official Proton packages, Flathub listings or Snap Store releas
 
 | Format | Intended systems | Notes |
 | --- | --- | --- |
-| DEB | Ubuntu 22.04+, Debian 12+, Mint, Pop!_OS | Python 3.10+, GTK 4.6+, libsecret, FUSE 3 |
+| DEB | Ubuntu 22.04+, Debian 12+, Mint, Pop!_OS | Python 3.10–3.14, bundled Qt 6, libsecret, FUSE 3; ARM64 requires GLIBC 2.39 |
 | RPM | Current Fedora, openSUSE | Distribution-specific dependency names |
 | Flatpak | Flatpak-enabled distributions, including Arch/Manjaro and immutable desktops | GNOME 50; online drive additionally needs the native helper |
 | Snap | snapd-enabled distributions | Connect `password-manager-service`; online drive needs native package |
+
+Native x86_64 retains Ubuntu 22.04+/Debian 12+ coverage. The official ARM64 Qt
+wheels require GLIBC 2.39: use Ubuntu 24.04+, Debian 13+ or an equivalent runtime
+on ARM64. Older ARM64 native distributions require a separately built Qt runtime.
 
 Both x86_64 and aarch64 are represented in build recipes. Artifact availability
 and actual validation differ by architecture and format; see the validation
@@ -71,21 +76,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.4.0-alpha1-1_amd64.deb
+sudo apt install ./neutrondrive_0.5.0-alpha1-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.4.0-alpha1-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.5.0-alpha1-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.4.0-alpha1-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.5.0-alpha1-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.4.0a1-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.5.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.4.0-alpha1_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.5.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -104,12 +109,14 @@ with NeutronDrive operations against the same cache.
 
 ## Run from source
 
-Install Python 3.10+ and GTK 4/PyGObject through your distribution. For Debian or Ubuntu:
+Install Python 3.10–3.14 and native libraries through your distribution. For Debian or Ubuntu:
 
 ```sh
-sudo apt install python3 python3-gi gir1.2-gtk-4.0 libsecret-1-0 gnome-keyring xdg-utils python3-pyfuse3 python3-trio fuse3
+sudo apt install python3 python3-gi libegl1 libopengl0 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libsecret-1-0 gnome-keyring xdg-utils python3-pyfuse3 python3-trio fuse3
 rustup toolchain install 1.98.0 --profile minimal
 python3 scripts/build-rust-core
+python3 packaging/qt_runtime.py --dest build/qt
+export PYTHONPATH="$PWD/build/qt${PYTHONPATH:+:$PYTHONPATH}"
 python3 packaging/fetch-backend.py build/backend/proton-drive
 NEUTRONDRIVE_CLI="$PWD/build/backend/proton-drive" python3 bin/neutrondrive
 ```
@@ -126,7 +133,8 @@ python3 bin/neutrondrive --diagnose --cli "$PWD/build/backend/proton-drive"
 python3 -m unittest discover -s tests -v
 ```
 
-PyGObject is provided by the operating system, not silently installed with pip.
+Qt/PySide6 is downloaded only by the build helper, pinned by SHA256 and bundled
+privately. PyGObject remains a dependency of the D-Bus/portal adapters, not the UI.
 Core adapter and sync tests use the Python standard library and the built Rust
 shared library. Rust dependencies are vendored; Cargo builds offline. Building and
 running this project does not require a Proton password in an environment file.

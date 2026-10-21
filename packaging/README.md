@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The published dependency release is `bridge-v0.2.0-alpha1`; application packages
-are in `v0.4.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
+are in `v0.5.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -24,7 +24,7 @@ across arbitrary build hosts is not claimed.
 | Format | Intended distributions | Build command |
 | --- | --- | --- |
 | DEB | Ubuntu 22.04+, Debian 12+, derivatives such as Mint/Pop!_OS | `python3 scripts/build-deb` |
-| RPM | Modern Fedora and openSUSE with Python 3.10+ / GTK 4.6+ | `python3 scripts/build-rpm` |
+| RPM | Modern Fedora and openSUSE with Python 3.10+ / bundled Qt 6 | `python3 scripts/build-rpm` |
 | Flatpak | Distributions with Flatpak, including Arch, immutable and KDE desktops | `python3 scripts/build-flatpak --install-deps` |
 | Snap | Distributions with snapd and working desktop interfaces | `python3 scripts/build-snap` |
 
@@ -32,7 +32,7 @@ The target architectures are **x86_64** and **aarch64**. Native scripts also acc
 `--arch amd64` / `--arch arm64`. There are no 32-bit, RISC-V or musl-native packages.
 The x64 bridge uses Bun's baseline target without AVX2. Older CPUs still need
 runtime testing. The bundled x64 ELF declares
-GLIBC symbols through 2.17; the GUI's Python/GTK requirements are higher than the
+GLIBC symbols through 2.17; the GUI's Python/Qt requirements are higher than the
 minimum libc requirement. Building for an architecture does not test that CPU.
 
 Build recipes and CI are not a certification that every distro/desktop works.
@@ -40,6 +40,21 @@ Account login, transfer round trips, interruption recovery, sandbox keyring acce
 and long-running synchronization must be checked on real target installations.
 No account credentials are used by CI. CI uploads build artifacts; it does not
 publish releases, sign packages or submit to Flathub/Snap Store.
+
+## Qt runtime
+
+`qt_runtime.py` downloads the official PySide6 Essentials/Shiboken 6.10.2 wheels
+pinned by SHA256 in `qt-lock.json`. Only the required Qt Widgets, network, test,
+SVG and Wayland/X11 desktop runtime is selected; developer tools, QML and unrelated
+bindings are excluded. The included binaries remain unmodified and replaceable.
+`packaging/licenses/qt` contains upstream notices from the source archives in
+`qt-sources-lock.json`. See [QT-NOTICES.md](QT-NOTICES.md).
+
+Native x86_64 requires GLIBC 2.34; the official ARM64 wheels require GLIBC 2.39
+(Ubuntu 24.04+, Debian 13+). Python must be 3.10–3.14. Native packages declare
+these bounds. GTK is no longer the UI dependency; Gio remains for D-Bus/portals.
+Flatpak and Snap retain their existing GNOME base runtimes for those adapters,
+while displaying a Qt interface. No executable download occurs at app startup.
 
 ## Rust core
 
@@ -96,7 +111,7 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.4.0a1-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.5.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
@@ -139,7 +154,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.4.0-alpha1_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.5.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```

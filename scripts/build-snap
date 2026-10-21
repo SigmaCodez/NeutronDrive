@@ -35,6 +35,14 @@ def prepare(project):
     target.mkdir(parents=True)
     for name in (rust_build.LIBRARY, "core-build.json"):
         shutil.copyfile(core / name, target / name)
+    qt_spec = importlib.util.spec_from_file_location("qt_runtime", ROOT / "packaging/qt_runtime.py")
+    qt_runtime = importlib.util.module_from_spec(qt_spec)
+    qt_spec.loader.exec_module(qt_runtime)
+    wheels = qt_runtime.fetch(args.arch)
+    qt_dest = project / "build/qt-wheels" / qt_runtime.arch(args.arch)
+    qt_dest.mkdir(parents=True)
+    for wheel in wheels:
+        shutil.copyfile(wheel, qt_dest / wheel.name)
     for name in ("src", "data", "packaging", "core"):
         shutil.copytree(ROOT / name, project / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "target"))
     shutil.copyfile(ROOT / "LICENSE", project / "LICENSE")

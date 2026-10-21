@@ -1,12 +1,4 @@
-"""Opt-in GTK smoke and interaction tests with local read-only demo fixtures.
-
-Run with a virtual display, for example:
-    NEUTRONDRIVE_UI_TESTS=1 xvfb-run -a python3 -m unittest discover -s tests -p test_ui.py -v
-
-Ordinary unit-test discovery neither imports PyGObject nor requires a display.
-"""
-from __future__ import annotations
-
+"""Qt interaction tests using bounded workers and isolated synthetic files."""
 from dataclasses import replace
 import os
 from pathlib import Path
@@ -19,133 +11,77 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-
 ENABLED = os.environ.get("NEUTRONDRIVE_UI_TESTS") == "1"
 
-
-@unittest.skipUnless(ENABLED, "Set NEUTRONDRIVE_UI_TESTS=1 and provide a GTK display")
-class GtkApplicationTests(unittest.TestCase):
+@unittest.skipUnless(ENABLED,"Set NEUTRONDRIVE_UI_TESTS=1 and provide a Qt display")
+class QtApplicationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-        import gi
-        gi.require_version("Gtk", "4.0")
-        from gi.repository import Gio, GLib, Gtk
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QApplication,QScrollArea,QStackedWidget
         from neutrondrive.app import Application
         from neutrondrive.demo import DemoBackend
-
-        if not Gtk.init_check():
-            raise AssertionError("GTK display unavailable; run opt-in UI tests under xvfb-run or Broadway")
-        cls.GLib = GLib
-        cls.Gtk = Gtk
-        cls.callback_errors = []
-        # PyGObject can otherwise print callback exceptions while the unittest
-        # appears to pass. Retain them and fail at each event-loop boundary.
-        cls.exception_hook = mock.patch.object(
-            sys, "excepthook",
-            lambda kind, value, tb: cls.callback_errors.append("".join(traceback.format_exception(kind, value, tb))),
-        )
-        cls.exception_hook.start()
-        cls.addClassCleanup(cls.exception_hook.stop)
-        cls.app = Application(DemoBackend(), demo=True)
-        cls.app.set_flags(cls.app.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
-        cls.addClassCleanup(cls._close_application)
-        if not cls.app.register(None):
-            raise AssertionError("The isolated GTK test application failed to register")
-        cls.app.activate()
-        cls._check_callback_errors()
-        if cls.app.window is None or not hasattr(cls.app, "stack"):
-            raise AssertionError("do_activate did not construct the application window and page stack")
-        # Cold software-renderer/font initialization on LTS CI can exceed the
-        # short interaction budget. Keep a finite startup-specific allowance.
-        cls._pump_until(lambda: not cls.app.busy, timeout=20)
-        if len(cls.app.nodes) != 6:
-            raise AssertionError("The initial read-only demo directory did not load completely")
+        cls.Qt,cls.QScrollArea,cls.QStackedWidget = Qt,QScrollArea,QStackedWidget
+        cls.callback_errors=[]
+        cls.exception_hook=mock.patch.object(sys,'excepthook',lambda kind,value,tb:cls.callback_errors.append(''.join(traceback.format_exception(kind,value,tb))))
+        cls.exception_hook.start();cls.addClassCleanup(cls.exception_hook.stop)
+        cls.app=Application(DemoBackend(),demo=True)
+        cls.app.activate();cls.addClassCleanup(cls._close_application)
+        cls._pump_until(lambda:not cls.app.busy and len(cls.app.nodes)==6,timeout=20)
 
     @classmethod
     def _check_callback_errors(cls):
-        if cls.callback_errors:
-            raise AssertionError("GTK callback raised an exception:\n" + "\n".join(cls.callback_errors))
+        if cls.callback_errors:raise AssertionError('Qt callback errors: '+ '\n'.join(cls.callback_errors))
 
     @classmethod
-    def _pump_until(cls, predicate, timeout=4):
-        deadline = time.monotonic() + timeout
-        context = cls.GLib.MainContext.default()
-        while time.monotonic() < deadline:
-            # A continuously pending GTK source must not defeat the deadline.
-            for _ in range(32):
-                if not context.pending():
-                    break
-                context.iteration(False)
-            cls._check_callback_errors()
-            if predicate():
-                return
+    def _pump_until(cls,predicate,timeout=4):
+        deadline=time.monotonic()+timeout
+        while time.monotonic()<deadline:
+            cls.app.qt.processEvents();cls._check_callback_errors()
+            if predicate():return
             time.sleep(0.005)
-        raise AssertionError(
-            f"GTK did not reach the expected state within {timeout}s; "
-            f"busy={getattr(cls.app, 'busy', None)}, "
-            f"page={getattr(cls.app, 'current_page', None)}, "
-            f"callbacks={len(cls.callback_errors)}"
-        )
+        raise AssertionError('Qt did not reach expected state')
 
     @classmethod
     def _close_application(cls):
-        app = getattr(cls, "app", None)
-        if app is None:
-            return
-        # Test work is always bounded and uses DemoBackend, never real transfers.
-        app.closing = True
-        app.executor.shutdown(wait=True, cancel_futures=True)
-        app.status_executor.shutdown(wait=True, cancel_futures=True)
-        context = cls.GLib.MainContext.default()
-        for _ in range(64):
-            if not context.pending():
-                break
-            context.iteration(False)
-        if app.window is not None:
-            app.window.destroy()
-        app.quit()
-        cls._check_callback_errors()
+        cls.app.closing=True
+        cls.app.executor.shutdown(wait=True,cancel_futures=True)
+        cls.app.status_executor.shutdown(wait=True,cancel_futures=True)
+        cls.app.qt.processEvents();cls.app.window.close();cls._check_callback_errors()
 
     def setUp(self):
-        self._pump_until(lambda: not self.app.busy)
-        self.app.invalidate_plan()
-        self.app.navigate_root("Meine Dateien", "/my-files")
-        self._pump_until(lambda: not self.app.busy and len(self.app.nodes) == 6)
-        self.app.search.set_text("")
-        self._pump_until(lambda: len(self.rows()) == 6)
+        self._pump_until(lambda:not self.app.busy)
+        self.app.invalidate_plan();self.app.navigate_root('Meine Dateien','/my-files')
+        self._pump_until(lambda:not self.app.busy and len(self.app.nodes)==6)
+        self.app.search.clear();self._pump_until(lambda:len(self.rows())==6)
 
-    def tearDown(self):
-        self._check_callback_errors()
+    def tearDown(self):self._check_callback_errors()
 
     def rows(self):
-        rows = []
-        index = 0
-        while (row := self.app.file_list.get_row_at_index(index)) is not None:
-            rows.append(row)
-            index += 1
-        return rows
+        return [self.app.file_list.topLevelItem(i) for i in range(self.app.file_list.topLevelItemCount())]
+
+    def select(self,item):item.setSelected(True)
 
     def test_window_pages_and_initial_demo_rows_are_complete(self):
-        self.assertTrue(self.app.window.get_visible())
-        self.assertIn("DEMO", self.app.window.get_title())
+        self.assertTrue(self.app.window.isVisible())
+        self.assertIn("DEMO", self.app.window.windowTitle())
         self.assertEqual(len(self.rows()), 6)
         self.assertEqual(self.app.path, "/my-files")
         for page in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings"):
             with self.subTest(page=page):
-                self.assertIsNotNone(self.app.stack.get_child_by_name(page))
+                self.assertIsNotNone(self.app.pages.get(page))
                 self.app.show_page(page)
-                self.assertEqual(self.app.stack.get_visible_child_name(), page)
-        self.assertFalse(self.app.execute_button.get_sensitive())
+                self.assertEqual(self.app.current_page, page)
+        self.assertFalse(self.app.execute_button.isEnabled())
 
     def test_folder_navigation_empty_state_and_breadcrumb_return(self):
-        folder = next(row for row in self.rows() if row.node.type == "folder")
-        expected_path = folder.node.path
-        self.app.file_list.emit("row-activated", folder)
+        folder = next(row for row in self.rows() if row.data(0, self.Qt.ItemDataRole.UserRole).type == "folder")
+        expected_path = folder.data(0, self.Qt.ItemDataRole.UserRole).path
+        self.app.row_activated(folder)
         self._pump_until(lambda: not self.app.busy and self.app.path == expected_path)
         self.assertEqual(self.rows(), [])
         self.assertEqual(len(self.app.crumbs), 2)
-        self.assertIn("leer", self.app.empty_label.get_text())
+        self.assertIn("leer", self.app.empty_label.text())
         self.app.go_crumb(0)
         self._pump_until(lambda: not self.app.busy and len(self.rows()) == 6)
         self.assertEqual(self.app.path, "/my-files")
@@ -154,68 +90,68 @@ class GtkApplicationTests(unittest.TestCase):
         self._pump_until(lambda: not self.app.busy)
         self.assertEqual(self.app.path, "/devices")
         self.assertEqual(self.rows(), [])
-        self.assertFalse(self.app.upload_button.get_sensitive())
+        self.assertFalse(self.app.upload_button.isEnabled())
 
     def test_search_filters_visible_rows_without_changing_directory(self):
-        self.app.search.set_text("BERGSEE")
+        self.app.search.setText("BERGSEE")
         self._pump_until(lambda: len(self.rows()) == 1)
-        self.assertEqual(self.rows()[0].node.name, "Bergsee.jpg")
+        self.assertEqual(self.rows()[0].data(0, self.Qt.ItemDataRole.UserRole).name, "Bergsee.jpg")
         self.assertEqual(len(self.app.nodes), 6)
         self.assertEqual(self.app.path, "/my-files")
-        self.app.search.set_text("nothing-matches-this-test")
+        self.app.search.setText("nothing-matches-this-test")
         self._pump_until(lambda: len(self.rows()) == 0)
-        self.assertIn("Keine passenden", self.app.empty_label.get_text())
-        self.app.search.set_text("")
+        self.assertIn("Keine passenden", self.app.empty_label.text())
+        self.app.search.setText("")
         self._pump_until(lambda: len(self.rows()) == 6)
 
     def test_selection_respects_unsafe_metadata_and_trash_actions(self):
-        file_row = next(row for row in self.rows() if row.node.type == "file")
-        node = file_row.node
-        self.app.file_list.select_row(file_row)
-        self.assertTrue(self.app.action_buttons["Download"].get_sensitive())
+        file_row = next(row for row in self.rows() if row.data(0, self.Qt.ItemDataRole.UserRole).type == "file")
+        node = file_row.data(0,self.Qt.ItemDataRole.UserRole)
+        self.select(file_row)
+        self.assertTrue(self.app.action_buttons["Download"].isEnabled())
         self.app.loaded([replace(node, safe=False)])
-        self.app.file_list.select_row(self.rows()[0])
-        self.assertTrue(all(not item.get_sensitive() for item in self.app.action_buttons.values()))
+        self.select(self.rows()[0])
+        self.assertTrue(all(not item.isEnabled() for item in self.app.action_buttons.values()))
 
         self.app.navigate_root("Papierkorb", "/trash")
         self._pump_until(lambda: not self.app.busy)
         self.app.loaded([replace(node, path="/trash/" + node.name)])
-        self.app.file_list.select_row(self.rows()[0])
+        self.select(self.rows()[0])
         restore = self.app.action_buttons["Wiederherstellen"]
-        self.assertTrue(restore.get_visible())
-        self.assertTrue(restore.get_sensitive())
+        self.assertTrue(restore.isVisible())
+        self.assertTrue(restore.isEnabled())
         for name in ("Download", "Freigabe"):
             with self.subTest(action=name):
-                self.assertFalse(self.app.action_buttons[name].get_sensitive())
-                self.assertFalse(self.app.action_buttons[name].get_visible())
-        self.assertFalse(self.app.upload_button.get_sensitive())
-        self.assertFalse(self.app.mkdir_button.get_sensitive())
+                self.assertFalse(self.app.action_buttons[name].isEnabled())
+                self.assertFalse(self.app.action_buttons[name].isVisible())
+        self.assertFalse(self.app.upload_button.isEnabled())
+        self.assertFalse(self.app.mkdir_button.isEnabled())
 
     def test_demo_never_starts_background_jobs_or_mounts(self):
-        self.assertFalse(self.app.background_add_button.get_sensitive())
-        self.assertFalse(self.app.mount_button.get_sensitive())
+        self.assertFalse(self.app.background_add_button.isEnabled())
+        self.assertFalse(self.app.mount_button.isEnabled())
         self.app.background_action("start")
-        self.assertIn("Demo", self.app.notice_label.get_text())
+        self.assertIn("Demo", self.app.notice_label.text())
         self.app.mount_action("mount", mountpoint="/tmp/should-not-exist")
-        self.assertIn("Demo", self.app.notice_label.get_text())
+        self.assertIn("Demo", self.app.notice_label.text())
         self.assertFalse(self.app.busy)
 
     def test_background_and_online_pages_allow_vertical_scrolling(self):
         for name in ("background", "ondemand"):
             with self.subTest(page=name):
-                page = self.app.stack.get_child_by_name(name)
-                self.assertIsInstance(page, self.Gtk.ScrolledWindow)
-                self.assertEqual(page.get_policy(), (self.Gtk.PolicyType.NEVER, self.Gtk.PolicyType.AUTOMATIC))
-                self.assertIsNotNone(page.get_child())
+                page = self.app.pages[name]
+                self.assertIsInstance(page, self.QScrollArea)
+                self.assertTrue(page.widgetResizable())
+                self.assertIsNotNone(page.widget())
 
     def test_demo_local_trash_never_reads_or_restores_personal_files(self):
         with mock.patch("neutrondrive.local_trash.LocalTrash") as trash:
             self.app.show_page("local-trash")
             self.app.refresh_local_trash()
-            self.assertIn("Demo ohne Dateizugriff", self.app.local_trash_status.get_text())
-            self.assertIsNotNone(self.app.local_trash_empty.get_parent())
+            self.assertIn("Demo ohne Dateizugriff", self.app.local_trash_status.text())
+            self.assertIsNotNone(self.app.local_trash_empty.parent())
             self.app.restore_local_trash("/tmp/not-a-real-registry", "not-a-real-entry")
-            self.assertIn("Demo", self.app.notice_label.get_text())
+            self.assertIn("Demo", self.app.notice_label.text())
             trash.assert_not_called()
 
     def test_local_trash_recovery_can_be_checked_but_missing_entries_are_disabled(self):
@@ -224,11 +160,11 @@ class GtkApplicationTests(unittest.TestCase):
         with mock.patch.object(self.app, "demo", False), mock.patch.object(self.app, "restore_local_trash") as restore:
             self.app.render_local_trash([("/tmp/registry", entry) for entry in entries])
             for i in range(4):
-                row = self.app.local_trash_rows.get_row_at_index(i).get_child()
-                action = row.get_last_child()
-                self.assertEqual(action.get_sensitive(), i in {0, 1})
+                row = self.app.local_trash_rows.layout().itemAt(i).widget()
+                action = row.layout().itemAt(row.layout().count()-1).widget()
+                self.assertEqual(action.isEnabled(), i in {0, 1})
                 if i == 0:
-                    action.emit("clicked")
+                    action.click()
             restore.assert_called_once_with("/tmp/registry", "0")
         self.app.refresh_local_trash()
 
@@ -260,7 +196,7 @@ class GtkApplicationTests(unittest.TestCase):
                 self.app.restore_local_trash(str(service.state_dir), receipt.id)
                 self._pump_until(lambda: not self.app.busy)
                 self.assertEqual(target.read_bytes(), b"preserved original")
-                self.assertIn("wiederhergestellt", self.app.notice_label.get_text())
+                self.assertIn("wiederhergestellt", self.app.notice_label.text())
                 refresh.assert_called_once()
 
     def test_snap_explains_and_blocks_mount_without_starting_a_helper(self):
@@ -269,12 +205,12 @@ class GtkApplicationTests(unittest.TestCase):
         app = type(self.app)(self.app.backend, demo=False)
         self.addCleanup(app.executor.shutdown, wait=True, cancel_futures=True)
         self.addCleanup(app.status_executor.shutdown, wait=True, cancel_futures=True)
-        app.stack = self.Gtk.Stack()
+        app.stack = self.QStackedWidget()
         with mock.patch.dict(os.environ, {"SNAP": "/snap/neutrondrive/test"}):
             app._ondemand_page()
-            self.assertFalse(app.mount_button.get_sensitive())
-            self.assertIn("native DEB- oder RPM-Paket", app.mount_button.get_tooltip_text())
-            self.assertIn("im Snap derzeit nicht verfügbar", app.mount_notice.get_text())
+            self.assertFalse(app.mount_button.isEnabled())
+            self.assertIn("native DEB- oder RPM-Paket", app.mount_button.toolTip())
+            self.assertIn("im Snap derzeit nicht verfügbar", app.mount_notice.text())
             with mock.patch.object(app, "message") as message, mock.patch.object(app, "submit") as submit:
                 app.mount_action("mount", mountpoint="/tmp/not-mounted-by-ui-test")
                 message.assert_called_once()
@@ -288,32 +224,94 @@ class GtkApplicationTests(unittest.TestCase):
             "id":"test", "local_root":"/tmp/local", "remote_root":"/my-files/test",
             "state":"conflict", "conflicts":["changed.txt"], "paused":True,
         }]})
-        self.assertIn("läuft", self.app.background_status.get_text())
-        self.assertIsNotNone(self.app.background_jobs.get_row_at_index(0))
+        self.assertIn("läuft", self.app.background_status.text())
+        self.assertIsNotNone(self.app.background_jobs.layout().itemAt(0))
         self.app.render_mount_status({"mounted":True,"mountpoint":"/tmp/virtual","recovery":["pending.txt"]})
-        self.assertIn("Verbunden", self.app.mount_status.get_text())
-        self.assertIn("pending.txt", self.app.mount_status.get_text())
+        self.assertIn("Verbunden", self.app.mount_status.text())
+        self.assertIn("pending.txt", self.app.mount_status.text())
 
     def test_busy_state_disables_existing_sync_plan_until_new_preview(self):
         plan = SimpleNamespace(actions=[], conflicts=[], skipped=[], summary=lambda: "Local UI test plan")
         self.app.sync_preview(plan)
-        self.assertTrue(self.app.execute_button.get_sensitive())
+        self.assertTrue(self.app.execute_button.isEnabled())
         release = threading.Event()
         self.app.submit("UI-Test", lambda: release.wait(2))
         try:
             self.assertTrue(self.app.busy)
-            self.assertFalse(self.app.execute_button.get_sensitive())
-            self.assertFalse(self.app.plan_button.get_sensitive())
-            self.assertFalse(self.app.remote_entry.get_sensitive())
+            self.assertFalse(self.app.execute_button.isEnabled())
+            self.assertFalse(self.app.plan_button.isEnabled())
+            self.assertFalse(self.app.remote_entry.isEnabled())
             self.app.navigate_root("Papierkorb", "/trash")
             self.assertEqual(self.app.path, "/my-files")
         finally:
             release.set()
             self._pump_until(lambda: not self.app.busy)
-        self.assertFalse(self.app.execute_button.get_sensitive())
-        self.assertTrue(self.app.plan_button.get_sensitive())
-        self.assertTrue(self.app.remote_entry.get_sensitive())
+        self.assertFalse(self.app.execute_button.isEnabled())
+        self.assertTrue(self.app.plan_button.isEnabled())
+        self.assertTrue(self.app.remote_entry.isEnabled())
+
+    def test_worker_completion_runs_on_qt_thread_and_preserves_errors(self):
+        main = threading.get_ident()
+        observed = []
+        self.app.submit("Thread test", threading.get_ident, lambda ident:observed.append((ident,threading.get_ident())))
+        self._pump_until(lambda:not self.app.busy)
+        self.assertNotEqual(observed[0][0],main)
+        self.assertEqual(observed[0][1],main)
+        from neutrondrive.backend import BackendError
+        def fail():raise BackendError("Synthetic transfer failure")
+        self.app.submit("Failure test",fail)
+        self._pump_until(lambda:not self.app.busy)
+        self.assertIn("Synthetic transfer failure",self.app.notice_label.text())
+        self.assertIn("Fehlgeschlagen",self.app.records[0][2])
+
+    def test_confirmation_cancellation_and_acceptance_are_distinct(self):
+        from PySide6.QtWidgets import QMessageBox
+        calls=[]
+        self.app.confirm("Synthetic","No real files",lambda:calls.append(True),destructive=True)
+        dialog=self.app.dialogs[-1]
+        self.assertEqual(dialog.buttonRole(dialog.defaultButton()),QMessageBox.ButtonRole.RejectRole)
+        dialog.defaultButton().click();self.app.qt.processEvents()
+        self.assertEqual(calls,[])
+        self.app.confirm("Synthetic","No real files",lambda:calls.append(True))
+        dialog=self.app.dialogs[-1]
+        next(b for b in dialog.buttons() if dialog.buttonRole(b)==QMessageBox.ButtonRole.AcceptRole).click()
+        self.app.qt.processEvents();self.assertEqual(calls,[True])
+
+    def test_prompt_and_share_clipboard_keep_plain_text(self):
+        calls=[]
+        self.app.prompt("Rename","Synthetic","old",calls.append)
+        dialog=self.app.dialogs[-1];dialog.setTextValue("new-name.txt");dialog.accept()
+        self.app.qt.processEvents();self.assertEqual(calls,["new-name.txt"])
+        node=SimpleNamespace(name="<b>literal</b>",path="/my-files/example")
+        self.app.share_dialog(node,{"urlAccess":{"url":"https://example.invalid/synthetic"}})
+        from PySide6.QtWidgets import QPushButton
+        dialog=self.app.dialogs[-1]
+        next(b for b in dialog.findChildren(QPushButton) if b.text()=="Link kopieren").click()
+        self.assertEqual(self.app.qt.clipboard().text(),"https://example.invalid/synthetic")
+        dialog.close();self.app.qt.processEvents()
+
+    def test_close_during_work_waits_for_cancellation(self):
+        release=threading.Event()
+        with mock.patch.object(self.app.backend,"cancel",side_effect=release.set) as cancel:
+            self.app.submit("Synthetic close",lambda:release.wait(2))
+            try:
+                self.assertTrue(self.app._close())
+                self.assertFalse(self.app.closing)
+                # Declining close must not cancel or discard the worker.
+                self.app.dialogs[-1].reject();self.app.qt.processEvents();cancel.assert_not_called()
+            finally:release.set();self._pump_until(lambda:not self.app.busy)
+
+    def test_single_instance_activates_existing_window(self):
+        from neutrondrive.qt_instance import WindowInstance
+        with tempfile.TemporaryDirectory() as temporary:
+            activated=[]
+            first=WindowInstance(Path(temporary)/"private",lambda:activated.append(True))
+            second=WindowInstance(Path(temporary)/"private",lambda:None)
+            try:
+                self.assertTrue(first.claim());self.assertFalse(second.claim())
+                self._pump_until(lambda:bool(activated))
+            finally:second.close();first.close()
 
 
-if __name__ == "__main__":
-    unittest.main()
+
+if __name__ == "__main__": unittest.main()

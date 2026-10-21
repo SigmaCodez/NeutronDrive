@@ -58,6 +58,21 @@ struct Request {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
     Info,
+    ValidateEvents {
+        value: Value,
+        paths: Vec<String>,
+    },
+    EventNotifications {
+        batch: Value,
+        known_roots: Vec<Value>,
+        announced: bool,
+        ready: bool,
+    },
+    EventRetry {
+        interval: f64,
+        failures: u64,
+        jitter: f64,
+    },
     Plan {
         local: Tree,
         remote: Tree,
@@ -284,8 +299,28 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
         return Err("Unsupported Rust core protocol version".into());
     }
     match request.command {
+        Command::ValidateEvents { value, paths } => crate::events::validate(value, &paths),
+        Command::EventNotifications {
+            batch,
+            known_roots,
+            announced,
+            ready,
+        } => crate::events::notifications(batch, known_roots, announced, ready),
+        Command::EventRetry {
+            interval,
+            failures,
+            jitter,
+        } => {
+            finite(&[interval, jitter])?;
+            if interval < 30.0 || jitter >= 1.0 {
+                return Err("Invalid event retry timing".into());
+            }
+            Ok(
+                json!({"failures":failures.saturating_add(1),"delay":(interval * 2f64.powi(failures.min(5) as i32)).min(600.0) + jitter}),
+            )
+        }
         Command::Info => Ok(
-            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy"]}),
+            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry"]}),
         ),
         Command::BaselineMatches {
             entry,

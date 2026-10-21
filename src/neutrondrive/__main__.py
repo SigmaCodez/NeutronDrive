@@ -87,15 +87,22 @@ def main(argv=None):
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0 if "error" not in result else 1
     try:
+        qt = Path(__file__).resolve().parent.parent / "qt"
+        if qt.is_dir():
+            sys.path.insert(0, str(qt))
         from .app import Application
     except (ImportError, ValueError) as exc:
-        print(f"GTK4/PyGObject fehlt: {exc}\nBitte das Distributionspaket für NeutronDrive installieren.", file=sys.stderr)
+        print(f"Qt6/PySide6 fehlt: {exc}\nBitte das Distributionspaket für NeutronDrive installieren.", file=sys.stderr)
         return 1
-    from gi.repository import Gtk
-    if not Gtk.init_check():
-        print("Keine grafische Sitzung erreichbar. NeutronDrive in einer Wayland- oder X11-Desktopsitzung starten.", file=sys.stderr)
+    import os
+    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY") or os.environ.get("QT_QPA_PLATFORM") in {"offscreen", "minimal"}):
+        print("Keine grafische Sitzung erreichbar. NeutronDrive in einer Wayland- oder X11-Sitzung starten.", file=sys.stderr)
         return 1
-    return Application(backend, demo=args.demo).run([sys.argv[0]])
+    try:
+        return Application(backend, demo=args.demo).run([sys.argv[0]])
+    except (RuntimeError, OSError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

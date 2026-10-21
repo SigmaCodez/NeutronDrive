@@ -1,0 +1,30 @@
+{
+  "version": "6.10.2",
+  "python": ">=3.9,<3.15",
+  "architectures": {
+    "x86_64": [
+      {
+        "filename": "pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl",
+        "url": "https://files.pythonhosted.org/packages/99/20/3a6ca95052e1744b5a3eba164e2dd451d358a3dcaf78179de4b45c8e3f47/pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl",
+        "sha256": "660aea45bfa36f1e06f799b934c2a7df963bd31abc5083e8bb8a5bfaef45686b"
+      },
+      {
+        "filename": "shiboken6-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl",
+        "url": "https://files.pythonhosted.org/packages/52/88/292e0576489c46624ab419ee284ac5a59ae10e2eb34a58b6abca51dfd290/shiboken6-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl",
+        "sha256": "ace0790032d9cb0adda644b94ee28d59410180d9773643bb6cf8438c361987ad"
+      }
+    ],
+    "aarch64": [
+      {
+        "filename": "pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl",
+        "url": "https://files.pythonhosted.org/packages/93/a6/6073e4ddc2a5c7b3941606e4bc8bbaadcf0737f57450620b0793041c8d22/pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl",
+        "sha256": "c2b028e4c6f8047a02c31f373408e23b4eedfd405f56c6aba8d0525c29472835"
+      },
+      {
+        "filename": "shiboken6-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl",
+        "url": "https://files.pythonhosted.org/packages/06/c2/03d44d34e8264e1f25671677fece95b414c70fd85dcc2be8d5e821ee2628/shiboken6-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl",
+        "sha256": "f74d3ed1f92658077d0630c39e694eb043aeb1d830a5d275176c45d07147427f"
+      }
+    ]
+  }
+}

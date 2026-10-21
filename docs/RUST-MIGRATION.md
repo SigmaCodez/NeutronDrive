@@ -1,7 +1,7 @@
-# Incremental Rust migration — stage 1 (0.4)
+# Incremental Rust migration — stages 1–2 (0.4–0.5)
 
 The application requires `libneutrondrive_core.so`. This release is not a full
-Rust rewrite of the background process. The GTK interface is unchanged.
+Rust rewrite of the background process. The 0.5 interface is implemented in Qt 6/PySide6.
 
 ## Implemented in Rust
 
@@ -10,12 +10,14 @@ Rust rewrite of the background process. The GTK interface is unchanged.
 - File deletion eligibility and whole-folder deletion blocking.
 - Post-transfer convergence checks and baseline advancement/pruning decisions.
 - Background debounce, retry/backoff, job selection and local echo decisions.
+- SDK batch/schema/scope/cursor validation, ordered event delivery planning,
+  reconnect/reset announcements and event-source retry timing (new in 0.5).
 
 ## Retained adapters
 
 Python retains daemon lifecycle, locks, Unix control socket, job persistence,
 inotify/SDK event ingestion, filesystem snapshots, guarded transfer execution,
-local trash receipts and restore, and the FUSE/GTK integrations. The pinned
+local trash receipts and restore, and the FUSE/Qt integrations. The pinned
 Proton SDK bridge still owns authentication, cryptography and remote API access.
 Existing baseline v2, jobs and pending operation formats are unchanged.
 

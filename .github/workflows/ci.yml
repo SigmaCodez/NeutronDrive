@@ -69,7 +69,7 @@ jobs:
       - name: Validate SDK event bridge protocol
         run: bun test packaging/bridge/eventProtocol.test.ts
 
-  gtk-lts:
+  qt-lts:
     env:
       NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
     needs: rust-core
@@ -80,12 +80,14 @@ jobs:
         with:
           name: rust-core-x86_64
           path: build/rust
-      - name: Install the oldest supported GTK runtime
+      - name: Install the oldest supported x86_64 desktop runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 xvfb
-      - name: Exercise GTK 4.6 on Ubuntu 22.04
-        run: xvfb-run -a env GSK_RENDERER=cairo PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
+          sudo apt-get install -y python3-gi xvfb libegl1 libopengl0 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libfontconfig1 libdbus-1-3
+      - name: Fetch pinned Qt runtime
+        run: python3 packaging/qt_runtime.py --dest build/qt
+      - name: Exercise Qt 6 on Ubuntu 22.04
+        run: xvfb-run -a env QT_QPA_PLATFORM=xcb PYTHONPATH=src:build/qt NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
 
   tests:
     env:
@@ -128,22 +130,22 @@ jobs:
       - name: Install validation tools and GUI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-gi gir1.2-gtk-4.0 libsecret-1-0 xdg-utils desktop-file-utils appstream xvfb python3-pyfuse3 python3-trio fuse3
+          sudo apt-get install -y python3-gi libsecret-1-0 xdg-utils desktop-file-utils appstream xvfb python3-pyfuse3 python3-trio fuse3
       - name: Validate desktop integration
         run: |
           desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
           appstreamcli validate --no-net data/io.github.SigmaCodez.NeutronDrive.metainfo.xml
       - name: Build bundled DEB
         run: python3 scripts/build-deb --arch '${{ matrix.architecture }}'
-      - name: Exercise native GTK interface on a virtual X11 display
-        run: xvfb-run -a env GSK_RENDERER=cairo PYTHONPATH=src NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
       - name: Inspect package and smoke-test bundled CLI
         run: |
           dpkg-deb --info dist/*.deb
           sudo apt-get install -y ./dist/*.deb
+          xvfb-run -a env QT_QPA_PLATFORM=xcb PYTHONPATH=/usr/lib/neutrondrive:/usr/lib/neutrondrive/qt NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
           /usr/lib/neutrondrive/bin/proton-drive version --json
           neutrondrive --help
           neutrondrive --diagnose
+          QT_QPA_PLATFORM=offscreen PYTHONPATH=/usr/lib/neutrondrive:/usr/lib/neutrondrive/qt NEUTRONDRIVE_UI_TESTS=1 python3 -m unittest discover -s tests -p test_ui.py -v
           PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_rust_core.py -v
           /usr/bin/python3 -c 'import pyfuse3, trio, gi'
           PYTHONPATH=/usr/lib/neutrondrive /usr/bin/python3 -m unittest discover -s tests -p test_local_trash.py -v
@@ -190,6 +192,7 @@ jobs:
           PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_ondemand.py -v
           PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_local_trash.py -v
           neutrondrive --diagnose
+          QT_QPA_PLATFORM=offscreen PYTHONPATH=/usr/lib/neutrondrive:/usr/lib/neutrondrive/qt NEUTRONDRIVE_UI_TESTS=1 python3 -m unittest discover -s tests -p test_ui.py -v
           PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_rust_core.py -v
       - uses: actions/upload-artifact@v4
         with:

@@ -1,8 +1,8 @@
-# Architecture: 0.4 alpha
+# Architecture: 0.5 alpha
 
 ```mermaid
 flowchart TD
-    GTK[GTK4 application] --> Backend[Python backend adapter]
+    GTK[Qt 6 Widgets application] --> Backend[Python backend adapter]
     GTK --> IPC[Private sync control socket]
     IPC --> Sync[Background scheduler and SyncEngine]
     Sync --> Rust[Rust planner, baseline and scheduling policy]
@@ -21,15 +21,23 @@ flowchart TD
     SDK --> Keyring[Secret Service or supported encrypted credential store]
 ```
 
-The GUI is a native GTK application with a worker executor. Its demo backend is
+The GUI is a native Qt application with a worker executor. Its demo backend is
 explicitly separate from authenticated operations. The source-built bridge uses
 `external-drive-neutrondrive@0.2.0-alpha`; its exact source/compiler/dependency
 provenance is documented in [UPSTREAM.md](UPSTREAM.md).
 
+## Qt interface and callbacks
+
+PySide6 widgets provide all seven pages. A queued Qt signal carries worker results
+to the GUI thread. Dialogs are asynchronous; confirmations default to cancel.
+A same-user local socket and lock reactivate an existing or hidden window.
+The Qt timer explicitly services pending Gio portal callbacks. GTK is not loaded
+by the UI; D-Bus helper and portal adapters retain PyGObject.
+
 ## Rust decision boundary
 
 The required Rust shared library decides plans, deletion eligibility, convergence,
-baseline advancement, scheduling, bounded retry and echo suppression. Python
+baseline advancement, scheduling, bounded retry, echo suppression and event batch/delivery validation. Python
 collects observations and executes guarded effects. Fresh remote absence proofs
 are requested by Rust and supplied only after host-side checks. See
 [RUST-MIGRATION.md](RUST-MIGRATION.md) for the exact migration scope.

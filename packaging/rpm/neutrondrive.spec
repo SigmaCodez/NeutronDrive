@@ -1,7 +1,7 @@
 Name:           neutrondrive
-Version:        0.4.0~alpha1
+Version:        0.5.0~alpha1
 Release:        1%{?dist}
-Summary:        Independent GTK client for Proton Drive (alpha)
+Summary:        Independent Qt client for Proton Drive (alpha)
 %if 0%{?neutrondrive_vendor_pyfuse3}
 License:        MIT AND LGPL-2.1-or-later
 %else
@@ -14,6 +14,25 @@ Requires:       python3 >= 3.10
 Requires:       python3-gobject
 Requires:       xdg-utils
 Requires:       ca-certificates
+Requires:       python3 < 3.15
+Requires:       libEGL.so.1()(64bit)
+Requires:       libGL.so.1()(64bit)
+Requires:       libOpenGL.so.0()(64bit)
+Requires:       libxkbcommon-x11.so.0()(64bit)
+Requires:       libxcb-cursor.so.0()(64bit)
+Requires:       libxcb-icccm.so.4()(64bit)
+Requires:       libxcb-image.so.0()(64bit)
+Requires:       libxcb-keysyms.so.1()(64bit)
+Requires:       libxcb-render-util.so.0()(64bit)
+Requires:       libfontconfig.so.1()(64bit)
+Requires:       libdbus-1.so.3()(64bit)
+Requires:       libSM.so.6()(64bit)
+Requires:       libICE.so.6()(64bit)
+%ifarch aarch64
+Requires:       libc.so.6(GLIBC_2.39)(64bit)
+%else
+Requires:       libc.so.6(GLIBC_2.34)(64bit)
+%endif
 %if 0%{?neutrondrive_vendor_pyfuse3}
 Requires:       python(abi) = %{neutrondrive_python_abi}
 Provides:       bundled(python3dist(pyfuse3)) = 3.4.2
@@ -23,11 +42,8 @@ Requires:       python3dist(pyfuse3)
 Requires:       python3dist(trio)
 Requires:       fuse3
 %if 0%{?suse_version}
-Requires:       python3-gobject-Gdk
-Requires:       typelib-1_0-Gtk-4_0 >= 4.6
 Requires:       libsecret-1-0
 %else
-Requires:       gtk4 >= 4.6
 Requires:       libsecret
 Recommends:     gnome-keyring
 %endif
@@ -38,7 +54,7 @@ Recommends:     gnome-keyring
 %global __os_install_post %{nil}
 
 %description
-Browse and transfer files with a native GTK interface and the bundled SDK-based NeutronDrive event bridge. Requires an account, browser and running Secret Service.
+Browse and transfer files with a native Qt interface and the bundled SDK-based NeutronDrive event bridge. Requires an account, browser and running Secret Service.
 NeutronDrive is a community project not affiliated with Proton AG.
 
 %prep
@@ -63,5 +79,5 @@ cp -a usr %{buildroot}/
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
 
 %changelog
-* Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.4.0~alpha1-1
+* Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.5.0~alpha1-1
 - Background sync, on-demand FUSE files and source-built SDK event bridge.
