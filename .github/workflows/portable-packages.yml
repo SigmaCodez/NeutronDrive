@@ -36,13 +36,15 @@ jobs:
           root=$(find "$XDG_CACHE_HOME/neutrondrive-appimage" -mindepth 1 -maxdepth 1 -type d -name '[0-9a-f]*')
           export PYTHONHOME="$root/usr"
           export PYTHONPATH="$root/usr/lib/neutrondrive:$root/usr/lib/neutrondrive/qt:$root/usr/lib/python3/dist-packages"
-          export LD_LIBRARY_PATH="$root/usr/lib:$root/usr/lib/x86_64-linux-gnu:$root/usr/lib/neutrondrive/qt/PySide6/Qt/lib"
+          export LD_LIBRARY_PATH="$root/usr/lib/neutrondrive/qt/PySide6/Qt/lib:$root/usr/lib:$root/usr/lib/x86_64-linux-gnu"
           export GI_TYPELIB_PATH="$root/usr/lib/x86_64-linux-gnu/girepository-1.0"
           export PATH="$root/usr/bin:$root/usr/lib/neutrondrive/bin:$PATH"
           export PYTHONDONTWRITEBYTECODE=1
           "$root/usr/bin/python3.10" -c 'import gi, pyfuse3, trio; from gi.repository import Gio, GLib; from neutrondrive.desktop_integration import app_command; import os; assert app_command()[0].startswith(os.environ["XDG_CACHE_HOME"]); print("PORTABLE_IMPORTS_AND_AUTOSTART_PATH_OK")'
           QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software NEUTRONDRIVE_UI_TESTS=1 "$root/usr/bin/python3.10" -m unittest discover -s ../../tests -p test_i18n_ui.py -v
           QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software NEUTRONDRIVE_UI_TESTS=1 "$root/usr/bin/python3.10" -m unittest discover -s ../../tests -p test_ui.py -v
+          "$root/usr/bin/python3.10" -m unittest discover -s ../../tests -p test_background.py -v
+          env -u PYTHONHOME -u PYTHONPATH -u LD_LIBRARY_PATH -u GI_TYPELIB_PATH "$root/usr/bin/neutrondrive" --help
       - uses: actions/upload-artifact@v4
         with:
           name: appimage-x86_64

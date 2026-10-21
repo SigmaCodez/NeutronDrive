@@ -61,7 +61,11 @@ def main():
     shutil.copytree('/usr/lib/python3/dist-packages', APP / 'usr/lib/python3/dist-packages', ignore=shutil.ignore_patterns('__pycache__', 'tests'))
     shutil.copytree('/usr/lib/x86_64-linux-gnu/girepository-1.0', APP / 'usr/lib/x86_64-linux-gnu/girepository-1.0')
     # Preserve distribution notices and exact package/source versions for the bundled runtime.
-    shutil.copytree('/usr/share/doc', APP / 'usr/share/doc/ubuntu-runtime', ignore=shutil.ignore_patterns('examples', '*.gz', '*.xz', '*.html'))
+    for notice in Path('/usr/share/doc').glob('*/copyright'):
+        if notice.is_file():
+            destination = APP / 'usr/share/doc/ubuntu-runtime' / notice.parent.name / 'copyright'
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(notice, destination)
     run('dpkg-query', '-W', '-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n', stdout=(APP / 'usr/share/doc/neutrondrive/ubuntu-runtime-packages.tsv').open('w'))
     shutil.copy2(ROOT / 'packaging/appimage/bootstrap.py', APP / 'usr/lib/neutrondrive/appimage-bootstrap.py')
     for source, dest in [('AppRun', APP / 'AppRun'), ('neutrondrive', APP / 'usr/bin/neutrondrive'), ('xdg-open', APP / 'usr/lib/neutrondrive/bin/xdg-open')]:
@@ -85,6 +89,16 @@ def main():
         '--icon-file', APP / f'usr/share/icons/hicolor/scalable/apps/{appid}.svg',
         '--custom-apprun', ROOT / 'packaging/appimage/AppRun',
         '--deploy-deps-only', APP / 'usr/lib', *extra, env=env)
+    # linuxdeploy rewrites ELF search paths. Restore the pinned application core,
+    # backend and Qt payload so their published provenance remains byte-for-byte valid.
+    original = BUILD / 'original-deb'
+    run('dpkg-deb', '-x', deb, original)
+    for relative in ('usr/lib/neutrondrive/qt',):
+        shutil.rmtree(APP / relative)
+        shutil.copytree(original / relative, APP / relative)
+    for relative in ('usr/lib/neutrondrive/bin/proton-drive', 'usr/lib/neutrondrive/neutrondrive/libneutrondrive_core.so'):
+        shutil.copy2(original / relative, APP / relative)
+    shutil.rmtree(original)
     # appimagetool does not alter this payload; all files and links are verified on extraction.
     manifest = {}
     for p in sorted(APP.rglob('*')):

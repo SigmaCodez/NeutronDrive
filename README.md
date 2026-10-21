@@ -81,6 +81,8 @@ packages are not official Proton packages, Flathub listings or Snap Store releas
 | RPM | Current Fedora, openSUSE | Distribution-specific dependency names |
 | Flatpak | Flatpak-enabled distributions, including Arch/Manjaro and immutable desktops | GNOME 50; online drive additionally needs the native helper |
 | Snap | snapd-enabled distributions | Connect `password-manager-service`; online drive needs native package |
+| AppImage | x86_64 GLIBC desktops, Ubuntu 22.04+/Debian 12+ | Bundled Python/Qt; persistent private runtime cache; native helper for online drive |
+| Arch package / AUR recipe | Arch Linux, Manjaro | `neutrondrive-bin` PKGBUILD; AUR publication pending account setup |
 
 Native x86_64 retains Ubuntu 22.04+/Debian 12+ coverage. The official ARM64 Qt
 wheels require GLIBC 2.39: use Ubuntu 24.04+, Debian 13+ or an equivalent runtime
@@ -112,6 +114,24 @@ flatpak run io.github.SigmaCodez.NeutronDrive
 sudo snap install --dangerous ./neutrondrive_0.6.0-alpha6_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
+
+Additional formats:
+
+```sh
+# Portable x86_64 AppImage
+chmod +x NeutronDrive-0.6.0-alpha6-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha6-x86_64.AppImage
+
+# Arch/Manjaro: review the PKGBUILD, then build as a regular user
+# Requires base-devel and git.
+git clone https://github.com/SigmaCodez/NeutronDrive.git
+cd NeutronDrive/packaging/aur/neutrondrive-bin
+makepkg -si
+```
+
+[AppImage runtime/cache details](packaging/appimage/README.md) ·
+[Arch installation and AUR publication status](packaging/aur/README.md).
+The AUR recipe is available on GitHub; it is not yet listed on aur.archlinux.org.
 
 Launch **NeutronDrive** from your application menu. Unlock the desktop keyring,
 select **Sign in to Proton** (or its translation in your system language) and finish in the browser. The CLI opens the
