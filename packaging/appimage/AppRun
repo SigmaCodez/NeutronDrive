@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+APPDIR=$(CDPATH= cd -- "${0%/*}" && pwd -P)
 export APPDIR
 export PYTHONHOME="$APPDIR/usr"
 export PYTHONPATH="$APPDIR/usr/lib/python3/dist-packages:$APPDIR/usr/lib/neutrondrive:$APPDIR/usr/lib/neutrondrive/qt"

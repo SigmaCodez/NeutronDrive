@@ -8,7 +8,7 @@ The application version stays alpha6; this is an additional packaging format.
 The dedicated GitHub workflow builds and tests on Ubuntu 22.04. `scripts/build-appimage`
 refuses another baseline. linuxdeploy, appimagetool, the type-2 runtime and the
 input DEB are SHA256-pinned in `tools-lock.json`; changed upstream assets fail closed.
-The host supplies GLIBC (2.34+), graphical drivers, a browser and a Secret Service.
+The host supplies GLIBC (2.35+), graphical drivers, a browser and a Secret Service.
 No musl/Alpine or 32-bit support is claimed. ARM64 users can use the native package.
 
 ## Run

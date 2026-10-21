@@ -70,7 +70,8 @@ jobs:
           neutrondrive --help
           neutrondrive --diagnose
           python -c 'import gi, pyfuse3, trio'
-          namcap PKGBUILD ./*.pkg.tar.zst
+          namcap PKGBUILD ./*.pkg.tar.zst | tee namcap.log
+          if grep -q ' E:' namcap.log; then exit 1; fi
           mkdir -p "$GITHUB_WORKSPACE/dist/aur"
           cp PKGBUILD .SRCINFO ./*.pkg.tar.zst "$GITHUB_WORKSPACE/dist/aur/"
       - name: Test installed package

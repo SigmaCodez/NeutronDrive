@@ -7,7 +7,7 @@ arch=('x86_64' 'aarch64')
 url='https://github.com/SigmaCodez/NeutronDrive'
 license=('MIT' 'LGPL-3.0-only')
 depends=('python>=3.10' 'python<3.15' 'python-gobject' 'python-pyfuse3'
-         'python-trio' 'fuse3' 'libsecret' 'xdg-utils' 'ca-certificates'
+         'python-trio' 'hicolor-icon-theme' 'fuse3' 'libsecret' 'xdg-utils' 'ca-certificates'
          'glibc' 'gcc-libs' 'wayland' 'libglvnd' 'libxkbcommon-x11' 'libxcb'
          'xcb-util-cursor' 'xcb-util-wm' 'xcb-util-image' 'xcb-util-keysyms'
          'xcb-util-renderutil' 'libx11' 'fontconfig' 'freetype2' 'dbus'
