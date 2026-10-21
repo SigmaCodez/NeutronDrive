@@ -1,54 +1,46 @@
-# Validation record — 0.6.0 alpha4
+# Validation record — 0.6.0 alpha5
 
-Previous evidence: [0.6.0 alpha3](VALIDATION-0.6-alpha3.md).
+Previous evidence: [0.6.0 alpha4](VALIDATION-0.6-alpha4.md).
 
-Daemon cloud-event routing now runs in Rust. Decisions include job relevance,
-ready/reset/error handling, unknown-parent lookup eligibility, deduplication and
-bounded queue overflow. The Python host retains the condition lock, applies the
-returned decision, invalidates caches and persists status before returning the
-ACK. Policy failure occurs before host state is changed.
+Release source: `e9ae23b05835df110ac13c74b689a5e363fd4936`.
+All **15 CI jobs passed**: [final build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39650290070).
+Packages: DEB amd64/arm64, Fedora/openSUSE RPM x86_64, Flatpak x86_64 and Snap amd64.
 
-The previous routing policy is frozen only as a test oracle. 1,500 seeded cases
-compare multiple jobs, paused states, known/unknown node and parent identities,
-root matches, reset/error/ready and queued duplicates. Separate tests exercise
-the 1,024-entry limit, overflow, duplicate jobs, malformed identities and a Rust
-failure before scheduling/persistence.
+Backend processes, private state I/O, job transactions and recursive inotify
+runtime now run in Rust. Late deletion echoes after an empty snapshot are fixed.
+Python remains for transfer/trash/FUSE orchestration and the Qt Quick controller;
+this release does not complete the Rust migration.
 
-All **308 local Python tests passed without skips**, with Qt, real FUSE and an
-isolated D-Bus enabled. All **12 native Rust tests** and Clippy passed. The
-live-account test also passed **all 11 checks**, using the new native routing in
-its real background process. Initial convergence, both file-deletion directions,
-restart safety, cloud/local restoration, whole-folder conflicts and recovery,
-and delete-versus-edit conflicts passed. The daemon stopped and its dedicated
-UUID-scoped synthetic cloud folder was moved to trash. No permanent cloud deletion
-or credential copying occurred.
+All **332 local Python tests passed without skips** with Qt, D-Bus and real FUSE.
+331 tests used local POSIX temporary storage; the package-staging test used the
+project filesystem to avoid the temporary filesystem quota. An initial attempt
+to run every test on the NAS was rejected by the private-directory permission
+checks. No security checks were relaxed. An initial CI run exposed a test-only
+procfs race when a terminated descendant disappeared between open and read;
+the final test handles both ENOENT and ESRCH. The full final CI then passed.
 
-The installed Flatpak passed isolated source/backend/Qt hash verification, a call
-to the new Rust routing command, all six GUI pages, light/dark switching and
-synthetic local trash restoration. Its temporary installation/profile was removed.
+16 Rust tests and Clippy passed, including native ARM64 CI. The identical runtime
+before the version-only bump (`2a1c100bfa0a0569c9ebd1a081374171ca9a00ae`) also
+passed 122 focused Python tests and all 11 synthetic live-account checks.
+The live daemon stopped and its dedicated synthetic cloud folder was moved to
+trash; no permanent cloud deletion or credential copying occurred.
 
-The initial Snap job encountered HTTP 504 while downloading the unchanged pinned
-backend, before building. Only that failed job was retried; no integrity checks
-were relaxed and no source change was needed.
+The final installed Flatpak passed Python/QML, Rust, backend and all 398 bundled
+Qt file checksums; native process execution, job storage and real inotify;
+all six GUI pages, light/dark appearance and synthetic local trash restore.
+Its temporary installation/profile was removed. All six package artifacts passed
+source/provenance checks. All 16 published asset sizes and GitHub SHA256 digests
+match the local release files; the release tag points to the tested source.
 
-No additional C layer was added: no measured performance benefit justified one.
-Rust policy, the existing C ABI and guarded Python I/O remain the architecture.
-No claim of full Rust migration or measured speed improvement is made.
+The amd64 DEB was also installed on Ubuntu 26.04.1. Package-manager status,
+version 0.6.0a5, installed Python/QML and Rust hashes, native-core diagnostics and
+GUI process startup were checked. No local sync jobs were configured and no
+online drive was mounted; old background processes were stopped cleanly before
+installation. Account configuration was preserved. No new account sign-in was
+performed during this installation test.
 
-All **14 CI jobs passed**, including the retried Snap job, for source commit
-`e16307f076aec2c2f613568a66657acc05ac2a6d`:
-[GitHub Actions run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39633262903).
-The six final package artifacts passed the package audit: DEB amd64/arm64,
-Fedora/openSUSE RPM x86_64, Flatpak x86_64 and Snap amd64. Python/QML source,
-native-core provenance, pinned backend and bundled Qt payloads were checked
-against the build inputs; Flatpak payloads were checked through its separate
-isolated installation. Release files preserve the CI package bytes and include
-SHA-256 checksums, build/test evidence and matching Qt/PySide/ICU sources.
-
-Remaining limits: Python still owns daemon lifecycle, guarded I/O and Qt/FUSE
-adapters. Whole-folder deletion remains a protected conflict. Strict Snap lacks
-FUSE online mounts; Flatpak online mounts need the native helper. ARM64 native
-Qt requires GLIBC 2.39, x86_64 GLIBC 2.34. Installed Snap account/autostart,
-every desktop/distribution combination and long-duration/large-tree workloads
-were not revalidated. This remains an alpha, without an independent security
-audit or a guarantee of universal Linux compatibility.
+Remaining limits: whole-folder deletion remains a protected conflict. Strict
+Snap lacks FUSE online mounts; Flatpak online mounts need the native helper.
+ARM64 native Qt needs GLIBC 2.39; x86_64 needs GLIBC 2.34. Long-duration workloads,
+every Linux desktop/distribution combination and independent security auditing
+remain outstanding. This remains an alpha.
