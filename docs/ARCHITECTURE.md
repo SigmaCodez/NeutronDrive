@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart TD
-    GTK[Qt 6 Widgets application] --> Backend[Python backend adapter]
+    GTK[Qt Quick/QML application] --> Backend[Python backend adapter]
     GTK --> IPC[Private sync control socket]
     IPC --> Sync[Background scheduler and SyncEngine]
     Sync --> Rust[Rust planner, baseline and scheduling policy]

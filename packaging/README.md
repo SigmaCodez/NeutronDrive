@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The published dependency release is `bridge-v0.2.0-alpha1`; application packages
-are in `v0.5.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
+are in `v0.6.0-alpha1`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -44,7 +44,7 @@ publish releases, sign packages or submit to Flathub/Snap Store.
 ## Qt runtime
 
 `qt_runtime.py` downloads the official PySide6 Essentials/Shiboken 6.10.2 wheels
-pinned by SHA256 in `qt-lock.json`. Only the required Qt Widgets, network, test,
+pinned by SHA256 in `qt-lock.json`. Only the required Qt Quick/QML, Quick Controls Basic/Fusion, dialogs, network, test,
 SVG and Wayland/X11 desktop runtime is selected; developer tools, QML and unrelated
 bindings are excluded. The included binaries remain unmodified and replaceable.
 `packaging/licenses/qt` contains upstream notices from the source archives in
@@ -111,7 +111,7 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.5.0a1-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.6.0a1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
@@ -154,7 +154,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.5.0-alpha1_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```

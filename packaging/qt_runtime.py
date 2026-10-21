@@ -42,11 +42,14 @@ def fetch(architecture=None):
 
 
 MODULES = {"Core", "Gui", "Widgets", "Network", "DBus", "OpenGL", "OpenGLWidgets", "Svg", "SvgWidgets", "Xml", "Test", "WaylandClient", "WlShellIntegration", "XcbQpa"}
+MODULES |= {"LabsFolderListModel","Qml", "QmlMeta", "QmlCore", "QmlModels", "QmlWorkerScript", "QmlNetwork", "Quick", "QuickControls2", "QuickControls2Impl", "QuickControls2Basic", "QuickControls2BasicStyleImpl", "QuickControls2Fusion", "QuickControls2FusionStyleImpl", "QuickTemplates2", "QuickLayouts", "QuickDialogs2", "QuickDialogs2QuickImpl", "QuickDialogs2Utils", "QuickShapes"}
+QML_DIRS = {"Qt/labs/folderlistmodel","QtQml", "QtQml/Models", "QtQml/WorkerScript", "QtQuick", "QtQuick/Window", "QtQuick/Layouts", "QtQuick/Templates", "QtQuick/Controls", "QtQuick/Controls/Basic", "QtQuick/Controls/Basic/impl", "QtQuick/Controls/Fusion", "QtQuick/Controls/Fusion/impl", "QtQuick/Controls/impl", "QtQuick/Dialogs", "QtQuick/Dialogs/quickimpl", "QtQuick/Dialogs/quickimpl/qml", "QtQuick/Shapes"}
 PLUGIN_GROUPS = {"iconengines", "imageformats", "networkinformation", "platforminputcontexts", "platformthemes", "tls", "wayland-decoration-client", "wayland-graphics-integration-client", "wayland-shell-integration", "xcbglintegrations"}
 
 
 def runtime_member(name):
     parts = PurePosixPath(name).parts
+    if "__pycache__" in parts or name.endswith(".pyc"): return False
     if not parts or parts[0] != "PySide6": return True
     if len(parts) < 2: return False
     if parts[1] == "Qt":
@@ -54,6 +57,7 @@ def runtime_member(name):
         category, filename = parts[2], parts[-1]
         if category == "lib":
             return filename.startswith("libicu") or any(filename == "libQt6" + module + ".so.6" for module in MODULES)
+        if category == "qml": return "/".join(parts[3:-1]) in QML_DIRS
         if category == "translations": return filename.startswith("qtbase_")
         if category == "plugins":
             group = parts[3]
@@ -63,7 +67,7 @@ def runtime_member(name):
         return False
     if parts[1] in {"support", "lib"}: return True
     filename = parts[1]
-    return (filename.startswith("libpyside6.abi3") or filename in {"__init__.py", "_config.py", "_git_pyside_version.py", "py.typed"}
+    return (filename.startswith(("libpyside6.abi3", "libpyside6qml.abi3")) or filename in {"__init__.py", "_config.py", "_git_pyside_version.py", "py.typed"}
             or any(filename in {"Qt" + module + ".abi3.so", "Qt" + module + ".pyi"} for module in MODULES))
 
 

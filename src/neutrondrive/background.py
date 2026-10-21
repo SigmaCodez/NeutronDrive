@@ -468,32 +468,25 @@ class InotifyWatcher:
         self._thread.start()
 
     def _consume(self, data: bytes) -> None:
-        offset = 0
-        while offset + 16 <= len(data):
-            watch, mask, _cookie, length = struct.unpack_from("iIII", data, offset)
-            offset += 16
-            name = os.fsdecode(data[offset:offset + length].split(b"\0", 1)[0])
-            offset += length
-            if mask & self._OVERFLOW:
+        for event in rust_core.call("inotify_decode", data=list(data)):
+            if event["kind"] == "overflow":
                 self.callback(None, "inotify-overflow")
                 continue
+            watch = event["watch"]
             parent = self._watches.get(watch)
             if parent is None:
                 continue
-            if mask & self._IGNORED:
+            if event["kind"] == "ignored":
                 self._watches.pop(watch, None)
                 continue
-            if name.startswith(".neutrondrive-"):
-                continue
+            name = os.fsdecode(bytes(event["name"]))
             path = parent / name if name else parent
-            if mask & self._DIRECTORY and mask & (0x00000100 | 0x00000080):
+            if event["add_tree"]:
                 try:
                     self._add_tree(path)
                 except (OSError, BackgroundError):
                     self.callback(None, "watch-error")
-            if mask & (0x00000400 | 0x00000800):
-                # A moved watched subtree has stale wd->path bindings. The
-                # reconciliation rebuilds watches before returning to idle.
+            if event["rebuild"]:
                 self.callback(None, "watch-rebuild")
             try:
                 relative = path.relative_to(self.root).as_posix()
@@ -510,7 +503,7 @@ class InotifyWatcher:
                         self._consume(os.read(self._fd, 1024 * 1024))
                     except BlockingIOError:
                         pass
-        except (OSError, ValueError):
+        except (OSError, ValueError, rust_core.CoreError):
             if not self._stop.is_set():
                 self.callback(None, "watch-error")
 

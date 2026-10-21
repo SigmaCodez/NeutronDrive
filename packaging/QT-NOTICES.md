@@ -21,3 +21,6 @@ wheel checks pin the distributed payload, not user runtime modifications.
 The x86_64 wheels require GLIBC 2.34; ARM64 wheels require GLIBC 2.39. Native
 ARM64 Qt packages therefore require Ubuntu 24.04+ or an equivalent runtime.
 Python 3.10–3.14 is supported by this application/runtime combination.
+
+Qt Quick/QML and Quick Controls/Dialog modules are supplied by the pinned
+qtdeclarative 6.10.2 archive; its license texts and third-party notices are included.

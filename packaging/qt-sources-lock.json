@@ -30,6 +30,12 @@
       "filename": "icu4c-73_2-src.tgz",
       "url": "https://github.com/unicode-org/icu/releases/download/release-73-2/icu4c-73_2-src.tgz",
       "sha256": "818a80712ed3caacd9b652305e01afc7fa167e6f2e94996da44b90c2ab604ce1"
+    },
+    {
+      "name": "qtdeclarative",
+      "filename": "qtdeclarative-everywhere-src-6.10.2.tar.xz",
+      "url": "https://download.qt.io/archive/qt/6.10/6.10.2/submodules/qtdeclarative-everywhere-src-6.10.2.tar.xz",
+      "sha256": "a249914ff66cdcdbf0df8b5ffad997a2ee6dce01cc17d43c6cc56fdc1d0f4b0f"
     }
   ]
 }

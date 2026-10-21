@@ -18,10 +18,11 @@ class QtApplicationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from PySide6.QtCore import Qt
-        from PySide6.QtWidgets import QApplication,QScrollArea,QStackedWidget
+        from PySide6.QtCore import QObject
+        from PySide6.QtQuick import QQuickWindow
         from neutrondrive.app import Application
         from neutrondrive.demo import DemoBackend
-        cls.Qt,cls.QScrollArea,cls.QStackedWidget = Qt,QScrollArea,QStackedWidget
+        cls.Qt,cls.QObject,cls.QQuickWindow = Qt,QObject,QQuickWindow
         cls.callback_errors=[]
         cls.exception_hook=mock.patch.object(sys,'excepthook',lambda kind,value,tb:cls.callback_errors.append(''.join(traceback.format_exception(kind,value,tb))))
         cls.exception_hook.start();cls.addClassCleanup(cls.exception_hook.stop)
@@ -47,7 +48,7 @@ class QtApplicationTests(unittest.TestCase):
         cls.app.closing=True
         cls.app.executor.shutdown(wait=True,cancel_futures=True)
         cls.app.status_executor.shutdown(wait=True,cancel_futures=True)
-        cls.app.qt.processEvents();cls.app.window.close();cls._check_callback_errors()
+        cls.app.qt.processEvents();cls.app.window.close();cls.app.dispose_view();cls._check_callback_errors()
 
     def setUp(self):
         self._pump_until(lambda:not self.app.busy)
@@ -58,25 +59,27 @@ class QtApplicationTests(unittest.TestCase):
     def tearDown(self):self._check_callback_errors()
 
     def rows(self):
-        return [self.app.file_list.topLevelItem(i) for i in range(self.app.file_list.topLevelItemCount())]
+        return list(range(len(self.app.visible_nodes)))
 
-    def select(self,item):item.setSelected(True)
+    def select(self,item):self.app.select_row(item,False)
 
     def test_window_pages_and_initial_demo_rows_are_complete(self):
+        self.assertIsInstance(self.app.window,self.QQuickWindow)
         self.assertTrue(self.app.window.isVisible())
-        self.assertIn("DEMO", self.app.window.windowTitle())
+        self.assertIn("DEMO", self.app.window.title())
         self.assertEqual(len(self.rows()), 6)
         self.assertEqual(self.app.path, "/my-files")
         for page in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings"):
             with self.subTest(page=page):
                 self.assertIsNotNone(self.app.pages.get(page))
                 self.app.show_page(page)
+                self.app.qt.processEvents()
                 self.assertEqual(self.app.current_page, page)
         self.assertFalse(self.app.execute_button.isEnabled())
 
     def test_folder_navigation_empty_state_and_breadcrumb_return(self):
-        folder = next(row for row in self.rows() if row.data(0, self.Qt.ItemDataRole.UserRole).type == "folder")
-        expected_path = folder.data(0, self.Qt.ItemDataRole.UserRole).path
+        folder = next(row for row in self.rows() if self.app.visible_nodes[row].type == "folder")
+        expected_path = self.app.visible_nodes[folder].path
         self.app.row_activated(folder)
         self._pump_until(lambda: not self.app.busy and self.app.path == expected_path)
         self.assertEqual(self.rows(), [])
@@ -95,7 +98,7 @@ class QtApplicationTests(unittest.TestCase):
     def test_search_filters_visible_rows_without_changing_directory(self):
         self.app.search.setText("BERGSEE")
         self._pump_until(lambda: len(self.rows()) == 1)
-        self.assertEqual(self.rows()[0].data(0, self.Qt.ItemDataRole.UserRole).name, "Bergsee.jpg")
+        self.assertEqual(self.app.visible_nodes[0].name, "Bergsee.jpg")
         self.assertEqual(len(self.app.nodes), 6)
         self.assertEqual(self.app.path, "/my-files")
         self.app.search.setText("nothing-matches-this-test")
@@ -105,8 +108,8 @@ class QtApplicationTests(unittest.TestCase):
         self._pump_until(lambda: len(self.rows()) == 6)
 
     def test_selection_respects_unsafe_metadata_and_trash_actions(self):
-        file_row = next(row for row in self.rows() if row.data(0, self.Qt.ItemDataRole.UserRole).type == "file")
-        node = file_row.data(0,self.Qt.ItemDataRole.UserRole)
+        file_row = next(row for row in self.rows() if self.app.visible_nodes[row].type == "file")
+        node = self.app.visible_nodes[file_row]
         self.select(file_row)
         self.assertTrue(self.app.action_buttons["Download"].isEnabled())
         self.app.loaded([replace(node, safe=False)])
@@ -139,17 +142,18 @@ class QtApplicationTests(unittest.TestCase):
     def test_background_and_online_pages_allow_vertical_scrolling(self):
         for name in ("background", "ondemand"):
             with self.subTest(page=name):
-                page = self.app.pages[name]
-                self.assertIsInstance(page, self.QScrollArea)
-                self.assertTrue(page.widgetResizable())
-                self.assertIsNotNone(page.widget())
+                self.app.show_page(name)
+                self.app.qt.processEvents()
+                page=self.app.window.findChild(self.QObject,"page-"+name)
+                self.assertIsNotNone(page)
+                self.assertGreater(page.property("contentHeight"),0)
 
     def test_demo_local_trash_never_reads_or_restores_personal_files(self):
         with mock.patch("neutrondrive.local_trash.LocalTrash") as trash:
             self.app.show_page("local-trash")
             self.app.refresh_local_trash()
             self.assertIn("Demo ohne Dateizugriff", self.app.local_trash_status.text())
-            self.assertIsNotNone(self.app.local_trash_empty.parent())
+            self.assertEqual(self.app.state["trash"],[])
             self.app.restore_local_trash("/tmp/not-a-real-registry", "not-a-real-entry")
             self.assertIn("Demo", self.app.notice_label.text())
             trash.assert_not_called()
@@ -160,11 +164,9 @@ class QtApplicationTests(unittest.TestCase):
         with mock.patch.object(self.app, "demo", False), mock.patch.object(self.app, "restore_local_trash") as restore:
             self.app.render_local_trash([("/tmp/registry", entry) for entry in entries])
             for i in range(4):
-                row = self.app.local_trash_rows.layout().itemAt(i).widget()
-                action = row.layout().itemAt(row.layout().count()-1).widget()
-                self.assertEqual(action.isEnabled(), i in {0, 1})
-                if i == 0:
-                    action.click()
+                entry = self.app.trash_entries[i]
+                self.assertEqual(entry["enabled"], i in {0,1})
+                if i == 0: self.app.restore_entry(i)
             restore.assert_called_once_with("/tmp/registry", "0")
         self.app.refresh_local_trash()
 
@@ -205,12 +207,9 @@ class QtApplicationTests(unittest.TestCase):
         app = type(self.app)(self.app.backend, demo=False)
         self.addCleanup(app.executor.shutdown, wait=True, cancel_futures=True)
         self.addCleanup(app.status_executor.shutdown, wait=True, cancel_futures=True)
-        app.stack = self.QStackedWidget()
         with mock.patch.dict(os.environ, {"SNAP": "/snap/neutrondrive/test"}):
-            app._ondemand_page()
+            app._build_state()
             self.assertFalse(app.mount_button.isEnabled())
-            self.assertIn("native DEB- oder RPM-Paket", app.mount_button.toolTip())
-            self.assertIn("im Snap derzeit nicht verfügbar", app.mount_notice.text())
             with mock.patch.object(app, "message") as message, mock.patch.object(app, "submit") as submit:
                 app.mount_action("mount", mountpoint="/tmp/not-mounted-by-ui-test")
                 message.assert_called_once()
@@ -225,7 +224,7 @@ class QtApplicationTests(unittest.TestCase):
             "state":"conflict", "conflicts":["changed.txt"], "paused":True,
         }]})
         self.assertIn("läuft", self.app.background_status.text())
-        self.assertIsNotNone(self.app.background_jobs.layout().itemAt(0))
+        self.assertEqual(self.app.jobs[0]["id"],"test")
         self.app.render_mount_status({"mounted":True,"mountpoint":"/tmp/virtual","recovery":["pending.txt"]})
         self.assertIn("Verbunden", self.app.mount_status.text())
         self.assertIn("pending.txt", self.app.mount_status.text())
@@ -265,30 +264,41 @@ class QtApplicationTests(unittest.TestCase):
         self.assertIn("Fehlgeschlagen",self.app.records[0][2])
 
     def test_confirmation_cancellation_and_acceptance_are_distinct(self):
-        from PySide6.QtWidgets import QMessageBox
+        from PySide6.QtTest import QTest
         calls=[]
         self.app.confirm("Synthetic","No real files",lambda:calls.append(True),destructive=True)
-        dialog=self.app.dialogs[-1]
-        self.assertEqual(dialog.buttonRole(dialog.defaultButton()),QMessageBox.ButtonRole.RejectRole)
-        dialog.defaultButton().click();self.app.qt.processEvents()
-        self.assertEqual(calls,[])
+        self.app.qt.processEvents()
+        # Escape must dismiss the actual QML popup without invoking the action.
+        QTest.keyClick(self.app.window,self.Qt.Key.Key_Escape)
+        self.app.qt.processEvents();self.assertEqual(calls,[])
         self.app.confirm("Synthetic","No real files",lambda:calls.append(True))
-        dialog=self.app.dialogs[-1]
-        next(b for b in dialog.buttons() if dialog.buttonRole(b)==QMessageBox.ButtonRole.AcceptRole).click()
+        self.app.qt.processEvents()
+        self.click_qml("dialogAccept")
         self.app.qt.processEvents();self.assertEqual(calls,[True])
+
+    def click_qml(self,name):
+        from PySide6.QtCore import QMetaObject
+        item=self.app.window.findChild(self.QObject,name)
+        self.assertIsNotNone(item)
+        self.assertTrue(QMetaObject.invokeMethod(item,"clicked"))
 
     def test_prompt_and_share_clipboard_keep_plain_text(self):
         calls=[]
         self.app.prompt("Rename","Synthetic","old",calls.append)
-        dialog=self.app.dialogs[-1];dialog.setTextValue("new-name.txt");dialog.accept()
+        self.app.qt.processEvents()
+        entry=self.app.window.findChild(self.QObject,"promptInput")
+        entry.setProperty("text","new-name.txt")
+        self.click_qml("dialogAccept")
         self.app.qt.processEvents();self.assertEqual(calls,["new-name.txt"])
         node=SimpleNamespace(name="<b>literal</b>",path="/my-files/example")
         self.app.share_dialog(node,{"urlAccess":{"url":"https://example.invalid/synthetic"}})
-        from PySide6.QtWidgets import QPushButton
-        dialog=self.app.dialogs[-1]
-        next(b for b in dialog.findChildren(QPushButton) if b.text()=="Link kopieren").click()
+        token=self.app.dialog_serial
+        self.app.answer_dialog(token,True,"copy")
         self.assertEqual(self.app.qt.clipboard().text(),"https://example.invalid/synthetic")
-        dialog.close();self.app.qt.processEvents()
+        self.app.answer_dialog(self.app.dialog_serial,False,"")
+        dialog=self.app.window.findChild(self.QObject,"confirmationDialog")
+        from PySide6.QtCore import QMetaObject
+        QMetaObject.invokeMethod(dialog,"close")
 
     def test_close_during_work_waits_for_cancellation(self):
         release=threading.Event()
@@ -298,8 +308,22 @@ class QtApplicationTests(unittest.TestCase):
                 self.assertTrue(self.app._close())
                 self.assertFalse(self.app.closing)
                 # Declining close must not cancel or discard the worker.
-                self.app.dialogs[-1].reject();self.app.qt.processEvents();cancel.assert_not_called()
+                self.app.answer_dialog(self.app.dialog_serial,False,"");self.app.qt.processEvents();cancel.assert_not_called()
             finally:release.set();self._pump_until(lambda:not self.app.busy)
+
+    def test_file_picker_local_urls_and_stale_dialog_tokens(self):
+        calls=[]
+        self.app.choose("Synthetic picker",multiple=True,callback=calls.append)
+        self.app.qt.processEvents()
+        token=self.app.dialog_serial
+        self.app.answer_dialog(token,True,["file:///tmp/example%20name.txt","https://example.invalid/ignored"])
+        self.assertEqual(calls,[[Path("/tmp/example name.txt")]])
+        self.app.answer_dialog(token,True,["file:///tmp/duplicate"])
+        self.assertEqual(len(calls),1)
+        from PySide6.QtCore import QMetaObject
+        picker=self.app.window.findChild(self.QObject,"filePicker")
+        self.assertIsNotNone(picker)
+        QMetaObject.invokeMethod(picker,"close")
 
     def test_single_instance_activates_existing_window(self):
         from neutrondrive.qt_instance import WindowInstance

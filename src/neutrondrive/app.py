@@ -1,77 +1,42 @@
-"""Qt 6 Widgets interface; all transfers and service calls run outside the UI thread."""
+"""Qt Quick interface and asynchronous controller for the guarded backend adapters."""
 from __future__ import annotations
-
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 import os
 from pathlib import Path
 import sys
-
-from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QLineEdit, QCheckBox, QPlainTextEdit, QStackedWidget, QScrollArea,
-    QTreeWidget, QTreeWidgetItem, QAbstractItemView, QHeaderView, QProgressBar,
-    QFileDialog, QInputDialog, QMessageBox, QDialog)
-
+from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot, QUrl, Property, QCoreApplication, QEvent
+from PySide6.QtGui import QGuiApplication, QDesktopServices
+from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickWindow
 from . import APP_ID, __version__
 from .backend import BackendError, Cancelled, data_dir
 from .sync import SyncError
 
-STYLE = """
-QMainWindow, QDialog { background: #111a23; }
-QWidget { background: #111a23; color: #e5ecf1; font-size: 13px; }
-QLabel { background: transparent; }
-QPushButton { background: #22333f; border: 1px solid #364b59; border-radius: 6px; padding: 8px 12px; }
-QPushButton:hover { background: #2d4c50; }
-QPushButton:checked { background: #244f44; border-color: #67dfbf; }
-QPushButton:disabled { color: #75818b; background: #1b252e; }
-QPushButton[primary="true"] { background: #67dfbf; color: #092d25; font-weight: bold; }
-QPushButton[primary="true"]:disabled { background: #1b252e; color: #75818b; }
-QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #8e9daa; border-radius: 3px; background: #18232e; }
-QCheckBox::indicator:checked { background: #67dfbf; border-color: #67dfbf; }
-QLineEdit, QPlainTextEdit, QTreeWidget { background: #18232e; border: 1px solid #344652; border-radius: 6px; padding: 7px; }
-QTreeWidget::item { padding: 9px 4px; }
-QTreeWidget::item:selected { background: #28584c; }
-QHeaderView::section { background: #22333f; color: #a2b5c3; border: 0; padding: 8px; }
-QScrollArea, QStackedWidget { background: transparent; border: 0; }
-QCheckBox { padding: 5px; }
-QLabel[role="title"] { font-size: 26px; font-weight: bold; }
-QLabel[role="muted"] { color: #a2afba; }
-QLabel[role="notice"] { background: #213a3a; border: 1px solid #355654; border-radius: 6px; padding: 10px; }
-QLabel[error="true"] { background: #493b25; border-color: #79623e; }
-"""
 
-
-def label(text="", role=""):
-    item = QLabel(str(text))
-    item.setTextFormat(Qt.TextFormat.PlainText)
-    item.setWordWrap(True)
-    if role: item.setProperty("role", role)
-    return item
-
-
-def button(text, callback=None, *, primary=False):
-    item = QPushButton(text)
-    if callback: item.clicked.connect(lambda checked=False: callback())
-    if primary: item.setProperty("primary", True)
-    return item
-
-
-def box(vertical=True):
-    widget = QWidget()
-    layout = QVBoxLayout(widget) if vertical else QHBoxLayout(widget)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(10)
-    return widget
-
-
-def add_row(parent, *widgets):
-    row = box(False)
-    for widget in widgets: row.layout().addWidget(widget)
-    parent.layout().addWidget(row)
-    return row
-
+class Field:
+    """Controller form state, independent of any graphical widget."""
+    def __init__(self, owner, value="", *, enabled=True, visible=True):
+        self.owner, self.value, self.enabled, self.visible = owner, value, enabled, visible
+        self.on_change = None
+    def text(self): return str(self.value)
+    def setText(self, value):
+        if self.value == value: return
+        self.value = value
+        if self.on_change: self.on_change()
+        self.owner.changed.emit()
+    def clear(self): self.setText("")
+    def setPlainText(self, value): self.setText(value)
+    def toPlainText(self): return self.text()
+    def setEnabled(self, value): self.enabled = bool(value); self.owner.changed.emit()
+    def isEnabled(self): return self.enabled
+    def setVisible(self, value): self.visible = bool(value); self.owner.changed.emit()
+    def isVisible(self): return self.visible
+    def isChecked(self): return bool(self.value)
+    def setChecked(self, value): self.setText(bool(value))
+    def show(self): self.setVisible(True)
+    def hide(self): self.setVisible(False)
+    def snapshot(self): return dict(value=self.value, enabled=self.enabled, visible=self.visible)
 
 def size_text(size):
     if size is None: return "—"
@@ -99,24 +64,15 @@ class Dispatcher(QObject):
         callback(*arguments)
 
 
-class Window(QMainWindow):
-    def __init__(self, owner):
-        super().__init__()
-        self.owner = owner
-
-    def closeEvent(self, event):
-        if self.owner._close(): event.ignore()
-        else: event.accept()
-
-
 class Application(QObject):
+    changed = Signal()
+    dialogRequested = Signal("QVariantMap")
+
     def __init__(self, backend, *, demo=False):
-        self.qt = QApplication.instance() or QApplication([sys.argv[0]])
+        self.qt = QGuiApplication.instance() or QGuiApplication([sys.argv[0]])
         super().__init__()
         self.qt.setApplicationName("NeutronDrive")
         self.qt.setDesktopFileName(APP_ID)
-        self.qt.setStyle("Fusion")
-        self.qt.setStyleSheet(STYLE)
         if demo:
             from .demo import DemoBackend
             backend = DemoBackend()
@@ -130,7 +86,15 @@ class Application(QObject):
         self.path = "/my-files"
         self.crumbs = [("Meine Dateien", self.path)]
         self.current_page = "files"
-        self.nav_buttons, self.pages, self.dialogs = {}, {}, []
+        self.pages = {name: name for name in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings")}
+        self.fields, self.action_buttons = {}, {}
+        self.visible_nodes, self.selection = [], set()
+        self.jobs, self.trash_entries = [], []
+        self.notice_error = False
+        self.dialog_state, self.dialog_callback = {}, None
+        self.dialog_serial = 0
+        self.engine = None
+        self._build_state()
         self.sync_plan = self.sync_local = self.login_url = None
         self.service_timer = QTimer(self)
         self.service_timer.timeout.connect(self.poll_services)
@@ -152,11 +116,15 @@ class Application(QObject):
 
     def activate(self):
         if self.window is None:
-            self.window = Window(self)
-            self.window.setWindowTitle("NeutronDrive" + (" · DEMO" if self.demo else ""))
-            self.window.resize(1180, 780)
-            self.window.setMinimumSize(820, 580)
-            self._build()
+            self.engine = QQmlApplicationEngine(self)
+            self.engine.rootContext().setContextProperty("controller", self)
+            self.engine.load(QUrl.fromLocalFile(str(Path(__file__).with_name("qml") / "Main.qml")))
+            if not self.engine.rootObjects():
+                raise RuntimeError("Qt Quick-Oberfläche konnte nicht geladen werden.")
+            self.window = self.engine.rootObjects()[0]
+            # The list is viewport-limited; finish delegates synchronously so
+            # rapid page changes cannot invalidate pending delegate contexts.
+            self.engine.setIncubationController(None)
             self.service_timer.start(3000)
             self.portal_timer.start(50)
             if self.backend.available: self.refresh()
@@ -165,7 +133,7 @@ class Application(QObject):
                 self.message("Das Proton-SDK-Backend wurde nicht gefunden.", error=True)
         self.window.show()
         self.window.raise_()
-        self.window.activateWindow()
+        self.window.requestActivate()
 
     def run(self, arguments=None):
         from .qt_instance import WindowInstance
@@ -177,315 +145,204 @@ class Application(QObject):
             return self.qt.exec()
         finally:
             instance.close()
+            self.dispose_view()
             self.executor.shutdown(wait=False,cancel_futures=True)
             self.status_executor.shutdown(wait=False,cancel_futures=True)
+
+    def dispose_view(self):
+        # Destroy the QML context while its controller still exists.
+        if self.engine is not None:
+            self.engine.deleteLater()
+            QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+            self.engine = None
+            self.window = None
 
     def quit(self):
         self.service_timer.stop()
         self.portal_timer.stop()
         self.qt.quit()
 
-    def _build(self):
-        root = box(False)
-        root.layout().setContentsMargins(18, 18, 18, 18)
-        self.window.setCentralWidget(root)
-        sidebar = box()
-        sidebar.setFixedWidth(205)
-        sidebar.layout().addWidget(label("NeutronDrive", "title"))
-        sidebar.layout().addWidget(label("Qt 6 · " + __version__ + (" · DEMO" if self.demo else ""), "muted"))
-        for title, path in [("Meine Dateien", "/my-files"), ("Mit mir geteilt", "/shared-with-me"), ("Computer", "/devices"), ("Papierkorb", "/trash")]:
-            item = button(title, lambda t=title,p=path: self.navigate_root(t,p))
-            item.setCheckable(True)
-            self.nav_buttons[path] = item
-            sidebar.layout().addWidget(item)
-        for title, page in [("Synchronisierung", "sync"), ("Automatischer Sync", "background"), ("Online-Laufwerk", "ondemand"), ("Lokaler Papierkorb", "local-trash"), ("Aktivität", "activity"), ("Einstellungen", "settings")]:
-            item = button(title, lambda p=page: self.show_page(p))
-            item.setCheckable(True)
-            self.nav_buttons[page] = item
-            sidebar.layout().addWidget(item)
-        sidebar.layout().addStretch()
-        sidebar.layout().addWidget(button("Bei Proton anmelden", self.login))
-        sidebar.layout().addWidget(button("Proton Drive im Web", lambda:self.open_url("https://drive.proton.me")))
-        sidebar.layout().addWidget(label("Unabhängige Open-Source-App\nVerschlüsselung durch Proton SDK", "muted"))
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(sidebar)
-        scroll.setFixedWidth(225)
-        root.layout().addWidget(scroll)
-        content = box()
-        root.layout().addWidget(content, 1)
-        self.notice_label = label("", "notice")
-        self.notice_label.hide()
-        content.layout().addWidget(self.notice_label)
-        self.login_button = button("Anmeldung im Browser öffnen", self.open_login)
-        self.login_button.hide(); content.layout().addWidget(self.login_button)
-        self.stack = QStackedWidget()
-        content.layout().addWidget(self.stack, 1)
-        for method in (self._files_page, self._sync_page, self._background_page, self._ondemand_page,
-                       self._local_trash_page, self._activity_page, self._settings_page): method()
-        self.status_label = label("Bereit", "muted")
-        self.spinner = QProgressBar(); self.spinner.setRange(0,0); self.spinner.setMaximumWidth(110); self.spinner.hide()
-        self.cancel_button = button("Abbrechen", self.backend.cancel); self.cancel_button.hide()
-        add_row(content,self.status_label,self.spinner,self.cancel_button)
-        self.show_page("files")
+    def _build_state(self):
+        defaults = dict(search="", files_title="Meine Dateien", empty_label="Noch keine Dateien geladen.", count_label="",
+            notice_label="", login_button="", status_label="Bereit", spinner="", cancel_button="", file_list="",
+            upload_button="", folder_upload_button="", mkdir_button="", refresh_button="",
+            local_label="Kein lokaler Ordner gewählt", local_choose="", remote_entry="/my-files",
+            plan_button="", execute_button="", sync_text="Wähle einen lokalen Ordner und den zugehörigen Cloud-Ordner.",
+            background_local_label="Kein lokaler Ordner gewählt", background_remote="/my-files", background_add_button="",
+            background_status="Noch keine Hintergrund-Aufträge geladen.", mount_label="Kein Einhängeordner gewählt",
+            mount_remote="/my-files", mount_writable=False, mount_offline=False, mount_button="",
+            mount_status="Noch kein Online-Laufwerk verbunden.", cache_path="",
+            local_trash_status="Noch keine Einträge geladen.", local_trash_empty="Keine registrierten Papierkorbeinträge.",
+            backend_label=self.backend.executable or "Backend nicht installiert")
+        for name, value in defaults.items():
+            field = Field(self, value)
+            self.fields[name] = field
+            setattr(self, name, field)
+        self.background_local = self.mount_local = None
+        for name in ("notice_label", "login_button", "spinner", "cancel_button"): self.fields[name].visible = False
+        self.execute_button.enabled = False
+        self.background_add_button.enabled = not self.demo
+        self.mount_button.enabled = not self.demo and not os.environ.get("SNAP")
+        for name in ("Download", "Umbenennen", "Verschieben", "Freigabe", "Papierkorb", "Wiederherstellen"):
+            self.action_buttons[name] = Field(self, enabled=False)
+        self.search.on_change = self.render_nodes
+        self.remote_entry.on_change = self.invalidate_plan
 
-    def page(self, name, title, intro=""):
-        page = box()
-        page.layout().setContentsMargins(8,8,12,8)
-        if title: page.layout().addWidget(label(title,"title"))
-        if intro: page.layout().addWidget(label(intro,"muted"))
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setWidget(page)
-        self.pages[name] = scroll
-        self.stack.addWidget(scroll)
-        return page
+    @Property("QVariantMap", notify=changed)
+    def state(self):
+        return dict(fields={name: field.snapshot() for name, field in self.fields.items()},
+            actions={name: field.snapshot() for name, field in self.action_buttons.items()},
+            page=self.current_page, path=self.path, busy=self.busy, demo=self.demo, version=__version__,
+            noticeError=self.notice_error, crumbs=[name for name, _ in self.crumbs],
+            files=[dict(name=n.name, kind="Ordner" if n.type == "folder" else "Datei", safe=n.safe,
+                        size=size_text(n.size) if n.type != "folder" else "—", modified=date_text(n.modified),
+                        selected=i in self.selection) for i,n in enumerate(self.visible_nodes)],
+            jobs=self.jobs, trash=self.trash_entries, activity=[dict(time=t,title=n,status=s) for t,n,s in self.records[:100]])
 
-    def _files_page(self):
-        page = self.page("files", "")
-        self.files_title = label("Meine Dateien","title")
-        self.search = QLineEdit(); self.search.setPlaceholderText("In diesem Ordner suchen")
-        self.search.textChanged.connect(self.render_nodes)
-        add_row(page,self.files_title,self.search)
-        self.upload_button = button("Dateien hochladen", lambda:self.choose_upload(False), primary=True)
-        self.folder_upload_button = button("Ordner hochladen", lambda:self.choose_upload(True))
-        self.mkdir_button = button("Neuer Ordner",self.new_folder)
-        self.refresh_button = button("Aktualisieren",self.refresh)
-        add_row(page,self.upload_button,self.folder_upload_button,self.mkdir_button,self.refresh_button)
-        self.breadcrumb = box(False);page.layout().addWidget(self.breadcrumb)
-        self.file_list = QTreeWidget(); self.file_list.setRootIsDecorated(False)
-        self.file_list.setHeaderLabels(["Name", "Typ", "Größe", "Geändert"])
-        self.file_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.file_list.header().setSectionResizeMode(0,QHeaderView.ResizeMode.Stretch)
-        self.file_list.itemActivated.connect(self.row_activated)
-        self.file_list.itemSelectionChanged.connect(self.update_actions)
-        page.layout().addWidget(self.file_list,1)
-        self.empty_label = label("Noch keine Dateien geladen.","muted");page.layout().addWidget(self.empty_label)
-        self.action_buttons = {}
-        actions = box(False);page.layout().addWidget(actions)
-        for title, action in [("Download",self.download),("Umbenennen",self.rename),("Verschieben",self.move),("Freigabe",self.share),("Papierkorb",self.trash),("Wiederherstellen",self.restore)]:
-            item = button(title,action);self.action_buttons[title] = item;actions.layout().addWidget(item)
-        self.count_label = label("","muted");page.layout().addWidget(self.count_label)
-        self.update_breadcrumb();self.update_actions()
+    @Slot(str, "QVariant")
+    def edit(self, name, value):
+        if name not in {"search", "remote_entry", "background_remote", "mount_remote", "mount_writable", "mount_offline", "cache_path"}: return
+        field = self.fields[name]
+        if field.enabled: field.setText(value)
 
-    def _sync_page(self):
-        page = self.page("sync","Synchronisierung","Erst Vorschau prüfen, dann abgleichen. Konflikte bleiben erhalten.")
-        self.local_label = label("Kein lokaler Ordner gewählt")
-        self.local_choose = button("Lokalen Ordner wählen",self.choose_sync_local)
-        add_row(page,self.local_label,self.local_choose)
-        page.layout().addWidget(label("Cloud-Ordner"))
-        self.remote_entry = QLineEdit("/my-files");self.remote_entry.textChanged.connect(self.invalidate_plan)
-        page.layout().addWidget(self.remote_entry)
-        self.plan_button = button("Vorschau erstellen",self.plan_sync,primary=True)
-        self.execute_button = button("Geprüften Plan ausführen",self.execute_sync);self.execute_button.setEnabled(False)
-        add_row(page,self.plan_button,self.execute_button)
-        page.layout().addWidget(label("Dateilöschungen werden in den Papierkorb übertragen. Ganze Ordnerlöschungen bleiben als Konflikt erhalten. Ersetzte lokale Versionen werden gesichert.","muted"))
-        self.sync_text = QPlainTextEdit();self.sync_text.setReadOnly(True)
-        self.sync_text.setPlainText("Wähle einen lokalen Ordner und den zugehörigen Cloud-Ordner.")
-        page.layout().addWidget(self.sync_text,1)
-
-    def _background_page(self):
-        page = self.page("background","Automatischer Sync","Änderungen im Hintergrund abgleichen – auch nach dem Schließen des Fensters.")
-        self.background_local = None
-        self.background_local_label = label("Kein lokaler Ordner gewählt")
-        add_row(page,self.background_local_label,button("Ordner wählen",lambda:self.choose("Sync-Ordner wählen",folder=True,callback=self.choose_background_local)))
-        self.background_remote = QLineEdit("/my-files");page.layout().addWidget(self.background_remote)
-        self.background_add_button = button("Automatischen Sync aktivieren",self.add_background_job,primary=True)
-        self.background_add_button.setEnabled(not self.demo)
-        add_row(page,self.background_add_button,button("Dienst starten",lambda:self.background_action("start")),button("Dienst stoppen",lambda:self.background_action("stop")))
-        self.background_status = label("Noch keine Hintergrund-Aufträge geladen.","muted");page.layout().addWidget(self.background_status)
-        self.background_jobs = box();page.layout().addWidget(self.background_jobs)
-        page.layout().addWidget(label("Dateilöschungen nur bei unverändertem Gegenstück; ganze Ordnerlöschungen bleiben Konflikte. Anmeldung und entsperrter Schlüsselbund erforderlich.","muted"))
-        page.layout().addStretch()
-
-    def _ondemand_page(self):
-        page = self.page("ondemand","Online-Laufwerk","Dateien beim Öffnen laden, offline vorhalten oder lokalen Speicher freigeben.")
-        self.mount_local = None
-        self.mount_label = label("Kein Einhängeordner gewählt")
-        add_row(page,self.mount_label,button("Ordner wählen",lambda:self.choose("Leeren Einhängeordner wählen",folder=True,callback=self.choose_mount_local)))
-        self.mount_remote = QLineEdit("/my-files");page.layout().addWidget(self.mount_remote)
-        self.mount_writable = QCheckBox("Dateien im Laufwerk bearbeiten und hochladen");page.layout().addWidget(self.mount_writable)
-        self.mount_offline = QCheckBox("Offline aus vorhandenem Cache öffnen");page.layout().addWidget(self.mount_offline)
-        self.mount_button = button("Laufwerk verbinden",self.mount_drive,primary=True)
-        self.mount_button.setEnabled(not self.demo and not os.environ.get("SNAP"))
-        if os.environ.get("SNAP"):self.mount_button.setToolTip("Bitte das native DEB- oder RPM-Paket verwenden.")
-        add_row(page,self.mount_button,button("Trennen",lambda:self.mount_action("unmount")),button("Aktualisieren",lambda:self.mount_action("refresh")))
-        self.mount_status = label("Noch kein Online-Laufwerk verbunden.");page.layout().addWidget(self.mount_status)
-        self.cache_path = QLineEdit();self.cache_path.setPlaceholderText("Dateipfad, z. B. Dokumente/Notizen.txt");page.layout().addWidget(self.cache_path)
-        add_row(page,button("Offline vorhalten",lambda:self.mount_action("pin",path=self.cache_path.text())),button("Speicher freigeben",lambda:self.mount_action("evict",path=self.cache_path.text())))
-        self.mount_notice = label("Für Flatpak zusätzlich den nativen Laufwerkshelfer installieren. Online-Laufwerke sind im Snap derzeit nicht verfügbar; Dateien durchsuchen, übertragen und synchronisieren bleibt möglich. Nicht hochgeladene Änderungen bleiben im Wiederherstellungsspeicher.","muted")
-        page.layout().addWidget(self.mount_notice)
-        page.layout().addWidget(button("Laufwerkshelfer bei Proton anmelden",lambda:self.mount_action("login")))
-        page.layout().addStretch()
-
-    def _local_trash_page(self):
-        page = self.page("local-trash","Lokaler Papierkorb","Nach Cloud-Löschung lokal gesicherte Dateien. Wiederherstellen überschreibt keine vorhandenen Dateien.")
-        page.layout().addWidget(button("Aktualisieren",self.refresh_local_trash))
-        self.local_trash_status = label("Noch keine Einträge geladen.");page.layout().addWidget(self.local_trash_status)
-        self.local_trash_empty = label("Keine registrierten Papierkorbeinträge.","muted");page.layout().addWidget(self.local_trash_empty)
-        self.local_trash_rows = box();page.layout().addWidget(self.local_trash_rows)
-        page.layout().addWidget(label("Bei aktivem Sync wird eine Wiederherstellung erneut synchronisiert. NeutronDrive leert den Papierkorb nicht automatisch.","muted"))
-        page.layout().addStretch()
-
-    def _activity_page(self):
-        page = self.page("activity","Aktivität","Vorgänge dieser Sitzung · keine dauerhafte Speicherung von Dateinamen")
-        self.activity_list = box();page.layout().addWidget(self.activity_list);page.layout().addStretch()
-
-    def _settings_page(self):
-        page = self.page("settings","Einstellungen","NeutronDrive " + __version__ + " · Qt 6 · Open Source")
-        self.backend_label = label(self.backend.executable or "Backend nicht installiert")
-        self.backend_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        page.layout().addWidget(self.backend_label)
-        add_row(page,button("Backend prüfen",lambda:self.submit("Backend prüfen",self.backend.version,self.show_version)),button("Anmelden",self.login),button("Abmelden",self.logout))
-        page.layout().addWidget(label("Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Native CLI-Sitzungen werden gemeinsam genutzt; Flatpak kann einen eigenen Kontospeicher verwenden.","muted"))
-        add_row(page,button("Autostart aktivieren",lambda:self.change_autostart(True)),button("Autostart deaktivieren",lambda:self.change_autostart(False)))
-        add_row(page,button("Projekt & Installation",lambda:self.open_url("https://github.com/SigmaCodez/NeutronDrive")),button("Offizielle CLI",lambda:self.open_url("https://proton.me/download/drive/cli/index.html")))
-        page.layout().addWidget(label("Alpha: keine vollständige Windows/macOS-Funktionsparität. Versionsverwaltung und Proton Docs/Sheets sind nicht integriert. Der Proton SDK übernimmt Konto, Verschlüsselung und Übertragungen.","muted"))
-        page.layout().addStretch()
-
-    @staticmethod
-    def clear_box(widget):
-        while widget.layout().count():
-            item = widget.layout().takeAt(0)
-            child = item.widget()
-            if child is not None:
-                child.setParent(None)
-                child.deleteLater()
-
+    @Slot(str)
     def show_page(self, page):
+        if page not in self.pages: return
         self.current_page = page
-        self.stack.setCurrentWidget(self.pages[page])
-        selected = '/' + self.path.split('/')[1] if page == 'files' else page
-        for key,item in self.nav_buttons.items():item.setChecked(key == selected)
-        if page == 'local-trash':self.refresh_local_trash()
-        if page in {'background','ondemand'}:self.poll_services()
+        self.changed.emit()
+        if page == "local-trash": self.refresh_local_trash()
+        if page in {"background", "ondemand"}: self.poll_services()
+
+    @Slot(str, str)
+    def navigate(self, title, path): self.navigate_root(title, path)
+
+    @Slot(int)
+    def crumb(self, index):
+        if 0 <= index < len(self.crumbs): self.go_crumb(index)
 
     def update_breadcrumb(self):
-        self.clear_box(self.breadcrumb)
-        for index,(name,_) in enumerate(self.crumbs):
-            self.breadcrumb.layout().addWidget(button(name,lambda i=index:self.go_crumb(i)))
-        self.breadcrumb.layout().addStretch()
-        self.files_title.setText(self.crumbs[-1][0])
+        self.files_title.setText(self.crumbs[-1][0]); self.changed.emit()
 
-    def selected(self):
-        return [item.data(0,Qt.ItemDataRole.UserRole) for item in self.file_list.selectedItems()]
+    def selected(self): return [n for i,n in enumerate(self.visible_nodes) if i in self.selection]
+
+    @Slot(int, bool)
+    def select_row(self, index, extend=False):
+        if self.busy or not 0 <= index < len(self.visible_nodes): return
+        if not extend: self.selection = {index}
+        elif index in self.selection: self.selection.remove(index)
+        else: self.selection.add(index)
+        self.update_actions(); self.changed.emit()
 
     def render_nodes(self):
-        self.file_list.clear()
         query = self.search.text().casefold()
-        visible = [n for n in self.nodes if query in n.name.casefold()]
-        for node in visible:
-            kind = "Ordner" if node.type == "folder" else "Datei"
-            if not node.safe: kind = "Nicht eindeutig · gesperrt"
-            item = QTreeWidgetItem([node.name,kind,size_text(node.size) if node.type != 'folder' else '—',date_text(node.modified)])
-            item.setData(0,Qt.ItemDataRole.UserRole,node)
-            item.setToolTip(0,node.name)
-            item.setIcon(0,QIcon.fromTheme('folder' if node.type == 'folder' else 'text-x-generic'))
-            self.file_list.addTopLevelItem(item)
+        self.visible_nodes = [n for n in self.nodes if query in n.name.casefold()]
+        self.selection.clear()
         self.empty_label.setText("Keine passenden Dateien in diesem Ordner." if query else "Dieser Ordner ist leer.")
-        self.empty_label.setVisible(not visible)
-        self.count_label.setText(f"{len(visible)} von {len(self.nodes)} Einträgen · Doppelklick öffnet Ordner")
-        self.update_actions()
+        self.empty_label.setVisible(not self.visible_nodes)
+        self.count_label.setText(f"{len(self.visible_nodes)} von {len(self.nodes)} Einträgen · Doppelklick öffnet Ordner")
+        self.update_actions(); self.changed.emit()
 
-    def row_activated(self, item, column=0):
-        node = item.data(0,Qt.ItemDataRole.UserRole)
-        if self.busy or not node.safe:return
-        if node.type == 'folder' and self.path != '/trash':
-            self.path = node.path;self.crumbs.append((node.name,node.path));self.nodes=[]
-            self.search.clear();self.render_nodes();self.update_breadcrumb();self.refresh()
-        elif self.path != '/trash':
-            self.file_list.clearSelection();item.setSelected(True);self.download()
+    @Slot(int)
+    def row_activated(self, index):
+        if self.busy or not 0 <= index < len(self.visible_nodes): return
+        node = self.visible_nodes[index]
+        if not node.safe: return
+        if node.type == "folder" and self.path != "/trash":
+            self.path=node.path; self.crumbs.append((node.name,node.path)); self.nodes=[]
+            self.search.clear(); self.render_nodes(); self.update_breadcrumb(); self.refresh()
+        elif self.path != "/trash":
+            self.selection={index}; self.download()
 
     def message(self, text, *, error=False):
-        self.notice_label.setText(str(text));self.notice_label.setProperty('error',error)
-        self.notice_label.style().unpolish(self.notice_label);self.notice_label.style().polish(self.notice_label)
-        self.notice_label.show()
+        self.notice_error=error; self.notice_label.setText(str(text)); self.notice_label.show()
 
-    def render_activity(self):
-        self.clear_box(self.activity_list)
-        for timestamp,title,status in self.records[:100]:
-            self.activity_list.layout().addWidget(label(timestamp + "   " + title + "\n" + status))
+    def render_activity(self): self.changed.emit()
 
     def render_background_status(self, value):
-        text = "Dienst läuft" if value.get('running') else "Dienst ist gestoppt"
-        error = value.get('error') or (value.get('event_source') or {}).get('error')
-        self.background_status.setText(text + (' · '+str(error) if error else ''))
-        self.clear_box(self.background_jobs)
-        names = {'idle':'Aktuell','syncing':'Wird synchronisiert','paused':'Pausiert','conflicts':'Konflikt','conflict':'Konflikt','blocked':'Blockiert','offline':'Offline'}
-        for job in value.get('jobs',[]):
-            row = box();self.background_jobs.layout().addWidget(row)
-            row.layout().addWidget(label(job.get('name') or job.get('local_root','Sync-Ordner')))
-            row.layout().addWidget(label(str(job.get('local_root',''))+' ↔ '+str(job.get('remote_root','')),'muted'))
-            state = job.get('state','waiting');detail = names.get(state,state)
-            if job.get('error'):detail += '\n'+str(job['error'])
-            if job.get('conflicts'):detail += '\nKonflikte: '+'; '.join(map(str,job['conflicts'][:5]))
-            row.layout().addWidget(label(detail))
-            ident,paused = job['id'],job.get('paused',False)
-            add_row(row,button('Fortsetzen' if paused else 'Pausieren',lambda i=ident,p=paused:self.background_action('resume' if p else 'pause',i)),button('Jetzt abgleichen',lambda i=ident:self.background_action('sync',i)),button('Auftrag entfernen',lambda i=ident:self.background_action('remove',i)))
+        error=value.get("error") or (value.get("event_source") or {}).get("error")
+        self.background_status.setText(("Dienst läuft" if value.get("running") else "Dienst ist gestoppt") + (" · " + str(error) if error else ""))
+        names={"idle":"Aktuell","syncing":"Wird synchronisiert","paused":"Pausiert","conflicts":"Konflikt","conflict":"Konflikt","blocked":"Blockiert","offline":"Offline"}
+        self.jobs=[dict(id=j["id"],name=j.get("name") or j.get("local_root","Sync-Ordner"),
+            detail=str(j.get("local_root",""))+" ↔ "+str(j.get("remote_root","")), paused=j.get("paused",False),
+            status=names.get(j.get("state"),str(j.get("state","waiting")))+" · "+str(j.get("error") or "")+" "+"; ".join(map(str,j.get("conflicts",[])[:5]))) for j in value.get("jobs",[])]
+        self.changed.emit()
 
     def render_local_trash(self, values):
-        self.clear_box(self.local_trash_rows)
         self.local_trash_status.setText(f"{len(values)} registrierte Einträge" + (" · Demo ohne Dateizugriff" if self.demo else ""))
         self.local_trash_empty.setVisible(not values)
-        states = {'trashed':'Im Papierkorb','restored':'Wiederhergestellt','recovery':'Prüfung erforderlich','missing':'Nicht mehr im Papierkorb','prepared':'Vorbereitet','restoring':'Wiederherstellung läuft','aborted':'Abgebrochen'}
-        for state,entry in values:
-            row = box();self.local_trash_rows.layout().addWidget(row)
-            row.layout().addWidget(label(str(entry.original_path)))
-            row.layout().addWidget(label(states.get(entry.status,entry.status)+' · '+str(entry.trash_path),'muted'))
-            for value in (getattr(entry,'error',''),getattr(entry,'restore_path','')):
-                if value:row.layout().addWidget(label(value))
-            action = button('Am ursprünglichen Ort wiederherstellen' if entry.status == 'trashed' else 'Wiederherstellung prüfen',lambda s=state,i=entry.id:self.restore_local_trash(s,i))
-            action.setEnabled(not self.demo and entry.status in {'trashed','prepared','restoring','recovery'})
-            row.layout().addWidget(action)
+        self.trash_entries=[dict(state=str(state),id=e.id,name=str(e.original_path),detail=e.status+" · "+str(e.trash_path),
+            error=str(getattr(e,"error","") or ""),restorePath=str(getattr(e,"restore_path","") or ""),
+            enabled=not self.demo and e.status in {"trashed","prepared","restoring","recovery"}) for state,e in values]
+        self.changed.emit()
 
-    def open_url(self,url):
-        if not QDesktopServices.openUrl(QUrl(url)):
-            self.message('Browser konnte nicht geöffnet werden: '+url.split('?')[0],error=True)
+    @Slot(str, str)
+    def job_action(self, action, ident):
+        if action in {"pause","resume","sync","remove"}: self.background_action(action, ident)
 
-    def _dialog(self, dialog):
-        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.dialogs.append(dialog)
-        dialog.finished.connect(lambda _:self.dialogs.remove(dialog) if dialog in self.dialogs else None)
-        dialog.open()
-        return dialog
+    @Slot(int)
+    def restore_entry(self, index):
+        if 0 <= index < len(self.trash_entries):
+            entry=self.trash_entries[index]
+            if entry["enabled"]: self.restore_local_trash(entry["state"],entry["id"])
 
-    def choose(self,title,*,folder=False,multiple=False,callback):
-        dialog = QFileDialog(self.window,title)
-        dialog.setFileMode(QFileDialog.FileMode.Directory if folder else (QFileDialog.FileMode.ExistingFiles if multiple else QFileDialog.FileMode.ExistingFile))
-        if folder:dialog.setOption(QFileDialog.Option.ShowDirsOnly)
-        def selected():
-            paths=[Path(path) for path in dialog.selectedFiles()]
-            if paths:callback(paths)
-        dialog.accepted.connect(selected)
-        self._dialog(dialog)
+    @Slot(str)
+    def action(self, name):
+        actions = {"refresh":self.refresh,"upload":lambda:self.choose_upload(False),"uploadFolder":lambda:self.choose_upload(True),
+            "mkdir":self.new_folder,"Download":self.download,"Umbenennen":self.rename,"Verschieben":self.move,"Freigabe":self.share,
+            "Papierkorb":self.trash,"Wiederherstellen":self.restore,"chooseSync":self.choose_sync_local,"plan":self.plan_sync,"execute":self.execute_sync,
+            "chooseBackground":lambda:self.choose("Sync-Ordner wählen",folder=True,callback=self.choose_background_local),
+            "addJob":self.add_background_job,"start":lambda:self.background_action("start"),"stop":lambda:self.background_action("stop"),
+            "chooseMount":lambda:self.choose("Leeren Einhängeordner wählen",folder=True,callback=self.choose_mount_local),
+            "mount":self.mount_drive,"unmount":lambda:self.mount_action("unmount"),"refreshMount":lambda:self.mount_action("refresh"),
+            "pin":lambda:self.mount_action("pin",path=self.cache_path.text()),"evict":lambda:self.mount_action("evict",path=self.cache_path.text()),
+            "helperLogin":lambda:self.mount_action("login"),"refreshTrash":self.refresh_local_trash,"login":self.login,"openLogin":self.open_login,
+            "logout":self.logout,"version":lambda:self.submit("Backend prüfen",self.backend.version,self.show_version),
+            "autostart":lambda:self.change_autostart(True),"noAutostart":lambda:self.change_autostart(False),
+            "cli":lambda:self.open_url("https://proton.me/download/drive/cli/index.html"),"project":lambda:self.open_url("https://github.com/SigmaCodez/NeutronDrive"),"web":lambda:self.open_url("https://drive.proton.me"),"cancel":self.backend.cancel}
+        if name in self.action_buttons and not self.action_buttons[name].enabled: return
+        if name in actions: actions[name]()
+
+    def open_url(self, url):
+        if not QDesktopServices.openUrl(QUrl(url)): self.message("Browser konnte nicht geöffnet werden: "+url.split("?")[0],error=True)
+
+    def _dialog(self, kind, title, description, callback, **options):
+        self.dialog_serial += 1
+        self.dialog_callback = callback
+        self.dialog_state = dict(kind=kind,title=title,description=description,token=self.dialog_serial,**options)
+        self.dialogRequested.emit(self.dialog_state)
+
+    @Slot(int, bool, "QVariant")
+    def answer_dialog(self, token, accepted, value):
+        if token != self.dialog_serial or not self.dialog_state: return
+        callback=self.dialog_callback
+        self.dialog_callback=None; self.dialog_state={}
+        if accepted and callback: callback(value)
+
+    def choose(self, title, *, folder=False, multiple=False, callback):
+        def selected(values):
+            paths=[Path(QUrl(v).toLocalFile()) for v in values if QUrl(v).isLocalFile()]
+            if paths: callback(paths)
+        self._dialog("folder" if folder else "files",title,"",selected,multiple=multiple)
 
     def prompt(self,title,description,initial,callback):
-        dialog=QInputDialog(self.window);dialog.setWindowTitle(title);dialog.setLabelText(description);dialog.setTextValue(initial)
-        dialog.setOkButtonText('Übernehmen');dialog.setCancelButtonText('Abbrechen')
-        dialog.textValueSelected.connect(callback);self._dialog(dialog)
+        self._dialog("prompt",title,description,callback,initial=initial)
 
     def confirm(self,title,description,callback,destructive=False):
-        dialog=QMessageBox(QMessageBox.Icon.Question,title,description,parent=self.window)
-        dialog.setTextFormat(Qt.TextFormat.PlainText)
-        accept=dialog.addButton('Bestätigen',QMessageBox.ButtonRole.AcceptRole)
-        cancel=dialog.addButton('Abbrechen',QMessageBox.ButtonRole.RejectRole)
-        dialog.setDefaultButton(cancel);dialog.setEscapeButton(cancel)
-        dialog.buttonClicked.connect(lambda clicked:callback() if clicked is accept else None)
-        self._dialog(dialog)
+        self._dialog("confirm",title,description,lambda _:callback(),destructive=destructive)
 
     def share_dialog(self,node,value):
-        dialog=QDialog(self.window);dialog.setWindowTitle('Freigabe · '+node.name);dialog.resize(560,240)
-        layout=QVBoxLayout(dialog);url=((value or {}).get('urlAccess') or {}).get('url','')
-        if url:
-            layout.addWidget(label('Jeder mit diesem Link kann auf die Datei zugreifen.'))
-            entry=QLineEdit(url);entry.setReadOnly(True);layout.addWidget(entry)
-            layout.addWidget(button('Link kopieren',lambda:self.qt.clipboard().setText(url)))
-            def revoke():
-                dialog.close()
-                self.confirm('Freigabelink deaktivieren?','Der bisherige Link funktioniert anschließend nicht mehr.',lambda:self.submit('Freigabelink entfernen',lambda:self.backend.remove_link(node.path),lambda _:self.message('Freigabelink entfernt.')))
-            layout.addWidget(button('Link deaktivieren',revoke))
-        else:
-            layout.addWidget(label('Es besteht kein öffentlicher Link. Jeder mit dem erstellten Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung stehen in der Proton-Web-App bereit.'))
-            def create():
-                dialog.close();self.submit('Freigabelink erstellen',lambda:self.backend.create_link(node.path),lambda result:self.share_dialog(node,result))
-            layout.addWidget(button('Öffentlichen Leselink erstellen',create))
-        layout.addWidget(button('Schließen',dialog.close));self._dialog(dialog)
+        url=((value or {}).get("urlAccess") or {}).get("url","")
+        def response(action):
+            if action == "copy" and url:
+                self.qt.clipboard().setText(url); self.share_dialog(node,value)
+            elif action == "revoke" and url:
+                self.confirm("Freigabelink deaktivieren?","Der bisherige Link funktioniert anschließend nicht mehr.",lambda:self.submit("Freigabelink entfernen",lambda:self.backend.remove_link(node.path),lambda _:self.message("Freigabelink entfernt.")))
+            elif action == "create" and not url:
+                self.submit("Freigabelink erstellen",lambda:self.backend.create_link(node.path),lambda result:self.share_dialog(node,result))
+        self._dialog("share","Freigabe · "+node.name,"Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.",response,url=url)
+
+    @Slot(result=bool)
+    def request_close(self): return not self._close()
 
     def _close(self):
         if self.closing and not self.busy:

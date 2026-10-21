@@ -1,7 +1,7 @@
-# Incremental Rust migration — stages 1–2 (0.4–0.5)
+# Incremental Rust migration — stages 1–3 (0.4–0.6)
 
 The application requires `libneutrondrive_core.so`. This release is not a full
-Rust rewrite of the background process. The 0.5 interface is implemented in Qt 6/PySide6.
+Rust rewrite of the background process. The 0.6 interface is implemented in Qt Quick/QML with a PySide6 controller.
 
 ## Implemented in Rust
 
@@ -12,6 +12,12 @@ Rust rewrite of the background process. The 0.5 interface is implemented in Qt 6
 - Background debounce, retry/backoff, job selection and local echo decisions.
 - SDK batch/schema/scope/cursor validation, ordered event delivery planning,
   reconnect/reset announcements and event-source retry timing (new in 0.5).
+
+- Local inotify batch decoding and event classification (new in 0.6). The core
+  validates the complete read before any host-side watcher changes, preserves
+  non-UTF-8 Linux names as bytes, and classifies overflow, ignored watches,
+  recursive registration and stale-path rebuilds. Malformed reads stop the watcher
+  with a recoverable error instead of applying partial events.
 
 ## Retained adapters
 

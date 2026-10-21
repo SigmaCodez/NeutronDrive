@@ -58,6 +58,9 @@ struct Request {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
     Info,
+    InotifyDecode {
+        data: Vec<u8>,
+    },
     ValidateEvents {
         value: Value,
         paths: Vec<String>,
@@ -299,6 +302,7 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
         return Err("Unsupported Rust core protocol version".into());
     }
     match request.command {
+        Command::InotifyDecode { data } => crate::inotify::decode(&data),
         Command::ValidateEvents { value, paths } => crate::events::validate(value, &paths),
         Command::EventNotifications {
             batch,
@@ -320,7 +324,7 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
             )
         }
         Command::Info => Ok(
-            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry"]}),
+            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder"]}),
         ),
         Command::BaselineMatches {
             entry,
