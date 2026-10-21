@@ -169,15 +169,22 @@ ApplicationWindow {
                     }
                     ListView {
                         id: fileList; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true
-                        clip: true; model: s.files; spacing: 4; boundsBehavior: Flickable.StopAtBounds
+                        clip: true; model: s.files; spacing: 4;
+                        activeFocusOnTab: true; currentIndex: s.focusIndex; keyNavigationEnabled: false
+                        Keys.onPressed: function(event) {
+                            if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
+                            else if (event.key===Qt.Key_Down || event.key===Qt.Key_Up) { controller.move_selection(event.key===Qt.Key_Down ? 1 : -1,Boolean(event.modifiers & Qt.ShiftModifier)); event.accepted=true }
+                            else if (event.key===Qt.Key_Return || event.key===Qt.Key_Enter) { controller.row_activated(s.focusIndex); event.accepted=true }
+                            else if (event.key===Qt.Key_Space) { controller.select_row(s.focusIndex,true); event.accepted=true }
+                        }
+                         boundsBehavior: Flickable.StopAtBounds
                         ScrollBar.vertical: ScrollBar {}
                         delegate: Rectangle {
                             id: fileRow
                             required property var modelData; required property int index
                             width: fileList.width; height: 62; radius: 8
                             color: modelData.selected ? "#25473f" : rowMouse.containsMouse ? "#1d2d3d" : "transparent"
-                            border.color: activeFocus ? "#71e0bf" : "transparent"
-                            activeFocusOnTab: true
+                            border.color: fileList.activeFocus && index===s.focusIndex ? "#71e0bf" : "transparent"
                             Accessible.role: Accessible.ListItem; Accessible.name: modelData.name; Accessible.selected: modelData.selected
                             Keys.onSpacePressed: controller.select_row(index,true)
                             Keys.onReturnPressed: controller.row_activated(index)
@@ -192,7 +199,7 @@ ApplicationWindow {
                                 Label { text: fileRow.modelData.modified; color: window.muted; Layout.preferredWidth: 90; font.pixelSize: 12 }
                             }
                             MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
-                                onClicked: function(mouse) { fileRow.forceActiveFocus(); controller.select_row(fileRow.index,Boolean(mouse.modifiers & (Qt.ControlModifier|Qt.ShiftModifier))) }
+                                onClicked: function(mouse) { fileList.forceActiveFocus(); controller.select_row(fileRow.index,Boolean(mouse.modifiers & (Qt.ControlModifier|Qt.ShiftModifier))) }
                                 onDoubleClicked: controller.row_activated(fileRow.index)
                             }
                         }

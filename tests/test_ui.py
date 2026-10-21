@@ -56,7 +56,12 @@ class QtApplicationTests(unittest.TestCase):
         self._pump_until(lambda:not self.app.busy and len(self.app.nodes)==6)
         self.app.search.clear();self._pump_until(lambda:len(self.rows())==6)
 
-    def tearDown(self):self._check_callback_errors()
+    def tearDown(self):
+        from PySide6.QtCore import QMetaObject
+        dialog=self.app.window.findChild(self.QObject,"confirmationDialog")
+        QMetaObject.invokeMethod(dialog,"close")
+        self._pump_until(lambda:not dialog.property("visible"))
+        self._check_callback_errors()
 
     def rows(self):
         return list(range(len(self.app.visible_nodes)))
@@ -324,6 +329,23 @@ class QtApplicationTests(unittest.TestCase):
         picker=self.app.window.findChild(self.QObject,"filePicker")
         self.assertIsNotNone(picker)
         QMetaObject.invokeMethod(picker,"close")
+
+    def test_qml_file_list_keyboard_selection_survives_model_updates(self):
+        from PySide6.QtQuick import QQuickItem
+        from PySide6.QtTest import QTest
+        self.app.qt.processEvents()
+        listing=self.app.window.findChild(QQuickItem,"fileList")
+        self.assertIsNotNone(listing)
+        listing.forceActiveFocus()
+        QTest.keyClick(self.app.window,self.Qt.Key.Key_Down)
+        self.app.qt.processEvents()
+        self.assertEqual(self.app.selection,{1})
+        self.assertTrue(listing.hasActiveFocus())
+        QTest.keyClick(self.app.window,self.Qt.Key.Key_A,self.Qt.KeyboardModifier.ControlModifier)
+        self.app.qt.processEvents()
+        self.assertEqual(len(self.app.selected()),6)
+        self.assertTrue(self.app.action_buttons["Download"].isEnabled())
+        self.assertFalse(self.app.action_buttons["Umbenennen"].isEnabled())
 
     def test_single_instance_activates_existing_window(self):
         from neutrondrive.qt_instance import WindowInstance

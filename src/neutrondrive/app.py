@@ -89,6 +89,7 @@ class Application(QObject):
         self.pages = {name: name for name in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings")}
         self.fields, self.action_buttons = {}, {}
         self.visible_nodes, self.selection = [], set()
+        self.focus_index = 0
         self.jobs, self.trash_entries = [], []
         self.notice_error = False
         self.dialog_state, self.dialog_callback = {}, None
@@ -192,7 +193,7 @@ class Application(QObject):
     def state(self):
         return dict(fields={name: field.snapshot() for name, field in self.fields.items()},
             actions={name: field.snapshot() for name, field in self.action_buttons.items()},
-            page=self.current_page, path=self.path, busy=self.busy, demo=self.demo, version=__version__,
+            focusIndex=self.focus_index, page=self.current_page, path=self.path, busy=self.busy, demo=self.demo, version=__version__,
             noticeError=self.notice_error, crumbs=[name for name, _ in self.crumbs],
             files=[dict(name=n.name, kind="Ordner" if n.type == "folder" else "Datei", safe=n.safe,
                         size=size_text(n.size) if n.type != "folder" else "—", modified=date_text(n.modified),
@@ -228,15 +229,28 @@ class Application(QObject):
     @Slot(int, bool)
     def select_row(self, index, extend=False):
         if self.busy or not 0 <= index < len(self.visible_nodes): return
+        self.focus_index = index
         if not extend: self.selection = {index}
         elif index in self.selection: self.selection.remove(index)
         else: self.selection.add(index)
+        self.update_actions(); self.changed.emit()
+
+    @Slot(int, bool)
+    def move_selection(self, delta, extend=False):
+        if self.visible_nodes:
+            self.select_row(max(0,min(len(self.visible_nodes)-1,self.focus_index+delta)),extend)
+
+    @Slot()
+    def select_all(self):
+        if self.busy: return
+        self.selection=set(range(len(self.visible_nodes)))
         self.update_actions(); self.changed.emit()
 
     def render_nodes(self):
         query = self.search.text().casefold()
         self.visible_nodes = [n for n in self.nodes if query in n.name.casefold()]
         self.selection.clear()
+        self.focus_index = 0
         self.empty_label.setText("Keine passenden Dateien in diesem Ordner." if query else "Dieser Ordner ist leer.")
         self.empty_label.setVisible(not self.visible_nodes)
         self.count_label.setText(f"{len(self.visible_nodes)} von {len(self.nodes)} Einträgen · Doppelklick öffnet Ordner")
