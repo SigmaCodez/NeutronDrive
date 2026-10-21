@@ -133,6 +133,10 @@ python3 bin/neutrondrive --diagnose --cli "$PWD/build/backend/proton-drive"
 python3 -m unittest discover -s tests -v
 ```
 
+For a virtual machine or a graphics driver that cannot initialize Qt Quick's GPU
+renderer, try `QT_QUICK_BACKEND=software python3 bin/neutrondrive --demo`.
+Packaged installations accept the same environment variable with `neutrondrive`.
+
 Qt/PySide6 is downloaded only by the build helper, pinned by SHA256 and bundled
 privately. PyGObject remains a dependency of the D-Bus/portal adapters, not the UI.
 Core adapter and sync tests use the Python standard library and the built Rust

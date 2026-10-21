@@ -45,7 +45,7 @@ publish releases, sign packages or submit to Flathub/Snap Store.
 
 `qt_runtime.py` downloads the official PySide6 Essentials/Shiboken 6.10.2 wheels
 pinned by SHA256 in `qt-lock.json`. Only the required Qt Quick/QML, Quick Controls Basic/Fusion, dialogs, network, test,
-SVG and Wayland/X11 desktop runtime is selected; developer tools, QML and unrelated
+SVG and Wayland/X11 desktop runtime is selected; developer tools and unrelated
 bindings are excluded. The included binaries remain unmodified and replaceable.
 `packaging/licenses/qt` contains upstream notices from the source archives in
 `qt-sources-lock.json`. See [QT-NOTICES.md](QT-NOTICES.md).
