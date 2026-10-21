@@ -243,7 +243,7 @@ Native DEB/RPM include the D-Bus helper and its activation file. **Flatpak needs
 that native package installed on the host for online files**; the helper has its
 own native keyring session and can request its own browser login. No unrestricted
 host command permission is granted. On Arch/Manjaro, install from source with
-`python-gobject`, `gtk4`, `libsecret`, `python-pyfuse3`, `python-trio`, `fuse3` and
+`python-gobject`, a compatible Qt/PySide6 runtime, `libsecret`, `python-pyfuse3`, `python-trio`, `fuse3` and
 install the D-Bus activation file for the resulting launcher. Flatpak background
 folder sync itself does not require this helper.
 

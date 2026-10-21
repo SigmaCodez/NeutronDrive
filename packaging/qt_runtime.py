@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import platform
+import re
+import subprocess
 import shutil
 import urllib.request
 import zipfile
@@ -55,8 +57,9 @@ def runtime_member(name):
         if category == "translations": return filename.startswith("qtbase_")
         if category == "plugins":
             group = parts[3]
+            if group == "imageformats": return filename in {"libqgif.so", "libqico.so", "libqjpeg.so", "libqsvg.so"}
             if group == "platforms": return filename in {"libqxcb.so", "libqwayland.so", "libqoffscreen.so", "libqminimal.so"}
-            return group in PLUGIN_GROUPS and filename != "libqgtk3.so"
+            return group in PLUGIN_GROUPS and filename not in {"libqgtk3.so", "libqtvirtualkeyboardplugin.so"}
         return False
     if parts[1] in {"support", "lib"}: return True
     filename = parts[1]
@@ -76,6 +79,16 @@ def extract(paths,destination):
                     target=destination.joinpath(*name.parts);target.parent.mkdir(parents=True,exist_ok=True)
                     with archive.open(info) as source,target.open('wb') as out:shutil.copyfileobj(source,out)
                     target.chmod(0o755 if (info.external_attr >> 16) & 0o111 else 0o644)
+    # Fail at build time if a selected plugin requires an omitted Qt module.
+    libraries = {p.name for p in destination.rglob("*.so*") if p.is_file()}
+    for binary in destination.rglob("*.so*"):
+        if not binary.is_file(): continue
+        with binary.open("rb") as stream:
+            if stream.read(4) != b"\x7fELF": continue
+        dynamic = subprocess.check_output(["readelf", "-d", str(binary)], text=True)
+        for dependency in re.findall(r"\(NEEDED\).*?\[(.*?)\]", dynamic):
+            if dependency.startswith("libQt6") and dependency not in libraries:
+                raise ValueError(f"Qt plugin {binary.name} requires omitted module {dependency}")
     return destination
 
 

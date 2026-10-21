@@ -197,7 +197,7 @@ the required keyring interface.
 
 The suite covers subprocess handling, cursor acknowledgement/replay, event
 scoping, scheduler races, local inode/content conflicts, cache verification,
-recovery, service requests and opt-in GTK/FUSE smoke flows. Unit tests use fake
+recovery, service requests and opt-in Qt/FUSE smoke flows. Unit tests use fake
 backends and no account credentials. Source builds type-check the full CLI/SDK
 and run the bridge event/branding tests. Live account checks and kernel-mounted
 filesystem checks are separate evidence; a green synthetic test or package build
