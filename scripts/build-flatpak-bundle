@@ -59,11 +59,11 @@ with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") a
         subprocess.run([
             *runtime_command, "python3", "-c",
             "import sys; sys.path.insert(0, '/app/lib/neutrondrive/qt'); "
-            "from PySide6.QtCore import qVersion; from PySide6.QtWidgets import QApplication; "
+            "from PySide6.QtCore import qVersion; from PySide6.QtQml import QQmlApplicationEngine; from PySide6.QtQuick import QQuickWindow; "
             "print('Qt', qVersion(), 'available')",
         ], check=True)
     repository = work / "repo"
     subprocess.run(["flatpak", "build-export", f"--arch={arch}", f"--timestamp={timestamp}", str(repository), str(payload), branch], check=True)
-    output = ROOT / "dist" / f"neutrondrive-0.5.0a1-{arch}.flatpak"
+    output = ROOT / "dist" / f"neutrondrive-0.6.0a1-{arch}.flatpak"
     subprocess.run(["flatpak", "build-bundle", f"--arch={arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repository), str(output), app_id, branch], check=True)
     print(output)
