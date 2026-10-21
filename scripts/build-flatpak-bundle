@@ -64,6 +64,6 @@ with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") a
         ], check=True)
     repository = work / "repo"
     subprocess.run(["flatpak", "build-export", f"--arch={arch}", f"--timestamp={timestamp}", str(repository), str(payload), branch], check=True)
-    output = ROOT / "dist" / f"neutrondrive-0.6.0a5-{arch}.flatpak"
+    output = ROOT / "dist" / f"neutrondrive-0.6.0a6-{arch}.flatpak"
     subprocess.run(["flatpak", "build-bundle", f"--arch={arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repository), str(output), app_id, branch], check=True)
     print(output)

@@ -35,6 +35,6 @@ if args.install_deps:
     command.append("--install-deps-from=flathub")
 command += [str(build), str(ROOT / "packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json")]
 subprocess.run(command, check=True, cwd=ROOT)
-output = dist / f"neutrondrive-0.6.0a5-{args.arch}.flatpak"
+output = dist / f"neutrondrive-0.6.0a6-{args.arch}.flatpak"
 subprocess.run(["flatpak", "build-bundle", f"--arch={args.arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repo), str(output), "io.github.SigmaCodez.NeutronDrive", "master"], check=True)
 print(output)

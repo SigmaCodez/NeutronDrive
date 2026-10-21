@@ -1,46 +1,41 @@
-# Validation record — 0.6.0 alpha5
+# Validation record — 0.6.0 alpha6
 
-Previous evidence: [0.6.0 alpha4](VALIDATION-0.6-alpha4.md).
+Previous runtime and live-account evidence: [alpha5](VALIDATION-0.6-alpha5.md).
 
-Release source: `e9ae23b05835df110ac13c74b689a5e363fd4936`.
-All **15 CI jobs passed**: [final build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39650290070).
+Release build source: `e7d30322d0f5d66e268216a97441d305f8a95c8b`.
+All **15 CI jobs passed**: [final build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39658476667).
 Packages: DEB amd64/arm64, Fedora/openSUSE RPM x86_64, Flatpak x86_64 and Snap amd64.
 
-Backend processes, private state I/O, job transactions and recursive inotify
-runtime now run in Rust. Late deletion echoes after an empty snapshot are fixed.
-Python remains for transfer/trash/FUSE orchestration and the Qt Quick controller;
-this release does not complete the Rust migration.
+All **340 local Python tests passed without skips** using the final alpha6 Rust
+artifact, Qt, isolated D-Bus and actual kernel FUSE. 339 tests used POSIX temporary
+storage; package staging used the project filesystem to avoid temporary storage
+quotas. No security checks were relaxed. Rust tests and Clippy passed in CI.
 
-All **332 local Python tests passed without skips** with Qt, D-Bus and real FUSE.
-331 tests used local POSIX temporary storage; the package-staging test used the
-project filesystem to avoid the temporary filesystem quota. An initial attempt
-to run every test on the NAS was rejected by the private-directory permission
-checks. No security checks were relaxed. An initial CI run exposed a test-only
-procfs race when a terminated descendant disappeared between open and read;
-the final test handles both ENOENT and ESRCH. The full final CI then passed.
+All 25 catalogs contain 579 messages. Locale resolution, English fallback,
+placeholder integrity and unchanged filenames/protocol identifiers were checked.
+The UI opened all six pages for 25 supported locales plus unsupported Japanese
+(English fallback). See [localization details](LOCALIZATION.md).
 
-16 Rust tests and Clippy passed, including native ARM64 CI. The identical runtime
-before the version-only bump (`2a1c100bfa0a0569c9ebd1a081374171ca9a00ae`) also
-passed 122 focused Python tests and all 11 synthetic live-account checks.
-The live daemon stopped and its dedicated synthetic cloud folder was moved to
-trash; no permanent cloud deletion or credential copying occurred.
+The final installed Flatpak passed the same 26-locale window test, six pages,
+light/dark appearance, synthetic local trash restoration, native backend process
+execution, persistent job storage and real inotify. All application files,
+including 25 catalogs, the Rust core and backend matched the build source/pins;
+all 425 bundled Qt files matched pinned wheels. Its isolated installation and
+profile were removed; no personal account was used.
 
-The final installed Flatpak passed Python/QML, Rust, backend and all 398 bundled
-Qt file checksums; native process execution, job storage and real inotify;
-all six GUI pages, light/dark appearance and synthetic local trash restore.
-Its temporary installation/profile was removed. All six package artifacts passed
-source/provenance checks. All 16 published asset sizes and GitHub SHA256 digests
-match the local release files; the release tag points to the tested source.
+All six packages passed source/provenance verification. DEB, RPM and Snap payloads
+were inspected without installing them; Flatpak was installed and exercised in
+an isolated profile. CI validates both native architectures. A successful build
+is not a claim that every distribution or desktop was tested.
 
-The amd64 DEB was also installed on Ubuntu 26.04.1. Package-manager status,
-version 0.6.0a5, installed Python/QML and Rust hashes, native-core diagnostics and
-GUI process startup were checked. No local sync jobs were configured and no
-online drive was mounted; old background processes were stopped cleanly before
-installation. Account configuration was preserved. No new account sign-in was
-performed during this installation test.
+This release changes localization and retains the alpha5 runtime. No new
+live-account test or replacement of the user's installed native package was
+performed. Prior live-account evidence is explicitly attributed to alpha5.
+Python remains for transfer/trash/FUSE orchestration and the Qt controller.
+Whole-folder deletion remains a protected conflict. Flatpak online files need
+the native helper; strict Snap cannot provide FUSE mounts. ARM64 Qt requires
+GLIBC 2.39. Long-duration workloads and independent auditing remain outstanding.
 
-Remaining limits: whole-folder deletion remains a protected conflict. Strict
-Snap lacks FUSE online mounts; Flatpak online mounts need the native helper.
-ARM64 native Qt needs GLIBC 2.39; x86_64 needs GLIBC 2.34. Long-duration workloads,
-every Linux desktop/distribution combination and independent security auditing
-remain outstanding. This remains an alpha.
+Initial machine-assisted translations include selected manual corrections;
+full native-speaker review remains pending. Technical completeness is not
+linguistic certification.

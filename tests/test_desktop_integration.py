@@ -231,6 +231,16 @@ class DesktopIntegrationTests(unittest.TestCase):
             self.assertEqual(activation.exists(), native)
             self.assertEqual(unit.exists(), native)
             self.assertTrue((target / 'usr/bin/neutrondrive').is_file())
+            from neutrondrive.i18n import SUPPORTED
+            catalogs = target / 'usr/lib/neutrondrive/neutrondrive/locales'
+            self.assertEqual({p.stem for p in catalogs.glob('*.json')}, set(SUPPORTED))
+            source_catalogs = stage.ROOT / 'src/neutrondrive/locales'
+            for code in SUPPORTED:
+                self.assertEqual((catalogs / (code + '.json')).read_bytes(),
+                                 (source_catalogs / (code + '.json')).read_bytes())
+            translations = target / 'usr/lib/neutrondrive/qt/PySide6/Qt/translations'
+            self.assertTrue((translations / 'qtbase_fr.qm').is_file())
+            self.assertTrue((translations / 'qtdeclarative_fr.qm').is_file())
 
     def test_service_does_not_mount_inside_sync_folder(self):
         from neutrondrive.background import JobStore

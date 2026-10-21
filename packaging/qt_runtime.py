@@ -58,7 +58,7 @@ def runtime_member(name):
         if category == "lib":
             return filename.startswith("libicu") or any(filename == "libQt6" + module + ".so.6" for module in MODULES)
         if category == "qml": return "/".join(parts[3:-1]) in QML_DIRS
-        if category == "translations": return filename.startswith("qtbase_")
+        if category == "translations": return filename.startswith(("qtbase_", "qtdeclarative_"))
         if category == "plugins":
             group = parts[3]
             if group == "imageformats": return filename in {"libqgif.so", "libqico.so", "libqjpeg.so", "libqsvg.so"}

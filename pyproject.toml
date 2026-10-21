@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neutrondrive"
-version = "0.6.0a5"
+version = "0.6.0a6"
 description = "An independent Qt Linux desktop client for Proton Drive"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,4 +28,4 @@ Issues = "https://github.com/SigmaCodez/NeutronDrive/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-neutrondrive = ["qml/*.qml"]
+neutrondrive = ["qml/*.qml", "locales/*.json"]
