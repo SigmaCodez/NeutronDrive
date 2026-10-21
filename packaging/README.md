@@ -206,3 +206,14 @@ sync remain available. Use the native package for on-demand files.
 
 Kernel tests in CI exercise native FUSE; they are not proof of every installed
 Snap/Flatpak portal flow.
+
+## Additional alpha6 formats
+
+The [AppImage recipe](appimage/README.md) builds a portable x86_64 package from the
+checksum-pinned alpha6 DEB on Ubuntu 22.04. It bundles Python and native runtime
+libraries and retains a private cache for background/autostart stability.
+
+The [Arch/AUR recipe](aur/README.md) repackages the pinned amd64/arm64 DEBs into
+`neutrondrive-bin`. A separate Arch Linux CI job builds and installs x86_64 with
+makepkg/pacman. An AUR account has not been configured; the recipe and generated
+metadata are distributed on GitHub until actual AUR publication is possible.

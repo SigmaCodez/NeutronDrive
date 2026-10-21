@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""Build the x86_64 portable alpha6 package on Ubuntu 22.04 (see workflow)."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+BUILD = ROOT / 'build/appimage'
+APP = BUILD / 'NeutronDrive.AppDir'
+DIST = ROOT / 'dist'
+LOCK = json.loads((ROOT / 'packaging/appimage/tools-lock.json').read_text())
+
+
+def run(*args, **kwargs):
+    return subprocess.run([str(a) for a in args], check=True, **kwargs)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def fetch(name):
+    entry = LOCK[name]
+    path = BUILD / name
+    if not path.exists():
+        temporary = path.with_suffix('.download')
+        with urllib.request.urlopen(entry['url'], timeout=120) as response, temporary.open('wb') as out:
+            shutil.copyfileobj(response, out)
+        if sha(temporary) != entry['sha256']:
+            temporary.unlink()
+            raise ValueError('Checksum mismatch for ' + name)
+        temporary.replace(path)
+    if sha(path) != entry['sha256']:
+        raise ValueError('Checksum mismatch for ' + name)
+    path.chmod(0o755)
+    return path
+
+
+def main():
+    if 'VERSION_ID="22.04"' not in Path('/etc/os-release').read_text() or os.uname().machine != 'x86_64':
+        raise SystemExit('Build on Ubuntu 22.04 x86_64 for the supported GLIBC baseline.')
+    BUILD.mkdir(parents=True, exist_ok=True)
+    DIST.mkdir(exist_ok=True)
+    if APP.exists():
+        raise SystemExit('Refusing to mix an existing AppDir; remove build/appimage/NeutronDrive.AppDir first.')
+    deb = fetch('deb')
+    run('dpkg-deb', '-x', deb, APP)
+    # Portable packages do not install host D-Bus/systemd activation files.
+    shutil.rmtree(APP / 'usr/share/dbus-1', ignore_errors=True)
+    shutil.rmtree(APP / 'usr/lib/systemd', ignore_errors=True)
+    shutil.copy2('/usr/bin/python3.10', APP / 'usr/bin/python3.10')
+    shutil.copytree('/usr/lib/python3.10', APP / 'usr/lib/python3.10', ignore=shutil.ignore_patterns('__pycache__', 'test', 'tests'))
+    shutil.copytree('/usr/lib/python3/dist-packages', APP / 'usr/lib/python3/dist-packages', ignore=shutil.ignore_patterns('__pycache__', 'tests'))
+    shutil.copytree('/usr/lib/x86_64-linux-gnu/girepository-1.0', APP / 'usr/lib/x86_64-linux-gnu/girepository-1.0')
+    # Preserve distribution notices and exact package/source versions for the bundled runtime.
+    for notice in Path('/usr/share/doc').glob('*/copyright'):
+        if notice.is_file():
+            destination = APP / 'usr/share/doc/ubuntu-runtime' / notice.parent.name / 'copyright'
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(notice, destination)
+    run('dpkg-query', '-W', '-f=${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n', stdout=(APP / 'usr/share/doc/neutrondrive/ubuntu-runtime-packages.tsv').open('w'))
+    shutil.copy2(ROOT / 'packaging/appimage/bootstrap.py', APP / 'usr/lib/neutrondrive/appimage-bootstrap.py')
+    for source, dest in [('AppRun', APP / 'AppRun'), ('neutrondrive', APP / 'usr/bin/neutrondrive'), ('xdg-open', APP / 'usr/lib/neutrondrive/bin/xdg-open')]:
+        shutil.copy2(ROOT / 'packaging/appimage' / source, dest)
+        dest.chmod(0o755)
+    tools = {}
+    for name in ('linuxdeploy', 'appimagetool'):
+        path = fetch(name)
+        folder = BUILD / (name + '-extracted')
+        folder.mkdir(exist_ok=True)
+        run(path, '--appimage-extract', cwd=folder, stdout=subprocess.DEVNULL)
+        tools[name] = folder / 'squashfs-root/AppRun'
+    runtime = fetch('runtime')
+    appid = 'io.github.SigmaCodez.NeutronDrive'
+    env = dict(os.environ, NO_STRIP='1', ARCH='x86_64')
+    # GI loads these libraries dynamically, so list them explicitly.
+    libraries = ['libgirepository-1.0.so.1', 'libgio-2.0.so.0', 'libgobject-2.0.so.0', 'libglib-2.0.so.0', 'libsecret-1.so.0', 'libfuse3.so.3', 'libssl.so.3', 'libcrypto.so.3']
+    extra = [item for lib in libraries for item in ('--library', '/usr/lib/x86_64-linux-gnu/' + lib)]
+    run(tools['linuxdeploy'], '--appdir', APP, '--executable', APP / 'usr/bin/python3.10',
+        '--desktop-file', APP / f'usr/share/applications/{appid}.desktop',
+        '--icon-file', APP / f'usr/share/icons/hicolor/scalable/apps/{appid}.svg',
+        '--custom-apprun', ROOT / 'packaging/appimage/AppRun',
+        '--deploy-deps-only', APP / 'usr/lib', *extra, env=env)
+    # linuxdeploy rewrites ELF search paths. Restore the pinned application core,
+    # backend and Qt payload so their published provenance remains byte-for-byte valid.
+    original = BUILD / 'original-deb'
+    run('dpkg-deb', '-x', deb, original)
+    for relative in ('usr/lib/neutrondrive/qt',):
+        shutil.rmtree(APP / relative)
+        shutil.copytree(original / relative, APP / relative)
+    for relative in ('usr/lib/neutrondrive/bin/proton-drive', 'usr/lib/neutrondrive/neutrondrive/libneutrondrive_core.so'):
+        shutil.copy2(original / relative, APP / relative)
+    shutil.rmtree(original)
+    # appimagetool does not alter this payload; all files and links are verified on extraction.
+    manifest = {}
+    for p in sorted(APP.rglob('*')):
+        if p.is_symlink():
+            manifest[str(p.relative_to(APP))] = 'symlink:' + os.readlink(p)
+        elif p.is_file():
+            manifest[str(p.relative_to(APP))] = sha(p)
+    (APP / 'runtime-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
+    output = DIST / 'NeutronDrive-0.6.0-alpha6-x86_64.AppImage'
+    run(tools['appimagetool'], '--runtime-file', runtime, APP, output, env=env)
+    output.chmod(0o755)
+    info = dict(app_release='v0.6.0-alpha6', packaging_commit=run('git', 'rev-parse', 'HEAD', cwd=ROOT, capture_output=True, text=True).stdout.strip(),
+                tools=LOCK, sha256=sha(output), payload_manifest_sha256=sha(APP / 'runtime-manifest.json'),
+                cache='Private content-addressed runtime under $XDG_CACHE_HOME/neutrondrive-appimage; needed for persistent background/autostart paths',
+                baseline='Ubuntu 22.04 x86_64; host Secret Service, browser, graphical drivers and optional native mount helper required')
+    (DIST / 'APPIMAGE_BUILD_INFO.json').write_text(json.dumps(info, indent=2) + '\n')
+    print(output)
+
+
+if __name__ == '__main__':
+    main()

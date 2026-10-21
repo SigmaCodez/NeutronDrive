@@ -44,3 +44,33 @@ The [published alpha6 release](https://github.com/SigmaCodez/NeutronDrive/releas
 is a prerelease with all 16 expected assets. Every published asset size and GitHub
 SHA256 digest matches the local release files. The tag resolves to the exact tested
 build source above; later commits only update English documentation and evidence.
+
+## Additional AppImage and Arch packages
+
+Application version remains alpha6, with the unchanged released DEB as input.
+Packaging source: `8dec8f13ee268a0455b1350d70b911e4ef34ad46`.
+Both [portable package CI jobs](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39677466662)
+and all [15 regression CI jobs](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39677466663) passed.
+
+The x86_64 AppImage passed real AppImage startup on Ubuntu 26.04.1, persistent
+launcher execution after the original mount exited, all 26 locale configurations,
+22 Qt UI tests and 44 background tests. All 471 application files, including the
+25 catalogs, Qt, Rust core and backend, match the original alpha6 DEB exactly.
+Five cache/launcher safeguard tests passed. The private test runtime and profile
+were removed. Initial local testing exposed a host-coreutils/bundled-library
+conflict; the final launcher uses shell built-ins and includes a regression test.
+
+The Arch x86_64 package was built as an unprivileged user, installed with pacman,
+and tested for Python/Qt/Rust and all 26 locale configurations. Its 471 application
+files also match the original DEB exactly. Generated `.SRCINFO` matches the
+committed recipe. A missing hicolor icon dependency was corrected; namcap reports
+no errors. Existing upstream binary-hardening and privately bundled Qt module
+warnings remain. ARM64 is declared in the recipe but was not runtime-tested on Arch.
+
+AppImage stores a private content-addressed runtime cache so background and
+autostart paths survive the temporary mount. Online-drive mounts require the
+native helper. No new real-account test was performed for these packaging changes.
+AUR publication is pending an AUR account and SSH access; GitHub provides the
+recipe, generated metadata and tested Arch binary without claiming an AUR listing.
+The supplemental release files use `PORTABLE_SHA256SUMS`; existing alpha6 files
+and the release tag are retained unchanged.

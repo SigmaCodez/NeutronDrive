@@ -1,0 +1,92 @@
+name: AppImage and Arch packages
+on:
+  push:
+    paths: ['packaging/appimage/**', 'packaging/aur/**', 'scripts/build-appimage', 'tests/test_appimage_packaging.py', '.github/workflows/portable-packages.yml']
+  pull_request:
+    paths: ['packaging/appimage/**', 'packaging/aur/**', 'scripts/build-appimage', 'tests/test_appimage_packaging.py', '.github/workflows/portable-packages.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: portable-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install runtime and packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3.10 python3-gi python3-pyfuse3 python3-trio libsecret-1-0 libfuse3-3 libgirepository-1.0-1 gir1.2-glib-2.0 libssl3 libegl1 libopengl0 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xkb1 libxcb-randr0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-render0 libxcb-shape0 libxcb-glx0 libx11-xcb1 libsm6 libice6 libwayland-client0 libwayland-cursor0 libwayland-egl1 libfontconfig1 libfreetype6 libdbus-1-3 squashfs-tools desktop-file-utils zsync patchelf fuse3 xvfb
+      - name: Test cache safeguards
+        run: python3 -m unittest discover -s tests -p test_appimage_packaging.py -v
+      - name: Build portable package
+        run: python3 scripts/build-appimage
+      - name: Test extracted package and all localized windows
+        run: |
+          mkdir build/appimage-test
+          cd build/appimage-test
+          ../../dist/NeutronDrive-0.6.0-alpha6-x86_64.AppImage --appimage-extract >/dev/null
+          export XDG_CACHE_HOME="$RUNNER_TEMP/nd-appimage-cache"
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/nd-appimage-config"
+          export XDG_STATE_HOME="$RUNNER_TEMP/nd-appimage-state"
+          squashfs-root/AppRun --help
+          squashfs-root/AppRun --diagnose
+          root=$(find "$XDG_CACHE_HOME/neutrondrive-appimage" -mindepth 1 -maxdepth 1 -type d -name '[0-9a-f]*')
+          export PYTHONHOME="$root/usr"
+          export PYTHONPATH="$root/usr/lib/neutrondrive:$root/usr/lib/neutrondrive/qt:$root/usr/lib/python3/dist-packages"
+          export LD_LIBRARY_PATH="$root/usr/lib/neutrondrive/qt/PySide6/Qt/lib:$root/usr/lib:$root/usr/lib/x86_64-linux-gnu"
+          export GI_TYPELIB_PATH="$root/usr/lib/x86_64-linux-gnu/girepository-1.0"
+          export PATH="$root/usr/bin:$root/usr/lib/neutrondrive/bin:$PATH"
+          export PYTHONDONTWRITEBYTECODE=1
+          "$root/usr/bin/python3.10" -c 'import gi, pyfuse3, trio; from gi.repository import Gio, GLib; from neutrondrive.desktop_integration import app_command; import os; assert app_command()[0].startswith(os.environ["XDG_CACHE_HOME"]); print("PORTABLE_IMPORTS_AND_AUTOSTART_PATH_OK")'
+          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software NEUTRONDRIVE_UI_TESTS=1 "$root/usr/bin/python3.10" -m unittest discover -s ../../tests -p test_i18n_ui.py -v
+          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software NEUTRONDRIVE_UI_TESTS=1 "$root/usr/bin/python3.10" -m unittest discover -s ../../tests -p test_ui.py -v
+          "$root/usr/bin/python3.10" -m unittest discover -s ../../tests -p test_background.py -v
+          env -u PYTHONHOME -u PYTHONPATH -u LD_LIBRARY_PATH -u GI_TYPELIB_PATH "$root/usr/bin/neutrondrive" --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage-x86_64
+          path: |
+            dist/*.AppImage
+            dist/APPIMAGE_BUILD_INFO.json
+          if-no-files-found: error
+  arch:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - run: pacman -Syu --noconfirm git python namcap
+      - uses: actions/checkout@v4
+      - name: Build with makepkg as an unprivileged user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/builder
+          cp -r packaging/aur/neutrondrive-bin /home/builder/package
+          chown -R builder:builder /home/builder/package
+          cd /home/builder/package
+          su builder -c 'cd /home/builder/package && makepkg --syncdeps --noconfirm && makepkg --printsrcinfo > .SRCINFO'
+          pacman -U --noconfirm ./*.pkg.tar.zst
+          neutrondrive --help
+          neutrondrive --diagnose
+          python -c 'import gi, pyfuse3, trio'
+          namcap PKGBUILD ./*.pkg.tar.zst | tee namcap.log
+          if grep -q ' E:' namcap.log; then exit 1; fi
+          mkdir -p "$GITHUB_WORKSPACE/dist/aur"
+          cp PKGBUILD .SRCINFO ./*.pkg.tar.zst "$GITHUB_WORKSPACE/dist/aur/"
+      - name: Test installed package
+        env:
+          PYTHONPATH: /usr/lib/neutrondrive:/usr/lib/neutrondrive/qt
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+          NEUTRONDRIVE_UI_TESTS: '1'
+        run: |
+          python -m unittest discover -s tests -p test_i18n_ui.py -v
+          python -m unittest discover -s tests -p test_ui.py -v
+          python -m unittest discover -s tests -p test_rust_core.py -v
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-x86_64
+          path: dist/aur/*
+          include-hidden-files: true
+          if-no-files-found: error
