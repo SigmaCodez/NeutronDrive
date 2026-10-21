@@ -24,7 +24,7 @@ deb_arch = json.loads(stage.backend.LOCK.read_text())["architectures"][arch]["de
 if not shutil.which("dpkg-deb"):
     parser.error("dpkg-deb is required; install the dpkg package")
 args.output_dir.mkdir(parents=True, exist_ok=True)
-output = args.output_dir.resolve() / f"neutrondrive_0.6.0~alpha3-1_{deb_arch}.deb"
+output = args.output_dir.resolve() / f"neutrondrive_0.6.0~alpha4-1_{deb_arch}.deb"
 with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
     root = Path(temporary)
     stage.stage(root, "/usr", arch, args.backend)
@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
     control.mkdir()
     size = sum(path.stat().st_size for path in (root / "usr").rglob("*") if path.is_file()) // 1024
     (control / "control").write_text(f'''Package: neutrondrive
-Version: 0.6.0~alpha3-1
+Version: 0.6.0~alpha4-1
 Section: net
 Priority: optional
 Architecture: {deb_arch}

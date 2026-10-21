@@ -58,6 +58,11 @@ struct Request {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
     Info,
+    RouteEvent {
+        event: crate::event_route::Event,
+        jobs: Vec<crate::event_route::Job>,
+        pending: Vec<crate::event_route::Identity>,
+    },
     CacheInvalidate {
         snapshot: crate::cache::Invalidation,
     },
@@ -305,6 +310,11 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
         return Err("Unsupported Rust core protocol version".into());
     }
     match request.command {
+        Command::RouteEvent {
+            event,
+            jobs,
+            pending,
+        } => crate::event_route::route(event, jobs, pending),
         Command::CacheInvalidate { snapshot } => Ok(json!(snapshot.plan())),
         Command::InotifyDecode { data } => crate::inotify::decode(&data),
         Command::ValidateEvents { value, paths } => crate::events::validate(value, &paths),
@@ -328,7 +338,7 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
             )
         }
         Command::Info => Ok(
-            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder","remote-cache-invalidation"]}),
+            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder","remote-cache-invalidation","daemon-event-routing"]}),
         ),
         Command::BaselineMatches {
             entry,

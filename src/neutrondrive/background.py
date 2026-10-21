@@ -661,38 +661,33 @@ class BackgroundDaemon:
         with self._condition:
             if self._stopping:
                 raise BackgroundError("Dienst wird beendet; Event-Cursor nicht bestätigen.")
-            kind = get("kind", "change")
-            if kind == "error":
+            identity = {name: get(name) for name in ("node_uid", "parent_uid", "root_uid")}
+            reset = bool(get("reset", False))
+            decision = rust_core.call("route_event", event={
+                "kind": get("kind", "change"), "reset": reset, "identity": identity,
+            }, jobs=[{
+                "id": runtime.job.id, "remote_uid": runtime.job.remote_uid,
+                "account_root_uid": runtime.job.account_root_uid,
+                "known_uids": runtime.known_uids, "paused": runtime.job.paused,
+            } for runtime in self._jobs.values()], pending=self._unresolved_events)
+            if decision["offline"]:
                 self._event_status = {"state": "offline", "error": "Remote-Eventverbindung unterbrochen; Wiederverbindung läuft."}
             else:
                 self._event_status = {"state": "connected", "error": ""}
-                reset = bool(get("reset", False))
                 affected_roots = []
-                known_all = set().union(*(runtime.known_uids | {runtime.job.remote_uid}
-                                          for runtime in self._jobs.values())) - {""}
-                account_ids = {runtime.job.account_root_uid for runtime in self._jobs.values()} - {""}
-                for runtime in self._jobs.values():
-                    known = runtime.known_uids | {runtime.job.remote_uid}
-                    relevant = (reset or get("node_uid") in known or get("parent_uid") in known
-                                or (get("root_uid") and get("root_uid") == runtime.job.remote_uid))
-                    if relevant and (kind != "ready" or reset):
-                        affected_roots.append(runtime.job.remote_root)
-                        self._schedule(runtime, "remote-reset" if reset else "remote")
+                for job_id in decision["affected"]:
+                    runtime = self._jobs[job_id]
+                    affected_roots.append(runtime.job.remote_root)
+                    self._schedule(runtime, decision["reason"])
                 if affected_roots:
-                    self.remote_cache.event(get("node_uid"), get("parent_uid"), affected_roots, reset=reset)
-                unknown_parent = get("parent_uid") not in known_all | account_ids
-                unknown_node = get("node_uid") not in known_all
-                if (not reset and kind != "ready" and get("node_uid") and unknown_parent
-                        and (unknown_node or not str(kind).endswith("deleted"))
-                        and any(not runtime.job.paused for runtime in self._jobs.values())):
-                    event_data = {"node_uid": get("node_uid"), "parent_uid": get("parent_uid"), "root_uid": get("root_uid")}
-                    if event_data not in self._unresolved_events:
-                        if len(self._unresolved_events) < 1024:
-                            self._unresolved_events.append(event_data)
-                        else:
-                            for runtime in self._jobs.values():
-                                self.remote_cache.invalidate_tree(runtime.job.remote_root)
-                                self._schedule(runtime, "remote-overflow")
+                    self.remote_cache.event(identity["node_uid"], identity["parent_uid"], affected_roots, reset=reset)
+                if decision["append"] is not None:
+                    self._unresolved_events.append(decision["append"])
+                for job_id in decision["overflow"]:
+                    runtime = self._jobs[job_id]
+                    self.remote_cache.invalidate_tree(runtime.job.remote_root)
+                    self._schedule(runtime, "remote-overflow")
+                if decision["resolve_unknown"]:
                     self._condition.notify_all()
             self._persist()
 

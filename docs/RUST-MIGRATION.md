@@ -24,6 +24,22 @@ Rust rewrite of the background process. The 0.6 interface is implemented in Qt Q
   fallback. Traversal is iterative and cycle-safe. Python retains the cache,
   lock and generation guard; a failed core decision clears stale listings.
 
+- Daemon cloud-event routing (0.6.0 alpha 4): matching events to job/root/node
+  identities, ready/reset/error handling, unknown-parent lookup eligibility,
+  duplicate suppression and bounded queue overflow decisions. The host applies
+  the complete decision under its existing lock and persists before returning
+  the event acknowledgement. Invalid requests fail before any host mutation.
+
+## Language choice
+
+No additional C implementation is introduced in this step. The existing C ABI
+already connects the Rust core to Python. Another C layer would add ownership
+and error-handling obligations without a measured benefit for these decisions.
+Qt and Python's hashing primitives already execute native library code. There is
+no comparative performance claim: this step centralizes policy in Rust while
+retaining tested I/O adapters. Future native I/O migration needs dedicated
+filesystem race, cancellation and crash-recovery validation.
+
 ## Retained adapters
 
 Python retains daemon lifecycle, locks, Unix control socket, job persistence,

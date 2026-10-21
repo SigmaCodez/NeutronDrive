@@ -415,6 +415,27 @@ class DaemonTests(unittest.TestCase):
             self.assertTrue(status["jobs"][0]["pending"])
             self.assertIn("remote", status["jobs"][0]["reasons"])
 
+    def test_rust_routing_failure_does_not_accept_or_schedule_event(self):
+        from neutrondrive import rust_core
+        self.start()
+        self.idle()
+        with self.daemon._condition:
+            status = dict(self.daemon._event_status)
+            jobs = [(r.pending, set(r.reasons)) for r in self.daemon._jobs.values()]
+            queue = list(self.daemon._unresolved_events)
+            original = rust_core.call
+            def fail_route(operation, **arguments):
+                if operation == "route_event":
+                    raise rust_core.CoreError("Synthetic unavailable event policy")
+                return original(operation, **arguments)
+            with patch.object(rust_core, "call", side_effect=fail_route), patch.object(self.daemon, "_persist") as persist:
+                with self.assertRaises(rust_core.CoreError):
+                    self.events.emit(root_uid="root-1", node_uid="new", parent_uid="root-1", kind="create")
+                persist.assert_not_called()
+            self.assertEqual(self.daemon._event_status, status)
+            self.assertEqual([(r.pending, set(r.reasons)) for r in self.daemon._jobs.values()], jobs)
+            self.assertEqual(self.daemon._unresolved_events, queue)
+
     def test_event_network_error_updates_status_without_tree_scan(self):
         self.start()
         self.idle()

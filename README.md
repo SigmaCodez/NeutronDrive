@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface is currently in German.
 
-**Status: 0.6.0 alpha 3.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 4.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -17,7 +17,7 @@ interface and icon are original; no Windows/macOS application code is copied.
 [Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
 
 The Rust core handles sync decisions, background scheduling, SDK event validation
-and delivery planning, local inotify decoding and remote cache invalidation. The interface uses Qt Quick/QML; guarded Python I/O adapters
+and delivery planning, local inotify decoding, remote cache invalidation and daemon event routing. The interface uses Qt Quick/QML; guarded Python I/O adapters
 remain.
 See [migration boundaries](docs/RUST-MIGRATION.md).
 
@@ -78,21 +78,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha3-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha4-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha3-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha4-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha3-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha4-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a3-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a4-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha3_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha4_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -292,3 +292,9 @@ conservative handling of moved/deleted folders and unknown cloud events.
 The desktop now exposes automatic sync only. The interface follows the desktop
 light/dark preference at startup and while running, through the Settings portal
 with Qt color-scheme/palette fallback. Desktop settings are never changed.
+
+### 0.6.0 alpha 4 refinement
+
+Cloud-event routing and bounded pending-event queue decisions now run in Rust.
+The host retains locks, guarded I/O and durable acknowledgement. No extra C layer
+is introduced without a demonstrated benefit.

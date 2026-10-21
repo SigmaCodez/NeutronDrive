@@ -2,6 +2,7 @@
 //! No filesystem, network, credentials or Python calls occur in this library.
 //! The host executes guarded I/O and submits fresh observations for decisions.
 mod cache;
+mod event_route;
 mod events;
 mod inotify;
 mod policy;
