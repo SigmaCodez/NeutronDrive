@@ -36,6 +36,30 @@ jobs:
           path: build/rust/*
           if-no-files-found: error
 
+  rust-core-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.98.0 --profile minimal
+      - name: Build and test native ARM64 runtime on the libc baseline
+        run: |
+          toolchain=$(rustup run 1.98.0 rustc --print sysroot)
+          docker run --rm -v "$GITHUB_WORKSPACE:/work" -v "$toolchain:/opt/rust:ro" \
+            -w /work -e PATH=/opt/rust/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+            -e CARGO_HOME=/work/build/cargo-home ubuntu:22.04 bash -euc '
+              apt-get update
+              apt-get install -y gcc binutils python3
+              python3 scripts/build-rust-core
+              (cd core && cargo test --locked --offline)
+              PYTHONPATH=src:tests python3 -m unittest test_backend test_events test_native_storage test_inotify_core test_background -v
+            '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-core-aarch64
+          path: build/rust/*
+          if-no-files-found: error
+
   linux-filesystem:
     env:
       NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
@@ -118,7 +142,9 @@ jobs:
         run: python -m compileall -q src packaging scripts
 
   deb:
-    needs: tests
+    needs: [tests, rust-core-arm64]
+    env:
+      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
     strategy:
       matrix:
         include:
@@ -129,8 +155,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.98.0 --profile minimal
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-core-${{ matrix.architecture == 'arm64' && 'aarch64' || 'x86_64' }}
+          path: build/rust
       - name: Install validation tools and GUI dependencies
         run: |
           sudo apt-get update
@@ -153,6 +181,7 @@ jobs:
           PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_rust_core.py -v
           /usr/bin/python3 -c 'import pyfuse3, trio, gi'
           PYTHONPATH=/usr/lib/neutrondrive /usr/bin/python3 -m unittest discover -s tests -p test_local_trash.py -v
+          PYTHONPATH=/usr/lib/neutrondrive:tests /usr/bin/python3 -m unittest test_backend test_events test_native_storage test_inotify_core test_background -v
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.architecture }}

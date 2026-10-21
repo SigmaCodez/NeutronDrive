@@ -9,11 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
-import os
 from pathlib import Path
 import random
-import stat
-import tempfile
 import threading
 import time
 from typing import Callable
@@ -84,58 +81,30 @@ class EventSource:
             self._status.update(fields)
 
     def _prepare(self):
-        self.state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        info = self.state_dir.lstat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-            raise BackendError("Ereigniszustand benötigt ein privates Verzeichnis mit Modus 0700.")
+        rust_core.backend_value("private_directory", path=str(self.state_dir.absolute()))
 
     def _load(self):
         self._prepare()
-        self._cursors = {}
-        self._known_roots = []
-        try:
-            fd = os.open(self.state_file, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-        except FileNotFoundError:
-            return
-        try:
-            info = os.fstat(fd)
-            if (not stat.S_ISREG(info.st_mode) or info.st_size > 1024 * 1024
-                    or info.st_uid != os.getuid() or info.st_mode & 0o077):
-                raise BackendError("Unsichere Ereignis-Cursordatei.")
-            with os.fdopen(fd, "r", closefd=False) as stream:
-                value = json.load(stream)
-            if not isinstance(value, dict) or not isinstance(value.get("removed_scopes", []), list):
-                raise BackendError("Ungültige Ereignis-Cursordatei.")
-            removed = value.get("removed_scopes", [])
-            batch = validate_batch({**value, "type": "batch", "events": [
-                {"type": "tree_remove", "treeEventScopeId": scope, "eventId": "none"} for scope in removed
-            ], "resets": removed}, self.roots)
-            self._cursors = batch["cursors"]
-            self._known_roots = batch["roots"]
-        except (ValueError, TypeError) as exc:
-            raise BackendError("Ereignis-Cursordatei ist beschädigt; sie wurde nicht zurückgesetzt.") from exc
-        finally:
-            os.close(fd)
+        self._cursors, self._known_roots = {}, []
+        loaded = rust_core.backend_value("store_read_present", path=str(self.state_file.absolute()),
+                                       limit=1024 * 1024, private=True)
+        if not loaded["present"]: return
+        value = loaded["value"]
+        if not isinstance(value, dict) or not isinstance(value.get("removed_scopes", []), list):
+            raise BackendError("Ungültige Ereignis-Cursordatei.")
+        removed = value.get("removed_scopes", [])
+        batch = validate_batch({**value, "type": "batch", "events": [
+            {"type": "tree_remove", "treeEventScopeId": scope, "eventId": "none"} for scope in removed
+        ], "resets": removed}, self.roots)
+        self._cursors, self._known_roots = batch["cursors"], batch["roots"]
 
     def _save(self, batch):
         self._prepare()
-        fd, name = tempfile.mkstemp(prefix="event-cursor-", suffix=".tmp", dir=self.state_dir)
-        try:
-            with os.fdopen(fd, "w") as stream:
-                json.dump({"protocol": 1, "roots": batch["roots"], "cursors": batch["cursors"],
-                           "removed_scopes": sorted({event["treeEventScopeId"] for event in batch["events"]
-                                                     if event["type"] == "tree_remove"})}, stream)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(name, self.state_file)
-            directory = os.open(self.state_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-            try:
-                os.fsync(directory)
-            finally:
-                os.close(directory)
-        finally:
-            if os.path.exists(name):
-                os.unlink(name)
+        rust_core.backend_value("store_write", path=str(self.state_file.absolute()), value={
+            "protocol": 1, "roots": batch["roots"], "cursors": batch["cursors"],
+            "removed_scopes": sorted({event["treeEventScopeId"] for event in batch["events"]
+                                      if event["type"] == "tree_remove"}),
+        })
 
     def poll_once(self, callback: Callable[[RemoteEvent], None] | None = None):
         """One bounded SDK event query. Callbacks must durably accept before return."""

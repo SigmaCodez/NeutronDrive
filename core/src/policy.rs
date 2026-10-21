@@ -338,7 +338,7 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
             )
         }
         Command::Info => Ok(
-            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder","remote-cache-invalidation","daemon-event-routing"]}),
+            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder","remote-cache-invalidation","daemon-event-routing","backend-process-runtime","backend-value-validation","private-state-io","job-store","inotify-runtime"]}),
         ),
         Command::BaselineMatches {
             entry,

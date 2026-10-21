@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface is currently in German.
 
-**Status: 0.6.0 alpha 4.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 5.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -17,8 +17,11 @@ interface and icon are original; no Windows/macOS application code is copied.
 [Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
 
 The Rust core handles sync decisions, background scheduling, SDK event validation
-and delivery planning, local inotify decoding, remote cache invalidation and daemon event routing. The interface uses Qt Quick/QML; guarded Python I/O adapters
-remain.
+and delivery planning, remote cache invalidation and daemon event routing.
+Version 0.6.0 alpha5 additionally moves backend process management, private
+state I/O, job transactions and the running inotify watcher into Rust. The full
+migration is still in progress: transfer/trash/FUSE orchestration and the
+Qt Quick/QML controller retain Python dependencies.
 See [migration boundaries](docs/RUST-MIGRATION.md).
 
 ## Features
@@ -78,21 +81,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha4-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha5-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha4-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha5-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha4-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha5-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a4-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a5-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha4_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha5_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 

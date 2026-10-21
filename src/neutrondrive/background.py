@@ -7,25 +7,21 @@ the existing SyncEngine retains conflict/deletion and version-backup safeguards.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
-import ctypes
 from dataclasses import asdict, dataclass, field, replace
 import fcntl
 import json
 import os
 from pathlib import Path
 import random
-import select
 import signal
 import socket
 import stat
 import struct
 import subprocess
 import sys
-import tempfile
 import threading
 import time
-from typing import Any, Callable, Iterator
+from typing import Any, Callable
 import uuid
 
 from .backend import Backend, BackendError, Cancelled
@@ -172,102 +168,43 @@ class RemoteTreeCache:
 def _private_directory(path: Path) -> Path:
     path = Path(os.path.abspath(Path(path).expanduser()))
     try:
-        path.mkdir(parents=True, exist_ok=True, mode=0o700)
-        with _open_absolute_directory(path) as fd:
-            info = os.fstat(fd)
-            if info.st_uid != os.getuid() or info.st_mode & 0o077:
-                raise BackgroundError("Das Dienstverzeichnis muss Ihnen gehören und Zugriffsmodus 0700 haben.")
-    except (OSError, SyncError) as error:
-        raise BackgroundError("Dienstverzeichnis ist nicht sicher zugänglich; Symlinks sind nicht erlaubt.") from error
-    return path
+        return Path(rust_core.backend_value("private_directory", path=str(path)))
+    except BackendError as error:
+        raise BackgroundError(str(error)) from error
 
 
 def _read_json(path: Path, default: Any) -> Any:
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-    except FileNotFoundError:
-        return default
-    except OSError as error:
-        raise BackgroundError("Private Dienstdatei ist nicht sicher lesbar.") from error
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_size > 8 * 1024 * 1024:
-            raise BackgroundError("Ungültige private Dienstdatei.")
-        with os.fdopen(fd, "r", encoding="utf-8", closefd=False) as stream:
-            return json.load(stream)
-    except (ValueError, UnicodeError) as error:
-        raise BackgroundError("Eine Dienstdatei ist beschädigt; sie wird nicht überschrieben.") from error
-    finally:
-        os.close(fd)
+        return rust_core.backend_value("store_read", path=str(path), default=default,
+                                       limit=8 * 1024 * 1024, private=False)
+    except BackendError as error:
+        raise BackgroundError(str(error)) from error
 
 
 def _write_json(path: Path, value: Any) -> None:
-    fd, temporary = tempfile.mkstemp(prefix=".state-", dir=path.parent)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(value, stream, ensure_ascii=True, sort_keys=True)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
-    finally:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
+        rust_core.backend_value("store_write", path=str(path), value=value)
+    except BackendError as error:
+        raise BackgroundError(str(error)) from error
 
 
 def _overlap(left: Path, right: Path) -> bool:
     return left == right or left in right.parents or right in left.parents
 
 
-def _valid_remote(path: str) -> bool:
-    return (isinstance(path, str) and (path == "/my-files" or path.startswith("/my-files/"))
-            and "\x00" not in path and not any(part in {".", "..", ""} for part in path[1:].split("/")))
-
-
 def _mount_paths() -> list[tuple[Path, str]]:
-    """Read mount metadata only, never traverse a potentially lazy mount."""
-    result = []
     try:
-        lines = Path("/proc/self/mountinfo").read_text().splitlines()
-    except OSError as error:
-        raise _Blocked("Linux-Mountinformationen sind nicht verfügbar.") from error
-    for line in lines:
-        left, separator, right = line.partition(" - ")
-        fields, tail = left.split(), right.split()
-        if not separator or len(fields) < 5 or not tail:
-            continue
-        path = fields[4]
-        for escaped, literal in (("\\040", " "), ("\\011", "\t"), ("\\012", "\n"), ("\\134", "\\")):
-            path = path.replace(escaped, literal)
-        result.append((Path(path), tail[0]))
-    return result
+        return [(Path(path), kind) for path, kind in rust_core.backend_value("mount_paths")]
+    except BackendError as error:
+        raise _Blocked(str(error)) from error
 
 
 def _validate_local(root: Path, state_dir: Path, mount_paths: list[Path] = ()) -> tuple[int, int]:
-    if _overlap(root, state_dir):
-        raise _Blocked("Sync-Ordner und privates Dienstverzeichnis dürfen sich nicht überschneiden.")
-    for mounted in mount_paths:
-        if _overlap(root, Path(mounted)):
-            raise _Blocked("Ein On-demand-Mount darf kein Hintergrund-Sync-Ordner sein oder darin liegen.")
-    for mounted, kind in _mount_paths():
-        if kind == "autofs" or kind.startswith("fuse"):
-            if _overlap(root, mounted):
-                raise _Blocked("FUSE-/On-demand-/Autofs-Dateisysteme sind vom Hintergrund-Sync ausgeschlossen.")
-        elif root in mounted.parents:
-            raise _Blocked("Der Sync-Ordner enthält einen weiteren Mount; bitte einen einzelnen Ordner wählen.")
     try:
-        with _open_absolute_directory(root) as fd:
-            info = os.fstat(fd)
-            return info.st_dev, info.st_ino
-    except (OSError, SyncError) as error:
-        raise _Blocked("Lokaler Sync-Ordner ist nicht sicher zugänglich; Symlinks sind nicht erlaubt.") from error
+        return tuple(rust_core.backend_value("validate_local", root=str(root), state=str(state_dir),
+                     planned=[str(p) for p in mount_paths], mounted=[(str(p), kind) for p, kind in _mount_paths()]))
+    except BackendError as error:
+        raise _Blocked(str(error)) from error
 
 
 @dataclass(frozen=True)
@@ -284,227 +221,80 @@ class Job:
 
 
 class JobStore:
-    """Process-safe persisted job configuration; roots are immutable after add."""
+    """Compatibility adapter; Rust owns validation, locks and transactions."""
 
     def __init__(self, state_dir: Path, *, mount_paths: list[Path] = ()):
         self.state_dir = _private_directory(Path(state_dir))
         self.mount_paths = tuple(Path(path) for path in mount_paths)
         self.path = self.state_dir / "jobs.json"
-        self._lock = threading.RLock()
 
-    @contextmanager
-    def _locked(self) -> Iterator[None]:
-        with self._lock:
-            fd = os.open(self.state_dir / "jobs.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-            try:
-                fcntl.flock(fd, fcntl.LOCK_EX)
-                yield
-            finally:
-                os.close(fd)
-
-    def _load(self) -> list[Job]:
-        value = _read_json(self.path, {"version": 1, "jobs": []})
-        if not isinstance(value, dict) or value.get("version") != 1 or not isinstance(value.get("jobs"), list):
-            raise BackgroundError("Ungültige Version der Sync-Konfiguration.")
-        jobs = []
+    def _invoke(self, action, **arguments):
         try:
-            for row in value["jobs"]:
-                job = Job(**row)
-                if (len(job.id) != 32 or any(char not in "0123456789abcdef" for char in job.id)
-                        or not isinstance(job.paused, bool) or not isinstance(job.name, str)
-                        or not Path(job.local_root).is_absolute() or not _valid_remote(job.remote_root)
-                        or not isinstance(job.local_device, int) or not isinstance(job.local_inode, int)
-                        or not isinstance(job.remote_uid, str) or not isinstance(job.account_root_uid, str)
-                        or any(part in {".", ".."} for part in job.local_root.split("/"))):
-                    raise ValueError("invalid fields")
-                jobs.append(job)
-        except (TypeError, ValueError, AttributeError) as error:
-            raise BackgroundError("Ungültige Sync-Jobkonfiguration; keine automatische Reparatur.") from error
-        if len(jobs) > 64 or len({job.id for job in jobs}) != len(jobs):
-            raise BackgroundError("Zu viele oder doppelte Sync-Jobs.")
-        for index, job in enumerate(jobs):
-            for other in jobs[index + 1:]:
-                if _overlap(Path(job.local_root), Path(other.local_root)):
-                    raise BackgroundError("Lokale Sync-Ordner dürfen sich nicht überschneiden.")
-                a, b = job.remote_root, other.remote_root
-                if a == b or a.startswith(b + "/") or b.startswith(a + "/"):
-                    raise BackgroundError("Remote-Sync-Ordner dürfen sich nicht überschneiden.")
-        return jobs
-
-    def _save(self, jobs: list[Job]) -> None:
-        _write_json(self.path, {"version": 1, "jobs": [asdict(job) for job in jobs]})
+            return rust_core.backend_value("jobs", state=str(self.state_dir),
+                planned=[str(path) for path in self.mount_paths], operation=dict(action=action, **arguments))
+        except BackendError as error:
+            raise BackgroundError(str(error)) from error
 
     def list(self) -> list[Job]:
-        with self._locked():
-            return self._load()
+        return [Job(**row) for row in self._invoke("list")]
 
     def add(self, local_root: Path, remote_root: str, name: str = "", *, paused: bool = False) -> Job:
         root = Path(os.path.abspath(Path(local_root).expanduser()))
-        if remote_root != "/my-files" and not remote_root.startswith("/my-files/"):
-            raise BackgroundError("Automatischer Sync unterstützt derzeit nur Meine Dateien und dessen Unterordner.")
-        if not _valid_remote(remote_root):
-            raise BackgroundError("Ungültiger Remote-Sync-Pfad.")
-        device, inode = _validate_local(root, self.state_dir, self.mount_paths)
-        title = (name.strip() or root.name or "Sync")[:120]
-        with self._locked():
-            jobs = self._load()
-            if len(jobs) >= 64:
-                raise BackgroundError("Es sind höchstens 64 Sync-Jobs möglich.")
-            for other in jobs:
-                if _overlap(root, Path(other.local_root)):
-                    raise BackgroundError("Lokale Sync-Ordner dürfen sich nicht überschneiden.")
-                a, b = remote_root.rstrip("/"), other.remote_root.rstrip("/")
-                if a == b or a.startswith(b + "/") or b.startswith(a + "/"):
-                    raise BackgroundError("Remote-Sync-Ordner dürfen sich nicht überschneiden.")
-            job = Job(uuid.uuid4().hex, title, str(root), remote_root, bool(paused),
-                      local_device=device, local_inode=inode)
-            self._save(jobs + [job])
-            return job
+        _validate_local(root, self.state_dir, self.mount_paths)
+        return Job(**self._invoke("add", local_root=str(root), remote_root=remote_root, name=name, paused=paused))
 
     def update(self, job_id: str, *, paused: bool | None = None, name: str | None = None) -> Job:
-        with self._locked():
-            jobs = self._load()
-            for index, job in enumerate(jobs):
-                if job.id == job_id:
-                    values = {}
-                    if paused is not None:
-                        if not isinstance(paused, bool):
-                            raise BackgroundError("paused muss ein Wahrheitswert sein.")
-                        values["paused"] = paused
-                    if name is not None:
-                        values["name"] = name.strip()[:120] or job.name
-                    updated = replace(job, **values)
-                    jobs[index] = updated
-                    self._save(jobs)
-                    return updated
-        raise BackgroundError("Sync-Job wurde nicht gefunden.")
+        return Job(**self._invoke("update", id=job_id, name=name, paused=paused))
 
     def remove(self, job_id: str) -> None:
-        with self._locked():
-            jobs = self._load()
-            remaining = [job for job in jobs if job.id != job_id]
-            if len(remaining) == len(jobs):
-                raise BackgroundError("Sync-Job wurde nicht gefunden.")
-            self._save(remaining)
+        self._invoke("remove", id=job_id)
 
     def _pin(self, job_id: str, uid: str, account_uid: str, remote_path: str) -> Job:
-        with self._locked():
-            jobs = self._load()
-            for index, job in enumerate(jobs):
-                if job.id != job_id:
-                    continue
-                if (job.remote_uid and job.remote_uid != uid) or (job.account_root_uid and job.account_root_uid != account_uid):
-                    raise _Blocked("Proton-Konto oder Remote-Wurzel wurde geändert; Job bewusst neu anlegen.")
-                updated = replace(job, remote_uid=uid, account_root_uid=account_uid, remote_root=remote_path)
-                if updated != job:
-                    jobs[index] = updated
-                    self._save(jobs)
-                return updated
-        raise _Blocked("Sync-Job wurde während der Vorbereitung entfernt.")
+        try:
+            return Job(**self._invoke("pin", id=job_id, uid=uid, account_uid=account_uid, remote_path=remote_path))
+        except BackendError as error:
+            raise _Blocked(str(error)) from error
 
 
 class InotifyWatcher:
-    """Recursive Linux watcher; registering directories never hashes contents."""
-
-    _MASK = 0x00000008 | 0x00000004 | 0x00000040 | 0x00000080 | 0x00000100 | 0x00000200 | 0x00000400 | 0x00000800
-    _DIRECTORY = 0x40000000
-    _OVERFLOW = 0x00004000
-    _IGNORED = 0x00008000
-    _NOFOLLOW = 0x02000000
-    _ONLYDIR = 0x01000000
+    """Thread/callback binding; Rust owns registration, polling and descriptor."""
 
     def __init__(self, root: Path, callback: Callable[[str | None, str], None]):
-        self.root = Path(root)
-        self.callback = callback
-        self._libc = ctypes.CDLL(None, use_errno=True)
-        self._libc.inotify_init1.argtypes = [ctypes.c_int]
-        self._libc.inotify_init1.restype = ctypes.c_int
-        self._libc.inotify_add_watch.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32]
-        self._libc.inotify_add_watch.restype = ctypes.c_int
-        self._fd = self._libc.inotify_init1(os.O_NONBLOCK | os.O_CLOEXEC)
-        if self._fd < 0:
-            raise BackgroundError("inotify konnte nicht gestartet werden.")
-        self._watches: dict[int, Path] = {}
+        self.root, self.callback = Path(root), callback
         self._stop = threading.Event()
-        self._thread: threading.Thread | None = None
-        try:
-            self._add_tree(self.root)
-        except BaseException:
-            os.close(self._fd)
-            raise
-
-    def _add_tree(self, root: Path) -> None:
-        mounts = _mount_paths()
-        if any(_overlap(root, path) and (kind.startswith("fuse") or kind == "autofs")
-               for path, kind in mounts):
-            raise _Blocked("Ein FUSE-/On-demand-Mount wurde im überwachten Baum gefunden.")
-        nested_mounts = {path for path, _ in mounts if self.root in path.parents}
-        if root.is_symlink() or not root.is_dir():
-            return
-        if any(root == mounted or mounted in root.parents for mounted in nested_mounts):
-            raise _Blocked("Ein neuer Mount liegt im überwachten Baum.")
-        for directory, names, _ in os.walk(root, followlinks=False):
-            names[:] = [name for name in names if not name.startswith(".neutrondrive-")
-                        and Path(directory) / name not in nested_mounts
-                        and not (Path(directory) / name).is_symlink()]
-            watch = self._libc.inotify_add_watch(self._fd, os.fsencode(directory), self._MASK | self._NOFOLLOW | self._ONLYDIR)
-            if watch < 0:
-                raise BackgroundError("inotify-Überwachung fehlgeschlagen; Watch-Limit oder Ordnerrechte prüfen.")
-            self._watches[watch] = Path(directory)
+        self._thread = None
+        self._handle = rust_core.backend_value("watcher_create", root=list(os.fsencode(self.root)))
 
     def start(self) -> None:
+        if self._thread is not None:
+            raise BackgroundError("Dateiüberwachung wurde bereits gestartet.")
         self._thread = threading.Thread(target=self._run, name="neutrondrive-inotify", daemon=True)
         self._thread.start()
 
-    def _consume(self, data: bytes) -> None:
-        for event in rust_core.call("inotify_decode", data=list(data)):
-            if event["kind"] == "overflow":
-                self.callback(None, "inotify-overflow")
-                continue
-            watch = event["watch"]
-            parent = self._watches.get(watch)
-            if parent is None:
-                continue
-            if event["kind"] == "ignored":
-                self._watches.pop(watch, None)
-                continue
-            name = os.fsdecode(bytes(event["name"]))
-            path = parent / name if name else parent
-            if event["add_tree"]:
-                try:
-                    self._add_tree(path)
-                except (OSError, BackgroundError):
-                    self.callback(None, "watch-error")
-            if event["rebuild"]:
-                self.callback(None, "watch-rebuild")
-            try:
-                relative = path.relative_to(self.root).as_posix()
-            except ValueError:
-                self.callback(None, "watch-rebuild")
-            else:
-                self.callback(None if relative == "." else relative, "local")
+    def _event(self, event):
+        relative = event["relative"]
+        self.callback(None if relative is None else os.fsdecode(bytes(relative)), event["reason"])
 
     def _run(self) -> None:
         try:
-            while not self._stop.is_set():
-                if select.select([self._fd], [], [], 0.5)[0]:
-                    try:
-                        self._consume(os.read(self._fd, 1024 * 1024))
-                    except BlockingIOError:
-                        pass
-        except (OSError, ValueError, rust_core.CoreError):
-            if not self._stop.is_set():
-                self.callback(None, "watch-error")
+            rust_core.backend_value("watcher_run", id=self._handle, cancel=self._stop, on_event=self._event)
+        except (OSError, ValueError, BackendError):
+            if not self._stop.is_set(): self.callback(None, "watch-error")
+        finally:
+            self.stop()
 
     def stop(self) -> None:
         self._stop.set()
-        if self._fd >= 0:
-            fd, self._fd = self._fd, -1
-            os.close(fd)
+        rust_core.backend_value("watcher_stop", id=self._handle)
 
     def join(self) -> None:
         if self._thread and self._thread is not threading.current_thread():
             self._thread.join(timeout=1.0)
+
+    def __del__(self):
+        if hasattr(self, "_handle"):
+            try: self.stop()
+            except Exception: pass
 
 
 def _matches_snapshot(root: Path, relative: str, snapshot: dict[str, Any]) -> bool:
@@ -590,6 +380,7 @@ class _Runtime:
     completed: int = 0
     rebuild_watch: bool = False
     local_snapshot: dict[str, Any] = field(default_factory=dict)
+    snapshot_ready: bool = False
 
 
 class BackgroundDaemon:
@@ -649,7 +440,7 @@ class BackgroundDaemon:
             runtime = self._jobs.get(job_id)
             if runtime is None or self._stopping or (token is not None and token != runtime.watch_token):
                 return
-            if relative is not None and runtime.state != "syncing" and runtime.local_snapshot:
+            if relative is not None and runtime.state != "syncing" and runtime.snapshot_ready:
                 if _matches_snapshot(Path(runtime.job.local_root), relative, runtime.local_snapshot):
                     return
             self._schedule(runtime, reason, relative)
@@ -914,6 +705,7 @@ class BackgroundDaemon:
                 runtime.conflicts = list(result.conflicts)
                 runtime.skipped = list(result.skipped)
                 runtime.local_snapshot = _echo_snapshot(plan, result)
+                runtime.snapshot_ready = not result.errors
                 runtime.known_uids |= {entry.uid for entry in result._remote_snapshot.values()}
                 runtime.error = "\n".join(result.errors[:10])
                 runtime.state = "conflicts" if result.conflicts else "idle"

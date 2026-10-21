@@ -6,23 +6,12 @@ No shell is involved. Never log command output: it can contain account data.
 from __future__ import annotations
 
 import collections
-import contextlib
 import dataclasses
-from datetime import datetime
-import fcntl
-import json
 import os
 from pathlib import Path
-import re
-import selectors
 import shutil
-import signal
-import stat
-import subprocess
 import threading
-import time
 from typing import Callable
-from urllib.parse import urlsplit
 
 
 class BackendError(RuntimeError):
@@ -33,72 +22,32 @@ class Cancelled(BackendError):
     pass
 
 
-UID = re.compile(r"^(?:[a-zA-Z0-9=_-]{88,108}|[a-zA-Z0-9_-]{22})~(?:[a-zA-Z0-9=_-]{88,108}|[a-zA-Z0-9_-]{22})$")
-ROOTS = {"my-files", "trash", "shared-with-me", "devices"}
 MAX_OUTPUT = 64 * 1024 * 1024
 
 
-def _node_trash_state(value: object) -> bool:
-    """Public SDK nodes expose trashTime; isTrashed belongs to SDK events."""
-    if value is None:
-        return False
-    # JSON.stringify(Date) uses UTC with exactly three fractional digits.
-    # Reject malformed metadata rather than infer either presence or absence.
-    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", value):
-        raise BackendError("Die Proton-CLI lieferte einen ungültigen Papierkorbstatus.")
-    try:
-        datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ")
-    except ValueError as error:
-        raise BackendError("Die Proton-CLI lieferte einen ungültigen Papierkorbstatus.") from error
-    return True
+def _native(operation, **arguments):
+    from .rust_core import backend_value
+    return backend_value(operation, **arguments)
 
 
 def data_dir() -> Path:
-    base = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state")))
-    folder = base / "neutrondrive"
-    try:
-        folder.mkdir(parents=True, exist_ok=True, mode=0o700)
-        if folder.is_symlink() or folder.stat().st_uid != os.getuid():
-            raise BackendError("Unsicheres NeutronDrive-Zustandsverzeichnis.")
-        folder.chmod(0o700)
-    except OSError as exc:
-        raise BackendError("Das NeutronDrive-Zustandsverzeichnis ist nicht zugänglich. XDG_STATE_HOME und Schreibrechte prüfen.") from exc
-    return folder
+    return Path(_native("data_dir"))
 
 
 def validate_remote(path: str) -> str:
-    if not isinstance(path, str) or not path.startswith("/") or "\x00" in path:
-        raise BackendError("Ungültiger Cloud-Pfad.")
-    if path.split("/", 2)[1] not in ROOTS:
-        raise BackendError("Dieser Cloud-Bereich wird noch nicht unterstützt.")
-    return path
+    return _native("validate_remote", path=path)
 
 
 def validate_name(name: str) -> str:
-    if not name.strip() or name in {".", ".."} or any(ord(c) < 32 for c in name) or "/" in name or "\\" in name:
-        raise BackendError("Der Name darf nicht leer sein oder Schrägstriche/Steuerzeichen enthalten.")
-    return name
+    return _native("validate_name", name=name)
 
 
 def join_remote(parent: str, name: str) -> str:
-    validate_remote(parent)
-    validate_name(name)
-    return parent.rstrip("/") + "/" + name
+    return _native("join_remote", parent=parent, name=name)
 
 
 def local_path(path: Path, *, directory: bool = False) -> Path:
-    path = Path(os.path.abspath(Path(path).expanduser()))
-    # Upstream expands globs even when subprocess argv is used. Fail closed.
-    if any(c in str(path) for c in "*?[{"):
-        raise BackendError("Die Proton-CLI behandelt *, ?, [ und { in lokalen Pfaden als Suchmuster. Bitte einen anderen Pfad verwenden.")
-    for item in (path, *path.parents):
-        if item.is_symlink():
-            raise BackendError("Symbolische Links werden für Dateiübertragungen nicht unterstützt.")
-    if not path.exists() or (directory and not path.is_dir()):
-        raise BackendError("Der lokale Pfad existiert nicht oder ist kein Ordner.")
-    if not (path.is_file() or path.is_dir()):
-        raise BackendError("Nur reguläre Dateien und Ordner werden unterstützt.")
-    return path
+    return Path(_native("local_path", path=str(Path(path).expanduser()), directory=directory, recursive=False))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -117,74 +66,15 @@ class Node:
 
     @classmethod
     def parse(cls, item: dict, parent: str) -> Node:
-        if not isinstance(item, dict):
-            raise BackendError("Unerwartetes Datenformat der Proton-CLI.")
-        result = item.get("name", {})
-        safe = isinstance(result, dict) and result.get("ok") is True
-        name = result.get("value", "") if safe else "[Name nicht entschlüsselbar]"
-        if not isinstance(name, str) or not name:
-            name, safe = "[Ungültiger Name]", False
-        uid = item.get("rootFolderUid", item.get("uid", ""))
-        if not isinstance(uid, str):
-            raise BackendError("Ungültige Datei-ID von Proton.")
-        revision = item.get("activeRevision") or {}
-        kind = "folder" if "rootFolderUid" in item else item.get("type", "unknown")
-        safe = safe and not item.get("errors") and kind in {"file", "folder"}
-        root = parent.split("/", 2)[1]
-        # Drive nodes accept unambiguous UID segments, but virtual trash and
-        # shared/device roots are name-only in the upstream CLI.
-        if root == "my-files" and UID.fullmatch(uid):
-            remote = "/my-files/" + uid
-        elif root != "trash" and parent.count("/") > 1 and UID.fullmatch(uid):
-            remote = parent + "/" + uid
-        else:
-            try:
-                remote = join_remote(parent, name)
-            except BackendError:
-                remote, safe = "", False
-        size = revision.get("claimedSize")
-        if not isinstance(size, int) or isinstance(size, bool) or size < 0:
-            size = None
-        digest = (revision.get("claimedDigests") or {}).get("sha1", "")
-        # Keep one semantic flag for consumers while preserving public SDK
-        # metadata. Never trust an event-only isTrashed field in node JSON.
-        metadata = dict(item, isTrashed=_node_trash_state(item.get("trashTime")))
-        return cls(uid, name, kind, size,
-                   revision.get("claimedModificationTime") or item.get("modificationTime", ""),
-                   revision.get("uid", ""), digest or "", remote, metadata, bool(safe), item.get("mediaType", ""))
+        return cls(**_native("node", item=item, parent=parent))
 
 
 def checked_json(output: str):
-    if not output.strip():
-        return None
-    try:
-        result = json.loads(output)
-    except (ValueError, RecursionError) as exc:
-        raise BackendError("Die Proton-CLI lieferte keine vollständige JSON-Antwort. Es wurde kein Erfolg angenommen.") from exc
-    if isinstance(result, list):
-        failed = [x for x in result if isinstance(x, dict) and x.get("ok") is False]
-        if failed:
-            raise BackendError(f"Proton meldet {len(failed)} fehlgeschlagene Dateioperation(en). Bitte Ansicht aktualisieren.")
-    if isinstance(result, dict) and result.get("failedItems", 0):
-        raise BackendError(f"{result['failedItems']} Übertragung(en) fehlgeschlagen. Erfolgreiche Teilübertragungen bleiben erhalten.")
-    return result
+    return _native("checked_json", output=output)
 
 
 def friendly_error(stderr: str) -> str:
-    lower = stderr.lower()
-    if any(x in lower for x in ("not authenticated", "not logged in", "authentication required", "auth login", "log in first", "login first")):
-        return "Bitte zuerst über den Browser bei Proton anmelden."
-    if any(x in lower for x in ("libsecret", "secret service", "keyring", "credentials store", "dbus")):
-        return "Der Linux-Schlüsselbund ist nicht erreichbar. GNOME Keyring oder KWallet entsperren und Secret-Service-Zugriff prüfen."
-    if any(x in lower for x in ("429", "rate limit", "too many requests")):
-        return "Proton begrenzt gerade die Anfragen. Bitte später erneut versuchen."
-    if any(x in lower for x in ("quota", "insufficient storage")):
-        return "Der verfügbare Cloud-Speicher reicht für diese Übertragung nicht aus."
-    if "not found" in lower:
-        return "Die Datei oder der Ordner wurde nicht gefunden. Bitte aktualisieren."
-    if any(x in lower for x in ("network", "fetch failed", "connection", "enotfound", "timeout", "timed out")):
-        return "Verbindung zu Proton fehlgeschlagen. Bitte Netzwerk prüfen und erneut versuchen."
-    return "Die Proton-CLI hat die Aktion abgebrochen. Bitte Anmeldung, Zugriffsrechte und Netzwerk prüfen. Rohdaten werden zum Schutz von Kontodaten nicht angezeigt."
+    return _native("friendly_error", stderr=stderr)
 
 
 class Backend:
@@ -206,92 +96,10 @@ class Backend:
     def _run(self, args: list[str], *, timeout=3600, on_login: Callable[[str], None] | None = None, parse=True):
         if not self.available:
             raise BackendError("Die offizielle Proton Drive CLI fehlt. Bitte ein NeutronDrive-Paket mit Backend installieren oder NEUTRONDRIVE_CLI setzen.")
-        if self.cancel_event.is_set():
-            raise Cancelled("Vorgang abgebrochen; bereits übertragene Dateien bleiben erhalten.")
-        env = os.environ.copy()
-        if env.get("PROTON_DRIVE_CREDENTIALS_STORE", "keychain") not in {"keychain", "pass"}:
-            raise BackendError("NeutronDrive erlaubt nur einen verschlüsselten Schlüsselbund (keychain oder pass).")
-        if env.get("PROTON_DRIVE_BASE_URL", "drive-api.proton.me") != "drive-api.proton.me":
-            raise BackendError("NeutronDrive verwendet ausschließlich den offiziellen Proton-API-Endpunkt.")
-        env.update({"NO_COLOR": "1", "PROTON_DRIVE_LOG_LEVEL": "WARNING", "PROTON_DRIVE_UNSAFE_CACHE": "false"})
+        from .rust_core import run_backend
         with self._mutex:
-            if self.cancel_event.is_set():
-                raise Cancelled("Vorgang vor dem Start abgebrochen.")
-            lock_path = data_dir() / "backend.lock"
-            lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
-            with os.fdopen(lock_fd, "w") as lock:
-                # The GUI, background worker and on-demand filesystem share a
-                # credential/cache session. Serialize all short CLI calls, but
-                # keep a waiting caller cancellable and bounded.
-                lock_deadline = time.monotonic() + min(timeout, 120)
-                while True:
-                    if self.cancel_event.is_set():
-                        raise Cancelled("Warten auf das Backend abgebrochen.")
-                    try:
-                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        break
-                    except BlockingIOError as exc:
-                        if time.monotonic() >= lock_deadline:
-                            raise BackendError("Das Backend ist noch beschäftigt. Bitte erneut versuchen.") from exc
-                        self.cancel_event.wait(0.05)
-                try:
-                    process = subprocess.Popen([self.executable, *args], stdin=subprocess.DEVNULL,
-                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                               env=env, start_new_session=True)
-                except OSError as exc:
-                    raise BackendError("Die Proton-CLI konnte nicht gestartet werden. Architektur und Bibliotheken prüfen.") from exc
-                try:
-                    return self._collect(process, timeout, on_login, parse)
-                finally:
-                    if process.poll() is None:
-                        with contextlib.suppress(ProcessLookupError):
-                            os.killpg(process.pid, signal.SIGTERM)
-                        try:
-                            process.wait(timeout=2)
-                        except subprocess.TimeoutExpired:
-                            with contextlib.suppress(ProcessLookupError):
-                                os.killpg(process.pid, signal.SIGKILL)
-                            process.wait()
-                    process.stdout.close()
-                    process.stderr.close()
-
-    def _collect(self, process, timeout, on_login, parse):
-        buffers = {"out": bytearray(), "err": bytearray()}
-        deadline = time.monotonic() + timeout
-        login_reported = False
-        with selectors.DefaultSelector() as selector:
-            selector.register(process.stdout, selectors.EVENT_READ, "out")
-            selector.register(process.stderr, selectors.EVENT_READ, "err")
-            while selector.get_map() or process.poll() is None:
-                if self.cancel_event.is_set():
-                    raise Cancelled("Vorgang abgebrochen; bereits übertragene Dateien bleiben erhalten.")
-                if time.monotonic() > deadline:
-                    raise BackendError("Zeitlimit erreicht. Der Vorgang wurde beendet; bitte Cloud-Status vor einem erneuten Versuch prüfen.")
-                for key, _ in selector.select(0.1):
-                    chunk = os.read(key.fileobj.fileno(), 65536)
-                    if not chunk:
-                        selector.unregister(key.fileobj)
-                        continue
-                    buffers[key.data].extend(chunk)
-                    if len(buffers[key.data]) > MAX_OUTPUT:
-                        raise BackendError("Die Backend-Antwort überschreitet die Größenbegrenzung. Bitte kleinere Ordner verwenden.")
-                    if on_login and not login_reported and key.data == "out" and b"\n" in buffers["out"]:
-                        try:
-                            url = json.loads(buffers["out"].split(b"\n", 1)[0])["signInUrl"]
-                            parsed = urlsplit(url)
-                            if parsed.scheme != "https" or parsed.hostname != "account.proton.me" or parsed.username is not None or parsed.password is not None or parsed.port not in (None, 443):
-                                raise ValueError("Untrusted login URL")
-                        except (ValueError, KeyError, TypeError) as exc:
-                            raise BackendError("Die Proton-CLI lieferte keine vertrauenswürdige Anmelde-URL.") from exc
-                        on_login(url)
-                        login_reported = True
-        returncode = process.wait()
-        if returncode:
-            raise BackendError(friendly_error(buffers["err"].decode("utf-8", "replace")))
-        if on_login and not login_reported:
-            raise BackendError("Die Proton-CLI hat keine Anmeldung bestätigt. Bitte erneut anmelden.")
-        output = buffers["out"].decode("utf-8", "replace")
-        return checked_json(output) if parse else output.strip()
+            return run_backend(self.executable, args, timeout=timeout, parse=parse,
+                               on_login=on_login, cancel=self.cancel_event, max_output=MAX_OUTPUT)
 
     def version(self) -> str:
         return self._run(["version"], timeout=30, parse=False)
@@ -347,19 +155,8 @@ class Backend:
     def upload(self, paths: list[Path], parent: str, file_strategy="rename", folder_strategy="merge"):
         if not paths or file_strategy not in {"rename", "create-new-revision", "skip"} or folder_strategy not in {"merge", "rename", "skip"}:
             raise BackendError("Ungültige Upload-Einstellungen.")
-        sources = [local_path(p) for p in paths]
-        # The upstream uploader can traverse links. Do not unintentionally send
-        # files outside a user-selected folder or read devices/FIFOs.
-        for source in sources:
-            if source.is_dir():
-                for base, dirs, files in os.walk(source, followlinks=False):
-                    if self.cancel_event.is_set():
-                        raise Cancelled("Upload abgebrochen.")
-                    for name in dirs + files:
-                        child = Path(base) / name
-                        mode = child.lstat().st_mode
-                        if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode)):
-                            raise BackendError("Der Upload-Ordner enthält symbolische Links oder Spezialdateien. Bitte diese zuerst ausschließen.")
+        sources = [_native("local_path", path=str(Path(p).expanduser()), directory=False,
+                           recursive=True, cancel=self.cancel_event) for p in paths]
         return self._run(["filesystem", "upload", "--json", "--file-conflict-strategy", file_strategy,
                           "--folder-conflict-strategy", folder_strategy, "--", *map(str, sources), validate_remote(parent)])
 
