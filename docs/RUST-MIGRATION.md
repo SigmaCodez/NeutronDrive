@@ -1,7 +1,44 @@
-# Incremental Rust migration — stages 1–3 (0.4–0.6)
+# Rust migration — implementation status
 
-The application requires `libneutrondrive_core.so`. This release is not a full
-Rust rewrite of the background process. The 0.6 interface is implemented in Qt Quick/QML with a PySide6 controller.
+The application requires `libneutrondrive_core.so`. **The complete Rust migration
+is still in progress.** The current interface uses Qt Quick/QML with a PySide6
+controller. Do not describe this branch as a Python-free application.
+
+## Native runtime work after 0.6.0 alpha 4
+
+- Rust owns backend child processes, session/process-group cleanup, both output
+  pipes, cancellation, timeouts, login-URL validation and the interprocess lock.
+  Callback exceptions are propagated only after the child has been terminated
+  and reaped. SDK output and credential-bearing errors are never logged.
+- SDK node/trash metadata, JSON result validation, upload path checks and upload
+  tree traversal now execute in Rust. Python retains small method/data bindings.
+- Private state reads and atomic writes now execute in Rust, including file and
+  directory fsync, non-following directory traversal, bounded reads and explicit
+  distinction between a missing file and a stored JSON null. Event cursors still
+  advance only after consumer callbacks and durable persistence succeed.
+- Job configuration transactions execute in Rust: process locks, schema checks,
+  local/remote overlap rejection, mount exclusions, immutable roots and account
+  identity pins. Existing version-1 job JSON is retained.
+- Rust owns inotify registration, recursive discovery, polling and descriptor
+  cleanup. Opaque handles retain ownership during concurrent stop/callback calls;
+  non-UTF-8 filenames cross the callback boundary as byte arrays.
+
+These changes are a migration checkpoint, not completion of the requested full
+rewrite. The SDK bridge remains the authority for authentication and encryption.
+
+| Remaining component | Current implementation | Required completion work |
+| --- | --- | --- |
+| Daemon orchestration and control socket | Python | Native service lifecycle, IPC, cancellation and recovery |
+| Transfer execution and filesystem snapshots | Python with Rust planning | Native guarded filesystem/SDK I/O with race and crash tests |
+| Local trash and restore | Python | Native durable receipts, no-clobber restore and recovery |
+| Online-drive cache and FUSE | Python | Native cache, file handles, offline/pin/evict and writeback |
+| Desktop service and Qt controller | Python/PySide6/Gio | Native service/Qt bindings preserving QML and system appearance |
+| Packaging | Python runtime remains required | Switch launcher/dependencies only after all runtime users are removed |
+
+Completion requires the complete regression suite, real FUSE/D-Bus/UI tests,
+synthetic account tests, baseline-compatible packages and installed-package
+verification. Removing dependencies or inflating GitHub's Rust percentage does
+not satisfy those gates.
 
 ## Implemented in Rust
 
@@ -42,14 +79,17 @@ filesystem race, cancellation and crash-recovery validation.
 
 ## Retained adapters
 
-Python retains daemon lifecycle, locks, Unix control socket, job persistence,
-inotify/SDK event ingestion, filesystem snapshots, guarded transfer execution,
-local trash receipts and restore, and the FUSE/Qt integrations. The pinned
+Python retains daemon orchestration, its condition lock and Unix control socket,
+SDK event-source orchestration, filesystem snapshots, guarded transfer execution,
+local trash receipts/restore and FUSE/Qt integrations. Native runtime bindings
+retain synchronous callback and exception conversion only where migrated. The pinned
 Proton SDK bridge still owns authentication, cryptography and remote API access.
 Existing baseline v2, jobs and pending operation formats are unchanged.
 
 The library exchanges versioned JSON observations/decisions over a narrow C ABI.
-It receives no credentials and performs no I/O. Rust explicitly requests fresh
+The policy ABI performs no I/O. A separate backend ABI owns the native I/O
+listed above and inherits only the configured SDK environment; it does not
+read credential stores. Rust policy explicitly requests fresh
 remote absence observations; the host checks those before requesting a final
 plan. Existing stale-plan and immediately-before-mutation checks remain active.
 An absent/incompatible core stops operations with a diagnostic; there is no
@@ -69,7 +109,7 @@ suites, concurrent ABI calls, installed-package checks and synthetic account tes
 See [measured results](VALIDATION.md). This is not a security audit or a claim of
 improved performance; no comparative performance benchmark has been completed.
 
-Later migration stages can move daemon orchestration and guarded I/O into Rust,
+The remaining migration must move daemon orchestration and guarded transfer I/O into Rust,
 retaining the control protocol and disk formats. They require separate crash,
 interruption and filesystem race validation. This release does not claim these
 future stages are complete.

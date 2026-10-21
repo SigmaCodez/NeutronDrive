@@ -4,7 +4,9 @@ from pathlib import Path
 import random
 import struct
 import unittest
-from unittest.mock import Mock
+import tempfile
+import time
+import threading
 from neutrondrive import rust_core
 from neutrondrive.background import InotifyWatcher
 
@@ -26,28 +28,62 @@ class NativeInotifyTests(unittest.TestCase):
             else:
                 self.assertEqual(result,[dict(kind='local',watch=4,name=list(name.split(b'\0')[0]),add_tree=bool(mask & 0x40000000 and mask & (256|128)),rebuild=bool(mask & (1024|2048)))])
 
-    def watcher(self):
-        watcher=object.__new__(InotifyWatcher)
-        watcher.root=Path('/synthetic')
-        watcher._watches={4:watcher.root}
-        watcher.callback=Mock()
-        watcher._add_tree=Mock()
-        return watcher
+    def wait_for(self, predicate):
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            if predicate(): return
+            time.sleep(0.01)
+        self.fail("Native watcher did not deliver the expected event")
 
     def test_linux_byte_names_and_new_directories_reach_adapter(self):
-        w=self.watcher()
-        w._consume(event(4,8,b'bad-\xff\0')+event(4,0x40000100,b'directory\0'))
-        self.assertEqual(os.fsencode(w.callback.call_args_list[0].args[0]),b'bad-\xff')
-        w._add_tree.assert_called_once_with(Path('/synthetic/directory'))
-        self.assertEqual(w.callback.call_args_list[1].args,('directory','local'))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            events = []
+            watcher = InotifyWatcher(root, lambda path, reason: events.append((path, reason)))
+            watcher.start()
+            try:
+                (root / "directory").mkdir()
+                self.wait_for(lambda: ("directory", "local") in events)
+                name = os.fsencode(root / "directory") + b"/bad-\xff"
+                with open(name, "wb") as target: target.write(b"data")
+                self.wait_for(lambda: any(path is not None and os.fsencode(path) == b"directory/bad-\xff" for path, reason in events))
+            finally:
+                watcher.stop(); watcher.join()
+            self.assertFalse(watcher._thread.is_alive())
 
     def test_malformed_batch_does_not_apply_partial_effects(self):
-        w=self.watcher()
-        with self.assertRaises(rust_core.CoreError): w._consume(event(4,0x40000100,b'directory\0')+b'incomplete')
-        w._add_tree.assert_not_called();w.callback.assert_not_called()
+        # Native State::consume has a separate unit test proving zero callbacks
+        # and unchanged registration state for this same malformed read.
+        with self.assertRaises(rust_core.CoreError):
+            rust_core.call("inotify_decode", data=list(event(4,0x40000100,b'directory\0')+b'incomplete'))
 
-    def test_overflow_and_watch_removal(self):
-        w=self.watcher()
-        w._consume(event(-1,0x4000)+event(4,0x8000)+event(4,8,b'later\0'))
-        w.callback.assert_called_once_with(None,'inotify-overflow')
-        self.assertEqual(w._watches,{})
+    def test_stop_from_callback_is_safe_and_handle_cannot_be_reused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            stopped = threading.Event()
+            def callback(path, reason):
+                watcher.stop()
+                stopped.set()
+            watcher = InotifyWatcher(Path(temporary), callback)
+            watcher.start()
+            (Path(temporary) / "file").write_bytes(b"x")
+            self.assertTrue(stopped.wait(3))
+            watcher.join()
+            self.assertFalse(watcher._thread.is_alive())
+            watcher.stop()  # idempotent
+            with self.assertRaises(rust_core.BackendError):
+                rust_core.backend_value("watcher_run", id=watcher._handle)
+
+    def test_callback_failure_closes_native_descriptor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            failed = threading.Event()
+            def callback(path, reason):
+                if reason == "watch-error": failed.set()
+                else: raise rust_core.BackendError("consumer failed")
+            watcher = InotifyWatcher(Path(temporary), callback)
+            watcher.start()
+            (Path(temporary) / "file").write_bytes(b"x")
+            self.assertTrue(failed.wait(3))
+            watcher.join()
+            self.assertFalse(watcher._thread.is_alive())
+            with self.assertRaises(rust_core.BackendError):
+                rust_core.backend_value("watcher_run", id=watcher._handle)

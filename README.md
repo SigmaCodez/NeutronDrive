@@ -17,8 +17,11 @@ interface and icon are original; no Windows/macOS application code is copied.
 [Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
 
 The Rust core handles sync decisions, background scheduling, SDK event validation
-and delivery planning, local inotify decoding, remote cache invalidation and daemon event routing. The interface uses Qt Quick/QML; guarded Python I/O adapters
-remain.
+and delivery planning, remote cache invalidation and daemon event routing.
+The development branch additionally moves backend process management, private
+state I/O, job transactions and the running inotify watcher into Rust. The full
+migration is still in progress: transfer/trash/FUSE orchestration and the
+Qt Quick/QML controller retain Python dependencies.
 See [migration boundaries](docs/RUST-MIGRATION.md).
 
 ## Features

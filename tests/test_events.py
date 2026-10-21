@@ -143,9 +143,17 @@ class EventTests(unittest.TestCase):
         target = self.state / "other"
         target.write_text("unchanged")
         self.source.state_file.symlink_to(target)
-        with self.assertRaises(OSError):
+        # Native I/O exposes a sanitized BackendError across the C ABI.
+        with self.assertRaises(BackendError):
             self.source._load()
         self.assertEqual(target.read_text(), "unchanged")
+
+    def test_json_null_cursor_is_corruption_not_a_missing_file(self):
+        self.source._prepare()
+        self.source.state_file.write_text("null")
+        self.source.state_file.chmod(0o600)
+        with self.assertRaises(BackendError): self.source._load()
+        self.assertEqual(self.source.state_file.read_text(), "null")
 
     def test_cancellation_during_callback_never_advances_cursor(self):
         def accept(event):

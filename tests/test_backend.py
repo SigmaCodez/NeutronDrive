@@ -7,8 +7,10 @@ operation failures that do not produce a nonzero process exit code.
 from __future__ import annotations
 
 import fcntl
+import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 import sys
 import tempfile
@@ -17,7 +19,8 @@ import time
 import unittest
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+if importlib.util.find_spec("neutrondrive") is None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from neutrondrive import backend as module
 from neutrondrive.backend import (
@@ -65,6 +68,26 @@ if mode == "login":
         time.sleep(0.005)
 elif mode == "sleep":
     Path(os.environ["FAKE_PID"]).write_text(str(os.getpid()))
+    time.sleep(10)
+elif mode == "grace":
+    def terminate(signum, frame):
+        time.sleep(0.2)
+        Path(os.environ["FAKE_ACK"]).touch()
+        sys.exit(0)
+    signal.signal(signal.SIGTERM, terminate)
+    Path(os.environ["FAKE_PID"]).write_text(str(os.getpid()))
+    time.sleep(10)
+elif mode == "descendant":
+    import subprocess
+    child = subprocess.Popen([sys.executable, "-c", "import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)"])
+    Path(os.environ["FAKE_PID"]).write_text(str(os.getpid()))
+    Path(os.environ["FAKE_PID"] + ".descendant").write_text(str(child.pid))
+    # Exit immediately; the descendant still holds both pipes. The Rust runtime
+    # must not mistake the leader's exit for EOF or abandon its process group.
+    sys.exit(0)
+elif mode == "stdout-flood":
+    sys.stdout.write("x" * 200000)
+    sys.stdout.flush()
     time.sleep(10)
 elif mode == "delay":
     time.sleep(0.05)
@@ -164,6 +187,79 @@ class BackendTests(unittest.TestCase):
         with self.assertRaises(BackendError):
             self.backend.login(lambda url: self.fail("Unexpected login URL"))
 
+    def test_native_runtime_does_not_spawn_through_python(self):
+        with mock.patch.object(subprocess, "Popen", side_effect=AssertionError("Python process spawn")):
+            self.assertEqual(self.backend._run(["version"]), [])
+        self.assertEqual([r["event"] for r in self.call_records()], ["start", "end"])
+
+    def test_login_callback_exception_reaps_process_and_releases_lock(self):
+        os.environ["FAKE_MODE"] = "login"
+        def broken(url):
+            raise LookupError("callback failed")
+        with self.assertRaisesRegex(LookupError, "callback failed"):
+            self.backend.login(broken)
+        pid = self.call_records()[0]["pid"]
+        with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
+        os.environ["FAKE_MODE"] = "response"
+        self.assertEqual(self.backend._run(["version"], timeout=1), [])
+
+    def test_cancel_while_waiting_for_other_process_lock(self):
+        failures = []
+        def task():
+            try: self.backend._run(["version"], timeout=3)
+            except Exception as error: failures.append(error)
+        with (module.data_dir() / "backend.lock").open("w") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            thread = threading.Thread(target=task)
+            thread.start()
+            self.backend.cancel()
+            thread.join(2)
+            self.assertFalse(thread.is_alive())
+        self.assertEqual(len(failures), 1)
+        self.assertIsInstance(failures[0], Cancelled)
+        self.assertEqual(self.call_records(), [])
+
+    def test_timeout_kills_descendant_holding_pipes_after_leader_exits(self):
+        os.environ["FAKE_MODE"] = "descendant"
+        with self.assertRaisesRegex(BackendError, "Zeitlimit"):
+            self.backend._run(["version"], timeout=0.25)
+        self.assert_child_reaped()
+        descendant = int(Path(str(self.pid_file) + ".descendant").read_text())
+        def stopped():
+            try:
+                return Path(f"/proc/{descendant}/stat").read_text().split(")", 1)[1].split()[0] == "Z"
+            except FileNotFoundError:
+                return True
+        self.wait_for(stopped)
+
+    def test_stdout_limit_also_stops_child(self):
+        os.environ["FAKE_MODE"] = "stdout-flood"
+        with mock.patch.object(module, "MAX_OUTPUT", 1024), self.assertRaisesRegex(BackendError, "Größenbegrenzung"):
+            self.backend._run(["version"], timeout=3)
+        pid = self.call_records()[0]["pid"]
+        with self.assertRaises(ProcessLookupError): os.kill(pid, 0)
+
+    def test_symlink_and_hardlink_lock_are_rejected_without_mutation(self):
+        lock = module.data_dir() / "backend.lock"
+        target = self.root / "unrelated-file"
+        target.write_text("keep this")
+        for hardlink in (False, True):
+            if hardlink: os.link(target, lock)
+            else: lock.symlink_to(target)
+            with self.assertRaises(BackendError): self.backend.logout()
+            self.assertEqual(target.read_text(), "keep this")
+            lock.unlink()
+        self.assertEqual(self.call_records(), [])
+
+    def test_malformed_runtime_bounds_never_start_child(self):
+        for timeout in (0, -1, 86401):
+            with self.subTest(timeout=timeout), self.assertRaises(BackendError):
+                self.backend._run(["version"], timeout=timeout)
+        for limit in (0, -1, module.MAX_OUTPUT + 1):
+            with self.subTest(limit=limit), mock.patch.object(module, "MAX_OUTPUT", limit), self.assertRaises(BackendError):
+                self.backend._run(["version"])
+        self.assertEqual(self.call_records(), [])
+
     def test_partial_operation_failure_with_exit_zero_is_rejected(self):
         self.response([{"uid": "a", "ok": True}, {"uid": "b", "ok": False, "error": {}}])
         with self.assertRaisesRegex(BackendError, "fehlgeschlagene"):
@@ -237,6 +333,13 @@ class BackendTests(unittest.TestCase):
             self.backend._run(["filesystem", "list"], timeout=0.2)
         self.assert_child_reaped()
 
+    def test_timeout_preserves_sdk_termination_grace(self):
+        os.environ["FAKE_MODE"] = "grace"
+        with self.assertRaisesRegex(BackendError, "Zeitlimit"):
+            self.backend._run(["version"], timeout=0.25)
+        self.assertTrue(self.ack.exists(), "SIGKILL must not interrupt graceful SDK cleanup")
+        self.assert_child_reaped()
+
     def test_active_cancellation_reaps_child(self):
         os.environ["FAKE_MODE"] = "sleep"
         failures = []
@@ -289,15 +392,13 @@ class BackendTests(unittest.TestCase):
             except Exception as exc:
                 failures.append(exc)
 
-        with mock.patch.object(module.subprocess, "Popen", wraps=module.subprocess.Popen) as spawn:
-            thread = threading.Thread(target=task)
-            thread.start()
-            self.assertTrue(waiting.wait(2))
-            self.backend.cancel()
-            lock.release()
-            thread.join(3)
-            self.assertFalse(thread.is_alive())
-            self.assertEqual(spawn.call_count, 0, "Cancelled queued operation must never spawn a child")
+        thread = threading.Thread(target=task)
+        thread.start()
+        self.assertTrue(waiting.wait(2))
+        self.backend.cancel()
+        lock.release()
+        thread.join(3)
+        self.assertFalse(thread.is_alive())
         self.assertEqual(len(failures), 1)
         self.assertIsInstance(failures[0], Cancelled)
         self.assertEqual(self.call_records(), [])
@@ -470,6 +571,24 @@ class ValueTests(unittest.TestCase):
                       "2026-10-20T25:00:00.000Z"):
             with self.subTest(value=value), self.assertRaisesRegex(BackendError, "Papierkorbstatus"):
                 Node.parse(node_json(trashTime=value), "/my-files")
+
+    def test_leap_year_trash_time_validation(self):
+        for stamp in ("2000-02-29T23:59:59.999Z", "2024-02-29T00:00:00.000Z"):
+            self.assertTrue(Node.parse(node_json(trashTime=stamp), "/my-files").raw["isTrashed"])
+        for stamp in ("1900-02-29T00:00:00.000Z", "0000-01-01T00:00:00.000Z", "2026-00-01T00:00:00.000Z"):
+            with self.assertRaises(BackendError): Node.parse(node_json(trashTime=stamp), "/my-files")
+
+    def test_untyped_failure_count_cannot_leak_sdk_values(self):
+        for count in ("private-data", {"error": "private-data"}, -1, True, None):
+            with self.subTest(count=count), self.assertRaises(BackendError) as raised:
+                checked_json(json.dumps({"failedItems": count}))
+            self.assertNotIn("private-data", str(raised.exception))
+
+    def test_invalid_revision_shapes_fail_closed(self):
+        for revision in (["private-data"], "private-data", {"claimedDigests": ["private-data"]}, {"uid": {"error": "private-data"}}):
+            with self.subTest(revision=revision), self.assertRaises(BackendError) as raised:
+                Node.parse(node_json(activeRevision=revision), "/my-files")
+            self.assertNotIn("private-data", str(raised.exception))
 
     def test_decryption_failure_disables_operations(self):
         item = node_json()

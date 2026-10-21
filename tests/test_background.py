@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 import shutil
 import stat
-import struct
 import tempfile
 import threading
 import time
@@ -179,6 +178,33 @@ class StoreTests(unittest.TestCase):
             with self.assertRaises(BackgroundError):
                 self.store._pin(job.id, uid, account, "/my-files/" + uid)
         self.assertEqual(self.store.list()[0].account_root_uid, "account-one")
+
+    def test_native_transactions_do_not_lose_concurrent_updates(self):
+        failures, created = [], []
+        def create(index):
+            try:
+                local = self.base / f"concurrent-{index}"
+                local.mkdir()
+                created.append(JobStore(self.state).add(local, f"/my-files/concurrent-{index}"))
+            except BaseException as error: failures.append(error)
+        threads = [threading.Thread(target=create, args=(index,)) for index in range(12)]
+        for thread in threads: thread.start()
+        for thread in threads:
+            thread.join(8)
+            self.assertFalse(thread.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(len(created), 12)
+        self.assertEqual({j.id for j in self.store.list()}, {j.id for j in created})
+
+    def test_failed_native_update_preserves_config_bytes(self):
+        job = self.store.add(self.local, "/my-files/local")
+        before = self.store.path.read_bytes()
+        for paused in ("false", 0, {}, []):
+            with self.subTest(paused=paused), self.assertRaises(BackgroundError):
+                self.store.update(job.id, paused=paused)
+            self.assertEqual(self.store.path.read_bytes(), before)
+        with self.assertRaises(BackgroundError): self.store.remove("missing")
+        self.assertEqual(self.store.path.read_bytes(), before)
 
 
 class RemoteCacheTests(unittest.TestCase):
@@ -596,6 +622,7 @@ class DaemonTests(unittest.TestCase):
         self.events = Events()
         self.launch(real_watcher=True)
         self.idle()
+
         self.assertFalse(original.exists())
         self.assertNotIn("delete.txt", self.cloud.nodes)
         self.assertEqual(len(LocalTrash().list_entries()), 1)
@@ -607,6 +634,25 @@ class DaemonTests(unittest.TestCase):
         self.idle()
         self.assertNotEqual(self.cloud.nodes["delete.txt"].uid, node.uid)
         self.assertFalse(self.status()["conflicts"])
+
+    def test_delayed_delete_echo_after_empty_snapshot_does_not_rescan(self):
+        original = self.local / "last-file.txt"
+        original.write_bytes(b"recover locally")
+        self.start()
+        self.idle()
+        node = self.cloud.nodes["last-file.txt"]
+        self.cloud.trash([node.path])
+        self.events.emit(root_uid="root-1", node_uid=node.uid, parent_uid="root-1",
+                         kind="node_updated", is_trashed=True)
+        eventually(lambda: not original.exists())
+        self.idle()
+        count = self.cloud.plans
+        self.local_event("last-file.txt")
+        time.sleep(0.15)
+        self.assertEqual(self.cloud.plans, count)
+        (self.local / "new-file.txt").write_bytes(b"new content")
+        self.local_event("new-file.txt")
+        eventually(lambda: self.cloud.contents.get("new-file.txt") == b"new content")
 
     def test_folder_delete_event_retains_complete_local_tree_until_cloud_restore(self):
         from neutrondrive.local_trash import LocalTrash
@@ -794,7 +840,7 @@ class WatcherTests(unittest.TestCase):
                 (root / "nested/file").read_bytes()
                 time.sleep(0.08)
                 self.assertEqual(events, [])
-                watcher._consume(struct.pack("iIII", -1, InotifyWatcher._OVERFLOW, 0, 0))
+                watcher._event({"kind": "watch", "relative": None, "reason": "inotify-overflow"})
                 self.assertIn((None, "inotify-overflow"), events)
                 events.clear()
                 (root / ".neutrondrive-backup-test").write_bytes(b"backup")
@@ -802,6 +848,7 @@ class WatcherTests(unittest.TestCase):
                 self.assertEqual(events, [])
             finally:
                 watcher.stop()
+                watcher.join()
 
 
 if __name__ == "__main__":
