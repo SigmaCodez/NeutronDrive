@@ -1,6 +1,9 @@
 """Persistent AppImage cache must not follow links or reuse corrupted code."""
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -47,3 +50,21 @@ class PortableCacheTests(unittest.TestCase):
     def test_manifest_cannot_escape_runtime(self):
         with self.assertRaisesRegex(ValueError, 'Unsafe'):
             bootstrap.valid(self.source, {'../escape': 'abc'})
+
+    def test_launchers_need_no_host_utilities_before_resetting_runtime_paths(self):
+        # Host coreutils may require a newer libsystemd than the portable runtime.
+        # Simulate that boundary by providing no external utilities in PATH.
+        root = self.base / 'portable path with spaces'
+        (root / 'usr/bin').mkdir(parents=True)
+        scripts = Path(__file__).resolve().parents[1] / 'packaging/appimage'
+        for name, target in [('AppRun', root / 'AppRun'), ('neutrondrive', root / 'usr/bin/neutrondrive')]:
+            shutil.copyfile(scripts / name, target)
+            target.chmod(0o755)
+        interpreter = root / 'usr/bin/python3.10'
+        interpreter.write_text('#!/bin/sh\nprintf "launcher-ok:%s\\n" "$1"\n')
+        interpreter.chmod(0o755)
+        for launcher in (root / 'AppRun', root / 'usr/bin/neutrondrive'):
+            with self.subTest(launcher=launcher.name):
+                result = subprocess.run([str(launcher), '--help'], env=dict(os.environ, PATH='/no-host-tools'), capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), 'launcher-ok:' + str(root / 'usr/lib/neutrondrive/appimage-bootstrap.py'))
