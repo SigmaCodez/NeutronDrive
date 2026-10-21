@@ -228,7 +228,8 @@ class BackendTests(unittest.TestCase):
         def stopped():
             try:
                 return Path(f"/proc/{descendant}/stat").read_text().split(")", 1)[1].split()[0] == "Z"
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
+                # procfs can lose the process after open() but before read().
                 return True
         self.wait_for(stopped)
 
