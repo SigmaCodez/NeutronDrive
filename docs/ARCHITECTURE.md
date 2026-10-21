@@ -28,7 +28,7 @@ provenance is documented in [UPSTREAM.md](UPSTREAM.md).
 
 ## Qt interface and callbacks
 
-PySide6 widgets provide all seven pages. A queued Qt signal carries worker results
+Qt Quick/QML provides all seven pages through a PySide6 controller. A queued Qt signal carries worker results
 to the GUI thread. Dialogs are asynchronous; confirmations default to cancel.
 A same-user local socket and lock reactivate an existing or hidden window.
 The Qt timer explicitly services pending Gio portal callbacks. GTK is not loaded
@@ -212,3 +212,8 @@ GNOME/KDE portal/keyring behavior, installed Snap confinement and Flatpak plus
 host-helper operation require real target testing. There is no claim of parity
 with Windows Cloud Files or macOS FileProvider, signed official Proton releases,
 or universal error-free operation.
+
+Remote metadata invalidation is also decided in Rust (0.6.0 alpha2). The host
+submits an observation under its cache lock and applies the returned paths while
+still holding that lock. Generation changes prevent in-flight stale listings
+from re-entering the cache; core failures clear the listings before propagating.

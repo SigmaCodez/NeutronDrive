@@ -1,6 +1,7 @@
 //! Versioned, deterministic reconciliation and daemon policy.
 //! No filesystem, network, credentials or Python calls occur in this library.
 //! The host executes guarded I/O and submits fresh observations for decisions.
+mod cache;
 mod events;
 mod inotify;
 mod policy;

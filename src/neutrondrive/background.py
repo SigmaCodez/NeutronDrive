@@ -107,41 +107,30 @@ class RemoteTreeCache:
             self._generation += 1
             self._listings.pop(self._path(path), None)
 
+    def _invalidate_plan(self, roots, *, node_uid=None, parent_uid=None, reset=True):
+        # Caller holds the lock throughout observation, decision and application.
+        # A failed core call must not leave stale metadata available for a retry.
+        self._generation += 1
+        try:
+            paths = rust_core.call("cache_invalidate", snapshot={
+                "roots": roots, "children": self._children, "aliases": self._aliases,
+                "parents": self._parents if not reset else {},
+                "uid_paths": self._uid_paths if not reset else {},
+                "node_uid": node_uid, "parent_uid": parent_uid, "reset": reset,
+            })
+        except rust_core.CoreError:
+            self._listings.clear()
+            raise
+        for path in paths:
+            self._listings.pop(path, None)
+
     def invalidate_tree(self, path: str) -> None:
         with self._lock:
-            pending, seen = [self._path(path)], set()
-            while pending:
-                current = pending.pop()
-                if current in seen:
-                    continue
-                seen.add(current)
-                pending.extend(self._children.get(current, ()))
-                self._listings.pop(current, None)
-            self._generation += 1
+            self._invalidate_plan([path])
 
     def event(self, node_uid: str | None, parent_uid: str | None, roots: list[str], *, reset=False) -> None:
         with self._lock:
-            if reset:
-                for root in roots:
-                    self.invalidate_tree(root)
-                return
-            affected = set(self._parents.get(node_uid, ()))
-            if parent_uid in self._uid_paths:
-                affected.add(self._uid_paths[parent_uid])
-            if node_uid in self._uid_paths:
-                # A folder can be trashed/restored or moved together with all
-                # descendants. Its old cached children must not survive that
-                # event and reappear in a later reconciliation.
-                self.invalidate_tree(self._uid_paths[node_uid])
-                affected.add(self._uid_paths[node_uid])
-            if affected:
-                for path in affected:
-                    self.invalidate(path)
-            else:
-                # Unknown parent: reconcile the affected job subtree once.
-                # This fallback is triggered by a real event, never a timer.
-                for root in roots:
-                    self.invalidate_tree(root)
+            self._invalidate_plan(roots, node_uid=node_uid, parent_uid=parent_uid, reset=reset)
 
     def upload(self, paths, parent, **options):
         try:

@@ -19,6 +19,11 @@ Rust rewrite of the background process. The 0.6 interface is implemented in Qt Q
   recursive registration and stale-path rebuilds. Malformed reads stop the watcher
   with a recoverable error instead of applying partial events.
 
+- Remote metadata-cache invalidation planning (0.6.0 alpha 2): old/new parents,
+  moved folder descendants, root aliases and conservative unknown-event/reset
+  fallback. Traversal is iterative and cycle-safe. Python retains the cache,
+  lock and generation guard; a failed core decision clears stale listings.
+
 ## Retained adapters
 
 Python retains daemon lifecycle, locks, Unix control socket, job persistence,

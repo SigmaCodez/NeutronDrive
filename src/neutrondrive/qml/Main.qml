@@ -11,13 +11,15 @@ ApplicationWindow {
     minimumWidth: 900; minimumHeight: 640
     visible: true
     title: "NeutronDrive" + (s.demo ? " · DEMO" : "")
-    color: "#0d131c"
+    color: "#ffffff"
     font.family: "Sans Serif"; font.pixelSize: 14
-    palette.text: "#e8edf5"; palette.windowText: "#e8edf5"
-    palette.buttonText: "#e8edf5"; palette.highlight: "#71e0bf"
-    palette.base: "#18232f"; palette.button: "#223341"
+    palette.text: "#252236"; palette.windowText: "#252236"
+    palette.buttonText: "#252236"; palette.highlight: "#6d4aff"
+    palette.base: "#ffffff"; palette.button: "#ffffff"
+    palette.window: "#ffffff"; palette.highlightedText: "#ffffff"
+    palette.light: "#f7f6fb"; palette.mid: "#dedbe7"; palette.dark: "#706b80"
     property var s: controller.state
-    property color muted: "#9caec2"
+    property color muted: "#706b80"
     property var titles: ({"files":s.fields.files_title.value,"sync":"Synchronisierung","background":"Automatischer Sync","ondemand":"Online-Laufwerk","local-trash":"Lokaler Papierkorb","activity":"Aktivität","settings":"Einstellungen"})
     function f(name) { return s.fields[name] }
     onClosing: function(event) { event.accepted = controller.request_close() }
@@ -27,7 +29,7 @@ ApplicationWindow {
         Layout.fillWidth: true
     }
     component Heading: Label {
-        color: "#e8edf5"; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText
+        color: "#252236"; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText
         Layout.fillWidth: true
     }
     component Action: Button {
@@ -41,13 +43,14 @@ ApplicationWindow {
         padding: 12
         contentItem: Text {
             text: actionButton.text; textFormat: Text.PlainText; font: actionButton.font
-            color: !actionButton.enabled ? "#81909f" : actionButton.primary ? "#0b2c24" : "#e8edf5"
+            color: !actionButton.enabled ? "#9691a2" : actionButton.primary ? "#ffffff" : "#252236"
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
             radius: 9
-            color: !actionButton.enabled ? "#18222d" : actionButton.primary ? "#71e0bf" : actionButton.hovered ? "#304354" : "#223341"
-            border.color: actionButton.activeFocus ? "#71e0bf" : "#344655"
+            color: !actionButton.enabled ? "#f2f0f6" : actionButton.primary ? (actionButton.hovered ? "#5935df" : "#6d4aff") : actionButton.hovered ? "#f2efff" : "#ffffff"
+            border.width: actionButton.activeFocus ? 2 : 1
+            border.color: actionButton.primary || actionButton.activeFocus ? "#6d4aff" : "#dedbe7"
             Behavior on color { ColorAnimation { duration: 100 } }
         }
     }
@@ -57,13 +60,13 @@ ApplicationWindow {
         text: window.f(field).value
         enabled: window.f(field).enabled && !s.busy
         selectByMouse: true
-        color: "#e8edf5"; placeholderTextColor: window.muted
+        color: "#252236"; placeholderTextColor: window.muted
         Layout.fillWidth: true; implicitHeight: 44; padding: 12
         onTextEdited: controller.edit(field, text)
-        background: Rectangle { color: "#101b28"; radius: 9; border.color: input.activeFocus ? "#71e0bf" : "#344655" }
+        background: Rectangle { color: "#faf9fc"; radius: 9; border.color: input.activeFocus ? "#6d4aff" : "#dedbe7" }
     }
     component Card: Rectangle {
-        color: "#151f2b"; radius: 14; border.color: "#273544"
+        color: "#ffffff"; radius: 14; border.color: "#e7e4ed"
         Layout.fillWidth: true
         implicitHeight: cardContents.implicitHeight + 36
         default property alias contents: cardContents.data
@@ -75,33 +78,56 @@ ApplicationWindow {
         checked: window.f(field).value
         enabled: !s.busy
         onToggled: controller.edit(field, checked)
-        contentItem: Text { text: check.text; textFormat: Text.PlainText; color: "#e8edf5"; leftPadding: check.indicator.width + check.spacing; verticalAlignment: Text.AlignVCenter }
+        contentItem: Text { text: check.text; textFormat: Text.PlainText; color: "#252236"; leftPadding: check.indicator.width + check.spacing; verticalAlignment: Text.AlignVCenter }
     }
 
     RowLayout {
         anchors.fill: parent; spacing: 0
         Rectangle {
-            Layout.preferredWidth: 230; Layout.fillHeight: true; color: "#121c28"
+            Layout.preferredWidth: 238; Layout.fillHeight: true; color: "#f7f6fb"
             ScrollView {
                 id: sidebarScroll
                 anchors.fill: parent; anchors.margins: 18; clip: true; contentWidth: availableWidth
             ColumnLayout {
                 width: sidebarScroll.availableWidth; height: Math.max(implicitHeight,sidebarScroll.availableHeight); spacing: 8
-                Label { text: "◈  NeutronDrive"; font.pixelSize: 21; font.bold: true; color: "#e8edf5"; Layout.topMargin: 10 }
-                Copy { text: "Deine Dateien. Dein Speicher."; font.pixelSize: 12; Layout.bottomMargin: 24 }
+                RowLayout {
+                    Layout.topMargin: 10; spacing: 10
+                    Rectangle { width: 34; height: 34; radius: 10; color: "#6d4aff"
+                        DriveIcon { anchors.centerIn: parent; symbol: "brand"; ink: "white" }
+                    }
+                    Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: "#252236" }
+                }
+                Copy { text: "Deine Dateien. Dein Speicher."; font.pixelSize: 12; Layout.bottomMargin: 12 }
                 Repeater {
-                    model: [{name:"Meine Dateien",key:"/my-files",icon:"▤"},{name:"Mit mir geteilt",key:"/shared-with-me",icon:"◇"},{name:"Computer",key:"/devices",icon:"▣"},{name:"Cloud-Papierkorb",key:"/trash",icon:"♲"},
-                        {name:"Synchronisierung",key:"sync",icon:"⇄"},{name:"Automatischer Sync",key:"background",icon:"↻"},{name:"Online-Laufwerk",key:"ondemand",icon:"☁"},{name:"Lokaler Papierkorb",key:"local-trash",icon:"♲"},{name:"Aktivität",key:"activity",icon:"≋"},{name:"Einstellungen",key:"settings",icon:"⚙"}]
-                    delegate: Button {
-                        id: nav
+                    model: [{name:"Meine Dateien",key:"/my-files",icon:"folder"},{name:"Mit mir geteilt",key:"/shared-with-me",icon:"shared"},{name:"Computer",key:"/devices",icon:"computer"},{name:"Cloud-Papierkorb",key:"/trash",icon:"trash"},
+                        {name:"Synchronisierung",key:"sync",icon:"sync"},{name:"Automatischer Sync",key:"background",icon:"refresh"},{name:"Online-Laufwerk",key:"ondemand",icon:"cloud"},{name:"Lokaler Papierkorb",key:"local-trash",icon:"trash"},{name:"Aktivität",key:"activity",icon:"activity"},{name:"Einstellungen",key:"settings",icon:"settings"}]
+                    delegate: ColumnLayout {
+                        id: navigationEntry
                         required property var modelData
+                        required property int index
+                        Layout.fillWidth: true; spacing: 4
+                        Copy {
+                            visible: navigationEntry.index===0 || navigationEntry.index===4 || navigationEntry.index===8
+                            text: navigationEntry.index===0 ? "DATEIEN" : navigationEntry.index===4 ? "AUF DIESEM GERÄT" : "VERWALTEN"
+                            font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
+                            Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
+                        }
+                        Button {
+                        id: nav
+                        property var modelData: navigationEntry.modelData
                         property bool selected: modelData.key.charAt(0)==="/" ? s.page==="files" && ("/"+s.path.split("/")[1])===modelData.key : s.page===modelData.key
                         objectName: "nav-"+modelData.key
                         Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
                         onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : controller.show_page(modelData.key)
-                        contentItem: Text { text: nav.modelData.icon+"   "+nav.text; color: nav.selected ? "#91f1d1" : "#b9c6d5"; verticalAlignment: Text.AlignVCenter; leftPadding: 12; font.pixelSize: 13 }
-                        background: Rectangle { radius: 9; color: nav.selected ? "#213f3c" : nav.hovered ? "#1b2b3b" : "transparent"; border.color: nav.activeFocus ? "#71e0bf" : "transparent" }
+                        Accessible.name: text
+                        contentItem: RowLayout {
+                            spacing: 12
+                            DriveIcon { symbol: nav.modelData.icon; ink: nav.selected ? "#6140db" : "#706b80"; Layout.leftMargin: 10; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
+                            Label { text: nav.text; color: nav.selected ? "#6140db" : "#575269"; font.pixelSize: 13; font.bold: nav.selected; Layout.fillWidth: true }
+                        }
+                        background: Rectangle { radius: 9; color: nav.selected ? "#ebe5ff" : nav.hovered ? "#efedf5" : "transparent"; border.color: nav.activeFocus ? "#6d4aff" : "transparent" }
+                        }
                     }
                 }
                 Item { Layout.fillHeight: true }
@@ -117,17 +143,17 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 5
-                    Copy { text: "DEIN PERSÖNLICHER SPEICHER"; font.pixelSize: 10; font.letterSpacing: 1.5 }
-                    Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 29; font.bold: true; color: "#f0f4fa"; elide: Text.ElideRight; Layout.fillWidth: true }
+                    Copy { text: s.page==="files" ? "Dateien & Ordner" : "NeutronDrive für Linux"; font.pixelSize: 12 }
+                    Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: "#252236"; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
-                Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: "#213c36"
-                    Label { id: modeLabel; anchors.centerIn: parent; text: s.demo ? "Demo" : "Proton SDK"; color: "#91f1d1"; font.pixelSize: 12 }
+                Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: "#f0ebff"
+                    Label { id: modeLabel; anchors.centerIn: parent; text: s.demo ? "Demo" : "Proton SDK"; color: "#6140db"; font.pixelSize: 12 }
                 }
             }
             Rectangle {
                 visible: window.f("notice_label").visible; Layout.fillWidth: true; implicitHeight: notice.implicitHeight+24
-                radius: 10; color: s.noticeError ? "#423323" : "#203a3c"
-                Copy { id: notice; anchors { left: parent.left; right: parent.right; margins: 12; verticalCenter: parent.verticalCenter } text: window.f("notice_label").value; color: "#e8edf5" }
+                radius: 10; color: s.noticeError ? "#fff1db" : "#f0ebff"
+                Copy { id: notice; anchors { left: parent.left; right: parent.right; margins: 12; verticalCenter: parent.verticalCenter } text: window.f("notice_label").value; color: "#252236" }
             }
             Action { visible: window.f("login_button").visible; text: "Anmeldung im Browser öffnen"; command: "openLogin" }
             Loader { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
@@ -146,7 +172,12 @@ ApplicationWindow {
         id: filesPage
         ColumnLayout {
             objectName: "page-files"; spacing: 14
-            Input { field: "search"; placeholderText: "In diesem Ordner suchen …"; objectName: "searchInput" }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 12
+                Input { field: "search"; placeholderText: "In diesem Ordner suchen …"; objectName: "searchInput"; leftPadding: 42
+                    DriveIcon { x: 13; anchors.verticalCenter: parent.verticalCenter; symbol: "search"; ink: window.muted; width: 18; height: 18 }
+                }
+            }
             Flow {
                 Layout.fillWidth: true; spacing: 8
                 Action { text: "Dateien hochladen"; command: "upload"; field: "upload_button"; primary: true }
@@ -158,14 +189,14 @@ ApplicationWindow {
                 Repeater { model: s.crumbs; delegate: Button { required property string modelData; required property int index; text: modelData+"  ›"; flat: true; onClicked: controller.crumb(index) } }
             }
             Rectangle {
-                Layout.fillHeight: true; Layout.fillWidth: true; radius: 12; color: "#151f2b"; border.color: "#273544"
+                Layout.fillHeight: true; Layout.fillWidth: true; radius: 12; color: "#ffffff"; border.color: "#e7e4ed"
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 12; spacing: 4
                     RowLayout {
                         Layout.fillWidth: true; Layout.margins: 10
-                        Copy { text: "NAME"; font.pixelSize: 10; font.letterSpacing: 1 }
-                        Label { text: "GRÖSSE"; color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
-                        Label { text: "GEÄNDERT"; color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
+                        Copy { text: "Name"; font.pixelSize: 12 }
+                        Label { text: "Größe"; color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
+                        Label { text: "Geändert"; color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
                     }
                     ListView {
                         id: fileList; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true
@@ -182,18 +213,22 @@ ApplicationWindow {
                         delegate: Rectangle {
                             id: fileRow
                             required property var modelData; required property int index
-                            width: fileList.width; height: 62; radius: 8
+                            width: fileList.width; height: 64; radius: 8
                             objectName: "fileRow-"+index
-                            color: s.selection.indexOf(index)>=0 ? "#25473f" : rowMouse.containsMouse ? "#1d2d3d" : "transparent"
-                            border.color: fileList.activeFocus && index===s.focusIndex ? "#71e0bf" : "transparent"
+                            color: s.selection.indexOf(index)>=0 ? "#eee8ff" : rowMouse.containsMouse ? "#f7f5fc" : "transparent"
+                            border.color: fileList.activeFocus && index===s.focusIndex ? "#6d4aff" : "transparent"
                             Accessible.role: Accessible.ListItem; Accessible.name: modelData.name; Accessible.selected: s.selection.indexOf(index)>=0
                             Keys.onSpacePressed: controller.select_row(index,true)
                             Keys.onReturnPressed: controller.row_activated(index)
                             RowLayout {
                                 anchors.fill: parent; anchors.margins: 10; spacing: 12
-                                Label { text: fileRow.modelData.kind==="Ordner" ? "▰" : "▤"; color: "#71e0bf"; font.pixelSize: 25; Layout.preferredWidth: 30 }
+                                Rectangle {
+                                    Layout.preferredWidth: 36; Layout.preferredHeight: 36; radius: 9
+                                    color: fileRow.modelData.kind==="Ordner" ? "#eee8ff" : "#f1f3f8"
+                                    DriveIcon { anchors.centerIn: parent; symbol: fileRow.modelData.kind==="Ordner" ? "folder" : "file"; ink: fileRow.modelData.kind==="Ordner" ? "#6d4aff" : "#6b7794" }
+                                }
                                 ColumnLayout { Layout.fillWidth: true; spacing: 3
-                                    Label { text: fileRow.modelData.name; textFormat: Text.PlainText; color: "#e8edf5"; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Label { text: fileRow.modelData.name; textFormat: Text.PlainText; color: "#252236"; elide: Text.ElideRight; Layout.fillWidth: true }
                                     Copy { text: fileRow.modelData.safe ? fileRow.modelData.kind : "Nicht eindeutig · gesperrt"; font.pixelSize: 11 }
                                 }
                                 Label { text: fileRow.modelData.size; color: window.muted; Layout.preferredWidth: 80; font.pixelSize: 12 }
@@ -240,7 +275,7 @@ ApplicationWindow {
             }
             Card {
                 Heading { text: "Sync-Vorschau" }
-                TextArea { text: window.f("sync_text").value; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.Wrap; color: "#d3deeb"; Layout.fillWidth: true; background: null }
+                TextArea { text: window.f("sync_text").value; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.Wrap; color: "#403b51"; Layout.fillWidth: true; background: null }
             }
             Copy { text: "Dateilöschungen werden in den Papierkorb übertragen. Ganze Ordnerlöschungen bleiben als Konflikt erhalten. Ersetzte lokale Versionen werden gesichert." }
         }
@@ -389,13 +424,13 @@ ApplicationWindow {
         anchors.centerIn: parent; width: Math.min(560,window.width-60)
         modal: true; closePolicy: Popup.CloseOnEscape
         onRejected: controller.answer_dialog(window.request.token,false,"")
-        background: Rectangle { color: "#182532"; radius: 16; border.color: "#496074" }
-        header: Label { text: window.request.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#f0f4fa"; font.pixelSize: 20; font.bold: true; padding: 20 }
+        background: Rectangle { color: "#ffffff"; radius: 16; border.color: "#d6d0e5" }
+        header: Label { text: window.request.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#252236"; font.pixelSize: 20; font.bold: true; padding: 20 }
         contentItem: ColumnLayout {
             spacing: 16
-            Copy { text: window.request.description || ""; color: "#d0dce9" }
-            TextField { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: "#e8edf5" }
-            TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: "#91f1d1" }
+            Copy { text: window.request.description || ""; color: "#575269" }
+            TextField { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: "#252236" }
+            TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: "#6140db" }
             Flow {
                 Layout.fillWidth: true; spacing: 8
                 Action { id: cancelDialog; objectName: "dialogCancel"; text: "Abbrechen / Schließen"; enabled: true

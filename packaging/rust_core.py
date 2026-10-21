@@ -8,6 +8,7 @@ import re
 import shutil
 import struct
 import subprocess
+import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
 LIBRARY = "libneutrondrive_core.so"
@@ -42,6 +43,19 @@ def verify(directory, architecture):
     return binary
 
 
+def publish_library(source, destination):
+    """Replace the inode so a running process keeps its complete mapped library."""
+    destination = Path(destination)
+    with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as stream:
+        temporary = Path(stream.name)
+    try:
+        shutil.copyfile(source, temporary)
+        temporary.chmod(0o644)
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def build(output=None):
     output = Path(output or ROOT / "build/rust").resolve()
     cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo")
@@ -61,7 +75,7 @@ def build(output=None):
     compiler = shutil.which("rustc") or str(Path.home() / ".cargo/bin/rustc")
     version = subprocess.check_output([compiler,"--version","--verbose"],cwd=ROOT / "core",env=environment,text=True).strip()
     output.mkdir(parents=True,exist_ok=True)
-    shutil.copyfile(binary,output / LIBRARY)
+    publish_library(binary,output / LIBRARY)
     report=dict(abi=1,architecture=arch(),sha256=sha(binary),source_sha256=sources(),compiler=version,
                 maximum_glibc=maximum,dependency_policy="Cargo.lock + vendored checksums; locked offline build")
     (output / "core-build.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
@@ -73,7 +87,7 @@ def stage(app, base, architecture):
     configured = os.environ.get("NEUTRONDRIVE_CORE_BUILD")
     directory = Path(configured).resolve() if configured else build()
     binary = verify(directory,architecture)
-    shutil.copyfile(binary,app / "neutrondrive" / LIBRARY)
+    publish_library(binary,app / "neutrondrive" / LIBRARY)
     (app / "neutrondrive" / LIBRARY).chmod(0o644)
     docs = base / "share/doc/neutrondrive"
     docs.mkdir(parents=True,exist_ok=True)
