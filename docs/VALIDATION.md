@@ -39,3 +39,8 @@ GLIBC 2.39. Long-duration workloads and independent auditing remain outstanding.
 Initial machine-assisted translations include selected manual corrections;
 full native-speaker review remains pending. Technical completeness is not
 linguistic certification.
+
+The [published alpha6 release](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha6)
+is a prerelease with all 16 expected assets. Every published asset size and GitHub
+SHA256 digest matches the local release files. The tag resolves to the exact tested
+build source above; later commits only update English documentation and evidence.
