@@ -72,6 +72,8 @@ class Application(QObject):
     def __init__(self, backend, *, demo=False):
         self.qt = QGuiApplication.instance() or QGuiApplication([sys.argv[0]])
         super().__init__()
+        from .appearance import SystemAppearance
+        self._appearance = SystemAppearance(self.qt, self)
         self.qt.setApplicationName("NeutronDrive")
         self.qt.setDesktopFileName(APP_ID)
         if demo:
@@ -87,7 +89,7 @@ class Application(QObject):
         self.path = "/my-files"
         self.crumbs = [("Meine Dateien", self.path)]
         self.current_page = "files"
-        self.pages = {name: name for name in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings")}
+        self.pages = {name: name for name in ("files", "background", "ondemand", "local-trash", "activity", "settings")}
         self.fields, self.action_buttons = {}, {}
         self.visible_nodes, self.selection = [], set()
         self.focus_index = 0
@@ -97,13 +99,17 @@ class Application(QObject):
         self.dialog_serial = 0
         self.engine = None
         self._build_state()
-        self.sync_plan = self.sync_local = self.login_url = None
+        self.login_url = None
         self.service_timer = QTimer(self)
         self.service_timer.timeout.connect(self.poll_services)
         # Existing desktop portals use Gio asynchronously. Pump its context on
         # the Qt GUI thread; do not rely on Qt's optional GLib dispatcher build.
         self.portal_timer = QTimer(self)
         self.portal_timer.timeout.connect(self._pump_portal)
+
+    @Property(QObject, constant=True)
+    def appearance(self):
+        return self._appearance
 
     def dispatch(self, callback, *arguments):
         self.dispatcher.ready.emit(callback, arguments)
@@ -158,6 +164,7 @@ class Application(QObject):
             QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
             self.engine = None
             self.window = None
+            self._appearance.close()
 
     def quit(self):
         self.service_timer.stop()
@@ -168,8 +175,6 @@ class Application(QObject):
         defaults = dict(search="", files_title="Meine Dateien", empty_label="Noch keine Dateien geladen.", count_label="",
             notice_label="", login_button="", status_label="Bereit", spinner="", cancel_button="", file_list="",
             upload_button="", folder_upload_button="", mkdir_button="", refresh_button="",
-            local_label="Kein lokaler Ordner gewählt", local_choose="", remote_entry="/my-files",
-            plan_button="", execute_button="", sync_text="Wähle einen lokalen Ordner und den zugehörigen Cloud-Ordner.",
             background_local_label="Kein lokaler Ordner gewählt", background_remote="/my-files", background_add_button="",
             background_status="Noch keine Hintergrund-Aufträge geladen.", mount_label="Kein Einhängeordner gewählt",
             mount_remote="/my-files", mount_writable=False, mount_offline=False, mount_button="",
@@ -182,13 +187,11 @@ class Application(QObject):
             setattr(self, name, field)
         self.background_local = self.mount_local = None
         for name in ("notice_label", "login_button", "spinner", "cancel_button"): self.fields[name].visible = False
-        self.execute_button.enabled = False
         self.background_add_button.enabled = not self.demo
         self.mount_button.enabled = not self.demo and not os.environ.get("SNAP")
         for name in ("Download", "Umbenennen", "Verschieben", "Freigabe", "Papierkorb", "Wiederherstellen"):
             self.action_buttons[name] = Field(self, enabled=False)
         self.search.on_change = self.render_nodes
-        self.remote_entry.on_change = self.invalidate_plan
 
     @Property("QVariantMap", notify=changed)
     def state(self):
@@ -209,7 +212,7 @@ class Application(QObject):
 
     @Slot(str, "QVariant")
     def edit(self, name, value):
-        if name not in {"search", "remote_entry", "background_remote", "mount_remote", "mount_writable", "mount_offline", "cache_path"}: return
+        if name not in {"search", "background_remote", "mount_remote", "mount_writable", "mount_offline", "cache_path"}: return
         field = self.fields[name]
         if field.enabled: field.setText(value)
 
@@ -311,7 +314,7 @@ class Application(QObject):
     def action(self, name):
         actions = {"refresh":self.refresh,"upload":lambda:self.choose_upload(False),"uploadFolder":lambda:self.choose_upload(True),
             "mkdir":self.new_folder,"Download":self.download,"Umbenennen":self.rename,"Verschieben":self.move,"Freigabe":self.share,
-            "Papierkorb":self.trash,"Wiederherstellen":self.restore,"chooseSync":self.choose_sync_local,"plan":self.plan_sync,"execute":self.execute_sync,
+            "Papierkorb":self.trash,"Wiederherstellen":self.restore,
             "chooseBackground":lambda:self.choose("Sync-Ordner wählen",folder=True,callback=self.choose_background_local),
             "addJob":self.add_background_job,"start":lambda:self.background_action("start"),"stop":lambda:self.background_action("stop"),
             "chooseMount":lambda:self.choose("Leeren Einhängeordner wählen",folder=True,callback=self.choose_mount_local),
@@ -619,10 +622,6 @@ class Application(QObject):
         self.status_label.setText(title + " …")
         self.file_list.setEnabled(False)
         self.update_actions()
-        self.plan_button.setEnabled(False)
-        self.execute_button.setEnabled(False)
-        self.local_choose.setEnabled(False)
-        self.remote_entry.setEnabled(False)
         self.records.insert(0, [datetime.now().strftime("%H:%M:%S"), title, "Läuft …"])
         record = self.records[0]
         self.render_activity()
@@ -636,9 +635,6 @@ class Application(QObject):
         self.login_button.setVisible(False)
         self.login_url = None
         self.file_list.setEnabled(True)
-        self.plan_button.setEnabled(True)
-        self.local_choose.setEnabled(True)
-        self.remote_entry.setEnabled(True)
         self.update_actions()
         try:
             value = future.result()
@@ -698,7 +694,6 @@ class Application(QObject):
     def logged_out(self, _):
         self.nodes = []
         self.render_nodes()
-        self.invalidate_plan()
         self.message("Von Proton abgemeldet.")
 
     def show_version(self, value):
@@ -749,73 +744,3 @@ class Application(QObject):
         nodes = self.selected()
         if len(nodes) == 1:
             self.submit("Freigabestatus laden", lambda: self.backend.sharing(nodes[0].path), lambda value: self.share_dialog(nodes[0], value))
-
-    def choose_sync_local(self):
-        def chosen(paths):
-            self.sync_local = paths[0]
-            self.local_label.setText(str(paths[0]))
-            self.invalidate_plan()
-        self.choose("Lokalen Sync-Ordner auswählen", folder=True, callback=chosen)
-
-    def invalidate_plan(self):
-        self.sync_plan = None
-        if hasattr(self, "execute_button"):
-            self.execute_button.setEnabled(False)
-
-    def plan_sync(self):
-        if not self.sync_local:
-            self.message("Bitte zuerst einen lokalen Ordner auswählen.")
-            return
-        if not self.demo:
-            try:
-                for job in self.background_clients()[0].list():
-                    current, automatic = Path(self.sync_local).absolute(), Path(job.local_root)
-                    if not job.paused and (current == automatic or current in automatic.parents or automatic in current.parents):
-                        self.message("Diesen automatischen Auftrag zuerst pausieren, bevor ein manueller Plan erstellt wird.", error=True)
-                        return
-            except (BackendError, SyncError) as exc:
-                self.message(str(exc), error=True)
-                return
-        from .sync import SyncEngine
-        self.sync_engine = SyncEngine(self.backend, data_dir() / "sync")
-        self.invalidate_plan()
-        local, remote = self.sync_local, self.remote_entry.text()
-        self.submit("Sync-Vorschau erstellen", lambda: self.sync_engine.plan(local, remote), self.sync_preview)
-
-    def sync_preview(self, plan):
-        self.sync_plan = plan
-        lines = [plan.summary(), ""]
-        actions = {"upload":"Hochladen", "download":"Herunterladen", "mkdir_local":"Lokalen Ordner anlegen",
-                   "mkdir_remote":"Cloud-Ordner anlegen", "trash_local":"In lokalen Papierkorb",
-                   "trash_remote":"In Cloud-Papierkorb"}
-        for action in plan.actions:
-            lines.append(f"{actions.get(action.kind, action.kind)}: {action.relative_path}")
-        for conflict in plan.conflicts:
-            lines.append(f"KONFLIKT: {conflict}")
-        for skipped in plan.skipped:
-            lines.append(f"ÜBERSPRUNGEN: {skipped}")
-        self.sync_text.setPlainText("\n".join(lines))
-        # Executing a plan with no transfers can still establish the baseline.
-        self.execute_button.setEnabled(True)
-
-    def execute_sync(self):
-        if self.sync_plan is None:
-            return
-        plan = self.sync_plan
-        self.confirm("Diesen Sync-Plan ausführen?", plan.summary(),
-                     lambda: self.submit("Manueller Abgleich", lambda: self.sync_engine.execute(plan), self.sync_done))
-
-    def sync_done(self, result):
-        self.invalidate_plan()
-        lines = [f"{len(result.completed)} abgeschlossen · {len(result.conflicts)} Konflikte · {len(result.errors)} Fehler", ""]
-        lines += ["OK: " + str(x) for x in result.completed]
-        lines += ["KONFLIKT: " + str(x) for x in result.conflicts]
-        lines += ["FEHLER: " + str(x) for x in result.errors]
-        lines += ["LOKALE SICHERUNG: " + str(x) for x in result.backups]
-        lines += ["PAPIERKORB: " + str(x) for x in result.trashed]
-        lines += ["ÜBERSPRUNGEN: " + str(x) for x in result.skipped]
-        self.sync_text.setPlainText("\n".join(lines))
-        if self.records:
-            self.records[0][2] = lines[0]
-        self.status_label.setText(lines[0])
-        self.message(lines[0], error=bool(result.errors or result.conflicts))

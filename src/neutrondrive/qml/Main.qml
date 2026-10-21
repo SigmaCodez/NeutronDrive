@@ -6,21 +6,75 @@ import QtQuick.Dialogs
 
 ApplicationWindow {
     id: window
+    readonly property bool darkMode: controller.appearance.dark
+    readonly property var theme: darkMode ? {
+        "canvas": "#191822",
+        "text": "#f1eef9",
+        "accent": "#aa91ff",
+        "sidebar": "#211f2d",
+        "muted": "#b3adc4",
+        "border": "#4a445c",
+        "disabledText": "#817b91",
+        "disabled": "#292635",
+        "hover": "#373047",
+        "primaryHover": "#bba7ff",
+        "input": "#23202e",
+        "cardBorder": "#393446",
+        "accentText": "#c4b3ff",
+        "secondaryText": "#c3bdd2",
+        "selected": "#3a2e58",
+        "navHover": "#2e293c",
+        "badge": "#352a4d",
+        "warning": "#4b3723",
+        "rowSelected": "#3b3056",
+        "rowHover": "#2a2537",
+        "fileTile": "#282d3b",
+        "fileInk": "#acbadc",
+        "body": "#d1cbdf",
+        "dialogBorder": "#514763",
+        "onAccent": "#211631"
+} : {
+        "canvas": "#ffffff",
+        "text": "#252236",
+        "accent": "#6d4aff",
+        "sidebar": "#f7f6fb",
+        "muted": "#706b80",
+        "border": "#dedbe7",
+        "disabledText": "#9691a2",
+        "disabled": "#f2f0f6",
+        "hover": "#f2efff",
+        "primaryHover": "#5935df",
+        "input": "#faf9fc",
+        "cardBorder": "#e7e4ed",
+        "accentText": "#6140db",
+        "secondaryText": "#575269",
+        "selected": "#ebe5ff",
+        "navHover": "#efedf5",
+        "badge": "#f0ebff",
+        "warning": "#fff1db",
+        "rowSelected": "#eee8ff",
+        "rowHover": "#f7f5fc",
+        "fileTile": "#f1f3f8",
+        "fileInk": "#6b7794",
+        "body": "#403b51",
+        "dialogBorder": "#d6d0e5",
+        "onAccent": "#ffffff"
+}
     objectName: "mainWindow"
     width: 1220; height: 820
     minimumWidth: 900; minimumHeight: 640
     visible: true
     title: "NeutronDrive" + (s.demo ? " · DEMO" : "")
-    color: "#ffffff"
+    color: window.theme.canvas
     font.family: "Sans Serif"; font.pixelSize: 14
-    palette.text: "#252236"; palette.windowText: "#252236"
-    palette.buttonText: "#252236"; palette.highlight: "#6d4aff"
-    palette.base: "#ffffff"; palette.button: "#ffffff"
-    palette.window: "#ffffff"; palette.highlightedText: "#ffffff"
-    palette.light: "#f7f6fb"; palette.mid: "#dedbe7"; palette.dark: "#706b80"
+    palette.text: window.theme.text; palette.windowText: window.theme.text
+    palette.buttonText: window.theme.text; palette.highlight: window.theme.accent
+    palette.base: window.theme.canvas; palette.button: window.theme.canvas
+    palette.window: window.theme.canvas; palette.highlightedText: window.theme.onAccent
+    palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
     property var s: controller.state
-    property color muted: "#706b80"
-    property var titles: ({"files":s.fields.files_title.value,"sync":"Synchronisierung","background":"Automatischer Sync","ondemand":"Online-Laufwerk","local-trash":"Lokaler Papierkorb","activity":"Aktivität","settings":"Einstellungen"})
+    property color muted: window.theme.muted
+    property var titles: ({"files":s.fields.files_title.value,"background":"Automatischer Sync","ondemand":"Online-Laufwerk","local-trash":"Lokaler Papierkorb","activity":"Aktivität","settings":"Einstellungen"})
     function f(name) { return s.fields[name] }
     onClosing: function(event) { event.accepted = controller.request_close() }
 
@@ -29,7 +83,7 @@ ApplicationWindow {
         Layout.fillWidth: true
     }
     component Heading: Label {
-        color: "#252236"; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText
+        color: window.theme.text; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText
         Layout.fillWidth: true
     }
     component Action: Button {
@@ -43,14 +97,14 @@ ApplicationWindow {
         padding: 12
         contentItem: Text {
             text: actionButton.text; textFormat: Text.PlainText; font: actionButton.font
-            color: !actionButton.enabled ? "#9691a2" : actionButton.primary ? "#ffffff" : "#252236"
+            color: !actionButton.enabled ? window.theme.disabledText : actionButton.primary ? window.theme.onAccent : window.theme.text
             horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
         }
         background: Rectangle {
             radius: 9
-            color: !actionButton.enabled ? "#f2f0f6" : actionButton.primary ? (actionButton.hovered ? "#5935df" : "#6d4aff") : actionButton.hovered ? "#f2efff" : "#ffffff"
+            color: !actionButton.enabled ? window.theme.disabled : actionButton.primary ? (actionButton.hovered ? window.theme.primaryHover : window.theme.accent) : actionButton.hovered ? window.theme.hover : window.theme.canvas
             border.width: actionButton.activeFocus ? 2 : 1
-            border.color: actionButton.primary || actionButton.activeFocus ? "#6d4aff" : "#dedbe7"
+            border.color: actionButton.primary || actionButton.activeFocus ? window.theme.accent : window.theme.border
             Behavior on color { ColorAnimation { duration: 100 } }
         }
     }
@@ -60,13 +114,13 @@ ApplicationWindow {
         text: window.f(field).value
         enabled: window.f(field).enabled && !s.busy
         selectByMouse: true
-        color: "#252236"; placeholderTextColor: window.muted
+        color: window.theme.text; placeholderTextColor: window.muted
         Layout.fillWidth: true; implicitHeight: 44; padding: 12
         onTextEdited: controller.edit(field, text)
-        background: Rectangle { color: "#faf9fc"; radius: 9; border.color: input.activeFocus ? "#6d4aff" : "#dedbe7" }
+        background: Rectangle { color: window.theme.input; radius: 9; border.color: input.activeFocus ? window.theme.accent : window.theme.border }
     }
     component Card: Rectangle {
-        color: "#ffffff"; radius: 14; border.color: "#e7e4ed"
+        color: window.theme.canvas; radius: 14; border.color: window.theme.cardBorder
         Layout.fillWidth: true
         implicitHeight: cardContents.implicitHeight + 36
         default property alias contents: cardContents.data
@@ -78,13 +132,13 @@ ApplicationWindow {
         checked: window.f(field).value
         enabled: !s.busy
         onToggled: controller.edit(field, checked)
-        contentItem: Text { text: check.text; textFormat: Text.PlainText; color: "#252236"; leftPadding: check.indicator.width + check.spacing; verticalAlignment: Text.AlignVCenter }
+        contentItem: Text { text: check.text; textFormat: Text.PlainText; color: window.theme.text; leftPadding: check.indicator.width + check.spacing; verticalAlignment: Text.AlignVCenter }
     }
 
     RowLayout {
         anchors.fill: parent; spacing: 0
         Rectangle {
-            Layout.preferredWidth: 238; Layout.fillHeight: true; color: "#f7f6fb"
+            Layout.preferredWidth: 238; Layout.fillHeight: true; color: window.theme.sidebar
             ScrollView {
                 id: sidebarScroll
                 anchors.fill: parent; anchors.margins: 18; clip: true; contentWidth: availableWidth
@@ -92,22 +146,22 @@ ApplicationWindow {
                 width: sidebarScroll.availableWidth; height: Math.max(implicitHeight,sidebarScroll.availableHeight); spacing: 8
                 RowLayout {
                     Layout.topMargin: 10; spacing: 10
-                    Rectangle { width: 34; height: 34; radius: 10; color: "#6d4aff"
-                        DriveIcon { anchors.centerIn: parent; symbol: "brand"; ink: "white" }
+                    Rectangle { width: 34; height: 34; radius: 10; color: window.theme.accent
+                        DriveIcon { anchors.centerIn: parent; symbol: "brand"; ink: window.theme.onAccent }
                     }
-                    Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: "#252236" }
+                    Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: window.theme.text }
                 }
                 Copy { text: "Deine Dateien. Dein Speicher."; font.pixelSize: 12; Layout.bottomMargin: 12 }
                 Repeater {
                     model: [{name:"Meine Dateien",key:"/my-files",icon:"folder"},{name:"Mit mir geteilt",key:"/shared-with-me",icon:"shared"},{name:"Computer",key:"/devices",icon:"computer"},{name:"Cloud-Papierkorb",key:"/trash",icon:"trash"},
-                        {name:"Synchronisierung",key:"sync",icon:"sync"},{name:"Automatischer Sync",key:"background",icon:"refresh"},{name:"Online-Laufwerk",key:"ondemand",icon:"cloud"},{name:"Lokaler Papierkorb",key:"local-trash",icon:"trash"},{name:"Aktivität",key:"activity",icon:"activity"},{name:"Einstellungen",key:"settings",icon:"settings"}]
+                        {name:"Automatischer Sync",key:"background",icon:"refresh"},{name:"Online-Laufwerk",key:"ondemand",icon:"cloud"},{name:"Lokaler Papierkorb",key:"local-trash",icon:"trash"},{name:"Aktivität",key:"activity",icon:"activity"},{name:"Einstellungen",key:"settings",icon:"settings"}]
                     delegate: ColumnLayout {
                         id: navigationEntry
                         required property var modelData
                         required property int index
                         Layout.fillWidth: true; spacing: 4
                         Copy {
-                            visible: navigationEntry.index===0 || navigationEntry.index===4 || navigationEntry.index===8
+                            visible: navigationEntry.index===0 || navigationEntry.index===4 || navigationEntry.index===7
                             text: navigationEntry.index===0 ? "DATEIEN" : navigationEntry.index===4 ? "AUF DIESEM GERÄT" : "VERWALTEN"
                             font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
                             Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
@@ -123,10 +177,10 @@ ApplicationWindow {
                         Accessible.name: text
                         contentItem: RowLayout {
                             spacing: 12
-                            DriveIcon { symbol: nav.modelData.icon; ink: nav.selected ? "#6140db" : "#706b80"; Layout.leftMargin: 10; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
-                            Label { text: nav.text; color: nav.selected ? "#6140db" : "#575269"; font.pixelSize: 13; font.bold: nav.selected; Layout.fillWidth: true }
+                            DriveIcon { symbol: nav.modelData.icon; ink: nav.selected ? window.theme.accentText : window.theme.muted; Layout.leftMargin: 10; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
+                            Label { text: nav.text; color: nav.selected ? window.theme.accentText : window.theme.secondaryText; font.pixelSize: 13; font.bold: nav.selected; Layout.fillWidth: true }
                         }
-                        background: Rectangle { radius: 9; color: nav.selected ? "#ebe5ff" : nav.hovered ? "#efedf5" : "transparent"; border.color: nav.activeFocus ? "#6d4aff" : "transparent" }
+                        background: Rectangle { radius: 9; color: nav.selected ? window.theme.selected : nav.hovered ? window.theme.navHover : "transparent"; border.color: nav.activeFocus ? window.theme.accent : "transparent" }
                         }
                     }
                 }
@@ -144,20 +198,20 @@ ApplicationWindow {
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 5
                     Copy { text: s.page==="files" ? "Dateien & Ordner" : "NeutronDrive für Linux"; font.pixelSize: 12 }
-                    Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: "#252236"; elide: Text.ElideRight; Layout.fillWidth: true }
+                    Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
-                Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: "#f0ebff"
-                    Label { id: modeLabel; anchors.centerIn: parent; text: s.demo ? "Demo" : "Proton SDK"; color: "#6140db"; font.pixelSize: 12 }
+                Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
+                    Label { id: modeLabel; anchors.centerIn: parent; text: s.demo ? "Demo" : "Proton SDK"; color: window.theme.accentText; font.pixelSize: 12 }
                 }
             }
             Rectangle {
                 visible: window.f("notice_label").visible; Layout.fillWidth: true; implicitHeight: notice.implicitHeight+24
-                radius: 10; color: s.noticeError ? "#fff1db" : "#f0ebff"
-                Copy { id: notice; anchors { left: parent.left; right: parent.right; margins: 12; verticalCenter: parent.verticalCenter } text: window.f("notice_label").value; color: "#252236" }
+                radius: 10; color: s.noticeError ? window.theme.warning : window.theme.badge
+                Copy { id: notice; anchors { left: parent.left; right: parent.right; margins: 12; verticalCenter: parent.verticalCenter } text: window.f("notice_label").value; color: window.theme.text }
             }
             Action { visible: window.f("login_button").visible; text: "Anmeldung im Browser öffnen"; command: "openLogin" }
             Loader { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
-                sourceComponent: s.page==="files" ? filesPage : s.page==="sync" ? syncPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
+                sourceComponent: s.page==="files" ? filesPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -189,7 +243,7 @@ ApplicationWindow {
                 Repeater { model: s.crumbs; delegate: Button { required property string modelData; required property int index; text: modelData+"  ›"; flat: true; onClicked: controller.crumb(index) } }
             }
             Rectangle {
-                Layout.fillHeight: true; Layout.fillWidth: true; radius: 12; color: "#ffffff"; border.color: "#e7e4ed"
+                Layout.fillHeight: true; Layout.fillWidth: true; radius: 12; color: window.theme.canvas; border.color: window.theme.cardBorder
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 12; spacing: 4
                     RowLayout {
@@ -215,8 +269,8 @@ ApplicationWindow {
                             required property var modelData; required property int index
                             width: fileList.width; height: 64; radius: 8
                             objectName: "fileRow-"+index
-                            color: s.selection.indexOf(index)>=0 ? "#eee8ff" : rowMouse.containsMouse ? "#f7f5fc" : "transparent"
-                            border.color: fileList.activeFocus && index===s.focusIndex ? "#6d4aff" : "transparent"
+                            color: s.selection.indexOf(index)>=0 ? window.theme.rowSelected : rowMouse.containsMouse ? window.theme.rowHover : "transparent"
+                            border.color: fileList.activeFocus && index===s.focusIndex ? window.theme.accent : "transparent"
                             Accessible.role: Accessible.ListItem; Accessible.name: modelData.name; Accessible.selected: s.selection.indexOf(index)>=0
                             Keys.onSpacePressed: controller.select_row(index,true)
                             Keys.onReturnPressed: controller.row_activated(index)
@@ -224,11 +278,11 @@ ApplicationWindow {
                                 anchors.fill: parent; anchors.margins: 10; spacing: 12
                                 Rectangle {
                                     Layout.preferredWidth: 36; Layout.preferredHeight: 36; radius: 9
-                                    color: fileRow.modelData.kind==="Ordner" ? "#eee8ff" : "#f1f3f8"
-                                    DriveIcon { anchors.centerIn: parent; symbol: fileRow.modelData.kind==="Ordner" ? "folder" : "file"; ink: fileRow.modelData.kind==="Ordner" ? "#6d4aff" : "#6b7794" }
+                                    color: fileRow.modelData.kind==="Ordner" ? window.theme.rowSelected : window.theme.fileTile
+                                    DriveIcon { anchors.centerIn: parent; symbol: fileRow.modelData.kind==="Ordner" ? "folder" : "file"; ink: fileRow.modelData.kind==="Ordner" ? window.theme.accent : window.theme.fileInk }
                                 }
                                 ColumnLayout { Layout.fillWidth: true; spacing: 3
-                                    Label { text: fileRow.modelData.name; textFormat: Text.PlainText; color: "#252236"; elide: Text.ElideRight; Layout.fillWidth: true }
+                                    Label { text: fileRow.modelData.name; textFormat: Text.PlainText; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                                     Copy { text: fileRow.modelData.safe ? fileRow.modelData.kind : "Nicht eindeutig · gesperrt"; font.pixelSize: 11 }
                                 }
                                 Label { text: fileRow.modelData.size; color: window.muted; Layout.preferredWidth: 80; font.pixelSize: 12 }
@@ -258,35 +312,12 @@ ApplicationWindow {
         ColumnLayout { id: pageColumn; width: scroll.availableWidth; spacing: 16 }
     }
     Component {
-        id: syncPage
-        PageScroll {
-            objectName: "page-sync"
-            Copy { text: "Erst Vorschau prüfen, dann abgleichen. Konflikte bleiben erhalten." }
-            Card {
-                Heading { text: "Ordner verbinden" }
-                Copy { text: window.f("local_label").value }
-                Action { text: "Lokalen Ordner wählen"; command: "chooseSync"; field: "local_choose" }
-                Copy { text: "Cloud-Ordner" }
-                Input { field: "remote_entry" }
-                RowLayout {
-                    Action { text: "Vorschau erstellen"; command: "plan"; field: "plan_button"; primary: true }
-                    Action { text: "Geprüften Plan ausführen"; command: "execute"; field: "execute_button" }
-                }
-            }
-            Card {
-                Heading { text: "Sync-Vorschau" }
-                TextArea { text: window.f("sync_text").value; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.Wrap; color: "#403b51"; Layout.fillWidth: true; background: null }
-            }
-            Copy { text: "Dateilöschungen werden in den Papierkorb übertragen. Ganze Ordnerlöschungen bleiben als Konflikt erhalten. Ersetzte lokale Versionen werden gesichert." }
-        }
-    }
-    Component {
         id: backgroundPage
         PageScroll {
             objectName: "page-background"
             Copy { text: "Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters." }
             Card {
-                Heading { text: "Neuen Auftrag einrichten" }
+                Heading { text: "Ordner automatisch synchronisieren" }
                 Copy { text: window.f("background_local_label").value }
                 Action { text: "Lokalen Ordner wählen"; command: "chooseBackground" }
                 Copy { text: "Cloud-Ordner" }
@@ -385,6 +416,10 @@ ApplicationWindow {
                 Copy { text: "Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Flatpak kann einen eigenen Kontospeicher verwenden." }
             }
             Card {
+                Heading { text: "Erscheinungsbild" }
+                Copy { text: "Folgt der Systemeinstellung · " + (window.darkMode ? "Dunkel" : "Hell") }
+            }
+            Card {
                 Heading { text: "Beim Anmelden starten" }
                 Copy { text: "Halte deine automatischen Sync-Aufträge nach dem Desktop-Start bereit." }
                 RowLayout { Action { text: "Autostart aktivieren"; command: "autostart" } Action { text: "Deaktivieren"; command: "noAutostart" } }
@@ -424,13 +459,13 @@ ApplicationWindow {
         anchors.centerIn: parent; width: Math.min(560,window.width-60)
         modal: true; closePolicy: Popup.CloseOnEscape
         onRejected: controller.answer_dialog(window.request.token,false,"")
-        background: Rectangle { color: "#ffffff"; radius: 16; border.color: "#d6d0e5" }
-        header: Label { text: window.request.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#252236"; font.pixelSize: 20; font.bold: true; padding: 20 }
+        background: Rectangle { color: window.theme.canvas; radius: 16; border.color: window.theme.dialogBorder }
+        header: Label { text: window.request.title || ""; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.theme.text; font.pixelSize: 20; font.bold: true; padding: 20 }
         contentItem: ColumnLayout {
             spacing: 16
-            Copy { text: window.request.description || ""; color: "#575269" }
-            TextField { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: "#252236" }
-            TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: "#6140db" }
+            Copy { text: window.request.description || ""; color: window.theme.secondaryText }
+            TextField { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: window.theme.text }
+            TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: window.theme.accentText }
             Flow {
                 Layout.fillWidth: true; spacing: 8
                 Action { id: cancelDialog; objectName: "dialogCancel"; text: "Abbrechen / Schließen"; enabled: true

@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface is currently in German.
 
-**Status: 0.6.0 alpha 2.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 3.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -13,6 +13,8 @@ Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
 ![NeutronDrive's native Qt interface with explicitly labelled demo data](docs/demo.png)
+
+[Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
 
 The Rust core handles sync decisions, background scheduling, SDK event validation
 and delivery planning, local inotify decoding and remote cache invalidation. The interface uses Qt Quick/QML; guarded Python I/O adapters
@@ -76,21 +78,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha2-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha3-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha2-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha3-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha2-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha3-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a2-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a3-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha2_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha3_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -143,12 +145,10 @@ Core adapter and sync tests use the Python standard library and the built Rust
 shared library. Rust dependencies are vendored; Cargo builds offline. Building and
 running this project does not require a Proton password in an environment file.
 
-## Manual synchronization
+## Synchronization safeguards
 
-1. Open **Synchronisierung**, select an existing local folder and enter an
-   existing remote folder such as `/my-files/Documents`.
-2. Select **Vorschau erstellen**. Review every action, conflict and skipped file.
-3. Select **Geprüften Plan ausführen** to apply the approved plan.
+The desktop interface uses automatic synchronization only. Configure folder pairs
+under **Automatischer Sync**; no separate manual preview/execution page is needed.
 
 New files and empty folders can travel in either direction. When an established
 baseline shows that only one file changed, its update can travel to the other
@@ -187,7 +187,7 @@ starts it at the next desktop login. Flatpak asks the Background portal for
 permission; its hidden primary process keeps the sandbox alive. This depends on
 the desktop portal implementation. `--sync-status` and `--stop-background` provide
 headless control. No tray icon is provided. Deletions follow the same verified
-trash policy as manual sync. Renames are not tracked as moves; ambiguous
+trash policy described above. Renames are not tracked as moves; ambiguous
 moves are retained as conflicts.
 
 ![Background sync configuration, explicitly labeled demo mode](docs/background-demo.png)
@@ -286,3 +286,9 @@ The bundled CLI retains its [upstream MIT notice](packaging/licenses/proton-driv
 Small prerelease increment: a light Qt Quick interface, grouped navigation and
 font-independent line icons. Remote cache invalidation now runs in Rust, retaining
 conservative handling of moved/deleted folders and unknown cloud events.
+
+### 0.6.0 alpha 3 refinement
+
+The desktop now exposes automatic sync only. The interface follows the desktop
+light/dark preference at startup and while running, through the Settings portal
+with Qt color-scheme/palette fallback. Desktop settings are never changed.

@@ -28,7 +28,7 @@ provenance is documented in [UPSTREAM.md](UPSTREAM.md).
 
 ## Qt interface and callbacks
 
-Qt Quick/QML provides all seven pages through a PySide6 controller. A queued Qt signal carries worker results
+Qt Quick/QML provides all six pages through a PySide6 controller. A queued Qt signal carries worker results
 to the GUI thread. Dialogs are asynchronous; confirmations default to cancel.
 A same-user local socket and lock reactivate an existing or hidden window.
 The Qt timer explicitly services pending Gio portal callbacks. GTK is not loaded
@@ -217,3 +217,8 @@ Remote metadata invalidation is also decided in Rust (0.6.0 alpha2). The host
 submits an observation under its cache lock and applies the returned paths while
 still holding that lock. Generation changes prevent in-flight stale listings
 from re-entering the cache; core failures clear the listings before propagating.
+
+The UI uses a system appearance observer: asynchronous Settings portal read and
+change subscription, then Qt color-scheme/palette fallback. A generation guard
+rejects stale initial replies; teardown cancels reads and removes subscriptions.
+The application never writes the desktop appearance preference.

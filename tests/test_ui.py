@@ -52,7 +52,7 @@ class QtApplicationTests(unittest.TestCase):
 
     def setUp(self):
         self._pump_until(lambda:not self.app.busy)
-        self.app.invalidate_plan();self.app.navigate_root('Meine Dateien','/my-files')
+        self.app.navigate_root('Meine Dateien','/my-files')
         self._pump_until(lambda:not self.app.busy and len(self.app.nodes)==6)
         self.app.search.clear();self._pump_until(lambda:len(self.rows())==6)
 
@@ -74,13 +74,12 @@ class QtApplicationTests(unittest.TestCase):
         self.assertIn("DEMO", self.app.window.title())
         self.assertEqual(len(self.rows()), 6)
         self.assertEqual(self.app.path, "/my-files")
-        for page in ("files", "sync", "background", "ondemand", "local-trash", "activity", "settings"):
+        for page in ("files", "background", "ondemand", "local-trash", "activity", "settings"):
             with self.subTest(page=page):
                 self.assertIsNotNone(self.app.pages.get(page))
                 self.app.show_page(page)
                 self.app.qt.processEvents()
                 self.assertEqual(self.app.current_page, page)
-        self.assertFalse(self.app.execute_button.isEnabled())
 
     def test_folder_navigation_empty_state_and_breadcrumb_return(self):
         folder = next(row for row in self.rows() if self.app.visible_nodes[row].type == "folder")
@@ -234,25 +233,44 @@ class QtApplicationTests(unittest.TestCase):
         self.assertIn("Verbunden", self.app.mount_status.text())
         self.assertIn("pending.txt", self.app.mount_status.text())
 
-    def test_busy_state_disables_existing_sync_plan_until_new_preview(self):
-        plan = SimpleNamespace(actions=[], conflicts=[], skipped=[], summary=lambda: "Local UI test plan")
-        self.app.sync_preview(plan)
-        self.assertTrue(self.app.execute_button.isEnabled())
+    def test_busy_state_blocks_navigation_until_worker_completes(self):
         release = threading.Event()
         self.app.submit("UI-Test", lambda: release.wait(2))
         try:
             self.assertTrue(self.app.busy)
-            self.assertFalse(self.app.execute_button.isEnabled())
-            self.assertFalse(self.app.plan_button.isEnabled())
-            self.assertFalse(self.app.remote_entry.isEnabled())
+            self.assertFalse(self.app.file_list.isEnabled())
             self.app.navigate_root("Papierkorb", "/trash")
             self.assertEqual(self.app.path, "/my-files")
         finally:
             release.set()
             self._pump_until(lambda: not self.app.busy)
-        self.assertFalse(self.app.execute_button.isEnabled())
-        self.assertTrue(self.app.plan_button.isEnabled())
-        self.assertTrue(self.app.remote_entry.isEnabled())
+        self.assertTrue(self.app.file_list.isEnabled())
+
+    def test_system_theme_changes_live_without_losing_selection(self):
+        appearance = self.app.appearance
+        previous = appearance._portal_scheme
+        try:
+            self.app.select_row(0, False)
+            for scheme, color in ((1, "#191822"), (2, "#ffffff"), (1, "#191822")):
+                appearance._apply_portal(scheme)
+                self._pump_until(lambda: self.app.window.color().name() == color)
+                self.assertEqual(self.app.selection, {0})
+                self.assertEqual(self.app.window.property("darkMode"), scheme == 1)
+            appearance._apply_portal("invalid")
+            self.assertTrue(appearance.dark)
+        finally:
+            appearance._apply_portal(previous)
+
+    def test_only_automatic_sync_is_exposed(self):
+        self.assertNotIn("sync", self.app.pages)
+        self.assertIsNone(self.app.window.findChild(self.QObject, "nav-sync"))
+        self.app.show_page("background")
+        self.app.show_page("sync")
+        self.assertEqual(self.app.current_page, "background")
+        with mock.patch.object(self.app, "choose") as choose:
+            for action in ("chooseSync", "plan", "execute"):
+                self.app.action(action)
+            choose.assert_not_called()
 
     def test_worker_completion_runs_on_qt_thread_and_preserves_errors(self):
         main = threading.get_ident()
