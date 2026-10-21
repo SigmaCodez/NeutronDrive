@@ -1,5 +1,5 @@
 Name:           neutrondrive
-Version:        0.6.0~alpha4
+Version:        0.6.0~alpha5
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive (alpha)
 %if 0%{?neutrondrive_vendor_pyfuse3}
@@ -79,5 +79,5 @@ cp -a usr %{buildroot}/
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
 
 %changelog
-* Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha4-1
+* Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha5-1
 - Background sync, on-demand FUSE files and source-built SDK event bridge.
