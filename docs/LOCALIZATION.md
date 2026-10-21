@@ -85,5 +85,5 @@ Native/Snap staging also verified both Qt base and declarative translations.
 French and Traditional Chinese screenshots were visually inspected. These checks
 establish technical integration, not a complete native-speaker language review.
 
-This is a development change after alpha5; no new release or installed-package
-replacement is included in this language-only task.
+This localization is included in alpha6. See the [release validation record](VALIDATION.md)
+for package checks and the distinction between technical coverage and linguistic review.

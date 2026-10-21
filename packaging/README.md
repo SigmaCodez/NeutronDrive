@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The published dependency release is `bridge-v0.2.0-alpha1`; application packages
-are in `v0.6.0-alpha5`. Source builds are inspectable; bit-for-bit reproducibility
+are in `v0.6.0-alpha6`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -111,7 +111,7 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.6.0a5-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.6.0a6-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
@@ -154,7 +154,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha5_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha6_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```

@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
-**Status: 0.6.0 alpha 5.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 6.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -23,6 +23,20 @@ state I/O, job transactions and the running inotify watcher into Rust. The full
 migration is still in progress: transfer/trash/FUSE orchestration and the
 Qt Quick/QML controller retain Python dependencies.
 See [migration boundaries](docs/RUST-MIGRATION.md).
+
+## Language
+
+The interface automatically uses your operating system's language at startup.
+Restart NeutronDrive after changing your system language. Unsupported languages
+fall back to English; no translation service or model is contacted at runtime.
+
+The 25 supported variants are English, German, French, Dutch, Spanish,
+Latin American Spanish, Italian, Polish, Portuguese, Brazilian Portuguese,
+Russian, Turkish, Catalan, Czech, Danish, Hungarian, Indonesian, Norwegian Bokmål,
+Romanian, Slovak, Swedish, Greek, Belarusian, Simplified Chinese and Traditional Chinese.
+These match the upstream Windows client's language list. All catalogs are complete;
+initial machine-assisted translations still need full native-speaker review.
+See [localization details](docs/LOCALIZATION.md).
 
 ## Features
 
@@ -81,26 +95,26 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha5-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha6-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha5-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha6-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha5-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha6-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a5-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a6-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha5_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha6_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
 Launch **NeutronDrive** from your application menu. Unlock the desktop keyring,
-select **Bei Proton anmelden** and finish in the browser. The CLI opens the
+select **Sign in to Proton** (or its translation in your system language) and finish in the browser. The CLI opens the
 browser automatically; the app's fallback login button is needed only if it did
 not open. A sign-in link is single-use: opening it again after completion can
 produce “Invalid code”, even though the app session is already authenticated.
