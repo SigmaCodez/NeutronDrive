@@ -40,6 +40,41 @@ synthetic account tests, baseline-compatible packages and installed-package
 verification. Removing dependencies or inflating GitHub's Rust percentage does
 not satisfy those gates.
 
+## Checkpoint validation
+
+Runtime source: `2a1c100bfa0a0569c9ebd1a081374171ca9a00ae`.
+All 15 jobs in [the Linux/architecture workflow](https://github.com/SigmaCodez/NeutronDrive/actions/runs/39644716748)
+passed, including native ARM64 execution and installed DEB checks on both
+architectures. RPM, Flatpak and Snap builds also passed. The duplicate workflow
+started when opening the draft PR was cancelled; the linked source run completed.
+
+All 332 local Python tests passed in aggregate with Qt, real FUSE and isolated
+D-Bus enabled, without skips. The first full run passed 331 tests; its staging
+test hit the host's temporary-directory disk quota. That one test passed when
+rerun on the project filesystem, without source or assertion changes. All 122
+focused runtime tests, 16 Rust tests and Clippy passed. Tests cover callback
+failure cleanup, SDK termination grace, descendants holding pipes, concurrent
+job updates, malformed/private state, atomic replacement and native byte-name
+watching. A deterministic regression covers a late delete echo after the last
+file disappears, followed by detection of a genuinely new file.
+
+The installed Flatpak passed source/backend/Qt/core hash verification, real
+native process execution, job transactions, inotify delivery/stop, all six GUI
+pages, light/dark switching and local trash restoration. Its installation and
+profile were isolated and removed afterward. No Flatpak login was performed.
+The x86-64 core retains a measured GLIBC 2.34 symbol baseline; package builds
+continue to enforce the existing compatibility check.
+
+All 11 real-account checks passed against the same source/build: initial sync,
+both file-deletion directions, restart/no-resurrection, cloud/local restores,
+whole-folder conflict preservation and recovery, and delete-versus-edit conflict
+preservation. The dedicated synthetic test daemon stopped and its UUID-scoped
+cloud folder was moved to trash. No permanent cloud deletion or credential
+copying occurred.
+
+These checks validate this checkpoint, not completion of the remaining runtime
+migration, universal Linux compatibility or a comparative speed improvement.
+
 ## Implemented in Rust
 
 - Manual and automatic reconciliation planning, including type/content conflicts,
