@@ -334,9 +334,15 @@ class QtApplicationTests(unittest.TestCase):
         from PySide6.QtQuick import QQuickItem
         from PySide6.QtTest import QTest
         self.app.qt.processEvents()
-        listing=self.app.window.findChild(QQuickItem,"fileList")
+        self.app.window.requestActivate()
+        QTest.qWait(50)
+        # Loader keeps the previous page alive until deferred deletion. Query
+        # its current item instead of a same-named object awaiting destruction.
+        page=self.app.window.findChild(self.QObject,"pageLoader").property("item")
+        listing=page.findChild(QQuickItem,"fileList")
         self.assertIsNotNone(listing)
         listing.forceActiveFocus()
+        self.assertTrue(listing.hasActiveFocus())
         QTest.keyClick(self.app.window,self.Qt.Key.Key_Down)
         self.app.qt.processEvents()
         self.assertEqual(self.app.selection,{1})
