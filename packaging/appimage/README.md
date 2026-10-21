@@ -47,8 +47,8 @@ The application is not sandboxed by AppImage.
 The application, bridge and pinned Qt source archives are provided by the alpha6
 release. Ubuntu copyright notices and exact binary/source package versions are
 included in `usr/share/doc/ubuntu-runtime` and
-`usr/share/doc/neutrondrive/ubuntu-runtime-packages.tsv`. Distribution runtime
-sources are available from Ubuntu's public package archive. On Ubuntu 22.04 with
+`usr/share/doc/neutrondrive/ubuntu-runtime-packages.tsv`. This manifest records the full Ubuntu build environment; not every listed package
+is bundled. Distribution runtime sources are available from Ubuntu's public package archive. On Ubuntu 22.04 with
 `deb-src` enabled, use `apt-get source SOURCE_PACKAGE=SOURCE_VERSION` with columns
 three and four of that manifest. Standard distribution libraries remain shared
 libraries and may be replaced in an extracted AppDir; regenerate its manifest

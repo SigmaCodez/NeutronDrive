@@ -59,8 +59,8 @@ See [localization details](docs/LOCALIZATION.md).
   replacement, new revisions, folders, rename/move and trash.
 - Desktop autostart, a native D-Bus mount service and Flatpak background portal.
 - Cancellation, timeouts, serialized backend calls and in-session activity history.
-- Built DEB, Fedora/openSUSE RPM, Flatpak and Snap packages with a checksum-pinned
-  bundled backend; ARM64 DEB is included alongside x86_64 packages.
+- Built DEB, Fedora/openSUSE RPM, Flatpak, Snap, AppImage and Arch packages with
+  a checksum-pinned bundled backend; ARM64 DEB is included alongside x86_64 packages.
 
 The bundled **NeutronDrive bridge 0.2.0-alpha1** is built from a pinned public
 Proton SDK/CLI commit with a small, published Drive-event extension. It identifies
@@ -132,6 +132,7 @@ makepkg -si
 [AppImage runtime/cache details](packaging/appimage/README.md) ·
 [Arch installation and AUR publication status](packaging/aur/README.md).
 The AUR recipe is available on GitHub; it is not yet listed on aur.archlinux.org.
+AppImage and Arch release downloads have a separate `PORTABLE_SHA256SUMS` file.
 
 Launch **NeutronDrive** from your application menu. Unlock the desktop keyring,
 select **Sign in to Proton** (or its translation in your system language) and finish in the browser. The CLI opens the
