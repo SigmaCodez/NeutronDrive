@@ -165,7 +165,7 @@ running this project does not require a Proton password in an environment file.
 ## Synchronization safeguards
 
 The desktop interface uses automatic synchronization only. Configure folder pairs
-under **Automatischer Sync**; no separate manual preview/execution page is needed.
+under **Automatic sync**; no separate manual preview/execution page is needed.
 
 New files and empty folders can travel in either direction. When an established
 baseline shows that only one file changed, its update can travel to the other
@@ -191,7 +191,7 @@ changes conflict decisions; do not delete it to force an overwrite.
 
 ## Automatic synchronization
 
-Open **Automatischer Sync**, choose an existing local folder and a remote folder,
+Open **Automatic sync**, choose an existing local folder and a remote folder,
 then add the job. An initial reconciliation establishes the baseline. Subsequent
 changes are triggered by Linux inotify and SDK Drive events; there is no periodic
 full remote-tree scan. Directory metadata is cached and affected parents are
@@ -227,17 +227,17 @@ trashed root ancestors, moved cloud identities and uncertain metadata also block
 destructive reconciliation. A durable deletion journal makes retries
 and restarts check the original operation before doing any further work.
 
-Open **Lokaler Papierkorb** to see NeutronDrive's local receipts and restore an
+Open **Local trash** to see NeutronDrive's local receipts and restore an
 item at its original location. Restoration never overwrites an occupied path;
 a changed root, parent or trash payload requires manual recovery from the shown
-trash path. **Wiederherstellung prüfen** retries an interrupted operation after
+trash path. **Restore / check recovery** retries an interrupted operation after
 validating its retained data; it also verifies a restore that already completed
 before a journal write was interrupted. Local trash uses a private, same-filesystem desktop trash when
 available, otherwise an application-managed location outside the sync root.
 The app never permanently deletes trash or empties it automatically. Desktop
 trash managers can independently restore or empty standard trash entries.
 
-Use **CLOUD → Papierkorb** for cloud restoration, or Proton's web app if names
+Use **CLOUD → Trash** for cloud restoration, or Proton's web app if names
 are ambiguous. Restoring an item while its job is active synchronizes it again.
 Local trash and its registry contain plaintext data and paths; keep them private.
 There is no server-side conditional trash operation in this CLI: final checks
@@ -245,10 +245,10 @@ reduce concurrency races, while recovery relies on retained trash contents.
 
 ## Online drive and offline files
 
-Open **Online-Laufwerk**, choose an empty local mount directory and an existing
+Open **Online drive**, choose an empty local mount directory and an existing
 remote directory, then mount. File-manager listings show remote sizes without
 downloading content. Opening a file downloads and verifies it; pinning a relative
-file path keeps it for an explicit offline mount. **Speicher freigeben** unpins
+file path keeps it for an explicit offline mount. **Free up space** unpins
 and removes cached content. Pinning applies to individual files, not whole trees.
 
 Mounts are read-only by default. Enable write access before mounting to save
