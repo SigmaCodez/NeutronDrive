@@ -2,7 +2,7 @@
 
 An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
-backend. The interface is currently in German.
+backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
 **Status: 0.6.0 alpha 5.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.

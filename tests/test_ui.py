@@ -17,6 +17,9 @@ ENABLED = os.environ.get("NEUTRONDRIVE_UI_TESTS") == "1"
 class QtApplicationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.locale_environment = mock.patch.dict(os.environ, {'LC_ALL': 'de_DE.UTF-8', 'LANGUAGE': 'de'})
+        cls.locale_environment.start()
+        cls.addClassCleanup(cls.locale_environment.stop)
         from PySide6.QtCore import Qt
         from PySide6.QtCore import QObject
         from PySide6.QtQuick import QQuickWindow

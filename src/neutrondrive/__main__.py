@@ -4,30 +4,31 @@ import argparse
 import json
 import sys
 from . import __version__
+from .i18n import tr, diagnostic
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="NeutronDrive — unabhängiger Proton Drive Client für Linux")
+    parser = argparse.ArgumentParser(description=tr('NeutronDrive — unabhängiger Proton Drive Client für Linux'))
     parser.add_argument("--version", action="version", version=f"NeutronDrive {__version__}")
-    parser.add_argument("--demo", action="store_true", help="Oberfläche mit klar markierten lokalen Beispieldaten öffnen")
-    parser.add_argument("--diagnose", action="store_true", help="Backend-Verfügbarkeit ohne Anmeldung prüfen")
-    parser.add_argument("--cli", help="Pfad zum kompatiblen NeutronDrive-SDK-Backend")
+    parser.add_argument("--demo", action="store_true", help=tr('Oberfläche mit klar markierten lokalen Beispieldaten öffnen'))
+    parser.add_argument("--diagnose", action="store_true", help=tr('Backend-Verfügbarkeit ohne Anmeldung prüfen'))
+    parser.add_argument("--cli", help=tr('Pfad zum kompatiblen NeutronDrive-SDK-Backend'))
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument("--daemon", action="store_true", help="Gespeicherte Sync-Aufträge im Hintergrunddienst ausführen")
-    modes.add_argument("--background", action="store_true", help="Sync und gespeicherte Online-Laufwerke bei Sitzungsstart aktivieren")
-    modes.add_argument("--desktop-service", action="store_true", help="Nativer D-Bus-Helfer für Online-Laufwerke")
-    modes.add_argument("--sync-status", action="store_true", help="Status des Hintergrund-Sync als JSON")
-    modes.add_argument("--stop-background", action="store_true", help="Hintergrund-Sync geordnet stoppen")
-    modes.add_argument("--mount", metavar="ORDNER", help="Online-Laufwerk über den nativen Helfer einhängen")
-    modes.add_argument("--mount-foreground", metavar="ORDNER", help="Online-Laufwerk im Vordergrund ausführen")
-    modes.add_argument("--unmount", action="store_true", help="Online-Laufwerk geordnet aushängen")
-    modes.add_argument("--pin", metavar="RELATIVER_PFAD", help="Online-Datei für Offline-Zugriff vorhalten")
-    modes.add_argument("--evict", metavar="RELATIVER_PFAD", help="Lokalen Cache einer sauberen, geschlossenen Datei freigeben")
-    modes.add_argument("--service-status", action="store_true", help="Status des Online-Laufwerks als JSON")
-    parser.add_argument("--state-dir", help="Verzeichnis für Hintergrund-Aufträge (keine Änderung des Kontospeichers)")
-    parser.add_argument("--remote", default="/my-files", help="Cloud-Ordner des Online-Laufwerks")
-    parser.add_argument("--read-write", action="store_true", help="Schreibzugriff im Online-Laufwerk aktivieren")
-    parser.add_argument("--offline", action="store_true", help="Online-Laufwerk nur aus vorhandenem Cache öffnen")
+    modes.add_argument("--daemon", action="store_true", help=tr('Gespeicherte Sync-Aufträge im Hintergrunddienst ausführen'))
+    modes.add_argument("--background", action="store_true", help=tr('Sync und gespeicherte Online-Laufwerke bei Sitzungsstart aktivieren'))
+    modes.add_argument("--desktop-service", action="store_true", help=tr('Nativer D-Bus-Helfer für Online-Laufwerke'))
+    modes.add_argument("--sync-status", action="store_true", help=tr('Status des Hintergrund-Sync als JSON'))
+    modes.add_argument("--stop-background", action="store_true", help=tr('Hintergrund-Sync geordnet stoppen'))
+    modes.add_argument("--mount", metavar="ORDNER", help=tr('Online-Laufwerk über den nativen Helfer einhängen'))
+    modes.add_argument("--mount-foreground", metavar="ORDNER", help=tr('Online-Laufwerk im Vordergrund ausführen'))
+    modes.add_argument("--unmount", action="store_true", help=tr('Online-Laufwerk geordnet aushängen'))
+    modes.add_argument("--pin", metavar="RELATIVER_PFAD", help=tr('Online-Datei für Offline-Zugriff vorhalten'))
+    modes.add_argument("--evict", metavar="RELATIVER_PFAD", help=tr('Lokalen Cache einer sauberen, geschlossenen Datei freigeben'))
+    modes.add_argument("--service-status", action="store_true", help=tr('Status des Online-Laufwerks als JSON'))
+    parser.add_argument("--state-dir", help=tr('Verzeichnis für Hintergrund-Aufträge (keine Änderung des Kontospeichers)'))
+    parser.add_argument("--remote", default="/my-files", help=tr('Cloud-Ordner des Online-Laufwerks'))
+    parser.add_argument("--read-write", action="store_true", help=tr('Schreibzugriff im Online-Laufwerk aktivieren'))
+    parser.add_argument("--offline", action="store_true", help=tr('Online-Laufwerk nur aus vorhandenem Cache öffnen'))
     args = parser.parse_args(argv)
     from .backend import Backend, BackendError
     backend = Backend(args.cli)
@@ -74,7 +75,7 @@ def main(argv=None):
             print(json.dumps(value, indent=2, ensure_ascii=False))
             return 0
     except (RuntimeError, OSError, ValueError) as exc:
-        print(str(exc), file=sys.stderr)
+        print(diagnostic(str(exc)), file=sys.stderr)
         return 1
     if args.diagnose:
         result = {"app": __version__, "backend_found": backend.available, "backend": backend.executable}
@@ -92,16 +93,16 @@ def main(argv=None):
             sys.path.insert(0, str(qt))
         from .app import Application
     except (ImportError, ValueError) as exc:
-        print(f"Qt6/PySide6 fehlt: {exc}\nBitte das Distributionspaket für NeutronDrive installieren.", file=sys.stderr)
+        print(tr("Qt6/PySide6 is unavailable. Please install the NeutronDrive distribution package.") + " " + str(exc), file=sys.stderr)
         return 1
     import os
     if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY") or os.environ.get("QT_QPA_PLATFORM") in {"offscreen", "minimal"}):
-        print("Keine grafische Sitzung erreichbar. NeutronDrive in einer Wayland- oder X11-Sitzung starten.", file=sys.stderr)
+        print(tr("No graphical session is available. Start NeutronDrive in a Wayland or X11 session."), file=sys.stderr)
         return 1
     try:
         return Application(backend, demo=args.demo).run([sys.argv[0]])
     except (RuntimeError, OSError) as exc:
-        print(str(exc), file=sys.stderr)
+        print(diagnostic(str(exc)), file=sys.stderr)
         return 1
 
 

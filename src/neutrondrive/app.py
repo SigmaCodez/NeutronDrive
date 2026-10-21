@@ -5,13 +5,14 @@ from datetime import datetime
 import os
 from pathlib import Path
 import sys
-from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot, QUrl, Property, QCoreApplication, QEvent
+from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot, QUrl, Property, QCoreApplication, QEvent, QLocale, QDate
 from PySide6.QtGui import QGuiApplication, QDesktopServices
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 from . import APP_ID, __version__
 from .backend import BackendError, Cancelled, data_dir
 from .sync import SyncError
+from .i18n import tr, configure, language, diagnostic
 
 
 class Field:
@@ -43,12 +44,14 @@ def size_text(size):
     value = float(size)
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if value < 1024 or unit == "TB":
-            return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+            return QLocale(language()).toString(value, "f", 0 if unit == "B" else 1) + " " + unit
         value /= 1024
 
 
 def date_text(value):
-    try: return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone().strftime("%d.%m.%Y")
+    try:
+        date = datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone().date()
+        return QLocale(language()).toString(QDate(date.year, date.month, date.day), QLocale.FormatType.ShortFormat)
     except (ValueError, AttributeError): return "—"
 
 
@@ -72,6 +75,14 @@ class Application(QObject):
     def __init__(self, backend, *, demo=False):
         self.qt = QGuiApplication.instance() or QGuiApplication([sys.argv[0]])
         super().__init__()
+        from PySide6.QtCore import QTranslator, QLibraryInfo
+        configure(QLocale.system().uiLanguages())
+        self._qt_translators = []
+        for domain in ('qtbase', 'qtdeclarative'):
+            translator = QTranslator(self.qt)
+            if translator.load(QLocale(language()), domain, '_', QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+                self.qt.installTranslator(translator)
+                self._qt_translators.append(translator)
         from .appearance import SystemAppearance
         self._appearance = SystemAppearance(self.qt, self)
         self.qt.setApplicationName("NeutronDrive")
@@ -87,7 +98,7 @@ class Application(QObject):
         self.window = None
         self.nodes, self.records = [], []
         self.path = "/my-files"
-        self.crumbs = [("Meine Dateien", self.path)]
+        self.crumbs = [(tr('Meine Dateien'), self.path)]
         self.current_page = "files"
         self.pages = {name: name for name in ("files", "background", "ondemand", "local-trash", "activity", "settings")}
         self.fields, self.action_buttons = {}, {}
@@ -106,6 +117,14 @@ class Application(QObject):
         # the Qt GUI thread; do not rely on Qt's optional GLib dispatcher build.
         self.portal_timer = QTimer(self)
         self.portal_timer.timeout.connect(self._pump_portal)
+
+    @Property(str, constant=True)
+    def language(self):
+        return language()
+
+    @Slot(str, result=str)
+    def translate(self, source):
+        return tr(source)
 
     @Property(QObject, constant=True)
     def appearance(self):
@@ -128,7 +147,7 @@ class Application(QObject):
             self.engine.rootContext().setContextProperty("controller", self)
             self.engine.load(QUrl.fromLocalFile(str(Path(__file__).with_name("qml") / "Main.qml")))
             if not self.engine.rootObjects():
-                raise RuntimeError("Qt Quick-Oberfläche konnte nicht geladen werden.")
+                raise RuntimeError(tr('Qt Quick-Oberfläche konnte nicht geladen werden.'))
             self.window = self.engine.rootObjects()[0]
             # The list is viewport-limited; finish delegates synchronously so
             # rapid page changes cannot invalidate pending delegate contexts.
@@ -138,7 +157,7 @@ class Application(QObject):
             if self.backend.available: self.refresh()
             else:
                 self.show_page("settings")
-                self.message("Das Proton-SDK-Backend wurde nicht gefunden.", error=True)
+                self.message(tr('Das Proton-SDK-Backend wurde nicht gefunden.'), error=True)
         self.window.show()
         self.window.raise_()
         self.window.requestActivate()
@@ -165,6 +184,9 @@ class Application(QObject):
             self.engine = None
             self.window = None
             self._appearance.close()
+            for translator in self._qt_translators:
+                self.qt.removeTranslator(translator)
+            self._qt_translators.clear()
 
     def quit(self):
         self.service_timer.stop()
@@ -172,15 +194,15 @@ class Application(QObject):
         self.qt.quit()
 
     def _build_state(self):
-        defaults = dict(search="", files_title="Meine Dateien", empty_label="Noch keine Dateien geladen.", count_label="",
-            notice_label="", login_button="", status_label="Bereit", spinner="", cancel_button="", file_list="",
+        defaults = dict(search="", files_title=tr('Meine Dateien'), empty_label=tr('Noch keine Dateien geladen.'), count_label="",
+            notice_label="", login_button="", status_label=tr('Bereit'), spinner="", cancel_button="", file_list="",
             upload_button="", folder_upload_button="", mkdir_button="", refresh_button="",
-            background_local_label="Kein lokaler Ordner gewählt", background_remote="/my-files", background_add_button="",
-            background_status="Noch keine Hintergrund-Aufträge geladen.", mount_label="Kein Einhängeordner gewählt",
+            background_local_label=tr('Kein lokaler Ordner gewählt'), background_remote="/my-files", background_add_button="",
+            background_status=tr('Noch keine Hintergrund-Aufträge geladen.'), mount_label=tr('Kein Einhängeordner gewählt'),
             mount_remote="/my-files", mount_writable=False, mount_offline=False, mount_button="",
-            mount_status="Noch kein Online-Laufwerk verbunden.", cache_path="",
-            local_trash_status="Noch keine Einträge geladen.", local_trash_empty="Keine registrierten Papierkorbeinträge.",
-            backend_label=self.backend.executable or "Backend nicht installiert")
+            mount_status=tr('Noch kein Online-Laufwerk verbunden.'), cache_path="",
+            local_trash_status=tr('Noch keine Einträge geladen.'), local_trash_empty=tr('Keine registrierten Papierkorbeinträge.'),
+            backend_label=tr("Demo — keine Cloud-Verbindung") if self.demo else self.backend.executable or tr('Backend nicht installiert'))
         for name, value in defaults.items():
             field = Field(self, value)
             self.fields[name] = field
@@ -206,7 +228,7 @@ class Application(QObject):
     def fileEntries(self):
         # Keep the ListView model stable when selection/status changes. Replacing
         # its model would destroy focused/pressed delegates between mouse clicks.
-        return [dict(name=n.name,kind="Ordner" if n.type=="folder" else "Datei",safe=n.safe,
+        return [dict(name=diagnostic(n.name) if not n.safe and n.name in {"[Name nicht entschlüsselbar]", "[Ungültiger Name]"} else n.name,kind=tr('Ordner') if n.type=="folder" else tr('Datei'),isFolder=n.type=="folder",safe=n.safe,
                      size=size_text(n.size) if n.type!="folder" else "—",modified=date_text(n.modified))
                 for n in self.visible_nodes]
 
@@ -262,9 +284,9 @@ class Application(QObject):
         self.selection.clear()
         self.focus_index = 0
         self.filesChanged.emit()
-        self.empty_label.setText("Keine passenden Dateien in diesem Ordner." if query else "Dieser Ordner ist leer.")
+        self.empty_label.setText(tr('Keine passenden Dateien in diesem Ordner.') if query else tr('Dieser Ordner ist leer.'))
         self.empty_label.setVisible(not self.visible_nodes)
-        self.count_label.setText(f"{len(self.visible_nodes)} von {len(self.nodes)} Einträgen · Doppelklick öffnet Ordner")
+        self.count_label.setText(tr('{p0} von {p1} Einträgen · Doppelklick öffnet Ordner').format(p0=len(self.visible_nodes), p1=len(self.nodes)))
         self.update_actions(); self.changed.emit()
 
     @Slot(int)
@@ -279,24 +301,24 @@ class Application(QObject):
             self.selection={index}; self.download()
 
     def message(self, text, *, error=False):
-        self.notice_error=error; self.notice_label.setText(str(text)); self.notice_label.show()
+        self.notice_error=error; self.notice_label.setText(diagnostic(str(text))); self.notice_label.show()
 
     def render_activity(self): self.changed.emit()
 
     def render_background_status(self, value):
         error=value.get("error") or (value.get("event_source") or {}).get("error")
-        self.background_status.setText(("Dienst läuft" if value.get("running") else "Dienst ist gestoppt") + (" · " + str(error) if error else ""))
-        names={"idle":"Aktuell","syncing":"Wird synchronisiert","paused":"Pausiert","conflicts":"Konflikt","conflict":"Konflikt","blocked":"Blockiert","offline":"Offline"}
-        self.jobs=[dict(id=j["id"],name=j.get("name") or j.get("local_root","Sync-Ordner"),
+        self.background_status.setText((tr('Dienst läuft') if value.get("running") else tr('Dienst ist gestoppt')) + (" · " + diagnostic(str(error)) if error else ""))
+        names={"idle":tr('Aktuell'),"syncing":tr('Wird synchronisiert'),"paused":tr('Pausiert'),"conflicts":tr('Konflikt'),"conflict":tr('Konflikt'),"blocked":tr('Blockiert'),"offline":tr('Offline'), "waiting":tr("Waiting"), "error":tr("Failed"), "stopped":tr("Dienst ist gestoppt")}
+        self.jobs=[dict(id=j["id"],name=j.get("name") or j.get("local_root",tr('Sync-Ordner')),
             detail=str(j.get("local_root",""))+" ↔ "+str(j.get("remote_root","")), paused=j.get("paused",False),
-            status=names.get(j.get("state"),str(j.get("state","waiting")))+" · "+str(j.get("error") or "")+" "+"; ".join(map(str,j.get("conflicts",[])[:5]))) for j in value.get("jobs",[])]
+            status=names.get(j.get("state"),str(j.get("state","waiting")))+" · "+diagnostic(str(j.get("error") or ""))+" "+"; ".join(map(diagnostic,j.get("conflicts",[])[:5]))) for j in value.get("jobs",[])]
         self.changed.emit()
 
     def render_local_trash(self, values):
-        self.local_trash_status.setText(f"{len(values)} registrierte Einträge" + (" · Demo ohne Dateizugriff" if self.demo else ""))
+        self.local_trash_status.setText(tr('{p0} registrierte Einträge').format(p0=len(values)) + (tr(' · Demo ohne Dateizugriff') if self.demo else ""))
         self.local_trash_empty.setVisible(not values)
-        self.trash_entries=[dict(state=str(state),id=e.id,name=str(e.original_path),detail=e.status+" · "+str(e.trash_path),
-            error=str(getattr(e,"error","") or ""),restorePath=str(getattr(e,"restore_path","") or ""),
+        self.trash_entries=[dict(state=str(state),id=e.id,name=str(e.original_path),detail={"trashed":tr("In trash"),"prepared":tr("Preparing"),"restoring":tr("Restoring"),"restored":tr("Restored"),"recovery":tr("Recovery required"),"missing":tr("Missing")}.get(e.status,e.status)+" · "+str(e.trash_path),
+            error=diagnostic(str(getattr(e,"error","") or "")),restorePath=str(getattr(e,"restore_path","") or ""),
             enabled=not self.demo and e.status in {"trashed","prepared","restoring","recovery"}) for state,e in values]
         self.changed.emit()
 
@@ -315,20 +337,20 @@ class Application(QObject):
         actions = {"refresh":self.refresh,"upload":lambda:self.choose_upload(False),"uploadFolder":lambda:self.choose_upload(True),
             "mkdir":self.new_folder,"Download":self.download,"Umbenennen":self.rename,"Verschieben":self.move,"Freigabe":self.share,
             "Papierkorb":self.trash,"Wiederherstellen":self.restore,
-            "chooseBackground":lambda:self.choose("Sync-Ordner wählen",folder=True,callback=self.choose_background_local),
+            "chooseBackground":lambda:self.choose(tr('Sync-Ordner wählen'),folder=True,callback=self.choose_background_local),
             "addJob":self.add_background_job,"start":lambda:self.background_action("start"),"stop":lambda:self.background_action("stop"),
-            "chooseMount":lambda:self.choose("Leeren Einhängeordner wählen",folder=True,callback=self.choose_mount_local),
+            "chooseMount":lambda:self.choose(tr('Leeren Einhängeordner wählen'),folder=True,callback=self.choose_mount_local),
             "mount":self.mount_drive,"unmount":lambda:self.mount_action("unmount"),"refreshMount":lambda:self.mount_action("refresh"),
             "pin":lambda:self.mount_action("pin",path=self.cache_path.text()),"evict":lambda:self.mount_action("evict",path=self.cache_path.text()),
             "helperLogin":lambda:self.mount_action("login"),"refreshTrash":self.refresh_local_trash,"login":self.login,"openLogin":self.open_login,
-            "logout":self.logout,"version":lambda:self.submit("Backend prüfen",self.backend.version,self.show_version),
+            "logout":self.logout,"version":lambda:self.submit(tr('Backend prüfen'),self.backend.version,self.show_version),
             "autostart":lambda:self.change_autostart(True),"noAutostart":lambda:self.change_autostart(False),
             "cli":lambda:self.open_url("https://proton.me/download/drive/cli/index.html"),"project":lambda:self.open_url("https://github.com/SigmaCodez/NeutronDrive"),"web":lambda:self.open_url("https://drive.proton.me"),"cancel":self.backend.cancel}
         if name in self.action_buttons and not self.action_buttons[name].enabled: return
         if name in actions: actions[name]()
 
     def open_url(self, url):
-        if not QDesktopServices.openUrl(QUrl(url)): self.message("Browser konnte nicht geöffnet werden: "+url.split("?")[0],error=True)
+        if not QDesktopServices.openUrl(QUrl(url)): self.message(tr('Browser konnte nicht geöffnet werden: ')+url.split("?")[0],error=True)
 
     def _dialog(self, kind, title, description, callback, **options):
         self.dialog_serial += 1
@@ -361,10 +383,10 @@ class Application(QObject):
             if action == "copy" and url:
                 self.qt.clipboard().setText(url); self.share_dialog(node,value)
             elif action == "revoke" and url:
-                self.confirm("Freigabelink deaktivieren?","Der bisherige Link funktioniert anschließend nicht mehr.",lambda:self.submit("Freigabelink entfernen",lambda:self.backend.remove_link(node.path),lambda _:self.message("Freigabelink entfernt.")))
+                self.confirm(tr('Freigabelink deaktivieren?'),tr('Der bisherige Link funktioniert anschließend nicht mehr.'),lambda:self.submit(tr('Freigabelink entfernen'),lambda:self.backend.remove_link(node.path),lambda _:self.message(tr('Freigabelink entfernt.'))))
             elif action == "create" and not url:
-                self.submit("Freigabelink erstellen",lambda:self.backend.create_link(node.path),lambda result:self.share_dialog(node,result))
-        self._dialog("share","Freigabe · "+node.name,"Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.",response,url=url)
+                self.submit(tr('Freigabelink erstellen'),lambda:self.backend.create_link(node.path),lambda result:self.share_dialog(node,result))
+        self._dialog("share",tr('Freigabe · ')+node.name,tr('Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.'),response,url=url)
 
     @Slot(result=bool)
     def request_close(self): return not self._close()
@@ -377,8 +399,8 @@ class Application(QObject):
             return False
         if self.busy:
             def stop():
-                self.closing=True;self.backend.cancel();self.status_label.setText('Vorgang wird beendet …')
-            self.confirm('Laufenden Vorgang abbrechen?','Bereits übertragene Dateien bleiben erhalten. Die App wartet auf das Ende des Backends.',stop)
+                self.closing=True;self.backend.cancel();self.status_label.setText(tr('Vorgang wird beendet …'))
+            self.confirm(tr('Laufenden Vorgang abbrechen?'),tr('Bereits übertragene Dateien bleiben erhalten. Die App wartet auf das Ende des Backends.'),stop)
             return True
         if os.environ.get('FLATPAK_ID') and not self.demo:
             try:
@@ -399,25 +421,25 @@ class Application(QObject):
                 return [(str(state), entry) for entry in LocalTrash(state).list_entries()] if state.exists() else []
             except (OSError, ValueError) as exc:
                 raise SyncError(str(exc)) from exc
-        self.submit("Lokalen Papierkorb laden", work, self.render_local_trash)
+        self.submit(tr('Lokalen Papierkorb laden'), work, self.render_local_trash)
 
     def restore_local_trash(self, state, receipt_id):
         if self.demo:
-            self.message("Der Demo-Modus stellt keine Dateien wieder her.")
+            self.message(tr('Der Demo-Modus stellt keine Dateien wieder her.'))
             return
         def work():
             from .local_trash import LocalTrash
             def check_cancel():
                 if self.backend.cancel_event.is_set():
-                    raise Cancelled("Wiederherstellung abgebrochen; erhaltene Daten bleiben im Papierkorb oder Wiederherstellungsziel.")
+                    raise Cancelled(tr('Wiederherstellung abgebrochen; erhaltene Daten bleiben im Papierkorb oder Wiederherstellungsziel.'))
             try:
                 return LocalTrash(Path(state)).restore(receipt_id, check_cancel=check_cancel)
             except (OSError, ValueError) as exc:
                 raise SyncError(str(exc)) from exc
         def done(_):
-            self.message("Datei wiederhergestellt; bestehende Dateien wurden nicht überschrieben.")
+            self.message(tr('Datei wiederhergestellt; bestehende Dateien wurden nicht überschrieben.'))
             self.refresh_local_trash()
-        self.submit("Datei wiederherstellen", work, done)
+        self.submit(tr('Datei wiederherstellen'), work, done)
 
     def background_clients(self):
         from .background import Controller, JobStore
@@ -434,10 +456,10 @@ class Application(QObject):
 
     def add_background_job(self):
         if self.demo:
-            self.message("Im Demo-Modus werden keine Hintergrund-Aufträge angelegt.")
+            self.message(tr('Im Demo-Modus werden keine Hintergrund-Aufträge angelegt.'))
             return
         if not self.background_local:
-            self.message("Bitte zuerst den lokalen Sync-Ordner auswählen.", error=True)
+            self.message(tr('Bitte zuerst den lokalen Sync-Ordner auswählen.'), error=True)
             return
         local, remote = self.background_local, self.background_remote.text()
         def work():
@@ -451,17 +473,17 @@ class Application(QObject):
                 from .desktop_integration import request_portal_background
                 def permission(ok):
                     if ok:
-                        self.submit("Hintergrund-Sync aktivieren", work, self.render_background_status)
+                        self.submit(tr('Hintergrund-Sync aktivieren'), work, self.render_background_status)
                     else:
-                        self.message("Der Desktop hat Hintergrundbetrieb nicht freigegeben. Es wurde kein Auftrag aktiviert.", error=True)
+                        self.message(tr('Der Desktop hat Hintergrundbetrieb nicht freigegeben. Es wurde kein Auftrag aktiviert.'), error=True)
                 request_portal_background(True, permission)
             else:
-                self.submit("Hintergrund-Sync aktivieren", work, self.render_background_status)
-        self.confirm("Automatischen Sync aktivieren?", "Neue und geänderte Dateien werden künftig automatisch übertragen. Nach einem bestätigten gemeinsamen Stand werden Löschungen auf der Gegenseite in den Papierkorb übernommen. Bei gleichzeitigen Änderungen bleiben Dateien als Konflikt erhalten. Flatpak fragt zusätzlich nach Hintergrundbetrieb und Autostart.", activate)
+                self.submit(tr('Hintergrund-Sync aktivieren'), work, self.render_background_status)
+        self.confirm(tr('Automatischen Sync aktivieren?'), tr('Neue und geänderte Dateien werden künftig automatisch übertragen. Nach einem bestätigten gemeinsamen Stand werden Löschungen auf der Gegenseite in den Papierkorb übernommen. Bei gleichzeitigen Änderungen bleiben Dateien als Konflikt erhalten. Flatpak fragt zusätzlich nach Hintergrundbetrieb und Autostart.'), activate)
 
     def background_action(self, action, job_id=None):
         if self.demo:
-            self.message("Der Demo-Modus startet keine Hintergrunddienste.")
+            self.message(tr('Der Demo-Modus startet keine Hintergrunddienste.'))
             return
         def work():
             store, controller = self.background_clients()
@@ -479,38 +501,38 @@ class Application(QObject):
                 controller.start()
                 controller.command(action, job_id)
             return controller.status()
-        self.submit("Hintergrund-Sync", work, self.render_background_status)
+        self.submit(tr('Hintergrund-Sync'), work, self.render_background_status)
 
     def mount_drive(self):
         if not self.mount_local:
-            self.message("Bitte zuerst einen leeren Einhängeordner auswählen.", error=True)
+            self.message(tr('Bitte zuerst einen leeren Einhängeordner auswählen.'), error=True)
             return
         self.mount_action("mount", mountpoint=str(self.mount_local), remote_root=self.mount_remote.text(),
                           writable=self.mount_writable.isChecked(), offline=self.mount_offline.isChecked())
 
     def mount_action(self, action, **options):
         if self.demo:
-            self.message("Im Demo-Modus wird kein Laufwerk verbunden oder verändert.")
+            self.message(tr('Im Demo-Modus wird kein Laufwerk verbunden oder verändert.'))
             return
         if action == "mount" and os.environ.get("SNAP"):
-            self.message("Online-Laufwerke sind im Snap nicht verfügbar. Bitte das native DEB- oder RPM-Paket verwenden; Dateien durchsuchen und synchronisieren bleibt im Snap möglich.", error=True)
+            self.message(tr('Online-Laufwerke sind im Snap nicht verfügbar. Bitte das native DEB- oder RPM-Paket verwenden; Dateien durchsuchen und synchronisieren bleibt im Snap möglich.'), error=True)
             return
         from .desktop_service import DesktopClient
         client = DesktopClient(self.backend.executable)
         def done(value):
             self.render_mount_status(value)
-            self.message("Laufwerksaktion abgeschlossen.")
-        self.submit("Online-Laufwerk", lambda: client.request(action, **options), done)
+            self.message(tr('Laufwerksaktion abgeschlossen.'))
+        self.submit(tr('Online-Laufwerk'), lambda: client.request(action, **options), done)
 
     def render_mount_status(self, value):
-        state = "Verbunden" if value.get("mounted") else "Nicht verbunden"
+        state = tr('Verbunden') if value.get("mounted") else tr('Nicht verbunden')
         path = value.get("mountpoint", "")
         recovery = value.get("pending_recovery", value.get("recovery", []))
         text = state + (" · " + str(path) if path else "")
         if recovery:
-            text += "\nNicht hochgeladene Änderungen im Wiederherstellungsspeicher: " + str(recovery)
+            text += tr('\nNicht hochgeladene Änderungen im Wiederherstellungsspeicher: ') + str(recovery)
         if value.get("error"):
-            text += "\n" + str(value["error"])
+            text += "\n" + diagnostic(str(value["error"]))
         self.mount_status.setText(text)
         configuration = value.get("configuration", {})
         if configuration and not self.mount_local:
@@ -551,17 +573,17 @@ class Application(QObject):
         import os
         if os.environ.get("FLATPAK_ID"):
             from .desktop_integration import request_portal_background
-            request_portal_background(enabled, lambda ok:self.message("Autostart eingerichtet." if ok else "Das Desktop-Portal hat Autostart nicht freigegeben.", error=not ok))
+            request_portal_background(enabled, lambda ok:self.message(tr('Autostart eingerichtet.') if ok else tr('Das Desktop-Portal hat Autostart nicht freigegeben.'), error=not ok))
         else:
             from .desktop_integration import set_autostart
             def work():
                 set_autostart(enabled, self.backend.executable)
                 return enabled
-            self.submit("Autostart", work, lambda enabled:self.message("Autostart aktiviert." if enabled else "Autostart deaktiviert."))
+            self.submit(tr('Autostart'), work, lambda enabled:self.message(tr('Autostart aktiviert.') if enabled else tr('Autostart deaktiviert.')))
 
     def navigate_root(self, title, path):
         if self.busy:
-            self.message("Bitte den laufenden Vorgang beenden oder abbrechen.")
+            self.message(tr('Bitte den laufenden Vorgang beenden oder abbrechen.'))
             return
         self.crumbs = [(title, path)]
         self.path = path
@@ -587,11 +609,11 @@ class Application(QObject):
         if self.busy:
             return
         path = self.path
-        self.submit("Dateiliste laden", lambda: self.backend.list_nodes(path), self.loaded)
+        self.submit(tr('Dateiliste laden'), lambda: self.backend.list_nodes(path), self.loaded)
 
     def loaded(self, nodes):
         self.nodes = nodes
-        self.empty_label.setText("Dieser Ordner ist leer.")
+        self.empty_label.setText(tr('Dieser Ordner ist leer.'))
         self.render_nodes()
 
     def update_actions(self):
@@ -613,7 +635,7 @@ class Application(QObject):
 
     def submit(self, title, work, done=None):
         if self.busy:
-            self.message("Es läuft bereits ein Vorgang. Bitte warten oder abbrechen.")
+            self.message(tr('Es läuft bereits ein Vorgang. Bitte warten oder abbrechen.'))
             return
         self.busy = True
         self.backend.reset_cancel()
@@ -622,7 +644,7 @@ class Application(QObject):
         self.status_label.setText(title + " …")
         self.file_list.setEnabled(False)
         self.update_actions()
-        self.records.insert(0, [datetime.now().strftime("%H:%M:%S"), title, "Läuft …"])
+        self.records.insert(0, [datetime.now().strftime("%H:%M:%S"), title, tr('Läuft …')])
         record = self.records[0]
         self.render_activity()
         future = self.executor.submit(work)
@@ -639,23 +661,23 @@ class Application(QObject):
         try:
             value = future.result()
         except Exception as exc:
-            text = str(exc) if isinstance(exc, (BackendError, SyncError)) else f"Interner Fehler ({type(exc).__name__}). Es wurde kein Erfolg angenommen."
-            record[2] = "Fehlgeschlagen · " + text
-            self.status_label.setText(title + " · nicht abgeschlossen")
+            text = diagnostic(str(exc)) if isinstance(exc, (BackendError, SyncError)) else tr('Interner Fehler ({p0}). Es wurde kein Erfolg angenommen.').format(p0=type(exc).__name__)
+            record[2] = tr('Fehlgeschlagen · ') + text
+            self.status_label.setText(title + tr(' · nicht abgeschlossen'))
             self.message(text, error=True)
         else:
-            record[2] = "Abgeschlossen"
-            self.status_label.setText(title + " · abgeschlossen")
+            record[2] = tr('Abgeschlossen')
+            self.status_label.setText(title + tr(' · abgeschlossen'))
             if isinstance(value, dict) and "transferredItems" in value:
-                text = f"{value['transferredItems']} übertragen · {value.get('skippedItems', 0)} übersprungen · {size_text(value.get('transferredBytes', 0))}"
+                text = tr('{p0} übertragen · {p1} übersprungen · {p2}').format(p0=value['transferredItems'], p1=value.get('skippedItems', 0), p2=size_text(value.get('transferredBytes', 0)))
                 record[2] = text
                 self.message(text)
             if done and not self.closing:
                 try:
                     done(value)
                 except Exception as exc:
-                    record[2] = "Anzeige fehlgeschlagen"
-                    self.message(f"Ergebnis konnte nicht angezeigt werden ({type(exc).__name__}). Bitte aktualisieren.", error=True)
+                    record[2] = tr('Anzeige fehlgeschlagen')
+                    self.message(tr('Ergebnis konnte nicht angezeigt werden ({p0}). Bitte aktualisieren.').format(p0=type(exc).__name__), error=True)
         self.render_activity()
         if self.closing:
             self.window.close()
@@ -667,15 +689,15 @@ class Application(QObject):
             self.open_url(self.login_url)
 
     def login(self):
-        self.message("Die Anmeldung erfolgt bei Proton im Browser. Diese App ist unabhängig und wird nicht von Proton unterstützt.")
+        self.message(tr('Die Anmeldung erfolgt bei Proton im Browser. Diese App ist unabhängig und wird nicht von Proton unterstützt.'))
         def on_url(url):
             self.dispatch(self._login_ready, url)
-        self.submit("Browser-Anmeldung", lambda: self.backend.login(on_url), lambda _: self.refresh())
+        self.submit(tr("Anmelden"), lambda: self.backend.login(on_url), lambda _: self.refresh())
 
     def _login_ready(self, url):
         self.login_url = url
         self.login_button.setVisible(True)
-        self.message("Bitte die Anmeldung im geöffneten Proton-Browserfenster abschließen. Falls kein Fenster erscheint, den Anmeldeknopf verwenden.")
+        self.message(tr('Bitte die Anmeldung im geöffneten Proton-Browserfenster abschließen. Falls kein Fenster erscheint, den Anmeldeknopf verwenden.'))
         return False
 
     def logout(self):
@@ -688,59 +710,59 @@ class Application(QObject):
                     if client.request("status").get("mounted"):
                         client.request("unmount")
             return self.backend.logout()
-        self.confirm("Von Proton abmelden?", "Hintergrund-Sync wird gestoppt. Native Online-Laufwerke müssen vorher alle geöffneten Dateien schließen. Dies beendet auch die gemeinsam verwendete native CLI-Sitzung.",
-                     lambda: self.submit("Abmelden", work, self.logged_out))
+        self.confirm(tr('Von Proton abmelden?'), tr('Hintergrund-Sync wird gestoppt. Native Online-Laufwerke müssen vorher alle geöffneten Dateien schließen. Dies beendet auch die gemeinsam verwendete native CLI-Sitzung.'),
+                     lambda: self.submit(tr('Abmelden'), work, self.logged_out))
 
     def logged_out(self, _):
         self.nodes = []
         self.render_nodes()
-        self.message("Von Proton abgemeldet.")
+        self.message(tr('Von Proton abgemeldet.'))
 
     def show_version(self, value):
         self.backend_label.setText(str(value))
 
     def choose_upload(self, folder):
         target = self.path
-        self.choose("Ordner hochladen" if folder else "Dateien hochladen", folder=folder, multiple=not folder,
-                    callback=lambda paths: self.submit("Upload", lambda: self.backend.upload(paths, target), lambda _: self.refresh()))
+        self.choose(tr('Ordner hochladen') if folder else tr('Dateien hochladen'), folder=folder, multiple=not folder,
+                    callback=lambda paths: self.submit(tr('Upload'), lambda: self.backend.upload(paths, target), lambda _: self.refresh()))
 
     def download(self):
         paths = [n.path for n in self.selected()]
         if not paths:
             return
-        self.choose("Download-Zielordner wählen", folder=True,
-                    callback=lambda selected: self.submit("Download", lambda: self.backend.download(paths, selected[0])))
+        self.choose(tr('Download-Zielordner wählen'), folder=True,
+                    callback=lambda selected: self.submit(tr('Download'), lambda: self.backend.download(paths, selected[0])))
 
     def new_folder(self):
         target = self.path
-        self.prompt("Neuer Ordner", "Name des Ordners", "", lambda value: self.submit("Ordner erstellen", lambda: self.backend.mkdir(target, value), lambda _: self.refresh()))
+        self.prompt(tr('Neuer Ordner'), tr('Name des Ordners'), "", lambda value: self.submit(tr('Ordner erstellen'), lambda: self.backend.mkdir(target, value), lambda _: self.refresh()))
 
     def rename(self):
         nodes = self.selected()
         if len(nodes) != 1:
             return
         node = nodes[0]
-        self.prompt("Umbenennen", "Neuer Name", node.name, lambda value: self.submit("Umbenennen", lambda: self.backend.rename(node.path, value), lambda _: self.refresh()))
+        self.prompt(tr('Umbenennen'), tr('Neuer Name'), node.name, lambda value: self.submit(tr('Umbenennen'), lambda: self.backend.rename(node.path, value), lambda _: self.refresh()))
 
     def move(self):
         paths = [n.path for n in self.selected()]
-        self.prompt("Verschieben", "Cloud-Zielordner (z. B. /my-files/Dokumente)", "/my-files",
-                    lambda value: self.submit("Verschieben", lambda: self.backend.move(paths, value), lambda _: self.refresh()))
+        self.prompt(tr('Verschieben'), tr('Cloud-Zielordner (z. B. /my-files/Dokumente)'), "/my-files",
+                    lambda value: self.submit(tr('Verschieben'), lambda: self.backend.move(paths, value), lambda _: self.refresh()))
 
     def trash(self):
         nodes = self.selected()
         if not nodes:
             return
         paths = [n.path for n in nodes]
-        self.confirm("In den Papierkorb verschieben?", f"{len(nodes)} ausgewählte Einträge werden in den Proton-Papierkorb verschoben.",
-                     lambda: self.submit("Papierkorb", lambda: self.backend.trash(paths), lambda _: self.refresh()), destructive=True)
+        self.confirm(tr('In den Papierkorb verschieben?'), tr('{p0} ausgewählte Einträge werden in den Proton-Papierkorb verschoben.').format(p0=len(nodes)),
+                     lambda: self.submit(tr('Papierkorb'), lambda: self.backend.trash(paths), lambda _: self.refresh()), destructive=True)
 
     def restore(self):
         paths = [n.path for n in self.selected()]
         if paths:
-            self.submit("Wiederherstellen", lambda: self.backend.restore(paths), lambda _: self.refresh())
+            self.submit(tr('Wiederherstellen'), lambda: self.backend.restore(paths), lambda _: self.refresh())
 
     def share(self):
         nodes = self.selected()
         if len(nodes) == 1:
-            self.submit("Freigabestatus laden", lambda: self.backend.sharing(nodes[0].path), lambda value: self.share_dialog(nodes[0], value))
+            self.submit(tr('Freigabestatus laden'), lambda: self.backend.sharing(nodes[0].path), lambda value: self.share_dialog(nodes[0], value))

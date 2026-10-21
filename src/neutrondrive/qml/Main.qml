@@ -74,7 +74,9 @@ ApplicationWindow {
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
     property var s: controller.state
     property color muted: window.theme.muted
-    property var titles: ({"files":s.fields.files_title.value,"background":"Automatischer Sync","ondemand":"Online-Laufwerk","local-trash":"Lokaler Papierkorb","activity":"Aktivität","settings":"Einstellungen"})
+    property var titles: ({"files":s.fields.files_title.value,"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
+    function tr(source) { return controller.translate(source) }
+    locale: Qt.locale(controller.language)
     function f(name) { return s.fields[name] }
     onClosing: function(event) { event.accepted = controller.request_close() }
 
@@ -151,10 +153,10 @@ ApplicationWindow {
                     }
                     Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: window.theme.text }
                 }
-                Copy { text: "Deine Dateien. Dein Speicher."; font.pixelSize: 12; Layout.bottomMargin: 12 }
+                Copy { text: window.tr("Deine Dateien. Dein Speicher."); font.pixelSize: 12; Layout.bottomMargin: 12 }
                 Repeater {
-                    model: [{name:"Meine Dateien",key:"/my-files",icon:"folder"},{name:"Mit mir geteilt",key:"/shared-with-me",icon:"shared"},{name:"Computer",key:"/devices",icon:"computer"},{name:"Cloud-Papierkorb",key:"/trash",icon:"trash"},
-                        {name:"Automatischer Sync",key:"background",icon:"refresh"},{name:"Online-Laufwerk",key:"ondemand",icon:"cloud"},{name:"Lokaler Papierkorb",key:"local-trash",icon:"trash"},{name:"Aktivität",key:"activity",icon:"activity"},{name:"Einstellungen",key:"settings",icon:"settings"}]
+                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
+                        {name:window.tr("Automatischer Sync"),key:"background",icon:"refresh"},{name:window.tr("Online-Laufwerk"),key:"ondemand",icon:"cloud"},{name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
                     delegate: ColumnLayout {
                         id: navigationEntry
                         required property var modelData
@@ -162,7 +164,7 @@ ApplicationWindow {
                         Layout.fillWidth: true; spacing: 4
                         Copy {
                             visible: navigationEntry.index===0 || navigationEntry.index===4 || navigationEntry.index===7
-                            text: navigationEntry.index===0 ? "DATEIEN" : navigationEntry.index===4 ? "AUF DIESEM GERÄT" : "VERWALTEN"
+                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===4 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
                             font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
                             Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
                         }
@@ -178,16 +180,16 @@ ApplicationWindow {
                         contentItem: RowLayout {
                             spacing: 12
                             DriveIcon { symbol: nav.modelData.icon; ink: nav.selected ? window.theme.accentText : window.theme.muted; Layout.leftMargin: 10; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
-                            Label { text: nav.text; color: nav.selected ? window.theme.accentText : window.theme.secondaryText; font.pixelSize: 13; font.bold: nav.selected; Layout.fillWidth: true }
+                            Label { text: nav.text; elide: Text.ElideRight; color: nav.selected ? window.theme.accentText : window.theme.secondaryText; font.pixelSize: 13; font.bold: nav.selected; Layout.fillWidth: true }
                         }
                         background: Rectangle { radius: 9; color: nav.selected ? window.theme.selected : nav.hovered ? window.theme.navHover : "transparent"; border.color: nav.activeFocus ? window.theme.accent : "transparent" }
                         }
                     }
                 }
                 Item { Layout.fillHeight: true }
-                Action { text: "Bei Proton anmelden"; command: "login"; Layout.fillWidth: true }
-                Action { text: "Proton Drive im Web ↗"; command: "web"; Layout.fillWidth: true }
-                Copy { text: "Unabhängige Open-Source-App\n"+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
+                Action { text: window.tr("Bei Proton anmelden"); command: "login"; Layout.fillWidth: true }
+                Action { text: window.tr("Proton Drive im Web ↗"); command: "web"; Layout.fillWidth: true }
+                Copy { text: window.tr("Unabhängige Open-Source-App\n")+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
             }
         }
         }
@@ -197,7 +199,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 5
-                    Copy { text: s.page==="files" ? "Dateien & Ordner" : "NeutronDrive für Linux"; font.pixelSize: 12 }
+                    Copy { text: s.page==="files" ? window.tr("Dateien & Ordner") : window.tr("NeutronDrive für Linux"); font.pixelSize: 12 }
                     Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
                 Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
@@ -209,7 +211,7 @@ ApplicationWindow {
                 radius: 10; color: s.noticeError ? window.theme.warning : window.theme.badge
                 Copy { id: notice; anchors { left: parent.left; right: parent.right; margins: 12; verticalCenter: parent.verticalCenter } text: window.f("notice_label").value; color: window.theme.text }
             }
-            Action { visible: window.f("login_button").visible; text: "Anmeldung im Browser öffnen"; command: "openLogin" }
+            Action { visible: window.f("login_button").visible; text: window.tr("Anmeldung im Browser öffnen"); command: "openLogin" }
             Loader { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
                 sourceComponent: s.page==="files" ? filesPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
             }
@@ -217,7 +219,7 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 BusyIndicator { running: s.busy; visible: s.busy; implicitWidth: 24; implicitHeight: 24 }
                 Copy { text: window.f("status_label").value; font.pixelSize: 12 }
-                Action { visible: s.busy; text: "Abbrechen"; command: "cancel"; enabled: true }
+                Action { visible: s.busy; text: window.tr("Abbrechen"); command: "cancel"; enabled: true }
             }
         }
     }
@@ -228,16 +230,16 @@ ApplicationWindow {
             objectName: "page-files"; spacing: 14
             RowLayout {
                 Layout.fillWidth: true; spacing: 12
-                Input { field: "search"; placeholderText: "In diesem Ordner suchen …"; objectName: "searchInput"; leftPadding: 42
+                Input { field: "search"; placeholderText: window.tr("In diesem Ordner suchen …"); objectName: "searchInput"; leftPadding: 42
                     DriveIcon { x: 13; anchors.verticalCenter: parent.verticalCenter; symbol: "search"; ink: window.muted; width: 18; height: 18 }
                 }
             }
             Flow {
                 Layout.fillWidth: true; spacing: 8
-                Action { text: "Dateien hochladen"; command: "upload"; field: "upload_button"; primary: true }
-                Action { text: "Ordner hochladen"; command: "uploadFolder"; field: "folder_upload_button" }
-                Action { text: "Neuer Ordner"; command: "mkdir"; field: "mkdir_button" }
-                Action { text: "Aktualisieren"; command: "refresh"; field: "refresh_button" }
+                Action { text: window.tr("Dateien hochladen"); command: "upload"; field: "upload_button"; primary: true }
+                Action { text: window.tr("Ordner hochladen"); command: "uploadFolder"; field: "folder_upload_button" }
+                Action { text: window.tr("Neuer Ordner"); command: "mkdir"; field: "mkdir_button" }
+                Action { text: window.tr("Aktualisieren"); command: "refresh"; field: "refresh_button" }
             }
             Flow { Layout.fillWidth: true; spacing: 4
                 Repeater { model: s.crumbs; delegate: Button { required property string modelData; required property int index; text: modelData+"  ›"; flat: true; onClicked: controller.crumb(index) } }
@@ -248,9 +250,9 @@ ApplicationWindow {
                     anchors.fill: parent; anchors.margins: 12; spacing: 4
                     RowLayout {
                         Layout.fillWidth: true; Layout.margins: 10
-                        Copy { text: "Name"; font.pixelSize: 12 }
-                        Label { text: "Größe"; color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
-                        Label { text: "Geändert"; color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
+                        Copy { text: window.tr("Name"); font.pixelSize: 12 }
+                        Label { text: window.tr("Größe"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
+                        Label { text: window.tr("Geändert"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
                     }
                     ListView {
                         id: fileList; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true
@@ -278,12 +280,12 @@ ApplicationWindow {
                                 anchors.fill: parent; anchors.margins: 10; spacing: 12
                                 Rectangle {
                                     Layout.preferredWidth: 36; Layout.preferredHeight: 36; radius: 9
-                                    color: fileRow.modelData.kind==="Ordner" ? window.theme.rowSelected : window.theme.fileTile
-                                    DriveIcon { anchors.centerIn: parent; symbol: fileRow.modelData.kind==="Ordner" ? "folder" : "file"; ink: fileRow.modelData.kind==="Ordner" ? window.theme.accent : window.theme.fileInk }
+                                    color: fileRow.modelData.isFolder ? window.theme.rowSelected : window.theme.fileTile
+                                    DriveIcon { anchors.centerIn: parent; symbol: fileRow.modelData.isFolder ? "folder" : "file"; ink: fileRow.modelData.isFolder ? window.theme.accent : window.theme.fileInk }
                                 }
                                 ColumnLayout { Layout.fillWidth: true; spacing: 3
                                     Label { text: fileRow.modelData.name; textFormat: Text.PlainText; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
-                                    Copy { text: fileRow.modelData.safe ? fileRow.modelData.kind : "Nicht eindeutig · gesperrt"; font.pixelSize: 11 }
+                                    Copy { text: fileRow.modelData.safe ? fileRow.modelData.kind : window.tr("Nicht eindeutig · gesperrt"); font.pixelSize: 11 }
                                 }
                                 Label { text: fileRow.modelData.size; color: window.muted; Layout.preferredWidth: 80; font.pixelSize: 12 }
                                 Label { text: fileRow.modelData.modified; color: window.muted; Layout.preferredWidth: 90; font.pixelSize: 12 }
@@ -299,7 +301,7 @@ ApplicationWindow {
             }
             Flow { Layout.fillWidth: true; spacing: 8
                 Repeater { model: ["Download","Umbenennen","Verschieben","Freigabe","Papierkorb","Wiederherstellen"]
-                    delegate: Action { required property string modelData; text: modelData; command: modelData; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
+                    delegate: Action { required property string modelData; text: window.tr(modelData); command: modelData; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
                 }
             }
             Copy { text: window.f("count_label").value; font.pixelSize: 12 }
@@ -315,18 +317,18 @@ ApplicationWindow {
         id: backgroundPage
         PageScroll {
             objectName: "page-background"
-            Copy { text: "Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters." }
+            Copy { text: window.tr("Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters.") }
             Card {
-                Heading { text: "Ordner automatisch synchronisieren" }
+                Heading { text: window.tr("Ordner automatisch synchronisieren") }
                 Copy { text: window.f("background_local_label").value }
-                Action { text: "Lokalen Ordner wählen"; command: "chooseBackground" }
-                Copy { text: "Cloud-Ordner" }
+                Action { text: window.tr("Lokalen Ordner wählen"); command: "chooseBackground" }
+                Copy { text: window.tr("Cloud-Ordner") }
                 Input { field: "background_remote" }
-                Action { text: "Automatischen Sync aktivieren"; command: "addJob"; field: "background_add_button"; primary: true }
+                Action { text: window.tr("Automatischen Sync aktivieren"); command: "addJob"; field: "background_add_button"; primary: true }
             }
             Card {
                 Heading { text: window.f("background_status").value }
-                RowLayout { Action { text: "Dienst starten"; command: "start" } Action { text: "Dienst stoppen"; command: "stop" } }
+                RowLayout { Action { text: window.tr("Dienst starten"); command: "start" } Action { text: window.tr("Dienst stoppen"); command: "stop" } }
             }
             Repeater { model: s.jobs
                 delegate: Card { required property var modelData
@@ -334,50 +336,50 @@ ApplicationWindow {
                     Copy { text: modelData.detail }
                     Copy { text: modelData.status }
                     Flow { Layout.fillWidth: true; spacing: 8
-                        Action { text: modelData.paused ? "Fortsetzen" : "Pausieren"; onClicked: controller.job_action(modelData.paused ? "resume" : "pause",modelData.id) }
-                        Action { text: "Jetzt abgleichen"; onClicked: controller.job_action("sync",modelData.id) }
-                        Action { text: "Auftrag entfernen"; onClicked: controller.job_action("remove",modelData.id) }
+                        Action { text: modelData.paused ? window.tr("Fortsetzen") : window.tr("Pausieren"); onClicked: controller.job_action(modelData.paused ? "resume" : "pause",modelData.id) }
+                        Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
+                        Action { text: window.tr("Auftrag entfernen"); onClicked: controller.job_action("remove",modelData.id) }
                     }
                 }
             }
-            Copy { text: "Dateilöschungen nur bei unverändertem Gegenstück; ganze Ordnerlöschungen bleiben Konflikte. Anmeldung und entsperrter Schlüsselbund erforderlich." }
+            Copy { text: window.tr("Dateilöschungen nur bei unverändertem Gegenstück; ganze Ordnerlöschungen bleiben Konflikte. Anmeldung und entsperrter Schlüsselbund erforderlich.") }
         }
     }
     Component {
         id: mountPage
         PageScroll {
             objectName: "page-ondemand"
-            Copy { text: "Dateien beim Öffnen laden, offline vorhalten oder lokalen Speicher freigeben." }
+            Copy { text: window.tr("Dateien beim Öffnen laden, offline vorhalten oder lokalen Speicher freigeben.") }
             Card {
-                Heading { text: "Online-Laufwerk verbinden" }
+                Heading { text: window.tr("Online-Laufwerk verbinden") }
                 Copy { text: window.f("mount_label").value }
-                Action { text: "Leeren Einhängeordner wählen"; command: "chooseMount" }
-                Copy { text: "Cloud-Ordner" }
+                Action { text: window.tr("Leeren Einhängeordner wählen"); command: "chooseMount" }
+                Copy { text: window.tr("Cloud-Ordner") }
                 Input { field: "mount_remote" }
-                Toggle { field: "mount_writable"; text: "Dateien im Laufwerk bearbeiten und hochladen" }
-                Toggle { field: "mount_offline"; text: "Offline aus vorhandenem Cache öffnen" }
+                Toggle { field: "mount_writable"; text: window.tr("Dateien im Laufwerk bearbeiten und hochladen") }
+                Toggle { field: "mount_offline"; text: window.tr("Offline aus vorhandenem Cache öffnen") }
                 Flow { Layout.fillWidth: true; spacing: 8
-                    Action { text: "Laufwerk verbinden"; command: "mount"; field: "mount_button"; primary: true }
-                    Action { text: "Trennen"; command: "unmount" }
-                    Action { text: "Aktualisieren"; command: "refreshMount" }
+                    Action { text: window.tr("Laufwerk verbinden"); command: "mount"; field: "mount_button"; primary: true }
+                    Action { text: window.tr("Trennen"); command: "unmount" }
+                    Action { text: window.tr("Aktualisieren"); command: "refreshMount" }
                 }
                 Copy { text: window.f("mount_status").value }
             }
             Card {
-                Heading { text: "Offline-Verfügbarkeit" }
-                Input { field: "cache_path"; placeholderText: "Dateipfad, z. B. Dokumente/Notizen.txt" }
-                RowLayout { Action { text: "Offline vorhalten"; command: "pin" } Action { text: "Speicher freigeben"; command: "evict" } }
-                Action { text: "Laufwerkshelfer bei Proton anmelden"; command: "helperLogin" }
+                Heading { text: window.tr("Offline-Verfügbarkeit") }
+                Input { field: "cache_path"; placeholderText: window.tr("Dateipfad, z. B. Dokumente/Notizen.txt") }
+                RowLayout { Action { text: window.tr("Offline vorhalten"); command: "pin" } Action { text: window.tr("Speicher freigeben"); command: "evict" } }
+                Action { text: window.tr("Laufwerkshelfer bei Proton anmelden"); command: "helperLogin" }
             }
-            Copy { text: "Für Flatpak zusätzlich den nativen Laufwerkshelfer installieren. Online-Laufwerke sind im Snap derzeit nicht verfügbar. Nicht hochgeladene Änderungen bleiben im Wiederherstellungsspeicher." }
+            Copy { text: window.tr("Für Flatpak zusätzlich den nativen Laufwerkshelfer installieren. Online-Laufwerke sind im Snap derzeit nicht verfügbar. Nicht hochgeladene Änderungen bleiben im Wiederherstellungsspeicher.") }
         }
     }
     Component {
         id: trashPage
         PageScroll {
             objectName: "page-local-trash"
-            Copy { text: "Nach Cloud-Löschung lokal gesicherte Dateien. Wiederherstellen überschreibt keine vorhandenen Dateien." }
-            Action { text: "Aktualisieren"; command: "refreshTrash" }
+            Copy { text: window.tr("Nach Cloud-Löschung lokal gesicherte Dateien. Wiederherstellen überschreibt keine vorhandenen Dateien.") }
+            Action { text: window.tr("Aktualisieren"); command: "refreshTrash" }
             Copy { text: window.f("local_trash_status").value }
             Copy { text: window.f("local_trash_empty").value; visible: s.trash.length===0 }
             Repeater { model: s.trash
@@ -385,18 +387,18 @@ ApplicationWindow {
                     Heading { text: modelData.name }
                     Copy { text: modelData.detail }
                     Copy { text: modelData.error+" "+modelData.restorePath }
-                    Action { text: "Wiederherstellen / Wiederherstellung prüfen"; enabled: modelData.enabled && !s.busy; onClicked: controller.restore_entry(index) }
+                    Action { text: window.tr("Wiederherstellen / Wiederherstellung prüfen"); enabled: modelData.enabled && !s.busy; onClicked: controller.restore_entry(index) }
                 }
             }
-            Copy { text: "Bei aktivem Sync wird eine Wiederherstellung erneut synchronisiert. NeutronDrive leert den Papierkorb nicht automatisch." }
+            Copy { text: window.tr("Bei aktivem Sync wird eine Wiederherstellung erneut synchronisiert. NeutronDrive leert den Papierkorb nicht automatisch.") }
         }
     }
     Component {
         id: activityPage
         PageScroll {
             objectName: "page-activity"
-            Copy { text: "Vorgänge dieser Sitzung · keine dauerhafte Speicherung von Dateinamen" }
-            Copy { visible: s.activity.length===0; text: "Noch keine Vorgänge in dieser Sitzung." }
+            Copy { text: window.tr("Vorgänge dieser Sitzung · keine dauerhafte Speicherung von Dateinamen") }
+            Copy { visible: s.activity.length===0; text: window.tr("Noch keine Vorgänge in dieser Sitzung.") }
             Repeater { model: s.activity
                 delegate: Card { required property var modelData
                     Heading { text: modelData.title }
@@ -410,26 +412,27 @@ ApplicationWindow {
         PageScroll {
             objectName: "page-settings"
             Card {
-                Heading { text: "Konto & Verbindung" }
+                Heading { text: window.tr("Konto & Verbindung") }
                 Copy { text: window.f("backend_label").value }
-                RowLayout { Action { text: "Backend prüfen"; command: "version" } Action { text: "Anmelden"; command: "login" } Action { text: "Abmelden"; command: "logout" } }
-                Copy { text: "Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Flatpak kann einen eigenen Kontospeicher verwenden." }
+                RowLayout { Action { text: window.tr("Backend prüfen"); command: "version" } Action { text: window.tr("Anmelden"); command: "login" } Action { text: window.tr("Abmelden"); command: "logout" } }
+                Copy { text: window.tr("Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Flatpak kann einen eigenen Kontospeicher verwenden.") }
             }
             Card {
-                Heading { text: "Erscheinungsbild" }
-                Copy { text: "Folgt der Systemeinstellung · " + (window.darkMode ? "Dunkel" : "Hell") }
+                Heading { text: window.tr("Erscheinungsbild") }
+                Copy { text: window.tr("Sprache folgt dem System") + " · " + controller.language }
+                Copy { text: window.tr("Folgt der Systemeinstellung · ") + (window.darkMode ? window.tr("Dunkel") : window.tr("Hell")) }
             }
             Card {
-                Heading { text: "Beim Anmelden starten" }
-                Copy { text: "Halte deine automatischen Sync-Aufträge nach dem Desktop-Start bereit." }
-                RowLayout { Action { text: "Autostart aktivieren"; command: "autostart" } Action { text: "Deaktivieren"; command: "noAutostart" } }
+                Heading { text: window.tr("Beim Anmelden starten") }
+                Copy { text: window.tr("Halte deine automatischen Sync-Aufträge nach dem Desktop-Start bereit.") }
+                RowLayout { Action { text: window.tr("Autostart aktivieren"); command: "autostart" } Action { text: window.tr("Deaktivieren"); command: "noAutostart" } }
             }
             Card {
                 Heading { text: "NeutronDrive "+s.version }
                 Copy { text: "Qt Quick · QML · Rust · Open Source" }
-                Action { text: "Projekt & Installation ↗"; command: "project" }
-                Action { text: "Offizielle Proton CLI ↗"; command: "cli" }
-                Copy { text: "Alpha: keine vollständige Windows/macOS-Funktionsparität. Versionsverwaltung und Proton Docs/Sheets sind nicht integriert. Das Proton SDK übernimmt Konto, Verschlüsselung und Übertragungen." }
+                Action { text: window.tr("Projekt & Installation ↗"); command: "project" }
+                Action { text: window.tr("Offizielle Proton CLI ↗"); command: "cli" }
+                Copy { text: window.tr("Alpha: keine vollständige Windows/macOS-Funktionsparität. Versionsverwaltung und Proton Docs/Sheets sind nicht integriert. Das Proton SDK übernimmt Konto, Verschlüsselung und Übertragungen.") }
             }
         }
     }
@@ -445,12 +448,12 @@ ApplicationWindow {
         }
     }
     FolderDialog {
-        id: folderPicker; objectName: "folderPicker"; title: window.request.title || "Ordner wählen"
+        id: folderPicker; objectName: "folderPicker"; title: window.request.title || window.tr("Ordner wählen")
         onAccepted: controller.answer_dialog(window.request.token,true,[selectedFolder.toString()])
         onRejected: controller.answer_dialog(window.request.token,false,[])
     }
     FileDialog {
-        id: filePicker; objectName: "filePicker"; title: window.request.title || "Dateien wählen"
+        id: filePicker; objectName: "filePicker"; title: window.request.title || window.tr("Dateien wählen")
         onAccepted: controller.answer_dialog(window.request.token,true,selectedFiles.map(function(url) { return url.toString() }))
         onRejected: controller.answer_dialog(window.request.token,false,[])
     }
@@ -468,16 +471,16 @@ ApplicationWindow {
             TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: window.theme.accentText }
             Flow {
                 Layout.fillWidth: true; spacing: 8
-                Action { id: cancelDialog; objectName: "dialogCancel"; text: "Abbrechen / Schließen"; enabled: true
+                Action { id: cancelDialog; objectName: "dialogCancel"; text: window.tr("Abbrechen / Schließen"); enabled: true
                     onClicked: modal.reject()
                 }
-                Action { objectName: "dialogAccept"; text: window.request.kind==="prompt" ? "Übernehmen" : "Bestätigen"; enabled: true; primary: true; visible: window.request.kind!=="share"
+                Action { objectName: "dialogAccept"; text: window.request.kind==="prompt" ? window.tr("Übernehmen") : window.tr("Bestätigen"); enabled: true; primary: true; visible: window.request.kind!=="share"
                     onClicked: { let token=window.request.token; let value=promptInput.text; modal.close(); controller.answer_dialog(token,true,value) }
                 }
-                Action { text: "Link kopieren"; enabled: true; visible: window.request.kind==="share" && Boolean(window.request.url)
+                Action { text: window.tr("Link kopieren"); enabled: true; visible: window.request.kind==="share" && Boolean(window.request.url)
                     onClicked: { let token=window.request.token; modal.close(); controller.answer_dialog(token,true,"copy") }
                 }
-                Action { text: window.request.url ? "Link deaktivieren" : "Öffentlichen Leselink erstellen"; enabled: true; visible: window.request.kind==="share"
+                Action { text: window.request.url ? window.tr("Link deaktivieren") : window.tr("Öffentlichen Leselink erstellen"); enabled: true; visible: window.request.kind==="share"
                     onClicked: { let token=window.request.token; let value=window.request.url ? "revoke" : "create"; modal.close(); controller.answer_dialog(token,true,value) }
                 }
             }

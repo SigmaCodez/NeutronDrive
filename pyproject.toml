@@ -28,4 +28,4 @@ Issues = "https://github.com/SigmaCodez/NeutronDrive/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-neutrondrive = ["qml/*.qml"]
+neutrondrive = ["qml/*.qml", "locales/*.json"]
