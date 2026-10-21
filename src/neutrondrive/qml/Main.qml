@@ -169,7 +169,7 @@ ApplicationWindow {
                     }
                     ListView {
                         id: fileList; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true
-                        clip: true; model: s.files; spacing: 4;
+                        clip: true; model: controller.fileEntries; spacing: 4;
                         activeFocusOnTab: true; currentIndex: s.focusIndex; keyNavigationEnabled: false
                         Keys.onPressed: function(event) {
                             if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
@@ -183,9 +183,10 @@ ApplicationWindow {
                             id: fileRow
                             required property var modelData; required property int index
                             width: fileList.width; height: 62; radius: 8
-                            color: modelData.selected ? "#25473f" : rowMouse.containsMouse ? "#1d2d3d" : "transparent"
+                            objectName: "fileRow-"+index
+                            color: s.selection.indexOf(index)>=0 ? "#25473f" : rowMouse.containsMouse ? "#1d2d3d" : "transparent"
                             border.color: fileList.activeFocus && index===s.focusIndex ? "#71e0bf" : "transparent"
-                            Accessible.role: Accessible.ListItem; Accessible.name: modelData.name; Accessible.selected: modelData.selected
+                            Accessible.role: Accessible.ListItem; Accessible.name: modelData.name; Accessible.selected: s.selection.indexOf(index)>=0
                             Keys.onSpacePressed: controller.select_row(index,true)
                             Keys.onReturnPressed: controller.row_activated(index)
                             RowLayout {
@@ -203,7 +204,7 @@ ApplicationWindow {
                                 onDoubleClicked: controller.row_activated(fileRow.index)
                             }
                         }
-                        Label { anchors.centerIn: parent; visible: s.files.length===0; text: window.f("empty_label").value; color: window.muted }
+                        Label { anchors.centerIn: parent; visible: fileList.count===0; text: window.f("empty_label").value; color: window.muted }
                     }
                 }
             }

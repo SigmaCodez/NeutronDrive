@@ -66,6 +66,7 @@ class Dispatcher(QObject):
 
 class Application(QObject):
     changed = Signal()
+    filesChanged = Signal()
     dialogRequested = Signal("QVariantMap")
 
     def __init__(self, backend, *, demo=False):
@@ -195,10 +196,16 @@ class Application(QObject):
             actions={name: field.snapshot() for name, field in self.action_buttons.items()},
             focusIndex=self.focus_index, page=self.current_page, path=self.path, busy=self.busy, demo=self.demo, version=__version__,
             noticeError=self.notice_error, crumbs=[name for name, _ in self.crumbs],
-            files=[dict(name=n.name, kind="Ordner" if n.type == "folder" else "Datei", safe=n.safe,
-                        size=size_text(n.size) if n.type != "folder" else "—", modified=date_text(n.modified),
-                        selected=i in self.selection) for i,n in enumerate(self.visible_nodes)],
+            selection=sorted(self.selection),
             jobs=self.jobs, trash=self.trash_entries, activity=[dict(time=t,title=n,status=s) for t,n,s in self.records[:100]])
+
+    @Property("QVariantList", notify=filesChanged)
+    def fileEntries(self):
+        # Keep the ListView model stable when selection/status changes. Replacing
+        # its model would destroy focused/pressed delegates between mouse clicks.
+        return [dict(name=n.name,kind="Ordner" if n.type=="folder" else "Datei",safe=n.safe,
+                     size=size_text(n.size) if n.type!="folder" else "—",modified=date_text(n.modified))
+                for n in self.visible_nodes]
 
     @Slot(str, "QVariant")
     def edit(self, name, value):
@@ -251,6 +258,7 @@ class Application(QObject):
         self.visible_nodes = [n for n in self.nodes if query in n.name.casefold()]
         self.selection.clear()
         self.focus_index = 0
+        self.filesChanged.emit()
         self.empty_label.setText("Keine passenden Dateien in diesem Ordner." if query else "Dieser Ordner ist leer.")
         self.empty_label.setVisible(not self.visible_nodes)
         self.count_label.setText(f"{len(self.visible_nodes)} von {len(self.nodes)} Einträgen · Doppelklick öffnet Ordner")

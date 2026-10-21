@@ -353,6 +353,30 @@ class QtApplicationTests(unittest.TestCase):
         self.assertTrue(self.app.action_buttons["Download"].isEnabled())
         self.assertFalse(self.app.action_buttons["Umbenennen"].isEnabled())
 
+    def test_file_delegates_survive_selection_and_double_click_opens_folder(self):
+        from PySide6.QtQuick import QQuickItem
+        from PySide6.QtCore import QPointF
+        from PySide6.QtTest import QTest
+        QTest.qWait(50)
+        page=self.app.window.findChild(self.QObject,"pageLoader").property("item")
+        index=next(i for i,n in enumerate(self.app.visible_nodes) if n.type=="folder")
+        path=self.app.visible_nodes[index].path
+        def find_row(item):
+            if item.objectName()=="fileRow-"+str(index): return item
+            for child in item.childItems():
+                found=find_row(child)
+                if found is not None:return found
+            return None
+        row=find_row(page)
+        self.assertIsNotNone(row)
+        point=row.mapToScene(QPointF(30,25)).toPoint()
+        QTest.mouseClick(self.app.window,self.Qt.MouseButton.LeftButton,pos=point)
+        self.app.qt.processEvents()
+        self.assertEqual(self.app.selection,{index})
+        self.assertIs(find_row(page),row)
+        QTest.mouseDClick(self.app.window,self.Qt.MouseButton.LeftButton,pos=point)
+        self._pump_until(lambda:self.app.path==path and not self.app.busy)
+
     def test_single_instance_activates_existing_window(self):
         from neutrondrive.qt_instance import WindowInstance
         with tempfile.TemporaryDirectory() as temporary:
