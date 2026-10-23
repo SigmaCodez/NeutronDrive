@@ -454,5 +454,3 @@ class BackgroundDaemon:
                     if self._server is not None:
                         rust_core.backend_value("control_server", operation={"action": "release", "id": self._server})
                         self._server = None
-
-
