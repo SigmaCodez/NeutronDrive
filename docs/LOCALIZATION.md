@@ -1,9 +1,18 @@
 # System language and offline catalogs
 
-The desktop selects its language automatically on startup. No network service,
+By default, the desktop selects its language automatically on startup.
+In Settings → Appearance, select any supported language manually or return to
+System setting. Language changes take effect at the next app start. No network service,
 model, translation library or extra account is needed at runtime. Unsupported
 languages and missing/invalid individual translations fall back to English.
-Restart the application after changing the desktop's language.
+Restart the application after changing the desktop's language when using System setting.
+
+Appearance can also be set to Light, Dark, or System setting. Theme changes
+apply immediately, and System setting continues to track desktop changes.
+Both choices are stored per user in Qt's configuration directory
+(`$XDG_CONFIG_HOME/NeutronDrive/interface.ini`, normally
+`~/.config/NeutronDrive/interface.ini`). Sandboxed packages use their own
+configuration location. These options never alter desktop-wide preferences.
 
 The language set matches Proton Drive for Windows `SupportedLanguages` in
 [LanguageService.cs](https://github.com/ProtonDriveApps/windows-drive/blob/ba24801b8e566b6d0967b602d90832389152efe7/src/Proton.Drive.App/Localization/LanguageService.cs),

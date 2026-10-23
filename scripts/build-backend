@@ -70,7 +70,7 @@ def main():
     if dirty != ['cli/bun.lock', 'cli/src/cli/version.ts']:
         parser.error('Source cache has unexpected tracked modifications: ' + ', '.join(dirty))
     for name in ('eventProtocol.ts', 'eventCommands.ts', 'neutrondrive-drive.ts',
-                 'eventProtocol.test.ts', 'versionBranding.test.ts'):
+                 'eventProtocol.test.ts', 'versionBranding.test.ts', 'computerCommands.ts', 'computerCommands.test.ts'):
         shutil.copyfile(BRIDGE / name, source / 'cli/src' / name)
     # The pinned Bun lock includes local source packages and the official crypto
     # patch. Keep it frozen; no installer scripts are added by this bridge.
@@ -86,7 +86,7 @@ def main():
         parser.error('Unexpected root node_modules directory in source cache')
     else:
         modules.symlink_to('cli/node_modules', target_is_directory=True)
-    run([bun, 'test', 'src/eventProtocol.test.ts', 'src/versionBranding.test.ts'], cwd=source / 'cli')
+    run([bun, 'test', 'src/eventProtocol.test.ts', 'src/versionBranding.test.ts', 'src/computerCommands.test.ts'], cwd=source / 'cli')
     run([bun, 'node_modules/typescript/bin/tsc', '--noEmit', '--incremental', 'false'], cwd=source / 'cli')
     if args.test_only:
         return

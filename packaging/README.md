@@ -24,7 +24,7 @@ across arbitrary build hosts is not claimed.
 | Format | Intended distributions | Build command |
 | --- | --- | --- |
 | DEB | Ubuntu 22.04+, Debian 12+, derivatives such as Mint/Pop!_OS | `python3 scripts/build-deb` |
-| RPM | Modern Fedora and openSUSE with Python 3.10+ / bundled Qt 6 | `python3 scripts/build-rpm` |
+| RPM | Modern Fedora and openSUSE with bundled Qt 6 | `python3 scripts/build-rpm` |
 | Flatpak | Distributions with Flatpak, including Arch, immutable and KDE desktops | `python3 scripts/build-flatpak --install-deps` |
 | Snap | Distributions with snapd and working desktop interfaces | `python3 scripts/build-snap` |
 
@@ -32,7 +32,7 @@ The target architectures are **x86_64** and **aarch64**. Native scripts also acc
 `--arch amd64` / `--arch arm64`. There are no 32-bit, RISC-V or musl-native packages.
 The x64 bridge uses Bun's baseline target without AVX2. Older CPUs still need
 runtime testing. The bundled x64 ELF declares
-GLIBC symbols through 2.17; the GUI's Python/Qt requirements are higher than the
+GLIBC symbols through 2.17; the native GUI/Qt requirements are higher than the
 minimum libc requirement. Building for an architecture does not test that CPU.
 
 Build recipes and CI are not a certification that every distro/desktop works.
@@ -51,8 +51,8 @@ bindings are excluded. The included binaries remain unmodified and replaceable.
 `qt-sources-lock.json`. See [QT-NOTICES.md](QT-NOTICES.md).
 
 Native x86_64 requires GLIBC 2.34; the official ARM64 wheels require GLIBC 2.39
-(Ubuntu 24.04+, Debian 13+). Python must be 3.10–3.14. Native packages declare
-these bounds. GTK is no longer the UI dependency; Gio remains for D-Bus/portals.
+(Ubuntu 24.04+, Debian 13+). The application does not require Python, PySide or PyGObject. Python is only a
+build/test tool. Rust owns D-Bus/portal integration; the SDK uses Secret Service.
 Flatpak and Snap retain their existing GNOME base runtimes for those adapters,
 while displaying a Qt interface. No executable download occurs at app startup.
 
@@ -77,15 +77,12 @@ backend at `/usr/lib/neutrondrive/bin/proton-drive`, avoiding conflicts with an
 independently installed official CLI. Artifacts are written to `dist/`.
 
 RPM dependency names are selected for the build distribution: build Fedora RPMs
-on Fedora and openSUSE RPMs on openSUSE. CI runs both variants. Fedora does not
-provide pyfuse3, so its build compiles the unmodified, SHA256-pinned 3.4.2 source
-privately against the distribution's Python ABI. The RPM includes the complete
-source archive, LGPL license and replacement/rebuild instructions. Trio remains
-a distribution dependency. openSUSE uses its packaged pyfuse3. Build dependencies
-and exact pin are in the CI workflow and `rpm/pyfuse3-lock.json`; no pip command
-runs on application startup or installation. An RPM made on a
-Debian/Ubuntu build host uses the Fedora dependency names and is only a packaging
-smoke check, not a substitute for the distribution's native build.
+on Fedora and openSUSE RPMs on openSUSE. CI runs both variants. The kernel
+adapter is built into the Rust core using pinned, vendored `fuser` sources.
+Native packages require `fuse3` for the mount helper; pyfuse3 and Trio are no
+longer runtime dependencies. An RPM made on a Debian/Ubuntu build host uses the
+Fedora dependency names and is only a packaging smoke check, not a substitute
+for the distribution's native build.
 
 An already downloaded binary can be used with:
 
@@ -187,7 +184,7 @@ the release. A green packaging job alone does not complete this checklist.
 
 ## Background and on-demand integration
 
-Native packages depend on FUSE 3, pyfuse3 and Trio and install a narrowly scoped
+Native packages depend on the FUSE 3 mount helper and install a narrowly scoped
 D-Bus service activation file plus an optional user systemd unit. Enable
 `neutrondrive-background.service` only if you prefer systemd to GUI-managed XDG
 autostart; do not enable both. The GUI can generate an XDG autostart entry.
@@ -209,11 +206,60 @@ Snap/Flatpak portal flow.
 
 ## Additional alpha6 formats
 
-The [AppImage recipe](appimage/README.md) builds a portable x86_64 package from the
-checksum-pinned alpha6 DEB on Ubuntu 22.04. It bundles Python and native runtime
-libraries and retains a private cache for background/autostart stability.
+The [AppImage recipe](appimage/README.md) builds a portable x86_64 package from a
+current provenance-verified native DEB on Ubuntu 22.04. It bundles the Rust/Qt
+runtime and retains a private cache for background/autostart stability. Pass
+`--deb PATH`; it no longer downloads the published Python-based alpha6 package.
 
 The [Arch/AUR recipe](aur/README.md) repackages the pinned amd64/arm64 DEBs into
 `neutrondrive-bin`. A separate Arch Linux CI job builds and installs x86_64 with
 makepkg/pacman. An AUR account has not been configured; the recipe and generated
 metadata are distributed on GitHub until actual AUR publication is possible.
+
+
+## Native development artifacts
+
+Build on Ubuntu 22.04 for x86_64, or Ubuntu 24.04 for aarch64. The latter matches
+the pinned ARM64 Qt runtime's GLIBC 2.39 requirement. Install a C++ compiler,
+CMake, Ninja, Perl, pkg-config, zlib development files and OpenGL/EGL development
+headers, plus the runtime libraries listed in the main README. Use Rust 1.98.0.
+Run on a local filesystem that supports symlinks:
+
+```sh
+python3 packaging/qt_runtime.py --dest build/qt
+python3 scripts/build-native-qt-tools --work-dir /tmp/nd-qt-tools-work --output /tmp/nd-qt-tools
+python3 scripts/prepare-native-qt-dev --fetch --output /tmp/nd-qt-sdk --tools /tmp/nd-qt-tools
+export QMAKE=/tmp/nd-qt-sdk/usr/lib/qt6/bin/qmake6
+python3 scripts/build-native-qt --output build/native-frontend
+export NEUTRONDRIVE_NATIVE_BUILD="$PWD/build/native-frontend"
+python3 scripts/build-backend --output build/backend/proton-drive
+python3 scripts/build-deb --backend build/backend/proton-drive
+```
+
+On ARM64, pass `--target bun-linux-arm64` to `build-backend`; the x86_64 SDK uses
+`bun-linux-x64-baseline`. The generator build verifies the pinned Qt source
+archive and links Qt statically into qmake/moc. Development archives are pinned
+separately for both architectures. No development SDK or Python interpreter is
+staged into application packages. All builds verify frontend source/binary
+provenance; the SDK bridge has its own source/binary report.
+
+Default staging now expects the locally built `build/backend/proton-drive`.
+Flatpak-builder also consumes the current verified SDK and its report instead
+of downloading the old bridge release. The reusable `native-build.yml` workflow
+produces native frontend and SDK artifacts for the package jobs. CI execution,
+not YAML parsing, is required to validate those jobs.
+
+For a local Arch package from the same native DEB:
+
+```sh
+python3 scripts/prepare-native-arch --deb PATH_TO_NATIVE_DEB --output /tmp/nd-arch-package
+# On Arch Linux, as a regular user:
+cd /tmp/nd-arch-package
+makepkg --syncdeps
+```
+
+This recipe has no Python runtime dependencies and verifies the original DEB's
+frontend and SDK provenance before creating its local source/checksum entries.
+The published `packaging/aur/neutrondrive-bin` recipe still pins the existing
+alpha6 release and retains its dependencies until a replacement release exists.
+No AUR account creation or publication is performed by either workflow.

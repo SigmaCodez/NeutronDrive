@@ -71,7 +71,7 @@ def runtime_member(name):
             or any(filename in {"Qt" + module + ".abi3.so", "Qt" + module + ".pyi"} for module in MODULES))
 
 
-def extract(paths,destination):
+def extract(paths,destination, *, native=False):
     destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
     for path in paths:
         with zipfile.ZipFile(path) as archive:
@@ -79,8 +79,11 @@ def extract(paths,destination):
                 name=PurePosixPath(info.filename)
                 if name.is_absolute() or '..' in name.parts or (info.external_attr >> 16) & 0o170000 == 0o120000:
                     raise ValueError('Unsafe Qt wheel member')
+                if native and (name.parts[:2] != ('PySide6', 'Qt') or name.suffix in {'.py', '.pyi', '.pyc'}):
+                    continue
                 if not info.is_dir() and runtime_member(info.filename):
-                    target=destination.joinpath(*name.parts);target.parent.mkdir(parents=True,exist_ok=True)
+                    relative = name.parts[2:] if native else name.parts
+                    target=destination.joinpath(*relative);target.parent.mkdir(parents=True,exist_ok=True)
                     with archive.open(info) as source,target.open('wb') as out:shutil.copyfileobj(source,out)
                     target.chmod(0o755 if (info.external_attr >> 16) & 0o111 else 0o644)
     # Fail at build time if a selected plugin requires an omitted Qt module.
@@ -96,13 +99,14 @@ def extract(paths,destination):
     return destination
 
 
-def stage(app,base,architecture):
-    extract(fetch(architecture),app / 'qt')
+def stage(app,base,architecture, *, native=False):
+    extract(fetch(architecture),app / 'qt', native=native)
     docs=base / 'share/doc/neutrondrive';docs.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(LOCK,docs / 'qt-lock.json')
     shutil.copyfile(ROOT / 'packaging/qt-sources-lock.json', docs / 'qt-sources-lock.json')
     shutil.copytree(ROOT / 'packaging/licenses/qt', base / 'share/licenses/neutrondrive/qt', dirs_exist_ok=True)
-    shutil.copyfile(ROOT / 'packaging/QT-NOTICES.md',docs / 'QT-NOTICES.md')
+    notice = 'QT-NATIVE-NOTICES.md' if native else 'QT-NOTICES.md'
+    shutil.copyfile(ROOT / 'packaging' / notice, docs / 'QT-NOTICES.md')
 
 
 if __name__=='__main__':

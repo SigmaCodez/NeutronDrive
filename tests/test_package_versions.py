@@ -2,12 +2,14 @@
 from pathlib import Path
 import re
 import unittest
-from neutrondrive import __version__
-
 ROOT=Path(__file__).resolve().parents[1]
+RUST_VERSION=re.search(r'^version = "([^"]+)"', (ROOT/'core/Cargo.toml').read_text(), re.MULTILINE).group(1)
+__version__=re.sub(r'-alpha\.(\d+)$', r'a\1', RUST_VERSION)
 
 class PackageVersionTests(unittest.TestCase):
     def test_native_and_flatpak_release_metadata_matches_application(self):
+        desktop_version=re.search(r'^version = "([^"]+)"', (ROOT/'desktop/Cargo.toml').read_text(), re.MULTILINE).group(1)
+        self.assertEqual(desktop_version, RUST_VERSION)
         deb=re.sub(r'a(\d+)$',r'~alpha\1',__version__)
         snap=re.sub(r'a(\d+)$',r'-alpha\1',__version__)
         checks={

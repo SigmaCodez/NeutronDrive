@@ -1,7 +1,7 @@
 """Compare native job routing with the previous daemon policy, including queue bounds."""
 import random
 import unittest
-from neutrondrive import rust_core
+from core_contract import rust_core
 
 
 def previous(event, jobs, pending):

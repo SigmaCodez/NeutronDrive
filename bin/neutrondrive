@@ -1,9 +1,20 @@
-#!/usr/bin/env python3
-"""Run a source checkout without installing a Python package."""
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from neutrondrive.__main__ import main
-
-raise SystemExit(main())
+#!/bin/sh
+# Developer entrypoint: execute the Rust frontend; never start a Python app.
+set -eu
+nd_script=$(readlink -f -- "$0")
+nd_root=$(CDPATH= cd -- "${nd_script%/*}/.." && pwd -P)
+nd_profile=${NEUTRONDRIVE_NATIVE_PROFILE:-debug}
+case "$nd_profile" in debug|release) ;; *) echo 'NEUTRONDRIVE_NATIVE_PROFILE must be debug or release' >&2; exit 2;; esac
+nd_target=${CARGO_TARGET_DIR:-$nd_root/build/native-qt-target}
+nd_binary=${NEUTRONDRIVE_NATIVE_EXECUTABLE:-$nd_target/$nd_profile/neutrondrive-qt}
+if [ ! -x "$nd_binary" ]; then
+    echo 'Build the Rust frontend first; see desktop/README.md. Set CARGO_TARGET_DIR or NEUTRONDRIVE_NATIVE_EXECUTABLE for a custom build.' >&2
+    exit 1
+fi
+nd_qt=${NEUTRONDRIVE_QT_RUNTIME:-$nd_root/build/qt/PySide6/Qt}
+export LD_LIBRARY_PATH="$nd_qt/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export QT_PLUGIN_PATH="$nd_qt/plugins"
+export QML_IMPORT_PATH="$nd_qt/qml"
+export QML2_IMPORT_PATH="$QML_IMPORT_PATH"
+export PATH="$nd_root/build/backend:$PATH"
+exec "$nd_binary" "$@"

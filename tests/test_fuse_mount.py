@@ -1,7 +1,6 @@
 """Opt-in real Linux-kernel FUSE tests; fake backend, no account or cloud writes.
 
-Run with NEUTRONDRIVE_FUSE_TEST=1 and python3-pyfuse3, python3-trio,
-fuse3 installed. /dev/fuse must be available to the invoking user.
+Run with NEUTRONDRIVE_FUSE_TEST=1, the native Rust core and fuse3 installed. /dev/fuse must be available to the invoking user.
 """
 import errno
 import os
@@ -10,7 +9,7 @@ import tempfile
 import time
 import unittest
 
-from neutrondrive.fuse import MountManager, availability
+from core_contract.fuse import MountManager, availability
 from test_ondemand import FakeBackend
 
 
@@ -148,6 +147,126 @@ class KernelMountTests(unittest.TestCase):
         self.assertEqual(len(recovery), 1)
         self.assertEqual(Path(recovery[0]['data_path']).read_bytes(), b'local recovery bytes')
         self.assertEqual(self.backend.content['node1'], b'concurrent remote edit')
+
+    def test_status_is_responsive_during_native_hydration(self):
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        entered, resume = threading.Event(), threading.Event()
+        original = self.backend.download
+        def blocked(*args, **kwargs):
+            entered.set()
+            if not resume.wait(5):
+                raise RuntimeError('Test hydration was not released')
+            return original(*args, **kwargs)
+        self.backend.download = blocked
+        self.manager.mount(self.mount)
+        with ThreadPoolExecutor(2) as pool:
+            reading = pool.submit((self.mount / 'hello.txt').read_bytes)
+            try:
+                self.assertTrue(entered.wait(5))
+                status = pool.submit(self.manager.status).result(timeout=1)
+                self.assertTrue(status['mounted'])
+            finally:
+                resume.set()
+            self.assertEqual(reading.result(timeout=5), b'hello from the cloud\n')
+
+    def test_kernel_metadata_permissions_and_busy_unmount(self):
+        self.manager.mount(self.mount, writable=True)
+        cloud = self.mount / 'hello.txt'
+        self.assertEqual(cloud.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(os.listxattr(cloud), ['user.neutrondrive.state'])
+        with self.assertRaises(OSError) as error:
+            os.chmod(cloud, 0o777)
+        self.assertEqual(error.exception.errno, errno.ENOTSUP)
+        with self.assertRaises(OSError) as error:
+            os.getxattr(cloud, 'user.unknown')
+        self.assertEqual(error.exception.errno, errno.ENODATA)
+        handle = os.open(cloud, os.O_RDONLY)
+        try:
+            with self.assertRaises(OSError) as error:
+                self.manager.unmount()
+            self.assertEqual(error.exception.errno, errno.EBUSY)
+            self.assertTrue(self.manager.status()['mounted'])
+            self.assertEqual(os.read(handle, 100), b'hello from the cloud\n')
+        finally:
+            os.close(handle)
+        self.manager.unmount()
+
+    def test_native_session_callback_failure_unmounts_and_returns(self):
+        from core_contract.backend import service_call
+        from core_contract.ondemand import OnDemandFS
+        self.mount.mkdir()
+        fs = OnDemandFS(self.backend, self.directory / 'callback-cache')
+        def rejected_ready():
+            raise RuntimeError('deliberate callback failure')
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'deliberate callback failure'):
+                service_call(self.backend, 'fuse_session', {
+                    'id': fs._id, 'mountpoint': str(self.mount),
+                    'cache': str(fs.cache_dir), 'writable': False}, on_started=rejected_ready)
+            self.assertFalse(os.path.ismount(self.mount))
+        finally:
+            fs.close()
+
+    def test_kernel_production_backend_uses_native_sdk_transport(self):
+        from unittest import mock
+        from core_contract.backend import Backend
+        sdk = self.directory / 'sdk'
+        sdk.write_text('#!/bin/sh\nfor last do :; done\nfile=\'{"uid":"data","name":{"ok":true,"value":"data"},"type":"file","activeRevision":{"uid":"r1","claimedSize":3,"claimedDigests":{"sha1":"a9993e364706816aba3e25717850c26c9cd0d89d","sha1Verified":true}}}\'\nif [ "$2" = "download" ]; then printf abc > "$last/data"; printf \'%s\\n\' \'{}\'; exit 0; fi\nif [ "$2" = "list" ]; then printf \'[%s]\\n\' "$file"; exit 0; fi\ncase "$last" in /my-files|/my-files/root) printf \'%s\\n\' \'{"uid":"root","name":{"ok":true,"value":"root"},"type":"folder"}\'; exit 0;; esac\nprintf \'%s\\n\' "$file"\n')
+        sdk.chmod(0o700)
+        backend = Backend(str(sdk))
+        def forbidden(*args, **kwargs):
+            raise AssertionError('Production mount called a Python SDK service')
+        backend.info = backend.list_nodes = backend.download = forbidden
+        self.manager = MountManager(backend, self.directory / 'native-state')
+        with mock.patch.dict(os.environ, XDG_STATE_HOME=str(self.directory / 'sdk-state')):
+            try:
+                self.manager.mount(self.mount)
+                self.assertEqual((self.mount / 'data').read_bytes(), b'abc')
+                self.manager.pin('data')
+            finally:
+                self.manager.unmount()
+
+    def test_native_manager_account_event_blocks_mount_and_closed_events_are_ignored(self):
+        from types import SimpleNamespace
+        self.manager.mount(self.mount, writable=True)
+        self.manager.invalidate(SimpleNamespace(root_uid='different-root', kind='ready'))
+        self.assertTrue(self.manager.status()['read_only'])
+        with self.assertRaises(OSError):
+            self.manager.refresh()
+        with self.assertRaises(OSError):
+            (self.mount / 'hello.txt').read_bytes()
+        self.manager.unmount()
+        before = self.manager.status()
+        self.manager.invalidate(SimpleNamespace(root_uid='different-root', kind='ready'))
+        self.assertEqual(self.manager.status(), before)
+
+    def test_replaced_prepared_mountpoint_is_rejected_and_reservation_released(self):
+        self.manager._call('prepare', mountpoint=str(self.mount), remote_root='/my-files', writable=False, offline=False)
+        self.mount.rename(self.directory / 'previous-point')
+        self.mount.mkdir()
+        try:
+            with self.assertRaises(OSError) as error:
+                self.manager._call('run')
+            self.assertEqual(error.exception.errno, errno.ESTALE)
+            self.assertFalse(self.manager.status()['mounted'])
+            self.manager.mount(self.mount)
+            self.assertEqual((self.mount / 'hello.txt').read_bytes(), b'hello from the cloud\n')
+        finally:
+            self.manager._call('abort')
+
+    def test_thread_start_failure_releases_native_cache_and_session(self):
+        from unittest import mock
+        with mock.patch('core_contract.fuse.threading.Thread.start', side_effect=RuntimeError('test start failure')):
+            with self.assertRaisesRegex(RuntimeError, 'test start failure'):
+                self.manager.mount(self.mount)
+        self.assertFalse(self.manager.status()['mounted'])
+        self.manager.mount(self.mount)
+        other = MountManager(self.backend, self.directory / 'second-state')
+        with self.assertRaises(OSError) as error:
+            other.mount(self.directory / 'second-mount')
+        self.assertEqual(error.exception.errno, errno.EBUSY)
+        self.assertEqual((self.mount / 'hello.txt').read_bytes(), b'hello from the cloud\n')
 
 
 if __name__ == '__main__':

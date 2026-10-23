@@ -319,6 +319,13 @@ ApplicationWindow {
             objectName: "page-background"
             Copy { text: window.tr("Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters.") }
             Card {
+                Heading { text: window.tr("Computersicherung") }
+                Copy { text: window.tr("Sichere ausgewählte Ordner unter Computer in Proton Drive. Die Ordner werden automatisch in beide Richtungen abgeglichen.") }
+                Copy { text: window.f("background_local_label").value }
+                Action { text: window.tr("Lokalen Ordner wählen"); command: "chooseBackground" }
+                Action { objectName: "computerBackupButton"; text: window.tr("Ordner zur Computersicherung hinzufügen"); command: "addComputerFolder"; field: "background_add_button"; primary: true }
+            }
+            Card {
                 Heading { text: window.tr("Ordner automatisch synchronisieren") }
                 Copy { text: window.f("background_local_label").value }
                 Action { text: window.tr("Lokalen Ordner wählen"); command: "chooseBackground" }
@@ -419,13 +426,72 @@ ApplicationWindow {
             }
             Card {
                 Heading { text: window.tr("Erscheinungsbild") }
-                Copy { text: window.tr("Sprache folgt dem System") + " · " + controller.language }
-                Copy { text: window.tr("Folgt der Systemeinstellung · ") + (window.darkMode ? window.tr("Dunkel") : window.tr("Hell")) }
+                Copy { text: window.tr("Erscheinungsbild") }
+                ComboBox {
+                    objectName: "appearanceSelector"
+                    Layout.fillWidth: true
+                    model: [window.tr("Systemeinstellung"), window.tr("Hell"), window.tr("Dunkel")]
+                    currentIndex: ["system", "light", "dark"].indexOf(controller.appearance.mode)
+                    onActivated: controller.setAppearancePreference(["system", "light", "dark"][currentIndex])
+                    Accessible.name: window.tr("Erscheinungsbild")
+                }
+                Copy { text: window.tr("Sprache") }
+                ComboBox {
+                    objectName: "languageSelector"
+                    Layout.fillWidth: true
+                    model: controller.languageOptions
+                    textRole: "name"
+                    valueRole: "code"
+                    currentIndex: {
+                        for (var i = 0; i < model.length; ++i)
+                            if (model[i].code === controller.languagePreference) return i
+                        return 0
+                    }
+                    onActivated: controller.setLanguagePreference(currentValue)
+                    Accessible.name: window.tr("Sprache")
+                }
+                Copy { text: window.tr("Die Sprache wird beim nächsten App-Start übernommen.") }
             }
             Card {
                 Heading { text: window.tr("Beim Anmelden starten") }
                 Copy { text: window.tr("Halte deine automatischen Sync-Aufträge nach dem Desktop-Start bereit.") }
                 RowLayout { Action { text: window.tr("Autostart aktivieren"); command: "autostart" } Action { text: window.tr("Deaktivieren"); command: "noAutostart" } }
+            }
+            Card {
+                Heading { text: window.tr("Updates") }
+                CheckBox {
+                    text: window.tr("Automatisch täglich nach Updates suchen")
+                    checked: controller.updates.automatic
+                    enabled: !controller.updates.busy
+                    onToggled: controller.updates.setOption("automatic", checked)
+                }
+                CheckBox {
+                    text: window.tr("Vorabversionen einschließen")
+                    checked: controller.updates.previews
+                    enabled: !controller.updates.busy
+                    onToggled: controller.updates.setOption("previews", checked)
+                }
+                CheckBox {
+                    text: window.tr("Updates automatisch herunterladen")
+                    visible: controller.updates.packageFormat === "deb"
+                    checked: controller.updates.autoDownload
+                    enabled: !controller.updates.busy
+                    onToggled: controller.updates.setOption("download", checked)
+                }
+                Copy { text: controller.updates.status }
+                Copy { text: window.tr("Die Prüfung kontaktiert GitHub. Es werden keine Konto- oder Dateidaten übertragen.") }
+                Copy {
+                    visible: controller.updates.packageFormat !== "deb"
+                    text: window.tr("Dieses Installationsformat wird über den Paketmanager oder das Paket auf der Release-Seite aktualisiert.")
+                }
+                Flow {
+                    Layout.fillWidth: true; spacing: 8
+                    Action { text: window.tr("Nach Updates suchen"); enabled: !controller.updates.busy && !s.demo; onClicked: controller.updates.checkNow() }
+                    Action { text: window.tr("Update herunterladen"); visible: controller.updates.downloadable && !controller.updates.ready; enabled: !controller.updates.busy; onClicked: controller.updates.downloadUpdate() }
+                    Action { text: window.tr("Update installieren"); visible: controller.updates.ready; enabled: !controller.updates.busy && !s.busy; onClicked: controller.updates.installUpdate() }
+                    Action { text: window.tr("Release-Seite öffnen"); visible: controller.updates.available; onClicked: controller.updates.openRelease() }
+                }
+                Copy { visible: controller.updates.packageFormat === "deb"; text: window.tr("Die Installation benötigt eine Systembestätigung. Laufende Synchronisationen vor dem Neustart abschließen.") }
             }
             Card {
                 Heading { text: "NeutronDrive "+s.version }
@@ -477,7 +543,7 @@ ApplicationWindow {
                 Action { objectName: "dialogAccept"; text: window.request.kind==="prompt" ? window.tr("Übernehmen") : window.tr("Bestätigen"); enabled: true; primary: true; visible: window.request.kind!=="share"
                     onClicked: { let token=window.request.token; let value=promptInput.text; modal.close(); controller.answer_dialog(token,true,value) }
                 }
-                Action { text: window.tr("Link kopieren"); enabled: true; visible: window.request.kind==="share" && Boolean(window.request.url)
+                Action { objectName: "copyShareLink"; text: window.tr("Link kopieren"); enabled: true; visible: window.request.kind==="share" && Boolean(window.request.url)
                     onClicked: { let token=window.request.token; modal.close(); controller.answer_dialog(token,true,"copy") }
                 }
                 Action { text: window.request.url ? window.tr("Link deaktivieren") : window.tr("Öffentlichen Leselink erstellen"); enabled: true; visible: window.request.kind==="share"

@@ -1,6 +1,6 @@
 """Frozen 0.3 planner oracle for migration differential tests; never imported by runtime."""
 from __future__ import annotations
-from neutrondrive.sync import SyncAction, SyncConflict, SyncError
+from core_contract.sync import SyncAction, SyncConflict, SyncError
 
 def _under(path: str, blocked: set[str]) -> bool:
     return any(path == item or path.startswith(item + "/") for item in blocked)

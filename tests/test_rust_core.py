@@ -9,8 +9,8 @@ import subprocess
 import sys
 import unittest
 
-from neutrondrive import rust_core
-from neutrondrive.sync import _Entry, SyncPlan, SyncError
+from core_contract import rust_core
+from core_contract.sync import _Entry, SyncPlan, SyncError
 import reference_policy_03 as old
 
 
@@ -50,7 +50,7 @@ class RustCoreTests(unittest.TestCase):
 
     def test_missing_library_never_silently_uses_python(self):
         env=dict(os.environ,NEUTRONDRIVE_CORE_LIBRARY='/missing/neutrondrive-core-test.so')
-        result=subprocess.run([sys.executable,'-c','from neutrondrive.rust_core import call; call("info")'],env=env,capture_output=True,text=True)
+        result=subprocess.run([sys.executable,'-c','from core_contract.rust_core import call; call("info")'],env=env,capture_output=True,text=True)
         self.assertNotEqual(result.returncode,0)
         self.assertIn('Rust-Kern fehlt',result.stderr)
 

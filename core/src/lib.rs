@@ -1,14 +1,57 @@
 //! Versioned policy plus a separately invoked Linux process runtime.
 //! Policy calls stay deterministic; backend calls explicitly own guarded I/O.
+pub mod appimage;
+mod autostart;
 mod backend;
 mod cache;
+mod computer;
+mod computer_setup;
+mod control;
+mod control_server;
+mod daemon;
+mod daemon_control;
+mod daemon_job;
+mod desktop_bus;
+mod desktop_runtime;
+mod desktop_service;
+mod drive;
+mod event_ancestry;
 mod event_route;
+mod event_runtime;
+mod event_source;
 mod events;
+mod filesystem;
+mod fuse;
+mod host;
 mod inotify;
+mod job_roots;
 mod jobs;
+mod localization;
+mod metadata_cache;
+mod mount_manager;
+mod ondemand_fs;
+mod ondemand_handles;
+mod ondemand_io;
+mod ondemand_namespace;
+mod ondemand_replace;
+mod ondemand_tree;
+mod ondemand_write;
 mod policy;
+mod portals;
 mod process;
+mod service_controller;
 mod storage;
+mod sync_execute;
+mod sync_plan;
+mod sync_proof;
+mod sync_remote;
+mod sync_state;
+mod trash_journal;
+mod trash_location;
+mod trash_move;
+mod trash_restore;
+mod update_policy;
+mod update_runtime;
 mod watcher;
 
 #[cfg(test)]
@@ -20,6 +63,31 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 enum BackendRequest {
     Process(process::Request),
     Value(backend::Request),
+}
+
+/// Safe Rust entry point shared by native executables and the temporary C ABI.
+/// Callback failures cancel and reap a running SDK process before returning.
+pub fn runtime_request(
+    bytes: &[u8],
+    callback: &mut impl FnMut(serde_json::Value) -> i32,
+) -> serde_json::Value {
+    if bytes.is_empty() || bytes.len() > MAX_INPUT {
+        return serde_json::json!({"ok":false,"error":"Invalid backend request"});
+    }
+    let request: BackendRequest = match serde_json::from_slice(bytes) {
+        Ok(request) => request,
+        Err(_) => return serde_json::json!({"ok":false,"error":"Invalid backend request"}),
+    };
+    let result = match request {
+        BackendRequest::Process(request) => process::run(request, callback),
+        BackendRequest::Value(request) => backend::dispatch(request, callback),
+    };
+    match result {
+        Ok(value) => serde_json::json!({"ok":true,"result":value}),
+        Err(error) => {
+            serde_json::json!({"ok":false,"error":error.message,"cancelled":error.cancelled})
+        }
+    }
 }
 
 const MAX_INPUT: usize = 64 * 1024 * 1024;
@@ -43,25 +111,12 @@ pub unsafe extern "C" fn neutrondrive_backend_call(
             return serde_json::json!({"ok":false,"error":"Invalid backend request"});
         }
         let bytes = unsafe { std::slice::from_raw_parts(input, length) };
-        let request: BackendRequest = match serde_json::from_slice(bytes) {
-            Ok(request) => request,
-            Err(_) => return serde_json::json!({"ok":false,"error":"Invalid backend request"}),
-        };
         let mut notify = |value: serde_json::Value| {
             let event = value.to_string();
             // SAFETY: caller owns callback/context; event lives through call.
             unsafe { callback.unwrap()(event.as_ptr(), event.len(), context) }
         };
-        let result = match request {
-            BackendRequest::Process(request) => process::run(request, &mut notify),
-            BackendRequest::Value(request) => backend::dispatch(request, &mut notify),
-        };
-        match result {
-            Ok(value) => serde_json::json!({"ok":true,"result":value}),
-            Err(error) => {
-                serde_json::json!({"ok":false,"error":error.message,"cancelled":error.cancelled})
-            }
-        }
+        runtime_request(bytes, &mut notify)
     }));
     let reply = result.unwrap_or_else(
         |_| serde_json::json!({"ok":false,"error":"Backend runtime panicked; operation stopped"}),
@@ -76,6 +131,17 @@ pub extern "C" fn neutrondrive_core_abi() -> u32 {
     1
 }
 
+/// Safe policy entry point for native callers; retains the C ABI's reply envelope.
+pub fn policy_request(bytes: &[u8]) -> serde_json::Value {
+    if bytes.is_empty() || bytes.len() > MAX_INPUT {
+        return serde_json::json!({"ok":false,"error":"Invalid Rust core request length"});
+    }
+    match policy::dispatch(bytes) {
+        Ok(value) => serde_json::json!({"ok":true,"result":value}),
+        Err(error) => serde_json::json!({"ok":false,"error":error}),
+    }
+}
+
 /// # Safety
 /// `input` must point to `length` readable bytes for this call. The returned
 /// owned string must be released exactly once with neutrondrive_core_free.
@@ -87,10 +153,7 @@ pub unsafe extern "C" fn neutrondrive_core_call(input: *const u8, length: usize)
         }
         // SAFETY: the ABI caller promises a live immutable buffer of length.
         let bytes = unsafe { std::slice::from_raw_parts(input, length) };
-        match policy::dispatch(bytes) {
-            Ok(value) => serde_json::json!({"ok":true,"result":value}),
-            Err(error) => serde_json::json!({"ok":false,"error":error}),
-        }
+        policy_request(bytes)
     }));
     let reply = result.unwrap_or_else(
         |_| serde_json::json!({"ok":false,"error":"Rust core panicked; operation stopped"}),
@@ -117,6 +180,22 @@ mod tests {
     use super::*;
     unsafe extern "C" fn ignore_event(_: *const u8, _: usize, _: *mut std::ffi::c_void) -> i32 {
         0
+    }
+
+    #[test]
+    fn safe_policy_reply_matches_ffi() {
+        for bytes in [
+            br#"{"version":1,"op":"info"}"#.as_slice(),
+            br#"{"version":99,"op":"info"}"#.as_slice(),
+            b"invalid".as_slice(),
+            b"".as_slice(),
+        ] {
+            let pointer = unsafe { neutrondrive_core_call(bytes.as_ptr(), bytes.len()) };
+            let ffi: serde_json::Value =
+                serde_json::from_slice(unsafe { CStr::from_ptr(pointer) }.to_bytes()).unwrap();
+            unsafe { neutrondrive_core_free(pointer) };
+            assert_eq!(policy_request(bytes), ffi);
+        }
     }
 
     #[test]

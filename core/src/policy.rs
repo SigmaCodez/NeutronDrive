@@ -58,6 +58,23 @@ struct Request {
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
     Info,
+    UpdateSelect {
+        releases: Value,
+        current: String,
+        preview: bool,
+        format: String,
+        machine: String,
+    },
+    UpdateVersion {
+        value: String,
+    },
+    SyncBoundary {
+        path: String,
+    },
+    ComputerRecord {
+        value: Value,
+        account: String,
+    },
     RouteEvent {
         event: crate::event_route::Event,
         jobs: Vec<crate::event_route::Job>,
@@ -310,6 +327,16 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
         return Err("Unsupported Rust core protocol version".into());
     }
     match request.command {
+        Command::UpdateSelect {
+            releases,
+            current,
+            preview,
+            format,
+            machine,
+        } => crate::update_policy::choose(releases, &current, preview, &format, &machine),
+        Command::UpdateVersion { value } => Ok(json!(crate::update_policy::version(&value)?)),
+        Command::SyncBoundary { path } => Ok(json!(crate::computer::boundary(&path)?)),
+        Command::ComputerRecord { value, account } => crate::computer::record(value, &account),
         Command::RouteEvent {
             event,
             jobs,
@@ -338,7 +365,7 @@ pub fn dispatch(input: &[u8]) -> Result<Value, String> {
             )
         }
         Command::Info => Ok(
-            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder","remote-cache-invalidation","daemon-event-routing","backend-process-runtime","backend-value-validation","private-state-io","job-store","inotify-runtime"]}),
+            json!({"protocol":1,"version":env!("CARGO_PKG_VERSION"),"implementation":"rust","components":["sync-planner","baseline","deletion-policy","daemon-scheduler","echo-policy","event-validation","event-delivery","event-retry","inotify-decoder","remote-cache-invalidation","daemon-event-routing","backend-process-runtime","backend-value-validation","private-state-io","job-store","inotify-runtime","computer-identity-policy", "drive-command-runtime","event-acknowledgement-runtime","update-selection-policy","localization-runtime","control-client-runtime","guarded-local-filesystem","computer-setup-runtime"]}),
         ),
         Command::BaselineMatches {
             entry,

@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+"""Build matching qmake/moc on the target Linux baseline; no Qt is installed."""
+import argparse
+import importlib.util
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('qt_tools', root/'packaging/qt_tools.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--work-dir', type=Path, required=True, help='New local-filesystem work directory')
+parser.add_argument('--output', type=Path, required=True, help='New generator artifact directory')
+parser.add_argument('--archive', type=Path)
+parser.add_argument('--jobs', type=int, default=4)
+args = parser.parse_args()
+if args.jobs < 1:
+    parser.error('--jobs must be positive')
+print(module.build(args.work_dir, args.output, args.archive, args.jobs))

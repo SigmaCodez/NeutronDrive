@@ -62,10 +62,10 @@ parts:
     plugin: nil
     source: .
     build-packages: [python3]
-    stage-packages: [python3, python3-gi, libsecret-1-0, ca-certificates, libgcc-s1, libatomic1, libopengl0, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxkbcommon-x11-0, libxcb-randr0, libxcb-sync1, libxcb-xfixes0, libxcb-glx0]
+    stage-packages: [libsecret-1-0, libgssapi-krb5-2, libbrotli1, ca-certificates, libgcc-s1, libatomic1, libopengl0, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxkbcommon-x11-0, libxcb-randr0, libxcb-sync1, libxcb-xfixes0, libxcb-glx0]
     build-attributes: [no-patchelf]
     override-build: |
-      NEUTRONDRIVE_CORE_BUILD="native-core/$CRAFT_ARCH_BUILD_FOR" python3 packaging/stage.py \
+      NEUTRONDRIVE_NATIVE_BUILD="native-frontend/$CRAFT_ARCH_BUILD_FOR" python3 packaging/stage.py \
         --destdir "$CRAFT_PART_INSTALL" \
         --prefix /usr \
         --arch "$CRAFT_ARCH_BUILD_FOR" \
@@ -75,6 +75,11 @@ parts:
     # Bun executables have appended application data; never strip the backend.
     override-prime: |
       craftctl default
-      python3 "$CRAFT_PROJECT_DIR/packaging/fetch-backend.py" \
-        "$CRAFT_PRIME/usr/lib/neutrondrive/bin/proton-drive" \
-        --arch "$CRAFT_ARCH_BUILD_FOR"
+      python3 - <<'PYVERIFY'
+      import hashlib, os
+      from pathlib import Path
+      project = Path(os.environ['CRAFT_PROJECT_DIR'])
+      original = project / 'backend' / os.environ['CRAFT_ARCH_BUILD_FOR'] / 'proton-drive'
+      staged = Path(os.environ['CRAFT_PRIME']) / 'usr/lib/neutrondrive/bin/proton-drive'
+      assert hashlib.sha512(original.read_bytes()).digest() == hashlib.sha512(staged.read_bytes()).digest(), 'SDK was altered during Snap priming'
+      PYVERIFY

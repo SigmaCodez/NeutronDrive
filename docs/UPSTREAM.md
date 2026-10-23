@@ -104,12 +104,10 @@ Automatic subscriptions currently cover My Files only. Hosted-service
 requirements and SDK contracts can evolve, so future updates require another
 source review and release validation.
 
-## Fedora filesystem binding
+## Native filesystem binding
 
-Fedora packages additionally compile the unmodified pyfuse3 3.4.2 source under
-LGPL-2.1-or-later because Fedora does not supply that binding. The source URL and
-SHA256 are pinned in `packaging/rpm/pyfuse3-lock.json`. The RPM contains the complete
-source archive, license, exact build helper and replacement instructions; it
-requires the Python ABI it was compiled against. openSUSE and DEB packages use
-the distribution's binding. Both the original native tests and all five kernel
-tests against the newly source-built binding passed locally.
+The native kernel adapter uses `fuser` 0.18.0 (MIT), pinned in `core/Cargo.toml`
+and `core/Cargo.lock`, with complete offline sources and checksums in
+`core/vendor`. Default features are disabled: no Python binding or libfuse C
+linkage is used. Packages retain the distribution's `fuse3` mount helper.
+Vendored crate license notices are included by `packaging/rust_core.py`.

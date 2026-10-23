@@ -8,8 +8,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from neutrondrive.backend import BackendError, Node
-from neutrondrive.ondemand import OnDemandFS, OnDemandError, _key
+from core_contract.backend import BackendError, Node
+from core_contract.ondemand import OnDemandFS, OnDemandError, _key
 
 
 class FakeBackend:
@@ -399,26 +399,19 @@ class OnDemandTests(unittest.TestCase):
         with self.assertRaises(OnDemandError):
             self.fs.open(self.inode)
 
-    def test_account_event_blocks_refresh_and_new_opens(self):
-        from types import SimpleNamespace
-        from neutrondrive.fuse import MountManager
-        manager = MountManager(self.backend, Path(self.temp.name) / 'state')
-        manager.fs = self.fs
-        manager.invalidate(SimpleNamespace(root_uid='different-root', kind='ready'))
-        self.assertTrue(self.fs.account_blocked)
-        self.assertTrue(manager.status()['read_only'])
-        with self.assertRaises(OnDemandError):
-            self.fs.refresh()
+    # Account-event propagation is exercised through a real native manager and
+    # kernel mount in test_fuse_mount.py, not by injecting Python filesystem state.
 
-    def test_disk_full_create_has_no_phantom_entry(self):
-        from unittest.mock import patch
-        with patch.object(self.fs, '_journal', side_effect=OSError(errno.ENOSPC, 'synthetic disk full')):
-            with self.assertRaises(OSError):
-                self.fs.create(1, 'cannot-create.txt')
-        self.assertNotIn('cannot-create.txt', self.fs.children[1])
-        self.assertEqual(self.fs.handles, {})
-        self.assertEqual(list(self.fs.recovery.iterdir()), [])
-        self.assertEqual(self.backend.uploads, 0)
+    # Native mount tests cover ENOSPC create rollback and failed truncating-open
+    # handle cleanup. Those fault injections now target Rust's journal boundary.
+
+    def test_closed_mount_keeps_recovery_status_available(self):
+        handle = self.fs.open(self.inode, os.O_RDWR | os.O_TRUNC)
+        self.fs.write(handle, 0, b'closed edit')
+        self.fs.close()
+        recovery = self.fs.pending_recovery()
+        self.assertEqual(len(recovery), 1)
+        self.assertEqual(Path(recovery[0]['data_path']).read_bytes(), b'closed edit')
 
     def test_read_only_truncate_is_rejected(self):
         with self.assertRaises(OnDemandError) as cm:

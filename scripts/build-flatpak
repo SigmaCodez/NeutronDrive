@@ -2,6 +2,7 @@
 """Build a local Flatpak bundle with installed GNOME 50 SDK/runtime."""
 import argparse
 import importlib.util
+import json
 import os
 from pathlib import Path
 import platform
@@ -12,20 +13,31 @@ ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--arch", choices=("x86_64", "aarch64"), default=platform.machine())
 parser.add_argument("--install-deps", action="store_true", help="Install the required runtime/SDK from your existing flathub remote")
+parser.add_argument("--backend", type=Path, default=ROOT / "build/backend/proton-drive")
 args = parser.parse_args()
 for tool in ("flatpak", "flatpak-builder"):
     if not shutil.which(tool):
         parser.error(f"{tool} is required")
-spec = importlib.util.spec_from_file_location("rust_build", ROOT / "packaging/rust_core.py")
-rust_build = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(rust_build)
-core_source = Path(os.environ["NEUTRONDRIVE_CORE_BUILD"]).resolve() if os.environ.get("NEUTRONDRIVE_CORE_BUILD") else rust_build.build()
-rust_build.verify(core_source, args.arch)
-core_dest = ROOT / "build/rust"
-if core_source != core_dest:
-    core_dest.mkdir(parents=True, exist_ok=True)
-    for name in (rust_build.LIBRARY, "core-build.json"):
-        shutil.copyfile(core_source / name, core_dest / name)
+spec = importlib.util.spec_from_file_location("native_frontend", ROOT / "packaging/native_frontend.py")
+native = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(native)
+if not os.environ.get("NEUTRONDRIVE_NATIVE_BUILD"):
+    parser.error("Set NEUTRONDRIVE_NATIVE_BUILD to a verified Rust/Qt frontend build")
+frontend = Path(os.environ["NEUTRONDRIVE_NATIVE_BUILD"]).resolve()
+native.verify(frontend, args.arch)
+sdk_spec = importlib.util.spec_from_file_location("sdk_backend", ROOT / "packaging/fetch-backend.py")
+sdk = importlib.util.module_from_spec(sdk_spec)
+sdk_spec.loader.exec_module(sdk)
+sdk.verify_source_build(args.backend, args.arch)
+sdk_destination = ROOT / "build/flatpak-backend"
+sdk_destination.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(args.backend, sdk_destination / "proton-drive")
+shutil.copyfile(args.backend.with_name(args.backend.name + ".provenance.json"), sdk_destination / "proton-drive.provenance.json")
+destination = ROOT / "build/native-frontend"
+if frontend != destination:
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in (native.BINARY, native.REPORT):
+        shutil.copyfile(frontend / name, destination / name)
 build = ROOT / "build" / f"flatpak-{args.arch}"
 repo = ROOT / "build/flatpak-repo"
 dist = ROOT / "dist"

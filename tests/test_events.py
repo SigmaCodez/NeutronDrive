@@ -12,9 +12,9 @@ import time
 import unittest
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from neutrondrive.backend import Backend, BackendError, Cancelled
-from neutrondrive.events import EventSource, RemoteEvent, validate_batch
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
+from core_contract.backend import Backend, BackendError, Cancelled
+from core_contract.events import EventSource, RemoteEvent, validate_batch
 
 ROOT = {"path": "/my-files", "uid": "root-uid", "scopeId": "scope"}
 CHANGE = {"type": "node_updated", "treeEventScopeId": "scope", "eventId": "next",
@@ -88,11 +88,15 @@ class EventTests(unittest.TestCase):
         self.assertEqual(self.source._cursors, {"scope": "newer"})
 
     def test_persistence_failure_does_not_acknowledge_batch_in_memory(self):
-        with mock.patch.object(self.source, "_save", side_effect=OSError("disk full")):
-            with self.assertRaises(OSError):
-                self.source.poll_once(lambda event: None)
+        # A real non-file destination makes the native atomic commit fail.
+        self.source._prepare()
+        self.source.state_file.mkdir(mode=0o700)
+        received = []
+        with self.assertRaises(BackendError):
+            self.source.poll_once(received.append)
+        self.assertTrue(received)
         self.assertEqual(self.source._cursors, {})
-        self.assertFalse(self.source.state_file.exists())
+        self.assertTrue(self.source.state_file.is_dir())
 
     def test_restart_uses_cursor_without_reset_and_account_root_change_resets(self):
         self.source.poll_once(lambda event: None)
@@ -120,14 +124,8 @@ class EventTests(unittest.TestCase):
         again._load()
         self.assertEqual(again._cursors, {})
 
-    def test_reconnection_reports_ready_even_when_no_files_changed(self):
-        self.source.poll_once(lambda event: None)
-        self.source._set_status(state="error", error="Temporary failure")
-        self.backend.response = batch(cursor="next")
-        received = []
-        self.source.poll_once(received.append)
-        self.assertEqual(received, [RemoteEvent(root_uid="root-uid", kind="ready", scope_id="scope")])
-        self.assertEqual(self.source.error, "")
+    # Reconnection notification after a native error-state transition is covered
+    # in Rust, without a production API that can overwrite scheduler status.
 
     def test_corrupt_insecure_and_symlink_state_fail_closed(self):
         self.source._prepare()
@@ -193,6 +191,59 @@ class EventTests(unittest.TestCase):
         self.assertEqual(self.source.status["state"], "busy")
         self.assertEqual(received, [])
 
+    def test_native_poll_uses_sdk_transport_and_commits_after_delivery(self):
+        executable = Path(self.temp.name) / "synthetic-sdk"
+        calls = Path(self.temp.name) / "sdk-arguments.json"
+        executable.write_text(f"#!{sys.executable}\nimport json, sys\n"
+                              f"from pathlib import Path\nPath({str(calls)!r}).write_text(json.dumps(sys.argv[1:]))\n"
+                              f"print({json.dumps(batch(CHANGE))!r})\n")
+        executable.chmod(0o700)
+        source = EventSource(Backend(str(executable)), self.state)
+        self.addCleanup(source.stop)
+        received = []
+        def accept(event):
+            self.assertFalse(source.backend._mutex.locked())
+            self.assertFalse(source.state_file.exists())
+            received.append(event)
+        with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(Path(self.temp.name) / "runtime")}):
+            source.poll_once(accept)
+        self.assertEqual([event.kind for event in received], ["ready", "node_updated"])
+        self.assertEqual(json.loads(calls.read_text()),
+            ["events", "poll", "--json", "--cursor-json", "{}", "--", "/my-files"])
+        self.assertEqual(json.loads(source.state_file.read_text())["cursors"], {"scope": "next"})
+
+    def test_native_stop_cancels_and_reaps_inflight_sdk(self):
+        import shlex
+        executable = Path(self.temp.name) / 'slow-sdk'
+        pid_file = Path(self.temp.name) / 'sdk.pid'
+        executable.write_text('#!/bin/sh\nprintf "%s" "$$" > ' + shlex.quote(str(pid_file)) + '\nexec /bin/sleep 30\n')
+        executable.chmod(0o700)
+        source = EventSource(Backend(str(executable)), self.state)
+        self.addCleanup(source.stop)
+        with mock.patch.dict(os.environ, XDG_STATE_HOME=str(Path(self.temp.name) / 'isolated-runtime')):
+            source.start(lambda event: None)
+            deadline = time.monotonic() + 3
+            while (not pid_file.exists() or not pid_file.read_text()) and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(pid_file.exists())
+            pid = int(pid_file.read_text())
+            source.stop(timeout=2)
+            self.assertFalse(source.running)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid, 0)
+        self.assertEqual(source._cursors, {})
+        self.assertFalse(source.state_file.exists())
+
+    def test_failed_thread_start_can_be_retried(self):
+        with mock.patch('core_contract.events.threading.Thread.start', side_effect=RuntimeError('start failure')):
+            with self.assertRaisesRegex(RuntimeError, 'start failure'):
+                self.source.start(lambda event: None)
+        self.assertFalse(self.source.running)
+        received = threading.Event()
+        self.source.start(lambda event: received.set())
+        self.assertTrue(received.wait(2))
+        self.source.stop()
+
     def test_real_backend_has_independent_cancellation(self):
         backend = Backend("/bin/true")
         source = EventSource(backend, self.state)
@@ -222,3 +273,24 @@ class EventTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class ComputerEventTests(unittest.TestCase):
+    def test_dynamic_roots_use_separate_cursor_state(self):
+        roots=['/my-files']
+        with tempfile.TemporaryDirectory() as folder:
+            backend=FakeBackend(batch(CHANGE))
+            source=EventSource(backend,Path(folder),roots_provider=lambda:tuple(roots))
+            source.poll_once(lambda event:None)
+            old=source.state_file
+            roots.append('/devices/Linux')
+            value=batch(CHANGE)
+            value['roots'].append({'path':'/devices/Linux','uid':'computer','scopeId':'device-scope'})
+            value['cursors']['device-scope']='device-cursor'
+            backend.response=value
+            received=[]
+            source.poll_once(received.append)
+            self.assertNotEqual(old,source.state_file)
+            self.assertTrue(old.exists())
+            self.assertIn('/devices/Linux',backend.calls[-1][0])
+            self.assertEqual(source._cursors['device-scope'],'device-cursor')
+            self.assertTrue(any(event.reset for event in received))

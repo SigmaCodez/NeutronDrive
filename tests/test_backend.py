@@ -19,11 +19,11 @@ import time
 import unittest
 from unittest import mock
 
-if importlib.util.find_spec("neutrondrive") is None:
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+if importlib.util.find_spec("core_contract") is None:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
 
-from neutrondrive import backend as module
-from neutrondrive.backend import (
+from core_contract import backend as module
+from core_contract.backend import (
     Backend, BackendError, Cancelled, Node, checked_json, friendly_error,
     join_remote, local_path, validate_name, validate_remote,
 )
@@ -221,8 +221,10 @@ class BackendTests(unittest.TestCase):
 
     def test_timeout_kills_descendant_holding_pipes_after_leader_exits(self):
         os.environ["FAKE_MODE"] = "descendant"
+        # Allow the fixture interpreter to start under load before exercising
+        # the inherited-pipe cleanup; the child itself sleeps for 30 seconds.
         with self.assertRaisesRegex(BackendError, "Zeitlimit"):
-            self.backend._run(["version"], timeout=0.25)
+            self.backend._run(["version"], timeout=1.0)
         self.assert_child_reaped()
         descendant = int(Path(str(self.pid_file) + ".descendant").read_text())
         def stopped():
@@ -330,14 +332,17 @@ class BackendTests(unittest.TestCase):
 
     def test_timeout_reaps_child(self):
         os.environ["FAKE_MODE"] = "sleep"
+        # Exercise reaping a started child, not Python startup under host load.
         with self.assertRaisesRegex(BackendError, "Zeitlimit"):
-            self.backend._run(["filesystem", "list"], timeout=0.2)
+            self.backend._run(["filesystem", "list"], timeout=1.0)
         self.assert_child_reaped()
 
     def test_timeout_preserves_sdk_termination_grace(self):
         os.environ["FAKE_MODE"] = "grace"
+        # This tests the 200 ms SIGTERM cleanup, not interpreter startup speed.
         with self.assertRaisesRegex(BackendError, "Zeitlimit"):
-            self.backend._run(["version"], timeout=0.25)
+            self.backend._run(["version"], timeout=1.0)
+        self.assertTrue(self.pid_file.exists(), "SDK fixture did not start")
         self.assertTrue(self.ack.exists(), "SIGKILL must not interrupt graceful SDK cleanup")
         self.assert_child_reaped()
 

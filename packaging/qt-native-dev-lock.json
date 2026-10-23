@@ -1,0 +1,106 @@
+{
+  "qt_version": "6.10.2",
+  "purpose": "Pinned Qt development headers and tools; portable builds replace qmake/moc with matching baseline-built tools.",
+  "architectures": {
+    "x86_64": [
+      {
+        "package": "qmake6-bin",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "amd64",
+        "filename": "qmake6-bin_6.10.2+dfsg-7_amd64.deb",
+        "sha256": "658372d70cb627dc52c99e174d50f7acd72ed3e35245fc22cd0ee66353456265",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qt6-base/qmake6-bin_6.10.2+dfsg-7_amd64.deb"
+      },
+      {
+        "package": "qmake6",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "amd64",
+        "filename": "qmake6_6.10.2+dfsg-7_amd64.deb",
+        "sha256": "bbccf39041c68eb62beff40742f5ff831f2453a4d922492aa92ec3bb047cb7dd",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qt6-base/qmake6_6.10.2+dfsg-7_amd64.deb"
+      },
+      {
+        "package": "qt6-base-dev-tools",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "amd64",
+        "filename": "qt6-base-dev-tools_6.10.2+dfsg-7_amd64.deb",
+        "sha256": "f75b03bc0f4c294d8b54d44a7fc4eeeb3a75b92b9fe13656cbb426f22f98a6f0",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qt6-base/qt6-base-dev-tools_6.10.2+dfsg-7_amd64.deb"
+      },
+      {
+        "package": "qt6-base-dev",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "amd64",
+        "filename": "qt6-base-dev_6.10.2+dfsg-7_amd64.deb",
+        "sha256": "37a09d02275eedbefec63c7d71dd6c310077d7feb6609fa938a4a8e0572762a7",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qt6-base/qt6-base-dev_6.10.2+dfsg-7_amd64.deb"
+      },
+      {
+        "package": "qt6-declarative-dev-tools",
+        "version": "6.10.2+dfsg-3",
+        "architecture": "amd64",
+        "filename": "qt6-declarative-dev-tools_6.10.2+dfsg-3_amd64.deb",
+        "sha256": "ba0cf4934b1e509732021adffde54962d84ac259c8af59061dfe3ffd47ad6c42",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qt6-declarative/qt6-declarative-dev-tools_6.10.2+dfsg-3_amd64.deb"
+      },
+      {
+        "package": "qt6-declarative-dev",
+        "version": "6.10.2+dfsg-3",
+        "architecture": "amd64",
+        "filename": "qt6-declarative-dev_6.10.2+dfsg-3_amd64.deb",
+        "sha256": "4d3b87befda13385b65a82f526bc7fcf8c3a5bfd7708a76bfd2a6f06c6faaa9d",
+        "url": "https://archive.ubuntu.com/ubuntu/pool/universe/q/qt6-declarative/qt6-declarative-dev_6.10.2+dfsg-3_amd64.deb"
+      }
+    ],
+    "aarch64": [
+      {
+        "package": "qmake6-bin",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "arm64",
+        "filename": "qmake6-bin_6.10.2+dfsg-7_arm64.deb",
+        "sha256": "93afe666f86c77a596fb97642b238c32806523c29da14e17bd08b7ac2fed300b",
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/universe/q/qt6-base/qmake6-bin_6.10.2+dfsg-7_arm64.deb"
+      },
+      {
+        "package": "qmake6",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "arm64",
+        "filename": "qmake6_6.10.2+dfsg-7_arm64.deb",
+        "sha256": "dd824fba38e902d54ac5907d4e69bbbaf344ed79f8c1ce3325bc3439638ccd94",
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/universe/q/qt6-base/qmake6_6.10.2+dfsg-7_arm64.deb"
+      },
+      {
+        "package": "qt6-base-dev-tools",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "arm64",
+        "filename": "qt6-base-dev-tools_6.10.2+dfsg-7_arm64.deb",
+        "sha256": "b27682743b8755df7cf4db1604e7a45dbdab90b2d4b957a6c8d6b3bf69a5874b",
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/universe/q/qt6-base/qt6-base-dev-tools_6.10.2+dfsg-7_arm64.deb"
+      },
+      {
+        "package": "qt6-base-dev",
+        "version": "6.10.2+dfsg-7",
+        "architecture": "arm64",
+        "filename": "qt6-base-dev_6.10.2+dfsg-7_arm64.deb",
+        "sha256": "75344bede93e35a4c38a01ed6d1f2dc54bda773b210e75d27b49d98c93bce63d",
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/universe/q/qt6-base/qt6-base-dev_6.10.2+dfsg-7_arm64.deb"
+      },
+      {
+        "package": "qt6-declarative-dev-tools",
+        "version": "6.10.2+dfsg-3",
+        "architecture": "arm64",
+        "filename": "qt6-declarative-dev-tools_6.10.2+dfsg-3_arm64.deb",
+        "sha256": "c0461d52e8e34220229d01ad1c3bcdc7c778ec5918f3c41340cd47c550d0296e",
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/universe/q/qt6-declarative/qt6-declarative-dev-tools_6.10.2+dfsg-3_arm64.deb"
+      },
+      {
+        "package": "qt6-declarative-dev",
+        "version": "6.10.2+dfsg-3",
+        "architecture": "arm64",
+        "filename": "qt6-declarative-dev_6.10.2+dfsg-3_arm64.deb",
+        "sha256": "a7755c481429e31c7b345bec0afb08937f9bf864fb0ac5d169a6b33f4a8449b0",
+        "url": "https://ports.ubuntu.com/ubuntu-ports/pool/universe/q/qt6-declarative/qt6-declarative-dev_6.10.2+dfsg-3_arm64.deb"
+      }
+    ]
+  }
+}

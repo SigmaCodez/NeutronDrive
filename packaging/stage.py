@@ -13,51 +13,49 @@ APP_ID = "io.github.SigmaCodez.NeutronDrive"
 spec = importlib.util.spec_from_file_location("fetch_backend", ROOT / "packaging/fetch-backend.py")
 backend = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(backend)
-rust_spec = importlib.util.spec_from_file_location("rust_build", ROOT / "packaging/rust_core.py")
-rust_build = importlib.util.module_from_spec(rust_spec)
-rust_spec.loader.exec_module(rust_build)
 qt_spec = importlib.util.spec_from_file_location("qt_runtime", ROOT / "packaging/qt_runtime.py")
 qt_runtime = importlib.util.module_from_spec(qt_spec)
 qt_spec.loader.exec_module(qt_runtime)
+native_spec = importlib.util.spec_from_file_location("native_frontend", ROOT / "packaging/native_frontend.py")
+native_frontend = importlib.util.module_from_spec(native_spec)
+native_spec.loader.exec_module(native_frontend)
 
-LAUNCHER = '''#!/usr/bin/env python3
-import os
-from pathlib import Path
-import runpy
-import sys
-
-prefix = Path(__file__).resolve().parent.parent
-app = prefix / "lib" / "neutrondrive"
-sys.path.insert(0, str(app))
-os.environ["PATH"] = str(app / "bin") + os.pathsep + os.environ.get("PATH", "")
-runpy.run_module("neutrondrive", run_name="__main__")
-'''
-
-
-def stage(destination, prefix, arch, binary, portal_browser=False, host_services=True):
+def stage(destination, prefix, arch, binary, portal_browser=False, host_services=True, native=True):
+    if not native:
+        raise ValueError("Python runtime staging has been removed; use the verified Rust frontend")
     destination = Path(destination)
     prefix = prefix.strip("/")
     if ".." in Path(prefix).parts:
         raise ValueError("Prefix must not contain '..'")
     base = destination / prefix
     app = base / "lib/neutrondrive"
+    if app.exists():
+        raise ValueError("Native staging requires a fresh destination to exclude old Python payloads")
     source = ROOT / "src/neutrondrive"
-    if not (source / "__main__.py").is_file():
-        raise ValueError(f"Application entry point missing: {source / '__main__.py'}")
+    if not (source / "locales/en.json").is_file():
+        raise ValueError("Native application English fallback catalog is missing")
     entry = json.loads(backend.LOCK.read_text())["architectures"][backend.architecture(arch)]
-    binary = Path(binary) if binary else backend.fetch(ROOT / "build/backend" / backend.architecture(arch) / "proton-drive", arch)
-    backend.verify(binary, entry["sha512"])
-    shutil.copytree(source, app / "neutrondrive", dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    rust_build.stage(app, base, arch)
-    qt_runtime.stage(app, base, arch)
+    binary = Path(binary) if binary else ROOT / "build/backend/proton-drive"
+    if not binary.is_file():
+        raise ValueError("Build the current pinned SDK with scripts/build-backend or pass --backend")
+    source_build = False
+    try:
+        backend.verify(binary, entry["sha512"])
+    except ValueError:
+        backend.verify_source_build(binary, arch)
+        source_build = True
+    native_frontend.stage(app, base, arch)
+    # Retain the installed payload identity used by update-format detection.
+    shutil.copytree(source / "locales", app / "neutrondrive/locales")
+    qt_runtime.stage(app, base, arch, native=True)
     (app / "bin").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(binary, app / "bin/proton-drive")
     (app / "bin/proton-drive").chmod(0o755)
     if portal_browser:
-        shutil.copyfile(ROOT / "packaging/xdg-open-portal", app / "bin/xdg-open")
+        shutil.copyfile(ROOT / "packaging/xdg-open-portal-native", app / "bin/xdg-open")
         (app / "bin/xdg-open").chmod(0o755)
     (base / "bin").mkdir(parents=True, exist_ok=True)
-    (base / "bin/neutrondrive").write_text(LAUNCHER)
+    (base / "bin/neutrondrive").write_text((ROOT / "packaging/native-launcher").read_text())
     (base / "bin/neutrondrive").chmod(0o755)
     for src, relative in [
         (ROOT / "data" / f"{APP_ID}.desktop", f"share/applications/{APP_ID}.desktop"),
@@ -72,6 +70,9 @@ def stage(destination, prefix, arch, binary, portal_browser=False, host_services
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, target)
         target.chmod(0o644)
+    if source_build:
+        shutil.copyfile(binary.with_name(binary.name + ".provenance.json"),
+                        base / "share/doc/neutrondrive/backend-build.provenance.json")
     if prefix == "usr" and host_services:
         for name, relative in [
             ("io.github.SigmaCodez.NeutronDrive.Service.service", "share/dbus-1/services/io.github.SigmaCodez.NeutronDrive.Service.service"),
@@ -95,5 +96,6 @@ if __name__ == "__main__":
     parser.add_argument("--backend", type=Path, help="Existing binary; SHA-512 is always checked")
     parser.add_argument("--portal-browser", action="store_true", help="Use the desktop portal to open the sign-in URL")
     parser.add_argument("--no-host-services", action="store_true", help="Omit native host D-Bus/systemd activation files (for Snap)")
+    parser.add_argument("--native", action="store_true", default=True, help="Stage the Rust frontend (always enabled)")
     args = parser.parse_args()
-    stage(args.destdir, args.prefix, args.arch, args.backend, args.portal_browser, not args.no_host_services)
+    stage(args.destdir, args.prefix, args.arch, args.backend, args.portal_browser, not args.no_host_services, args.native)

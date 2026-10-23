@@ -10,8 +10,6 @@ pkgbase = neutrondrive-bin
 	depends = python>=3.10
 	depends = python<3.15
 	depends = python-gobject
-	depends = python-pyfuse3
-	depends = python-trio
 	depends = hicolor-icon-theme
 	depends = fuse3
 	depends = libsecret

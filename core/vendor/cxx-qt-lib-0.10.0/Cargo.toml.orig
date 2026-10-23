@@ -1,0 +1,85 @@
+# SPDX-FileCopyrightText: 2021 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+# SPDX-FileContributor: Andrew Hayzen <andrew.hayzen@kdab.com>
+# SPDX-FileContributor: Gerhard de Clercq <gerhard.declercq@kdab.com>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+[package]
+name = "cxx-qt-lib"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Qt types for integrating `cxx-qt` crate with `cxx`"
+repository.workspace = true
+exclude = ["**/generate.sh"]
+
+# When creating a library with cxx-qt-build, we need to set a fake "links" key
+# to make sure the build scripts are run in the correct order and the build scripts
+# can pass metadata from library to dependent.
+# See also: https://doc.rust-lang.org/cargo/reference/build-scripts.html#the-links-manifest-key
+links = "cxx-qt-lib"
+rust-version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+cxx.workspace = true
+cxx-qt.workspace = true
+bytes = { version = "1.4", optional = true }
+chrono = { version = "0.4.27", optional = true }
+http = { version = "1.0", optional = true }
+rgb = { version = "0.8", optional = true }
+time = { version = "0.3.20", optional = true }
+url = { version = "2.3", optional = true }
+uuid = { version = "1.1.0", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+# Note: The image crate is not yet at 1.0 and a new version is released regularly.
+# To avoid a breaking change at each update, we don't specify a default version, and make the versions explicit.
+# Once 1.0 is released, we can add a dependency on `image`, which would then be `image = "1"`
+# Also, disable the default features, we don't need any, so they would be included unnecessarily and raise the MSRV unnecessarily.
+image-v0-24 = { version = "0.24", optional = true, package = "image", default-features = false }
+image-v0-25 = { version = "0.25", optional = true, package = "image", default-features = false }
+
+[build-dependencies]
+cxx-qt-build.workspace = true
+qt-build-utils.workspace = true
+
+[dev-dependencies]
+serde_json = "1.0.135"
+
+[features]
+full = [
+  "qt_full",
+  "serde",
+  "url",
+  "uuid",
+  "time",
+  "rgb",
+  "http",
+  "chrono",
+  "bytes",
+  "image-v0-24",
+  "image-v0-25",
+]
+default = []
+
+qt_full = ["qt_gui", "qt_qml", "qt_quickcontrols"]
+qt_gui = []
+qt_qml = []
+qt_quickcontrols = []
+
+bytes = ["dep:bytes"]
+chrono = ["dep:chrono"]
+http = ["dep:http"]
+rgb = ["dep:rgb"]
+time = ["dep:time"]
+url = ["dep:url"]
+serde = ["dep:serde"]
+uuid = ["dep:uuid"]
+image-v0-24 = ["dep:image-v0-24"]
+image-v0-25 = ["dep:image-v0-25"]
+link_qt_object_files = ["cxx-qt-build/link_qt_object_files"]
+
+[lints]
+workspace = true

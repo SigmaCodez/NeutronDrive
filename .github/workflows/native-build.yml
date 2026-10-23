@@ -1,0 +1,78 @@
+name: Native Rust frontend and SDK artifacts
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            architecture: x86_64
+            sdk_target: bun-linux-x64-baseline
+          - runner: ubuntu-24.04-arm
+            architecture: aarch64
+            sdk_target: bun-linux-arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      CARGO_INCREMENTAL: '0'
+      NEUTRONDRIVE_FUSE_TEST: '1'
+      NEUTRONDRIVE_DBUS_TEST: '1'
+      NEUTRONDRIVE_UI_TESTS: '1'
+      PYTHONPATH: tests
+      QT_QPA_PLATFORM: offscreen
+      QT_QUICK_BACKEND: software
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install baseline build and isolated-test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ binutils cmake ninja-build perl pkg-config zlib1g-dev python3-gi dbus-daemon fuse3 libgl-dev libopengl-dev libegl-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-randr0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-render0 libxcb-shape0 libxcb-glx0 libfontconfig1 libdbus-1-3 libsm6 libice6 libatomic1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libsecret-1-0
+          if [ ! -c /dev/fuse ]; then sudo modprobe fuse; fi
+          sudo chmod a+rw /dev/fuse
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
+          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/native-target" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/lib" >> "$GITHUB_ENV"
+          echo "QT_PLUGIN_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/plugins" >> "$GITHUB_ENV"
+          echo "QML2_IMPORT_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/qml" >> "$GITHUB_ENV"
+      - name: Prepare pinned Qt runtime and baseline generators
+        run: |
+          python3 packaging/qt_runtime.py --dest build/qt
+          python3 scripts/build-native-qt-tools --work-dir "$RUNNER_TEMP/qt-tools-work" --output "$RUNNER_TEMP/qt-tools"
+          python3 scripts/prepare-native-qt-dev --fetch --output "$RUNNER_TEMP/qt-sdk" --tools "$RUNNER_TEMP/qt-tools"
+          echo "QMAKE=$RUNNER_TEMP/qt-sdk/usr/lib/qt6/bin/qmake6" >> "$GITHUB_ENV"
+      - name: Test the Rust core, actual Qt interface and Linux services
+        run: |
+          (cd core && cargo fmt -- --check && cargo test --locked --offline -- --test-threads=1 && cargo clippy --locked --offline --all-targets -- -D warnings)
+          scripts/check-native-qt
+      - name: Retain differential and fault-injection regression contracts
+        run: |
+          nd_test_root=$(mktemp -d)
+          export XDG_STATE_HOME="$nd_test_root/state" XDG_CONFIG_HOME="$nd_test_root/config" XDG_CACHE_HOME="$nd_test_root/cache" XDG_DATA_HOME="$nd_test_root/data"
+          export NEUTRONDRIVE_CORE_LIBRARY="$CARGO_TARGET_DIR/debug/deps/libneutrondrive_core.so"
+          python3 -m unittest discover -s tests -v
+      - name: Build and verify portable Rust frontend
+        run: |
+          python3 scripts/build-native-qt --output build/native-frontend
+          env PATH=/nonexistent build/native-frontend/neutrondrive-qt --version
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Build the current pinned SDK bridge
+        run: python3 scripts/build-backend --source-dir "$RUNNER_TEMP/proton-sdk" --target '${{ matrix.sdk_target }}' --output build/backend/proton-drive
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-frontend-${{ matrix.architecture }}
+          path: build/native-frontend/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-bridge-${{ matrix.architecture }}
+          path: build/backend/proton-drive*
+          if-no-files-found: error

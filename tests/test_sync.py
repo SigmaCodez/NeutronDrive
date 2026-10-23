@@ -1,3 +1,5 @@
+# Native intent-write failure and local lost-ack tests live in core/src/sync_execute.rs.
+# Ancestor changes during native preflight scans are exercised in core/src/sync_proof.rs.
 """Filesystem-backed sync tests; no Proton account or network required."""
 
 from dataclasses import replace
@@ -11,9 +13,9 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from neutrondrive.backend import BackendError, Cancelled, Node
-from neutrondrive.local_trash import LocalTrash
-from neutrondrive.sync import SyncEngine, SyncError
+from core_contract.backend import BackendError, Cancelled, Node
+from core_contract.local_trash import LocalTrash
+from core_contract.sync import SyncEngine, SyncError
 
 
 def sha1(data: bytes) -> str:
@@ -116,6 +118,7 @@ class FakeBackend:
         return {}
 
 
+# Native read/link fault-injection regressions live in core/src/filesystem.rs.
 class SyncTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -579,21 +582,6 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.baseline()[1]["pending_deletions"], {})
         self.assertFalse((self.local / "a.txt").exists())
 
-    def test_local_trash_lost_ack_requires_matching_persisted_receipt(self):
-        self.establish()
-        self.backend.trash([self.backend.nodes["a.txt"].path])
-        real_trash = self.trash.trash
-        def lost_ack(*args, **kwargs):
-            real_trash(*args, **kwargs)
-            raise BackendError("response lost after local rename")
-        with patch.object(self.trash, "trash", side_effect=lost_ack):
-            result = self.engine.execute(self.plan())
-        self.assertTrue(result.errors)
-        recovered = self.engine.execute(self.plan())
-        self.assertTrue(recovered.ok, recovered)
-        self.assertEqual(recovered.trashed, ["a.txt"])
-        self.assertEqual(len(self.trash.list_entries()), 1)
-        self.assertEqual(self.baseline()[1]["pending_deletions"], {})
 
     def test_crash_after_durable_intent_preserves_retryable_deletion(self):
         self.establish()
@@ -606,14 +594,6 @@ class SyncTests(unittest.TestCase):
         self.assertTrue(result.ok, result)
         self.assertNotIn("a.txt", self.backend.nodes)
 
-    def test_failed_intent_persistence_prevents_remote_mutation(self):
-        self.establish()
-        (self.local / "a.txt").unlink()
-        with patch.object(self.engine, "_save", side_effect=OSError("disk full")):
-            result = self.engine.execute(self.plan())
-        self.assertTrue(result.errors)
-        self.assertIn("a.txt", self.backend.nodes)
-        self.assertFalse(self.backend.trashed_nodes)
 
     def test_both_deleted_cleans_baseline_without_new_operations(self):
         self.establish()
@@ -632,49 +612,7 @@ class SyncTests(unittest.TestCase):
         with self.assertRaisesRegex(SyncError, "Trashed"):
             self.engine.plan(self.local, selected.path)
 
-    def test_ancestor_trashed_during_last_preflight_scan_blocks_remote_trash(self):
-        ancestor = self.backend.add("ancestor")
-        selected = self.backend.add("ancestor/selected")
-        self.write("folder/child", b"valuable")
-        self.backend.add("ancestor/selected/folder")
-        self.backend.add("ancestor/selected/folder/child", b"valuable")
-        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
-        (self.local / "folder/child").unlink()
-        plan = self.engine.plan(self.local, selected.path)
-        scan = self.engine._scan_local
-        scans = 0
-        def race(*args, **kwargs):
-            nonlocal scans
-            result = scan(*args, **kwargs)
-            scans += 1
-            if scans == 2:
-                self.backend.nodes["ancestor"] = replace(ancestor, raw={**ancestor.raw, "isTrashed": True})
-            return result
-        with patch.object(self.engine, "_scan_local", side_effect=race):
-            result = self.engine.execute(plan)
-        self.assertFalse(result.ok)
-        self.assertEqual(scans, 2)
-        self.assertIn("ancestor/selected/folder/child", self.backend.nodes)
-        self.assertFalse(any(call[0] == "trash" for call in self.backend.calls))
 
-    def test_ancestor_trashed_during_last_preflight_scan_blocks_local_trash(self):
-        ancestor = self.backend.add("ancestor")
-        selected = self.backend.add("ancestor/selected")
-        self.write("a.txt", b"valuable")
-        node = self.backend.add("ancestor/selected/a.txt", b"valuable")
-        self.assertTrue(self.engine.execute(self.engine.plan(self.local, selected.path)).ok)
-        self.backend.trash([node.path])
-        plan = self.engine.plan(self.local, selected.path)
-        scan = self.engine._scan_local
-        def race(*args, **kwargs):
-            result = scan(*args, **kwargs)
-            self.backend.nodes["ancestor"] = replace(ancestor, raw={**ancestor.raw, "isTrashed": True})
-            return result
-        with patch.object(self.engine, "_scan_local", side_effect=race):
-            result = self.engine.execute(plan)
-        self.assertFalse(result.ok)
-        self.assertEqual((self.local / "a.txt").read_bytes(), b"valuable")
-        self.assertFalse(self.trash.list_entries())
 
     def test_folder_new_child_after_preview_blocks_remote_trash(self):
         self.establish_tree()
@@ -806,23 +744,6 @@ class SyncTests(unittest.TestCase):
         self.assertTrue(result.ok, result)
         self.assertEqual(observed, [timestamp])
 
-    def test_cancel_during_local_hash_scan_aborts_before_transfer(self):
-        self.write("large", b"x" * (3 * 1024 * 1024))
-        real_read = os.read
-        reads = []
-
-        def cancel_after_first_chunk(fd, count):
-            value = real_read(fd, count)
-            reads.append(len(value))
-            self.backend.cancel_event.set()
-            return value
-
-        with patch("neutrondrive.sync.os.read", side_effect=cancel_after_first_chunk):
-            with self.assertRaises(Cancelled):
-                self.plan()
-        self.assertEqual(len(reads), 1)
-        self.assertFalse(self.backend.calls)
-
     def test_cancel_during_download_preserves_existing_local_file(self):
         self.establish()
         self.backend.add("a.txt", b"new remote")
@@ -837,36 +758,6 @@ class SyncTests(unittest.TestCase):
         result = self.engine.execute(self.plan())
         self.assertTrue(result.conflicts)
         self.assertEqual(self.backend.contents["a.txt"], b"concurrent")
-
-    def test_new_local_name_racing_install_is_not_replaced(self):
-        self.backend.add("a.txt", b"remote")
-        real_link = os.link
-
-        def racing_link(src, dst, **kwargs):
-            if str(src).startswith(".neutrondrive-stage-"):
-                self.write("a.txt", b"concurrent")
-            return real_link(src, dst, **kwargs)
-
-        with patch("neutrondrive.sync.os.link", side_effect=racing_link):
-            result = self.engine.execute(self.plan())
-        self.assertTrue(result.errors)
-        self.assertEqual((self.local / "a.txt").read_bytes(), b"concurrent")
-
-    def test_failed_install_restores_old_file_and_preserves_backup(self):
-        self.establish()
-        self.backend.add("a.txt", b"remote edit")
-        real_link = os.link
-
-        def failing_link(src, dst, **kwargs):
-            if str(src).startswith(".neutrondrive-stage-"):
-                raise OSError("Simulated install failure")
-            return real_link(src, dst, **kwargs)
-
-        with patch("neutrondrive.sync.os.link", side_effect=failing_link):
-            result = self.engine.execute(self.plan())
-        self.assertTrue(result.errors)
-        self.assertEqual((self.local / "a.txt").read_bytes(), b"original")
-        self.assertEqual(Path(result.backups[0]).read_bytes(), b"original")
 
     def test_symlinks_and_special_files_are_never_followed(self):
         outside = self.base / "outside"
@@ -885,7 +776,7 @@ class SyncTests(unittest.TestCase):
     def test_root_symlink_is_rejected(self):
         link = self.base / "link"
         link.symlink_to(self.local, target_is_directory=True)
-        with self.assertRaises(OSError):
+        with self.assertRaises(SyncError):
             self.engine.plan(link, "/my-files")
 
     def test_symlink_swap_after_preview_cannot_write_outside(self):
@@ -964,9 +855,12 @@ class SyncTests(unittest.TestCase):
         import fcntl
         plan = self.plan()
         with (self.state / "sync.lock").open("w") as stream:
+            os.fchmod(stream.fileno(), 0o600)
             fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             with self.assertRaisesRegex(SyncError, "already running"):
                 self.engine.execute(plan)
+        self.assertFalse(plan._executed)
+        self.assertTrue(self.engine.execute(plan).ok)
 
 
 if __name__ == "__main__":

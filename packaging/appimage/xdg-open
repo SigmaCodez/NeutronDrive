@@ -1,5 +1,5 @@
 #!/bin/sh
-# Host browsers must not inherit the portable Python/Qt library environment.
-unset PYTHONHOME PYTHONPATH LD_LIBRARY_PATH GI_TYPELIB_PATH QT_PLUGIN_PATH QML2_IMPORT_PATH
+# Host browsers must not inherit the portable Qt library environment.
+unset PYTHONHOME PYTHONPATH LD_LIBRARY_PATH GI_TYPELIB_PATH QT_PLUGIN_PATH QML_IMPORT_PATH QML2_IMPORT_PATH
 export PATH=/usr/local/bin:/usr/bin:/bin
 exec /usr/bin/xdg-open "$@"

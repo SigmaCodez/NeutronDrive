@@ -1,8 +1,0 @@
-{
-  "version": "3.4.2",
-  "url": "https://files.pythonhosted.org/packages/98/c8/8d4b00354b0aae1660310c6853cad7228af7efc344b3ff7d8cc4a894343d/pyfuse3-3.4.2.tar.gz",
-  "sha256": "0a59031969c4ba51a5ec1b67f3c5c24f641a6a3f8119a86edad56debcb9084d9",
-  "filename": "pyfuse3-3.4.2.tar.gz",
-  "license": "LGPL-2.1-or-later",
-  "upstream": "https://github.com/libfuse/pyfuse3"
-}

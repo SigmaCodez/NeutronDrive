@@ -69,11 +69,7 @@ fn overlap(a: &Path, b: &Path) -> bool {
     a.starts_with(b) || b.starts_with(a)
 }
 fn valid_remote(path: &str) -> bool {
-    (path == "/my-files" || path.starts_with("/my-files/"))
-        && !path.contains('\0')
-        && path[1..]
-            .split('/')
-            .all(|part| !matches!(part, "" | "." | ".."))
+    crate::computer::boundary(path).is_ok()
 }
 
 fn validate(jobs: &[Job]) -> Result<()> {

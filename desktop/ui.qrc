@@ -1,0 +1,4 @@
+<RCC><qresource prefix="/neutrondrive/ui">
+<file alias="Main.qml">../src/neutrondrive/qml/Main.qml</file>
+<file alias="DriveIcon.qml">../src/neutrondrive/qml/DriveIcon.qml</file>
+</qresource></RCC>

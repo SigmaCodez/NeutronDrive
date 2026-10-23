@@ -24,7 +24,7 @@
         "strip": false
       },
       "build-commands": [
-        "NEUTRONDRIVE_CORE_BUILD=\"$PWD/prebuilt-core\" python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser"
+        "NEUTRONDRIVE_NATIVE_BUILD=\"$PWD/prebuilt-frontend\" python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser"
       ],
       "sources": [
         {
@@ -46,31 +46,23 @@
         },
         {
           "type": "file",
-          "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-x64",
-          "sha512": "d99b2ccb2ec28c7783911eb352fb72364a10eb4a9c77d5a4d8b984a0298d2899368be111e4e4b2224f49abd98c44907ee2fb9b7f04684855000903c9b2e94969",
-          "dest-filename": "proton-drive",
-          "only-arches": [
-            "x86_64"
-          ]
+          "path": "../../build/flatpak-backend/proton-drive",
+          "dest-filename": "proton-drive"
         },
         {
           "type": "file",
-          "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/bridge-v0.2.0-alpha1/proton-drive-linux-arm64",
-          "sha512": "443d6975b0ab25fbab5aab63faf45d578559282d3a13823a734ec2ef8f22f850d86404adcb7fd3171e8fda9aa381e0cdd67f83ff5c10f754cde2ee6466c468fe",
-          "dest-filename": "proton-drive",
-          "only-arches": [
-            "aarch64"
-          ]
+          "path": "../../build/flatpak-backend/proton-drive.provenance.json",
+          "dest-filename": "proton-drive.provenance.json"
         },
         {
           "type": "file",
-          "path": "../../build/rust/libneutrondrive_core.so",
-          "dest": "prebuilt-core"
+          "path": "../../build/native-frontend/neutrondrive-qt",
+          "dest": "prebuilt-frontend"
         },
         {
           "type": "file",
-          "path": "../../build/rust/core-build.json",
-          "dest": "prebuilt-core"
+          "path": "../../build/native-frontend/native-build.json",
+          "dest": "prebuilt-frontend"
         },
         {
           "type": "file",

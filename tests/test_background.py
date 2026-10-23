@@ -12,10 +12,10 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from neutrondrive.backend import BackendError, Cancelled
-from neutrondrive.background import (BackgroundDaemon, BackgroundError, Controller,
-                                    InotifyWatcher, JobStore, RemoteTreeCache, _echo_snapshot)
-from neutrondrive.sync import SyncEngine
+from core_contract.backend import BackendError, Cancelled
+from core_contract.background import BackgroundError, Controller, JobStore, RemoteTreeCache
+from reference_daemon import BackgroundDaemon, InotifyWatcher, _echo_snapshot
+from core_contract.sync import SyncEngine
 from test_sync import FakeBackend
 
 
@@ -165,7 +165,7 @@ class StoreTests(unittest.TestCase):
         store = JobStore(self.state, mount_paths=[self.local / "lazy"])
         with self.assertRaises(BackgroundError):
             store.add(self.local, "/my-files")
-        with patch("neutrondrive.background._mount_paths", return_value=[(self.local, "fuse.neutrondrive")]):
+        with patch("core_contract.background._mount_paths", return_value=[(self.local, "fuse.neutrondrive")]):
             with self.assertRaises(BackgroundError):
                 self.store.add(self.local, "/my-files")
         with self.assertRaises(BackgroundError):
@@ -247,7 +247,7 @@ class RemoteCacheTests(unittest.TestCase):
         self.assertEqual(self.cache.list_nodes(self.nested.path), [])
 
     def test_confirmed_trash_echo_is_settled_but_unrelated_disappearance_is_dirty(self):
-        from neutrondrive.sync import _Entry
+        from core_contract.sync import _Entry
         old = _Entry("file", sha1="a" * 40, size=1, inode=123, device=1)
         plan = SimpleNamespace(_local={"gone": old, "gone/child": old, "concurrent": old})
         result = SimpleNamespace(_local_snapshot={}, _remote_snapshot={}, trashed=["gone"])
@@ -442,7 +442,7 @@ class DaemonTests(unittest.TestCase):
             self.assertIn("remote", status["jobs"][0]["reasons"])
 
     def test_rust_routing_failure_does_not_accept_or_schedule_event(self):
-        from neutrondrive import rust_core
+        from core_contract import rust_core
         self.start()
         self.idle()
         with self.daemon._condition:
@@ -600,7 +600,7 @@ class DaemonTests(unittest.TestCase):
         self.assertFalse(self.status()["conflicts"])
 
     def test_remote_delete_event_uses_local_trash_and_restart_never_resurrects(self):
-        from neutrondrive.local_trash import LocalTrash
+        from core_contract.local_trash import LocalTrash
         original = self.local / "delete.txt"
         original.write_bytes(b"recover locally")
         self.start(real_watcher=True)
@@ -655,7 +655,7 @@ class DaemonTests(unittest.TestCase):
         eventually(lambda: self.cloud.contents.get("new-file.txt") == b"new content")
 
     def test_folder_delete_event_retains_complete_local_tree_until_cloud_restore(self):
-        from neutrondrive.local_trash import LocalTrash
+        from core_contract.local_trash import LocalTrash
         (self.local / "folder/nested").mkdir(parents=True)
         (self.local / "folder/nested/child.txt").write_bytes(b"child")
         (self.local / "folder/empty").mkdir()
@@ -692,7 +692,7 @@ class DaemonTests(unittest.TestCase):
         self.assertFalse(self.status()["conflicts"])
 
     def test_real_inotify_folder_delete_preserves_cloud_then_recreation_resumes_sync(self):
-        from neutrondrive.local_trash import LocalTrash
+        from core_contract.local_trash import LocalTrash
         (self.local / "folder/nested").mkdir(parents=True)
         (self.local / "folder/nested/child.txt").write_bytes(b"child")
         (self.local / "folder/empty").mkdir()
@@ -722,7 +722,7 @@ class DaemonTests(unittest.TestCase):
         self.assertFalse(self.status()["conflicts"])
 
     def test_delete_versus_edit_both_directions_stays_conflicted_after_restart(self):
-        from neutrondrive.local_trash import LocalTrash
+        from core_contract.local_trash import LocalTrash
         for name in ("local-delete.txt", "remote-delete.txt"):
             (self.local / name).write_bytes(b"baseline")
         job = self.start()
@@ -801,6 +801,19 @@ class DaemonTests(unittest.TestCase):
         self.assertNotIn("uncertain.txt", self.cloud.nodes)
         self.assertFalse(original.exists())
 
+    def test_malformed_native_control_requests_do_not_stop_service(self):
+        import socket
+        self.start(paused=True)
+        for payload in (b"[]\n", b'{"action":7}\n', b'{"action":"resume","job_id":[]}\n', b'\xff\n'):
+            with self.subTest(payload=payload), socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as peer:
+                peer.settimeout(3)
+                peer.connect(str(self.state / "control.sock"))
+                peer.sendall(payload)
+                with peer.makefile('rb') as stream:
+                    self.assertFalse(json.loads(stream.readline())["ok"])
+            self.assertTrue(self.controller.command("status")["running"])
+            self.assertTrue(self.store.list()[0].paused)
+
     def test_singleton_ipc_and_orderly_shutdown(self):
         self.start()
         self.idle()
@@ -853,3 +866,79 @@ class WatcherTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NativeEchoTests(unittest.TestCase):
+    def test_tree_changes_links_and_reserved_files(self):
+        from reference_daemon import _matches_snapshot
+        from core_contract import rust_core
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / 'folder'
+            folder.mkdir()
+            file = folder / 'data'
+            file.write_bytes(b'first')
+            fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                snapshot = rust_core.backend_value('filesystem_scan', root=fd)['entries']
+                self.assertTrue(_matches_snapshot(root, 'folder', snapshot))
+                self.assertTrue(_matches_snapshot(root, 'folder/data', snapshot))
+                (folder / '.neutrondrive-backup-test').write_text('excluded')
+                self.assertTrue(_matches_snapshot(root, 'folder', snapshot))
+                (folder / 'new').write_text('new child')
+                self.assertFalse(_matches_snapshot(root, 'folder', snapshot))
+                (folder / 'new').unlink()
+                file.write_bytes(b'other')  # Same size, different mtime/ctime.
+                self.assertFalse(_matches_snapshot(root, 'folder/data', snapshot))
+                file.unlink()
+                self.assertFalse(_matches_snapshot(root, 'folder', snapshot))
+                self.assertFalse(_matches_snapshot(root, 'folder/data', snapshot))
+                self.assertTrue(_matches_snapshot(root, 'gone', snapshot))
+                file.symlink_to(root / 'elsewhere')
+                self.assertFalse(_matches_snapshot(root, 'folder/data', snapshot))
+                folder.rename(root / 'original')
+                folder.symlink_to(root / 'original', target_is_directory=True)
+                self.assertFalse(_matches_snapshot(root, 'folder/data', snapshot))
+                for name in ('../escape', '/outside', 'folder/../data', ''):
+                    self.assertFalse(_matches_snapshot(root, name, snapshot))
+            finally:
+                os.close(fd)
+
+    def test_missing_folder_with_known_children_is_not_a_settled_echo(self):
+        from reference_daemon import _matches_snapshot
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertFalse(_matches_snapshot(Path(directory), 'missing', {'missing/child': {}}))
+
+class NativeDaemonEntryTests(unittest.TestCase):
+    def test_production_entry_uses_rust_without_legacy_daemon(self):
+        from core_contract import background
+        from core_contract.backend import Backend
+        with tempfile.TemporaryDirectory(prefix='nd-native-entry-') as temporary:
+            root = Path(temporary)
+            sdk = root / 'sdk'
+            sdk.write_text('#!/bin/sh\nexit 1\n')
+            sdk.chmod(0o700)
+            controller = Controller(root / 'daemon')
+            results, errors = [], []
+            def run():
+                try:
+                    results.append(background.run_daemon(root / 'daemon', Backend(str(sdk))))
+                except BaseException as error:
+                    errors.append(error)
+            with patch.dict(os.environ, {'XDG_STATE_HOME': str(root / 'private')}), \
+                    patch.object(background, 'BackgroundDaemon', create=True, side_effect=AssertionError('Legacy Python daemon used')):
+                thread = threading.Thread(target=run, daemon=True)
+                thread.start()
+                try:
+                    eventually(lambda: controller.status().get('running'), timeout=5)
+                    self.assertTrue(controller.command('status')['running'])
+                    self.assertFalse(controller.stop()['running'])
+                finally:
+                    if thread.is_alive():
+                        try: controller.command('stop')
+                        except BackgroundError: pass
+                    thread.join(timeout=5)
+                self.assertFalse(thread.is_alive())
+                self.assertEqual(errors, [])
+                self.assertEqual(results, [0])
+                self.assertFalse((root / 'daemon/control.sock').exists())
