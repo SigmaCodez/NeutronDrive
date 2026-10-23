@@ -15,6 +15,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate platform-independent desktop metadata
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y desktop-file-utils appstream
+          desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
+          appstreamcli validate --no-net data/io.github.SigmaCodez.NeutronDrive.metainfo.xml
+
   native:
     uses: ./.github/workflows/native-build.yml
 
@@ -46,9 +57,8 @@ jobs:
       - name: Install package validation tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y desktop-file-utils appstream
+          sudo apt-get install -y desktop-file-utils
           desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
-          appstreamcli validate --no-net data/io.github.SigmaCodez.NeutronDrive.metainfo.xml
       - name: Build and install the native DEB
         run: |
           python3 scripts/build-deb --arch '${{ matrix.architecture }}' --backend build/backend/proton-drive
@@ -124,7 +134,7 @@ jobs:
       - name: Install the Flatpak runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak
+          sudo apt-get install -y flatpak librsvg2-common
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user --noninteractive flathub org.gnome.Platform//50
       - name: Build and test inside the real runtime
@@ -157,6 +167,18 @@ jobs:
       - name: Build strict snap on the disposable runner
         working-directory: build/snap-project
         run: sudo snapcraft --destructive-mode --build-for=amd64
+      - name: Install and test strict Snap on the disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth
+          sudo snap install --dangerous ./build/snap-project/*.snap
+          snap run neutrondrive --version
+          snap run neutrondrive --diagnose
+          xvfb-run -a -f "$HOME/.Xauthority" env DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software \
+            snap run neutrondrive --check-window /snap/neutrondrive/current/usr/lib/neutrondrive/neutrondrive/locales \
+            > "$RUNNER_TEMP/neutrondrive-snap-window.log" 2>&1
+          cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
+          grep -q NATIVE_MAIN_WINDOW_OK "$RUNNER_TEMP/neutrondrive-snap-window.log"
       - uses: actions/upload-artifact@v4
         with:
           name: snap-amd64
