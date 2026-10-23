@@ -14,8 +14,8 @@ Python ownership, temporary bindings or remaining launcher work describe earlier
 checkpoints, not the current production path. Retained compatibility adapters
 now live exclusively under `tests/core_contract`. See
 [Rust migration status](RUST-MIGRATION.md) and
-[native UI regression coverage](NATIVE-UI-PARITY.md) for current validation;
-remote architecture/package checks are still in progress.
+[native UI regression coverage](NATIVE-UI-PARITY.md) for current validation,
+including x86-64/ARM64 CI, installed packages and authorized live smoke tests.
 
 Build and test from the `core` directory so Cargo uses the checked-in vendor
 configuration:

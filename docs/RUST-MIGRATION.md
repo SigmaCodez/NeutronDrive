@@ -1,13 +1,47 @@
 # Rust migration — implementation status
 
-**The complete Rust migration is still in progress.** The current source launcher
-and package staging use the Rust Qt controller and Rust services with the existing
-Qt Quick/QML interface. They no longer start Python or load the former C ABI
-adapter. The former Python UI/controller modules have been deleted. Remaining
-core compatibility adapters now live exclusively in `tests/core_contract`; no
-Python modules remain under `src/`. Native and regression suites now pass on
-x86-64 and ARM64. Authorized live smoke tests also pass. Final package integration
-is still running; the entire migration is not yet declared complete. Qt and the pinned Proton SDK remain dependencies.
+The remaining first-party Python application runtime has been replaced by Rust.
+The source launcher and current package builders execute the native Rust Qt
+controller and services. Qt Quick/QML and the pinned Proton SDK remain, as
+agreed. No Python modules remain under `src/`; Python is retained only for
+build/test tooling and test-only compatibility adapters in `tests/core_contract`.
+This is unreleased source work: no user-machine installation or new release is
+implied. Existing Windows-parity gaps remain documented in WINDOWS-PARITY.md.
+
+Current validation evidence:
+
+- [Native CI and packages, run 40034921192](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40034921192):
+  both x86-64 and ARM64 passed 168 core unit tests, 54 frontend tests, 347 retained
+  regression tests without skips, 13 SDK-bridge tests, 26 CLI locales and 26
+  actual-window locales. Core integration, private D-Bus, real FUSE, native
+  keyboard/mouse, cancellation, settings, autostart, updates, instance recovery,
+  formatting and Clippy checks pass. DEB on both architectures, Fedora/openSUSE
+  RPM, Flatpak, AppImage and Arch installation/runtime/package checks pass.
+- [Strict Snap recheck, run 40038126256](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40038126256):
+  the source-identical native artifacts were reverified against both successful
+  native jobs, Git inputs, source provenance and binary hashes. Strict Snap
+  installation, normal version/SDK diagnostics, actual X11 Qt window and
+  keyboard/mouse checks pass. The earlier failure was a CI session-bus override
+  before Snap could create its cgroup, not an application failure; isolation
+  now happens inside the normal strict sandbox. This run skipped AppImage/Arch
+  because of a workflow dependency condition, corrected separately; their
+  current-source checks passed in the full run above.
+- Authorized live-account smoke tests passed for transfers and hash roundtrips,
+  rename/move, share/revoke, cloud/local trash, background events and restart,
+  online/offline FUSE, writes/eviction, bidirectional deletion/restoration,
+  guarded whole-folder conflicts, and delete-versus-edit preservation. Only
+  unique synthetic folders were used and cleaned up to Proton trash. The
+  deletion smoke used its supported 600-second phase budget after a 240-second
+  baseline timeout. An initial background restart failure was not reproduced
+  in the full rerun, deletion restart or 15 isolated cycles; its cause remains
+  unestablished, and no speculative fix is claimed.
+- All 14 focused package/generator tests pass. The source/runtime audit found
+  no Python application modules or setuptools entrypoint. The nine selected
+  pre-existing user-state files retained their sizes and modification times.
+
+The evidence covers the existing application functionality and packaging; it
+does not claim every Linux distribution or absence of every possible bug. The
+full chronology below retains intermediate findings for traceability.
 
 The following sections are a chronological engineering log, including superseded
 intermediate implementations. Portable artifacts recorded below must be rebuilt
@@ -1557,3 +1591,44 @@ delete-versus-edit conflicts preserving edits in both directions. The daemon
 stopped cleanly and the synthetic root was moved to Proton trash. Log:
 /tmp/nd-rust-migration-deletions-long-live.log. No production source change or
 weakened assertion was needed for this retry.
+
+### Final package audit: current remaining findings
+
+CI run 40031286271 passed both native architectures, both DEB installations,
+Fedora/openSUSE RPM installation, Flatpak runtime/export and AppImage
+extracted/cache startup. Arch also built, installed and passed its native
+window/diagnostics; namcap rejected two unused upstream Python programs copied
+with the Qt license collection. Native license staging now excludes Python
+examples/tools while preserving license texts and attribution files, with a
+regression test (14 focused package/tool tests pass). Strict Snap built and
+installed and passed version/diagnostics, but its Xvfb window test failed. The
+follow-up CI run exposes the previously redirected failure log. The identical
+X11/Xvfb window test passes outside Snap in the isolated Ubuntu 22.04 rootfs,
+including keyboard/mouse checks; the Snap-specific cause remains unproven.
+Run 40034921192 validates these package corrections. The migration goal remains
+active until the remaining package findings are resolved.
+
+CI run 40034921192 passed both native architectures (347 retained regression
+tests each), both DEBs, Fedora/openSUSE RPMs, Flatpak, AppImage and the complete
+Arch makepkg/pacman/namcap check. The Snap diagnostic now identifies a CI harness
+error before application startup: setting a nonexistent session bus before
+`snap run` prevents snap from creating its systemd cgroup. The corrected test
+enters the normal strict sandbox/command-chain first, then isolates the
+application's synthetic theme fixture from the desktop portal. An additional
+X11/Xvfb check with Snap/portal/GNOME environment already passes outside the
+sandbox. No application or confinement-policy change is made for this finding.
+
+The CI workflow can explicitly reuse a completed run's native artifacts for
+workflow/documentation-only changes. It requires both native test jobs to have
+succeeded, compares Git trees and rejects every changed application/build/test
+input, then verifies frontend and SDK source provenance and binary hashes again.
+All installation/package checks still run. Normal pushes continue to build and
+test the native applications from source.
+
+The corrected strict Snap check passed in run 40038126256, including
+NATIVE_KEYBOARD_AND_MOUSE_OK and NATIVE_MAIN_WINDOW_OK under real confinement.
+Its normal version/diagnostics also started the bundled pinned Proton SDK. The
+optional verified-artifact workflow path correctly rejected no inputs because
+only workflow/docs had changed. Its downstream portable job now explicitly
+requires successful DEBs, so an intentionally skipped native rebuild does not
+implicitly skip AppImage/Arch verification.

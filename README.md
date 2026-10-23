@@ -21,9 +21,11 @@ background synchronization, transfers, recoverable trash, online-drive/FUSE
 services, preferences and updates. Qt Quick/QML and the pinned Proton SDK remain.
 Python is used for build and regression tools, not the application runtime.
 The old Python UI modules have been removed; compatibility adapters are retained
-only under `tests/core_contract` for native-core regression tests. CI and fresh
-portable package validation are still being completed. Published alpha6 packages
-are unchanged. See [migration status and evidence](docs/RUST-MIGRATION.md).
+only under `tests/core_contract` for native-core regression tests. Native tests
+pass on x86-64 and ARM64; current-source DEB, RPM, Flatpak, Snap, AppImage and
+Arch package checks and authorized live sync/FUSE/trash tests have passed.
+Published alpha6 packages are unchanged; this is the unreleased source migration.
+See [migration status and evidence](docs/RUST-MIGRATION.md).
 
 ## Language
 

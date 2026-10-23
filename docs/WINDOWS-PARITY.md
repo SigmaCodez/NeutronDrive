@@ -25,8 +25,8 @@ This is a tracked comparison, not a claim of complete parity.
 
 The current application runtime, including Qt controllers, transfer orchestration,
 FUSE and trash, is implemented in Rust. Qt/QML and the pinned Proton SDK are
-retained; Python remains in build and regression-test tooling only. Remote
-architecture/package validation is in progress. This runtime migration preserves
+retained; Python remains in build and regression-test tooling only. Native
+x86-64/ARM64 and current package validation have passed. This runtime migration preserves
 existing features; it does not close the separate Windows-parity gaps listed above.
 Security-sensitive SDK cryptography/authentication is retained.
 

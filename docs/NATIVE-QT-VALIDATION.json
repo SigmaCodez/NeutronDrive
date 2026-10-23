@@ -1,6 +1,5 @@
 {
-  "stage": "Python application runtime retired; native suites and authorized live smoke tests pass; final package CI pending",
-  "goal": "active",
+  "stage": "Rust application runtime with current-source native, live-account and installed-package validation",
   "production_frontend": "Package staging now defaults exclusively to Rust; installed application remains unchanged",
   "qt_version": "6.10.2",
   "cxx_qt_version": "0.10.0",
@@ -16,9 +15,6 @@
   "host_portal_activation": false,
   "host_sdk_only": false,
   "portable_frontend_build": true,
-  "full_application_retested": false,
-  "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
-  "binary_sha256": "60d1ba71f66115e4cf62e5d48e84b3acc1f8a2766e8e3c50df2fb34b2544ef16",
   "logs": [
     "/tmp/nd-native-appimage-final-tests.log",
     "/tmp/nd-appimage-rust-tests.log",
@@ -44,11 +40,10 @@
     "/tmp/nd-current-native-flatpak-build.log",
     "/tmp/nd-current-native-appimage-build-verified.log",
     "/tmp/nd-verified-appimage-runtime.log",
-    "/tmp/nd-verified-appimage-cached-window.log"
-  ],
-  "remaining": [
-    "Final package CI integration (Flatpak export environment, strict Snap startup, AppImage and Arch)",
-    "Final runtime/function/package completion audit"
+    "/tmp/nd-verified-appimage-cached-window.log",
+    "/tmp/nd-arm64-license-fix-ci.log",
+    "/tmp/nd-x86-license-fix-ci.log",
+    "/tmp/nd-snap-success-ci.log"
   ],
   "native_sdk_children_reaped": 2,
   "isolated_preference_writes": true,
@@ -82,7 +77,7 @@
     "stop",
     "status polling and worker shutdown"
   ],
-  "core_tests_repeated_this_checkpoint": false,
+  "core_tests_repeated_this_checkpoint": true,
   "state_isolation": {
     "correct_variable": "XDG_STATE_HOME",
     "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
@@ -130,7 +125,6 @@
   "update_live_network_test": false,
   "native_main_window": {
     "shared_view_embedded": "src/neutrondrive/qml/Main.qml",
-    "demo_only": true,
     "pages_checked": [
       "files",
       "settings",
@@ -155,6 +149,10 @@
     "prior_visually_inspected_captures": [
       "/tmp/nd-native-window-images-ANdzj1/dark-settings.png",
       "/tmp/nd-native-window-images-ANdzj1/light-files.png"
+    ],
+    "modes": [
+      "demo window and all locales",
+      "local SDK fixture with literal prompt and clipboard checks"
     ]
   },
   "native_startup": {
@@ -190,7 +188,7 @@
       "cancellation while awaiting response"
     ],
     "portal_dbus_suite_cases_total": 11,
-    "native_packaging_tests": 6,
+    "native_packaging_tests": 12,
     "core_clippy_all_targets": "passed",
     "desktop_clippy_all_targets": "passed",
     "actual_desktop_browser_opened": false
@@ -201,8 +199,8 @@
     "original_mount_removed": true,
     "symlinked_cache_parent": true,
     "corruption_rejected": true,
-    "production_appimage_switched": false,
-    "fifo_replacement_rejected_without_blocking": true
+    "fifo_replacement_rejected_without_blocking": true,
+    "current_source_packager_uses_rust_bootstrap": true
   },
   "native_direct_elf_loader": {
     "runpath": "$ORIGIN/../qt/lib",
@@ -244,30 +242,31 @@
     "production_defaults_switched": true
   },
   "native_packages": {
-    "deb": "Current source built, streamed archive verified, installed and native runtime checked inside isolated Ubuntu 22.04",
+    "deb": "Current source installed and native runtime checked in CI on Ubuntu 22.04 x86-64 and Ubuntu 24.04 ARM64",
     "rpm": "Current source installed and native window/diagnostics passed on Fedora 44 and openSUSE Tumbleweed in CI",
-    "flatpak": "Current source bundle built; diagnostics and actual QML window passed inside GNOME 50",
-    "snap": "Current-source strict Snapcraft build passed; installed strict runtime check pending",
+    "flatpak": "Current source runtime diagnostics, actual QML window, export and bundle passed in CI with GNOME 50",
+    "snap": "Strict build, install, normal version/SDK diagnostics and actual confined X11 Qt window/keyboard/mouse checks passed in run 40038126256",
     "appimage": "Full current-source builder passed; extracted native runtime and persistent-cache window checks passed",
     "architecture": "x86_64 and aarch64 (DEB); other formats x86_64",
-    "installed_or_published": false,
-    "arch": "Current DEB verified and local PKGBUILD generated; makepkg/install pending"
+    "arch": "makepkg/pacman installation, native window, diagnostics and namcap all passed in CI run 40034921192",
+    "installed_on_user_machine": false,
+    "published_release": false
   },
   "current_source_requires_portable_rebuild": false,
-  "historical_package_validation_note": "Current-source DEB, RPM, Flatpak and AppImage local builds are verified. CI also verifies ARM64 DEB and installed Fedora/openSUSE RPM runtimes. No user-machine installation or release.",
+  "historical_package_validation_note": "Current-source DEB (x86-64 and ARM64), RPM (Fedora/openSUSE), Flatpak, AppImage, Arch and strict Snap runtime checks have passed. Published alpha6 and the user-machine installation remain unchanged.",
   "cli_locale_process_checks": 26,
   "actual_window_locale_process_checks": 26,
   "native_keyboard_and_pointer_events": "passed: keyboard focus/selection, select-all actions, stable delegates and folder double-click",
   "source_launcher": "POSIX shell execs Rust; setuptools application and Python __main__ removed",
   "application_python_modules": 0,
-  "retained_contract_tests": 346,
+  "retained_contract_tests": 347,
   "retained_contract_tests_skipped": 0,
   "native_dialog_clipboard_literal_sdk_check": "passed",
   "native_live_theme_selection_and_scroll_checks": "passed",
   "test_adapter_location": "tests/core_contract (not application runtime)",
   "ci_validation": {
-    "run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40027527431",
-    "commit": "5470e13eb6092b89158db0beeec9248ea3813fae",
+    "run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40034921192",
+    "commit": "3d88a62408233363e37631394022d307e587d8f2",
     "native_architectures": [
       "x86_64",
       "aarch64"
@@ -275,22 +274,28 @@
     "per_architecture": {
       "core_unit_tests": 168,
       "native_frontend_tests": 54,
-      "retained_regression_tests": 346,
+      "retained_regression_tests": 347,
       "sdk_bridge_tests": 13,
       "cli_locales": 26,
       "window_locales": 26
     },
     "native_jobs": "passed",
     "installed_packages_passed": [
+      "DEB x86-64 Ubuntu 22.04",
       "DEB ARM64 Ubuntu 24.04",
       "RPM Fedora 44",
-      "RPM openSUSE Tumbleweed"
+      "RPM openSUSE Tumbleweed",
+      "Flatpak GNOME 50",
+      "AppImage extracted runtime and stable cached window",
+      "Arch makepkg/pacman native startup and namcap",
+      "Strict Snap native X11 window and SDK diagnostics"
     ],
-    "package_environment_failures": [
-      "Ubuntu 22.04 AppStream validator predates current metadata fields",
-      "Flatpak exporter missing runner SVG loader"
-    ],
-    "followup_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40031286271"
+    "strict_snap_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40038126256",
+    "strict_snap_native_source_identity": "Both successful native jobs in 40034921192, unchanged Git application/build/test inputs, frontend/SDK source provenance and binary hashes verified again",
+    "resolved_package_findings": [
+      "Snap GUI test set DBUS_SESSION_BUS_ADDRESS to a nonexistent socket before confinement; snap reported that the GitHub runner service was not a snap cgroup, before launching the application.",
+      "Snap theme-test bus isolation moved inside the strict sandbox; actual X11 window and input checks now pass"
+    ]
   },
   "live_account_validation": {
     "scope": "Explicitly authorized test account; unique synthetic folders only; cleanup to Proton trash",
@@ -304,5 +309,13 @@
       "/tmp/nd-rust-migration-fuse-live.log",
       "/tmp/nd-rust-migration-deletions-long-live.log"
     ]
-  }
+  },
+  "native_xcb_window": "Passed same actual Qt window/keyboard/mouse checks under Xvfb outside Snap in isolated Ubuntu 22.04; log /tmp/nd-isolated-xcb-window.log",
+  "selected_user_state_after_live_tests": {
+    "files_checked": 9,
+    "changed": 0,
+    "missing": 0
+  },
+  "native_snap_environment_window": "Actual X11/Xvfb window, keyboard and mouse checks passed with SNAP/GTK portal/GNOME environment outside confinement in isolated Ubuntu; /tmp/nd-isolated-snap-env-window.log",
+  "existing_functionality_regression": "passed through native unit/integration/UI tests, retained fault-injection contracts and authorized live-account smoke tests"
 }

@@ -32,10 +32,14 @@ and clipboard values. `check-window-fixture.sh` uses a local SDK fixture which
 asserts the exact Unicode/placeholder filename received through the real native
 worker. `scripts/check-native-qt` also runs the core private-bus portal contracts.
 
-This establishes UI controller retirement, not completion of the entire migration.
+The former Python application controllers are retired; this table records the
+UI portion of the completed runtime regression coverage.
 Non-UI compatibility adapters are now test-only under `tests/core_contract`.
-The 341 retained regression contracts pass with no skips; remote CI and the
-remaining architecture/package integration checks are still in progress.
+The 347 retained regression contracts passed with no skips in native CI on
+both x86-64 and ARM64 (run 40034921192). All source-launcher and package
+application logic is Rust. Arch package validation and the strict Snap X11 window check also pass.
+The latter uses the normal Snap command-chain and confinement, isolating the
+synthetic theme fixture only after Snap has created its process cgroup.
 
 Run `scripts/check-native-qt` with the pinned Qt SDK and Rust toolchain. Package
 validation additionally requires a fresh provenance-verified release build;

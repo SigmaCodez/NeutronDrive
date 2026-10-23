@@ -284,4 +284,5 @@ jobs:
 
   portable:
     needs: deb
+    if: always() && needs.deb.result == 'success'
     uses: ./.github/workflows/portable-packages.yml
