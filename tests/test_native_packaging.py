@@ -71,6 +71,20 @@ class NativePackagingTests(unittest.TestCase):
                     wheel.writestr(name,'synthetic')
             qt.extract([archive],root/'native',native=True)
             self.assertEqual({str(p.relative_to(root/'native')) for p in (root/'native').rglob('*') if p.is_file()}, {'lib/libQt6Core.so.6','qml/QtQuick/fixture.qml','translations/qtbase_de.qm'})
+    def test_build_generators_are_explicit_and_never_enter_native_runtime(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary); archive=root/'tools.whl'
+            with zipfile.ZipFile(archive,'w') as wheel:
+                for name in qt.BUILD_TOOLS | {'unexpected-tool'}:
+                    wheel.writestr('PySide6/Qt/libexec/'+name,'synthetic')
+                for name in qt.BUILD_LIBRARIES:
+                    wheel.writestr('PySide6/Qt/lib/'+name,'synthetic')
+            qt.extract([archive],root/'sdk',build_tools=True)
+            self.assertEqual({p.name for p in (root/'sdk').rglob('*') if p.is_file()},qt.BUILD_TOOLS | qt.BUILD_LIBRARIES)
+            qt.extract([archive],root/'runtime',native=True)
+            self.assertEqual([p for p in (root/'runtime').rglob('*') if p.is_file()],[])
+            with self.assertRaisesRegex(ValueError,'Build tools'):
+                qt.extract([archive],root/'invalid',native=True,build_tools=True)
     def test_unsafe_archive_paths_are_rejected_even_when_not_selected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);archive=root/'fixture.whl'

@@ -23,10 +23,12 @@ This is a tracked comparison, not a claim of complete parity.
 | Updates | Checks and DEB download/install path; other formats use package manager/release page |
 | Language/theme | OS default and manual override; newer feature strings still fall back to English in some locales |
 
-Rust now additionally owns computer path/identity validation and update version/
-release-asset selection. Qt controller code, transfer orchestration and parts of
-FUSE/trash remain Python; the Proton SDK is TypeScript. The project is not a
-complete Rust rewrite. Security-sensitive SDK crypto/authentication is retained.
+The current application runtime, including Qt controllers, transfer orchestration,
+FUSE and trash, is implemented in Rust. Qt/QML and the pinned Proton SDK are
+retained; Python remains in build and regression-test tooling only. Remote
+architecture/package validation is in progress. This runtime migration preserves
+existing features; it does not close the separate Windows-parity gaps listed above.
+Security-sensitive SDK cryptography/authentication is retained.
 
 Closing the remaining gaps requires additional implementation, package-specific
 validation and, for guarded folder deletion, a reliable SDK contract for trashed

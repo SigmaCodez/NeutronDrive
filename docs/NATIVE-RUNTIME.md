@@ -4,10 +4,18 @@
 runtime protocol. It uses the same implementation as `neutrondrive_backend_call`;
 there is no Python subprocess or Python fallback. The Proton SDK remains an
 external, pinned executable for authentication, cryptography and remote access.
-The production daemon, online filesystem and mount manager are native. The desktop
-launcher and UI/service bindings are still being migrated. Some sections below
-record earlier migration boundaries; the latest component sections and
-[Rust migration status](RUST-MIGRATION.md) describe the current implementation.
+The production desktop application, controllers, daemon, online filesystem and
+mount manager now run in Rust, retaining Qt/QML and the pinned Proton SDK. The
+source launcher is a shell wrapper; installed payloads contain no first-party
+Python runtime. Python build tooling and regression adapters are not installed.
+
+The API descriptions below include historical migration notes. References to
+Python ownership, temporary bindings or remaining launcher work describe earlier
+checkpoints, not the current production path. Retained compatibility adapters
+now live exclusively under `tests/core_contract`. See
+[Rust migration status](RUST-MIGRATION.md) and
+[native UI regression coverage](NATIVE-UI-PARITY.md) for current validation;
+remote architecture/package checks are still in progress.
 
 Build and test from the `core` directory so Cargo uses the checked-in vendor
 configuration:

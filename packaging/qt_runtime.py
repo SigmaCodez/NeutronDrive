@@ -71,7 +71,13 @@ def runtime_member(name):
             or any(filename in {"Qt" + module + ".abi3.so", "Qt" + module + ".pyi"} for module in MODULES))
 
 
-def extract(paths,destination, *, native=False):
+BUILD_TOOLS = {"qmlcachegen", "qmltyperegistrar", "qmlimportscanner", "rcc", "uic"}
+BUILD_LIBRARIES = {"libQt6QmlCompiler.so.6"}
+
+
+def extract(paths,destination, *, native=False, build_tools=False):
+    if native and build_tools:
+        raise ValueError("Build tools must not be included in the installed native runtime")
     destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
     for path in paths:
         with zipfile.ZipFile(path) as archive:
@@ -81,7 +87,9 @@ def extract(paths,destination, *, native=False):
                     raise ValueError('Unsafe Qt wheel member')
                 if native and (name.parts[:2] != ('PySide6', 'Qt') or name.suffix in {'.py', '.pyi', '.pyc'}):
                     continue
-                if not info.is_dir() and runtime_member(info.filename):
+                is_build_tool = name.parts[:3] == ("PySide6", "Qt", "libexec") and len(name.parts) == 4 and name.name in BUILD_TOOLS
+                is_build_library = name.parts[:3] == ("PySide6", "Qt", "lib") and len(name.parts) == 4 and name.name in BUILD_LIBRARIES
+                if not info.is_dir() and (runtime_member(info.filename) or (build_tools and (is_build_tool or is_build_library))):
                     relative = name.parts[2:] if native else name.parts
                     target=destination.joinpath(*relative);target.parent.mkdir(parents=True,exist_ok=True)
                     with archive.open(info) as source,target.open('wb') as out:shutil.copyfileobj(source,out)
@@ -112,7 +120,8 @@ def stage(app,base,architecture, *, native=False):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--arch');parser.add_argument('--dest',type=Path)
+    parser.add_argument('--build-tools', action='store_true', help='Include pinned Qt generators for the development SDK only')
     args=parser.parse_args();paths=fetch(args.arch)
-    if args.dest:print(extract(paths,args.dest))
+    if args.dest:print(extract(paths,args.dest,build_tools=args.build_tools))
     else:
         for path in paths:print(path)

@@ -43,7 +43,7 @@ jobs:
           echo "QML2_IMPORT_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/qml" >> "$GITHUB_ENV"
       - name: Prepare pinned Qt runtime and baseline generators
         run: |
-          python3 packaging/qt_runtime.py --dest build/qt
+          python3 packaging/qt_runtime.py --dest build/qt --build-tools
           python3 scripts/build-native-qt-tools --work-dir "$RUNNER_TEMP/qt-tools-work" --output "$RUNNER_TEMP/qt-tools"
           python3 scripts/prepare-native-qt-dev --fetch --output "$RUNNER_TEMP/qt-sdk" --tools "$RUNNER_TEMP/qt-tools"
           echo "QMAKE=$RUNNER_TEMP/qt-sdk/usr/lib/qt6/bin/qmake6" >> "$GITHUB_ENV"

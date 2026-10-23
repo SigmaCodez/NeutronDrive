@@ -67,6 +67,8 @@ for source in (args.runtime / 'lib').glob('*.so*'):
 # own RPATH resolves the matching Qt libraries without LD_LIBRARY_PATH.
 for name in ('qmlcachegen', 'qmltyperegistrar', 'qmlimportscanner', 'rcc', 'uic'):
     source = args.runtime / 'libexec' / name
+    if not source.is_file():
+        raise SystemExit('Missing Qt build tool: ' + str(source) + '; prepare qt_runtime.py --build-tools')
     target = root / 'lib/qt6/libexec' / name
     target.unlink(missing_ok=True)
     target.symlink_to(source.resolve())
@@ -84,6 +86,7 @@ if args.tools:
         destination.unlink(missing_ok=True)
         shutil.copyfile(verified/source, destination)
         destination.chmod(0o755)
+subprocess.run([str(root/'lib/qt6/libexec/qmlcachegen'), '--version'], check=True, stdout=subprocess.DEVNULL)
 version = subprocess.check_output([qmake, '-query', 'QT_VERSION'], text=True).strip()
 if version != lock['qt_version']:
     raise SystemExit('Qt tool version mismatch')

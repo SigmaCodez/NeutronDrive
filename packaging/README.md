@@ -226,7 +226,7 @@ headers, plus the runtime libraries listed in the main README. Use Rust 1.98.0.
 Run on a local filesystem that supports symlinks:
 
 ```sh
-python3 packaging/qt_runtime.py --dest build/qt
+python3 packaging/qt_runtime.py --dest build/qt --build-tools
 python3 scripts/build-native-qt-tools --work-dir /tmp/nd-qt-tools-work --output /tmp/nd-qt-tools
 python3 scripts/prepare-native-qt-dev --fetch --output /tmp/nd-qt-sdk --tools /tmp/nd-qt-tools
 export QMAKE=/tmp/nd-qt-sdk/usr/lib/qt6/bin/qmake6

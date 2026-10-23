@@ -34,7 +34,8 @@ worker. `scripts/check-native-qt` also runs the core private-bus portal contract
 
 This establishes UI controller retirement, not completion of the entire migration.
 Non-UI compatibility adapters are now test-only under `tests/core_contract`.
-Completing their regression run and the CI/package work remains necessary.
+The 341 retained regression contracts pass with no skips; remote CI and the
+remaining architecture/package integration checks are still in progress.
 
 Run `scripts/check-native-qt` with the pinned Qt SDK and Rust toolchain. Package
 validation additionally requires a fresh provenance-verified release build;
