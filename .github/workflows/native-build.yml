@@ -31,7 +31,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Verify vendored source completeness
-        run: python3 scripts/check-vendor
+        run: |
+          python3 scripts/check-vendor
+          test -x scripts/check-native-qt
+          test -x bin/neutrondrive
       - name: Install baseline build and isolated-test dependencies
         run: |
           sudo apt-get update
@@ -43,12 +46,24 @@ jobs:
           echo "LD_LIBRARY_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/lib" >> "$GITHUB_ENV"
           echo "QT_PLUGIN_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/plugins" >> "$GITHUB_ENV"
           echo "QML2_IMPORT_PATH=$GITHUB_WORKSPACE/build/qt/PySide6/Qt/qml" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@v4
+        id: qt-generators
+        with:
+          path: ${{ runner.temp }}/qt-tools
+          key: qt-generators-${{ matrix.runner }}-${{ hashFiles('packaging/qt_tools.py', 'packaging/qt-sources-lock.json', 'scripts/build-native-qt-tools') }}
       - name: Prepare pinned Qt runtime and baseline generators
         run: |
           python3 packaging/qt_runtime.py --dest build/qt --build-tools
-          python3 scripts/build-native-qt-tools --work-dir "$RUNNER_TEMP/qt-tools-work" --output "$RUNNER_TEMP/qt-tools"
+          if [ ! -f "$RUNNER_TEMP/qt-tools/qt-tools-build.json" ]; then
+            python3 scripts/build-native-qt-tools --work-dir "$RUNNER_TEMP/qt-tools-work" --output "$RUNNER_TEMP/qt-tools"
+          fi
           python3 scripts/prepare-native-qt-dev --fetch --output "$RUNNER_TEMP/qt-sdk" --tools "$RUNNER_TEMP/qt-tools"
           echo "QMAKE=$RUNNER_TEMP/qt-sdk/usr/lib/qt6/bin/qmake6" >> "$GITHUB_ENV"
+      - uses: actions/cache/save@v4
+        if: steps.qt-generators.outputs.cache-hit != 'true'
+        with:
+          path: ${{ runner.temp }}/qt-tools
+          key: ${{ steps.qt-generators.outputs.cache-primary-key }}
       - name: Test the Rust core, actual Qt interface and Linux services
         run: |
           (cd core && cargo fmt -- --check && cargo test --locked --offline -- --test-threads=1 && cargo clippy --locked --offline --all-targets -- -D warnings)
