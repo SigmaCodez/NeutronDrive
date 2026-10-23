@@ -112,7 +112,12 @@ def stage(app,base,architecture, *, native=False):
     docs=base / 'share/doc/neutrondrive';docs.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(LOCK,docs / 'qt-lock.json')
     shutil.copyfile(ROOT / 'packaging/qt-sources-lock.json', docs / 'qt-sources-lock.json')
-    shutil.copytree(ROOT / 'packaging/licenses/qt', base / 'share/licenses/neutrondrive/qt', dirs_exist_ok=True)
+    # Upstream license collection also contains a license-wizard example and
+    # license-checking tool. They are not notices or part of the native runtime.
+    # Do not turn those unused programs into a package-level Python dependency.
+    ignored = shutil.ignore_patterns('*.py', '*.pyc', '*.pyi', '*.pyproject') if native else None
+    shutil.copytree(ROOT / 'packaging/licenses/qt', base / 'share/licenses/neutrondrive/qt',
+                    dirs_exist_ok=True, ignore=ignored)
     notice = 'QT-NATIVE-NOTICES.md' if native else 'QT-NOTICES.md'
     shutil.copyfile(ROOT / 'packaging' / notice, docs / 'QT-NOTICES.md')
 

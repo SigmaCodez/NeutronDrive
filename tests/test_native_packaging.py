@@ -85,6 +85,22 @@ class NativePackagingTests(unittest.TestCase):
             self.assertEqual([p for p in (root/'runtime').rglob('*') if p.is_file()],[])
             with self.assertRaisesRegex(ValueError,'Build tools'):
                 qt.extract([archive],root/'invalid',native=True,build_tools=True)
+    def test_native_license_staging_preserves_notices_without_upstream_python_examples(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'source'
+            licenses = source / 'packaging/licenses/qt'
+            licenses.mkdir(parents=True)
+            for name in ('LICENSE', 'qt_attribution.json', 'licensewizard.py', 'licensewizard.pyproject', 'license_check.py'):
+                (licenses / name).write_text('fixture')
+            for name in ('qt-lock.json', 'qt-sources-lock.json', 'QT-NATIVE-NOTICES.md'):
+                (source / 'packaging' / name).write_text('fixture')
+            with patch.object(qt, 'ROOT', source), patch.object(qt, 'LOCK', source / 'packaging/qt-lock.json'), \
+                 patch.object(qt, 'fetch', return_value=[]), patch.object(qt, 'extract'):
+                qt.stage(root / 'app', root / 'usr', 'x86_64', native=True)
+            staged = root / 'usr/share/licenses/neutrondrive/qt'
+            self.assertEqual({p.name for p in staged.iterdir()}, {'LICENSE', 'qt_attribution.json'})
+            self.assertEqual((staged / 'LICENSE').read_text(), 'fixture')
     def test_unsafe_archive_paths_are_rejected_even_when_not_selected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);archive=root/'fixture.whl'

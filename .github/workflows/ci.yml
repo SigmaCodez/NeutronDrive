@@ -174,9 +174,13 @@ jobs:
           sudo snap install --dangerous ./build/snap-project/*.snap
           snap run neutrondrive --version
           snap run neutrondrive --diagnose
-          xvfb-run -a -f "$HOME/.Xauthority" env DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software \
+          if ! xvfb-run -a -f "$HOME/.Xauthority" env DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software \
             snap run neutrondrive --check-window /snap/neutrondrive/current/usr/lib/neutrondrive/neutrondrive/locales \
-            > "$RUNNER_TEMP/neutrondrive-snap-window.log" 2>&1
+            > "$RUNNER_TEMP/neutrondrive-snap-window.log" 2>&1; then
+            cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
+            sudo journalctl --no-pager -n 80 -k
+            exit 1
+          fi
           cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
           grep -q NATIVE_MAIN_WINDOW_OK "$RUNNER_TEMP/neutrondrive-snap-window.log"
       - uses: actions/upload-artifact@v4
