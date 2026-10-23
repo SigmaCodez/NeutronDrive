@@ -6,9 +6,15 @@ on:
   pull_request:
     paths-ignore: ['docs/**', '*.md']
   workflow_dispatch:
+    inputs:
+      verified_native_run:
+        description: 'Optional completed run whose native tests/artifacts match this source (workflow/docs-only changes)'
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,10 +33,91 @@ jobs:
           appstreamcli validate --no-net data/io.github.SigmaCodez.NeutronDrive.metainfo.xml
 
   native:
+    if: inputs.verified_native_run == ''
     uses: ./.github/workflows/native-build.yml
 
+  verified_native:
+    if: inputs.verified_native_run != ''
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        architecture: [x86_64, aarch64]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ND_NATIVE_RUN: ${{ inputs.verified_native_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require successful native tests and unchanged application/build inputs
+        run: |
+          python3 -c 'import os; assert os.environ["ND_NATIVE_RUN"].isdigit(), "Expected a numeric run ID"'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ND_NATIVE_RUN" > "$RUNNER_TEMP/native-run.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$ND_NATIVE_RUN/jobs?per_page=100" > "$RUNNER_TEMP/native-jobs.json"
+          nd_source_sha=$(python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          run = json.loads((root/'native-run.json').read_text())
+          assert run['status'] == 'completed', 'Source run must be completed'
+          sha = run['head_sha']
+          assert re.fullmatch('[0-9a-f]{40}', sha)
+          jobs = [j for page in json.loads((root/'native-jobs.json').read_text()) for j in page['jobs']]
+          for architecture in ('x86_64', 'aarch64'):
+              matches = [j for j in jobs if j['name'].startswith('native / native (') and architecture in j['name']]
+              assert len(matches) == 1 and matches[0]['conclusion'] == 'success', architecture+' native test job did not pass'
+          print(sha)
+          PY
+          )
+          git fetch --no-tags --depth=1 origin "$nd_source_sha"
+          git diff --name-only -z "$nd_source_sha" HEAD > "$RUNNER_TEMP/native-source-diff"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          paths = (Path(os.environ['RUNNER_TEMP'])/'native-source-diff').read_bytes().split(b'\0')
+          allowed = {b'.github/workflows/ci.yml', b'.github/workflows/portable-packages.yml'}
+          changed = [p.decode() for p in paths if p and p not in allowed and not p.startswith(b'docs/') and not (b'/' not in p and p.endswith(b'.md'))]
+          assert not changed, 'Native artifact reuse rejects changed application/build/test inputs: '+repr(changed)
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.verified_native_run }}
+          name: native-frontend-${{ matrix.architecture }}
+          path: build/native-frontend
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.verified_native_run }}
+          name: sdk-bridge-${{ matrix.architecture }}
+          path: build/backend
+      - name: Verify frontend and SDK source provenance again
+        env:
+          ND_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          python3 - <<'PY'
+          import importlib.util, os
+          from pathlib import Path
+          def load(name, filename):
+              spec = importlib.util.spec_from_file_location(name, Path('packaging')/filename)
+              module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+              return module
+          architecture = os.environ['ND_ARCHITECTURE']
+          load('native_frontend', 'native_frontend.py').verify(Path('build/native-frontend'), architecture)
+          load('backend', 'fetch-backend.py').verify_source_build(Path('build/backend/proton-drive'), architecture)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-frontend-${{ matrix.architecture }}
+          path: build/native-frontend/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-bridge-${{ matrix.architecture }}
+          path: build/backend/proton-drive*
+          if-no-files-found: error
+
   deb:
-    needs: native
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +161,8 @@ jobs:
           if-no-files-found: error
 
   rpm:
-    needs: native
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -117,7 +205,8 @@ jobs:
           if-no-files-found: error
 
   flatpak:
-    needs: native
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     runs-on: ubuntu-24.04
     env:
       NEUTRONDRIVE_NATIVE_BUILD: ${{ github.workspace }}/build/native-frontend
@@ -146,7 +235,8 @@ jobs:
           if-no-files-found: error
 
   snap:
-    needs: native
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     runs-on: ubuntu-24.04
     env:
       NEUTRONDRIVE_NATIVE_BUILD: ${{ github.workspace }}/build/native-frontend
@@ -174,8 +264,11 @@ jobs:
           sudo snap install --dangerous ./build/snap-project/*.snap
           snap run neutrondrive --version
           snap run neutrondrive --diagnose
-          if ! xvfb-run -a -f "$HOME/.Xauthority" env DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software \
-            snap run neutrondrive --check-window /snap/neutrondrive/current/usr/lib/neutrondrive/neutrondrive/locales \
+          # snap run itself needs the real session bus to create its cgroup.
+          # Isolate the theme fixture only after entering the strict sandbox
+          # and its normal command-chain, without disabling confinement.
+          if ! xvfb-run -a -f "$HOME/.Xauthority" snap run --shell neutrondrive -c \
+            'export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software; exec "$SNAP/usr/bin/neutrondrive" --check-window "$SNAP/usr/lib/neutrondrive/neutrondrive/locales"' \
             > "$RUNNER_TEMP/neutrondrive-snap-window.log" 2>&1; then
             cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
             sudo journalctl --no-pager -n 80 -k
