@@ -317,5 +317,6 @@
     "missing": 0
   },
   "native_snap_environment_window": "Actual X11/Xvfb window, keyboard and mouse checks passed with SNAP/GTK portal/GNOME environment outside confinement in isolated Ubuntu; /tmp/nd-isolated-snap-env-window.log",
-  "existing_functionality_regression": "passed through native unit/integration/UI tests, retained fault-injection contracts and authorized live-account smoke tests"
+  "existing_functionality_regression": "passed through native unit/integration/UI tests, retained fault-injection contracts and authorized live-account smoke tests",
+  "legacy_python_portal_helper": "Removed unused packaging/xdg-open-portal; package staging exclusively uses the native Rust portal helper, covered by literal URL and arity tests plus a retirement assertion."
 }

@@ -19,6 +19,7 @@ class NativePackagingTests(unittest.TestCase):
     def test_application_sources_have_no_python_runtime_modules(self):
         self.assertEqual(list((ROOT / 'src').rglob('*.py')), [])
         self.assertFalse((ROOT / 'pyproject.toml').exists())
+        self.assertFalse((ROOT / 'packaging/xdg-open-portal').exists())
         for module_name in ('app', 'appearance', 'update_controller', 'qt_instance', 'demo'):
             self.assertFalse((ROOT / 'tests/core_contract' / (module_name + '.py')).exists())
     def test_source_entrypoint_executes_native_binary_and_preserves_arguments(self):
