@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+set -euo pipefail
+nd_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+: "${QMAKE:?Set QMAKE to a matching Qt 6.10.2 SDK qmake executable}"
+export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-${TMPDIR:-/tmp}/neutrondrive-native-qt-${UID}}
+export CARGO_INCREMENTAL=0
+nd_runtime=${NEUTRONDRIVE_QT_RUNTIME:-$nd_root/build/qt/PySide6/Qt}
+export LD_LIBRARY_PATH="$nd_runtime/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export QT_PLUGIN_PATH="$nd_runtime/plugins"
+export QML2_IMPORT_PATH="$nd_runtime/qml"
+export QT_QPA_PLATFORM=offscreen
+if ! command -v ld.lld >/dev/null; then
+    nd_toolchain=$(rustc --print sysroot)
+    nd_host=$(rustc -vV | sed -n 's/^host: //p')
+    export PATH="$nd_toolchain/lib/rustlib/$nd_host/bin/gcc-ld:$PATH"
+fi
+export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-C link-arg=-fuse-ld=lld"
+cd "$nd_root/desktop"
+nd_cargo=()
+if [[ -n ${NEUTRONDRIVE_QT_VENDOR_CACHE:-} ]]; then
+    nd_cargo+=(--config "source.vendored-sources.directory=\"$NEUTRONDRIVE_QT_VENDOR_CACHE\"")
+fi
+cargo "${nd_cargo[@]}" build --locked --offline
+cargo "${nd_cargo[@]}" test --locked --offline
+cargo clippy "${nd_cargo[@]}" --locked --offline --all-targets -- -D warnings
+cargo fmt -- --check
+(cd "$nd_root/core" && NEUTRONDRIVE_DBUS_TEST=1 cargo "${nd_cargo[@]}" test --locked --offline --test desktop_bus -- --test-threads=1)
+python3 "$nd_root/desktop/tests/check-cli-localization.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
+dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    python3 "$nd_root/desktop/tests/check-window-localization.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
+python3 "$nd_root/desktop/tests/check-appimage-bootstrap.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
+python3 "$nd_root/desktop/tests/check-native-loader.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_runtime"
+# No Python or other helper programs can be discovered by the native process.
+timeout 20 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /usr/bin/env PATH=/nonexistent "$CARGO_TARGET_DIR/debug/neutrondrive-qt" --check-appearance
+
+# Keep preference-write checks isolated from the user's actual settings.
+nd_check_config=$(mktemp -d)
+cleanup_native_checks() {
+    if ! /usr/bin/env XDG_STATE_HOME="$nd_check_config/state" timeout 15 "$CARGO_TARGET_DIR/debug/neutrondrive-qt" \
+        --stop-background --state-dir "$nd_check_config/state/neutrondrive/background" >/dev/null 2>&1; then
+        echo "Test daemon cleanup failed; retaining $nd_check_config" >&2
+        return 1
+    fi
+    rm -rf -- "$nd_check_config"
+}
+trap cleanup_native_checks EXIT
+cat > "$nd_check_config/sdk" <<'FIXTURE'
+#!/bin/sh
+printf '%s\n' "$$" >> "$SDK_PID_FILE"
+if [ "$1" = auth ] && [ "$2" = login ]; then
+    printf '%s\n' '{"signInUrl":"https://account.proton.me/auth-desktop?test=synthetic"}'
+fi
+exec /bin/sleep 60
+FIXTURE
+chmod 700 "$nd_check_config/sdk"
+timeout 20 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /usr/bin/env PATH=/nonexistent XDG_CONFIG_HOME="$nd_check_config" XDG_STATE_HOME="$nd_check_config/state" SDK_PID_FILE="$nd_check_config/sdk.pids" \
+    "$CARGO_TARGET_DIR/debug/neutrondrive-qt" --check-controller "$nd_root/src/neutrondrive/locales" "$nd_check_config/sdk"
+nd_children=0
+while read -r nd_child_pid; do
+    [[ $nd_child_pid =~ ^[0-9]+$ ]]
+    if kill -0 "$nd_child_pid" 2>/dev/null; then
+        echo "Native Qt test left an SDK child alive" >&2
+        exit 1
+    fi
+    nd_children=$((nd_children + 1))
+done < "$nd_check_config/sdk.pids"
+[[ $nd_children == 2 ]]
+echo NATIVE_CONTROLLER_CHILDREN_REAPED
+timeout 30 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /bin/bash "$nd_root/desktop/tests/check-services.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
+if [[ ${NEUTRONDRIVE_FUSE_TEST:-0} == 1 ]]; then
+    timeout 30 /bin/bash "$nd_root/desktop/tests/check-foreground-mount.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
+fi
+
+mkdir "$nd_check_config/local"
+timeout 30 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /usr/bin/env -u SNAP -u FLATPAK_ID -u APPIMAGE -u APPDIR PATH=/nonexistent XDG_CONFIG_HOME="$nd_check_config" XDG_STATE_HOME="$nd_check_config/state" \
+    "$CARGO_TARGET_DIR/debug/neutrondrive-qt" --check-background "$nd_root/src/neutrondrive/locales" "$nd_check_config/local"
+[[ ! -e "$nd_check_config/autostart/io.github.SigmaCodez.NeutronDrive.desktop" ]]
+[[ ! -e "$nd_check_config/state/neutrondrive/background/control.sock" ]]
+[[ ! -e "$nd_check_config/state/neutrondrive/background/daemon.pid" ]]
+
+if [[ ${NEUTRONDRIVE_FUSE_TEST:-0} == 1 ]]; then
+    timeout 40 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+        /bin/bash "$nd_root/desktop/tests/check-mount-controller.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
+fi
+
+# Update preferences and demo guards: no release request or privileged installer.
+timeout 20 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /usr/bin/env -u SNAP -u FLATPAK_ID -u APPIMAGE -u APPDIR PATH=/nonexistent XDG_CONFIG_HOME="$nd_check_config" XDG_STATE_HOME="$nd_check_config/state" XDG_CACHE_HOME="$nd_check_config/cache" \
+    "$CARGO_TARGET_DIR/debug/neutrondrive-qt" --check-updates "$nd_root/src/neutrondrive/locales"
+
+# Actual shared application QML, backed only by native Rust controllers.
+nd_window_images=$(mktemp -d /tmp/nd-native-window-images-XXXXXX)
+echo "NATIVE_WINDOW_IMAGES=$nd_window_images"
+timeout 25 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /usr/bin/env -u SNAP -u FLATPAK_ID -u APPIMAGE -u APPDIR PATH=/nonexistent XDG_CONFIG_HOME="$nd_check_config" XDG_STATE_HOME="$nd_check_config/state" XDG_CACHE_HOME="$nd_check_config/cache" \
+    "$CARGO_TARGET_DIR/debug/neutrondrive-qt" --check-window "$nd_root/src/neutrondrive/locales" "$nd_window_images"
+[[ -s "$nd_window_images/dark-settings.png" && -s "$nd_window_images/light-files.png" ]]
+echo NATIVE_MAIN_WINDOW_CLEAN_EXIT
+timeout 25 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /bin/bash "$nd_root/desktop/tests/check-window-fixture.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
+
+timeout 45 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
+    /bin/bash "$nd_root/desktop/tests/check-window-instance.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"

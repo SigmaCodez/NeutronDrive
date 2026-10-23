@@ -55,6 +55,11 @@ pub fn directory(path: &Path, create: bool, private: bool) -> Result<File> {
             {
                 return Err("Dienstverzeichnis konnte nicht angelegt werden.".into());
             }
+            if result == 0 {
+                current
+                    .sync_all()
+                    .map_err(|e| Failure::from(e.to_string()))?;
+            }
             fd = unsafe { openat(current.as_raw_fd(), name.as_ptr(), DIRECTORY) };
         }
         if fd < 0 {

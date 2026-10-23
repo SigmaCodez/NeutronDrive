@@ -1,0 +1,322 @@
+{
+  "stage": "Rust application runtime with current-source native, live-account and installed-package validation",
+  "production_frontend": "Package staging now defaults exclusively to Rust; installed application remains unchanged",
+  "qt_version": "6.10.2",
+  "cxx_qt_version": "0.10.0",
+  "cxx_version": "1.0.205",
+  "native_unit_tests": 54,
+  "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck, MountCheck, UpdateCheck and NativeShell main-window check passed",
+  "clippy_warnings_denied": "passed",
+  "format_check": "passed",
+  "exit_code": 0,
+  "all_core_package_identities_preserved": true,
+  "additional_vendored_package_versions": 35,
+  "python_on_test_path": false,
+  "host_portal_activation": false,
+  "host_sdk_only": false,
+  "portable_frontend_build": true,
+  "logs": [
+    "/tmp/nd-native-appimage-final-tests.log",
+    "/tmp/nd-appimage-rust-tests.log",
+    "/tmp/nd-appimage-core-clippy.log",
+    "/tmp/nd-native-loader-packaging-tests.log",
+    "/tmp/nd-appimage-all-core-tests.log",
+    "/tmp/nd-native-appimage-hardened-tests.log",
+    "/tmp/nd-appimage-hardened-core-unit.log",
+    "/tmp/nd-jammy-native-final-build.log",
+    "/tmp/nd-jammy-native-final-start.log",
+    "/tmp/nd-jammy-native-final-window.log",
+    "/tmp/nd-native-input-and-locale-final.log",
+    "/tmp/nd-native-launcher-bus-tests.log",
+    "/tmp/nd-native-launcher-package-regression.log",
+    "/tmp/nd-native-python-ui-retired.log",
+    "/tmp/nd-contract-after-runtime-removal.log",
+    "/tmp/nd-runtime-boundary-packaging-tests.log",
+    "/tmp/nd-portable-sdk-build.log",
+    "/tmp/nd-portable-sdk-runtime-window.log",
+    "/tmp/nd-native-deb-installed-jammy.log",
+    "/tmp/nd-current-native-deb-verification.log",
+    "/tmp/nd-current-native-rpm-verification.json",
+    "/tmp/nd-current-native-flatpak-build.log",
+    "/tmp/nd-current-native-appimage-build-verified.log",
+    "/tmp/nd-verified-appimage-runtime.log",
+    "/tmp/nd-verified-appimage-cached-window.log",
+    "/tmp/nd-arm64-license-fix-ci.log",
+    "/tmp/nd-x86-license-fix-ci.log",
+    "/tmp/nd-snap-success-ci.log"
+  ],
+  "native_sdk_children_reaped": 2,
+  "isolated_preference_writes": true,
+  "unicode_casefold": {
+    "version": "16.0.0",
+    "mappings": 1557,
+    "python_reference_scalar_values_compared": 1112064,
+    "differences": 0
+  },
+  "native_headless_process_checks": [
+    "desktop service and daemon startup without graphics; SIGTERM cleanup",
+    "combined restore/background startup; CLI stop of active daemon",
+    "native service/sync status JSON",
+    "successful and missing-SDK diagnosis; version output",
+    "diagnostic SDK cancellation and child reaping"
+  ],
+  "live_account_test": true,
+  "background_combined_startup_test": true,
+  "core_unit_tests": 168,
+  "core_clippy_all_targets": "passed",
+  "native_foreground_mount_checks": [
+    "online synthetic file read; SIGTERM exit 0; mount gone",
+    "offline cached file read; SIGTERM exit 0; mount gone"
+  ],
+  "portable_core_rebuild_required": false,
+  "background_qml_lifecycle": [
+    "folder and confirmation dialogs",
+    "job add and native daemon start",
+    "pause",
+    "remove and reload",
+    "stop",
+    "status polling and worker shutdown"
+  ],
+  "core_tests_repeated_this_checkpoint": true,
+  "state_isolation": {
+    "correct_variable": "XDG_STATE_HOME",
+    "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+    "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+    "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+    "report": "/tmp/nd-user-state-isolation-validation.json"
+  },
+  "mount_qml_lifecycle": [
+    "mount with captured folder/options",
+    "pin",
+    "managed unpin and eviction",
+    "re-pin",
+    "unmount",
+    "offline mount and pin without a third download",
+    "unmount and native empty trash listing",
+    "verify cache contents and no remaining mount"
+  ],
+  "real_trash_binding_test": [
+    "cancelled restore preserves payload",
+    "occupied destination is not overwritten",
+    "recovery entry retained",
+    "successful retry",
+    "duplicate restore rejected"
+  ],
+  "native_autostart_checks": [
+    "Flatpak portal denial cannot write entry",
+    "Snap launcher omits session SDK path",
+    "AppImage outer path retained; bundled SDK rediscovered on next launch",
+    "Custom AppImage SDK preserved",
+    "Native QML enable/disable using isolated XDG_CONFIG_HOME",
+    "User service/foreground file names, sizes and mtimes unchanged"
+  ],
+  "native_update_checks": [
+    "release-channel default and 24-hour cadence including clock rollback",
+    "automatic download never implicitly installs",
+    "busy file operation prevents explicit installation",
+    "failed installation retains verified download for retry",
+    "closed or undelivered download ownership cleanup",
+    "nested update errors propagate",
+    "foreign package name rejected before privilege prompt",
+    "synthetic DEB metadata inspection and cancellation; no package installation",
+    "QML preference persistence, localization, demo guards and idempotent shutdown"
+  ],
+  "update_actual_install_test": false,
+  "update_live_network_test": false,
+  "native_main_window": {
+    "shared_view_embedded": "src/neutrondrive/qml/Main.qml",
+    "pages_checked": [
+      "files",
+      "settings",
+      "background",
+      "ondemand",
+      "local-trash",
+      "activity"
+    ],
+    "close_process_exit_code": 0,
+    "captures": [
+      "/tmp/nd-native-window-images-H9yTGu/dark-settings.png",
+      "/tmp/nd-native-window-images-H9yTGu/light-files.png"
+    ],
+    "visually_inspected": true,
+    "close_policy_unit_tests": [
+      "explicit installation prevents close",
+      "busy operation requires confirmation and cancellation completion",
+      "stale confirmation ignored",
+      "Flatpak active daemon hides window; stopped daemon closes"
+    ],
+    "user_service_and_foreground_state_unchanged": true,
+    "prior_visually_inspected_captures": [
+      "/tmp/nd-native-window-images-ANdzj1/dark-settings.png",
+      "/tmp/nd-native-window-images-ANdzj1/light-files.png"
+    ],
+    "modes": [
+      "demo window and all locales",
+      "local SDK fixture with literal prompt and clipboard checks"
+    ]
+  },
+  "native_startup": {
+    "normal_demo_process_launch": true,
+    "explicit_sdk_option": true,
+    "installed_catalog_precedence_unit_test": true,
+    "source_catalog_fallback": true,
+    "private_window_directory_checks": true,
+    "qt_lock_file_compatibility": true,
+    "bounded_nonblocking_activation_connect": true,
+    "second_process_contacts_owner": true,
+    "forced_demo_crash_and_successor_recovery": true,
+    "clean_successor_exit": true,
+    "qt_translation_domains": [
+      "qtbase",
+      "qtdeclarative"
+    ],
+    "desktop_file_identity": true,
+    "no_display_exit_code": 1,
+    "actual_installed_package_test": true,
+    "live_account_test": false
+  },
+  "native_browser_portal": {
+    "headless_entrypoint": "--open-uri HTTP(S)_URL",
+    "no_qgui_application_required": true,
+    "url_validation_unit_test": true,
+    "isolated_dbus_cases": [
+      "success with early response and fragment preserved",
+      "unrelated path ignored",
+      "foreign sender cannot override denial",
+      "denied request",
+      "invalid request path",
+      "cancellation while awaiting response"
+    ],
+    "portal_dbus_suite_cases_total": 11,
+    "native_packaging_tests": 12,
+    "core_clippy_all_targets": "passed",
+    "desktop_clippy_all_targets": "passed",
+    "actual_desktop_browser_opened": false
+  },
+  "appimage_bootstrap": {
+    "rust_unit_tests": 6,
+    "stable_cache_reexec": true,
+    "original_mount_removed": true,
+    "symlinked_cache_parent": true,
+    "corruption_rejected": true,
+    "fifo_replacement_rejected_without_blocking": true,
+    "current_source_packager_uses_rust_bootstrap": true
+  },
+  "native_direct_elf_loader": {
+    "runpath": "$ORIGIN/../qt/lib",
+    "no_inherited_loader_variables": true,
+    "passed": true
+  },
+  "all_core_tests": "168 unit tests, 2 desktop-bus, 2 desktop-runtime and 14 runtime integration tests passed on both x86-64 and ARM64 in CI",
+  "portable_frontend": {
+    "artifact": "build/native-qt-portable-sdk-x86_64/neutrondrive-qt",
+    "report": "build/native-qt-portable-sdk-x86_64/native-build.json",
+    "maximum_glibc": [
+      2,
+      34
+    ],
+    "maximum_glibcxx": [
+      3,
+      4,
+      11
+    ],
+    "baseline": "Ubuntu 22.04.5",
+    "version_check": true,
+    "main_window_check_exit_code": 0,
+    "fifo_hardening_included": true,
+    "architectures_checked": [
+      "x86_64",
+      "aarch64"
+    ],
+    "baseline_generators": "Qt 6.10.2 qmake/moc built and verified inside Ubuntu 22.04"
+  },
+  "verified_native_staged_payload": {
+    "path": "build/native-runtime-retired-stage/usr",
+    "native_artifact": "build/native-qt-portable-sdk-x86_64",
+    "backend": "build/computer-backup-dev/proton-drive",
+    "backend_current_source_provenance_verified": true,
+    "python_runtime_or_bindings_present": false,
+    "direct_version_and_main_window_without_development_paths": "passed",
+    "log": "/tmp/nd-runtime-retired-staged-check.log",
+    "selected_user_service_foreground_files_unchanged": true,
+    "production_defaults_switched": true
+  },
+  "native_packages": {
+    "deb": "Current source installed and native runtime checked in CI on Ubuntu 22.04 x86-64 and Ubuntu 24.04 ARM64",
+    "rpm": "Current source installed and native window/diagnostics passed on Fedora 44 and openSUSE Tumbleweed in CI",
+    "flatpak": "Current source runtime diagnostics, actual QML window, export and bundle passed in CI with GNOME 50",
+    "snap": "Strict build, install, normal version/SDK diagnostics and actual confined X11 Qt window/keyboard/mouse checks passed in run 40038126256",
+    "appimage": "Full current-source builder passed; extracted native runtime and persistent-cache window checks passed",
+    "architecture": "x86_64 and aarch64 (DEB); other formats x86_64",
+    "arch": "makepkg/pacman installation, native window, diagnostics and namcap all passed in CI run 40034921192",
+    "installed_on_user_machine": false,
+    "published_release": false
+  },
+  "current_source_requires_portable_rebuild": false,
+  "historical_package_validation_note": "Current-source DEB (x86-64 and ARM64), RPM (Fedora/openSUSE), Flatpak, AppImage, Arch and strict Snap runtime checks have passed. Published alpha6 and the user-machine installation remain unchanged.",
+  "cli_locale_process_checks": 26,
+  "actual_window_locale_process_checks": 26,
+  "native_keyboard_and_pointer_events": "passed: keyboard focus/selection, select-all actions, stable delegates and folder double-click",
+  "source_launcher": "POSIX shell execs Rust; setuptools application and Python __main__ removed",
+  "application_python_modules": 0,
+  "retained_contract_tests": 347,
+  "retained_contract_tests_skipped": 0,
+  "native_dialog_clipboard_literal_sdk_check": "passed",
+  "native_live_theme_selection_and_scroll_checks": "passed",
+  "test_adapter_location": "tests/core_contract (not application runtime)",
+  "ci_validation": {
+    "run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40034921192",
+    "commit": "3d88a62408233363e37631394022d307e587d8f2",
+    "native_architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "per_architecture": {
+      "core_unit_tests": 168,
+      "native_frontend_tests": 54,
+      "retained_regression_tests": 347,
+      "sdk_bridge_tests": 13,
+      "cli_locales": 26,
+      "window_locales": 26
+    },
+    "native_jobs": "passed",
+    "installed_packages_passed": [
+      "DEB x86-64 Ubuntu 22.04",
+      "DEB ARM64 Ubuntu 24.04",
+      "RPM Fedora 44",
+      "RPM openSUSE Tumbleweed",
+      "Flatpak GNOME 50",
+      "AppImage extracted runtime and stable cached window",
+      "Arch makepkg/pacman native startup and namcap",
+      "Strict Snap native X11 window and SDK diagnostics"
+    ],
+    "strict_snap_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40038126256",
+    "strict_snap_native_source_identity": "Both successful native jobs in 40034921192, unchanged Git application/build/test inputs, frontend/SDK source provenance and binary hashes verified again",
+    "resolved_package_findings": [
+      "Snap GUI test set DBUS_SESSION_BUS_ADDRESS to a nonexistent socket before confinement; snap reported that the GitHub runner service was not a snap cgroup, before launching the application.",
+      "Snap theme-test bus isolation moved inside the strict sandbox; actual X11 window and input checks now pass"
+    ]
+  },
+  "live_account_validation": {
+    "scope": "Explicitly authorized test account; unique synthetic folders only; cleanup to Proton trash",
+    "general": "passed: transfers, SHA256 roundtrip, rename/move, share/revoke, trash/restore, sync and conflict preservation",
+    "background": "full rerun passed including restart/cursor recovery; initial restart failure not reproduced, cause unestablished; 15 isolated restart cycles also passed",
+    "fuse": "passed: online placeholders, on-demand read, offline pin, write/fsync, atomic editor replacement, folder/file operations, eviction and unmount",
+    "deletions": "passed all phases with supported 600-second phase budget: bidirectional file deletion/trash/restore, no resurrection after restart, whole-folder safety guards and manual recovery, delete-versus-edit conflicts in both directions, daemon stop and cleanup to trash; initial 240-second baseline attempt timed out",
+    "logs": [
+      "/tmp/nd-rust-migration-live.log",
+      "/tmp/nd-rust-background-restart-diagnostic.log",
+      "/tmp/nd-rust-migration-fuse-live.log",
+      "/tmp/nd-rust-migration-deletions-long-live.log"
+    ]
+  },
+  "native_xcb_window": "Passed same actual Qt window/keyboard/mouse checks under Xvfb outside Snap in isolated Ubuntu 22.04; log /tmp/nd-isolated-xcb-window.log",
+  "selected_user_state_after_live_tests": {
+    "files_checked": 9,
+    "changed": 0,
+    "missing": 0
+  },
+  "native_snap_environment_window": "Actual X11/Xvfb window, keyboard and mouse checks passed with SNAP/GTK portal/GNOME environment outside confinement in isolated Ubuntu; /tmp/nd-isolated-snap-env-window.log",
+  "existing_functionality_regression": "passed through native unit/integration/UI tests, retained fault-injection contracts and authorized live-account smoke tests",
+  "legacy_python_portal_helper": "Removed unused packaging/xdg-open-portal; package staging exclusively uses the native Rust portal helper, covered by literal URL and arity tests plus a retirement assertion."
+}

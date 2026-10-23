@@ -6,182 +6,154 @@ on:
   pull_request:
     paths-ignore: ['docs/**', '*.md']
   workflow_dispatch:
+    inputs:
+      verified_native_run:
+        description: 'Optional completed run whose native tests/artifacts match this source (workflow/docs-only changes)'
+        required: false
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  rust-core:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
-      - name: Check Rust formatting
-        run: cargo fmt --manifest-path core/Cargo.toml -- --check
-      - name: Test and lint the offline Rust core
-        working-directory: core
-        run: |
-          cargo test --locked --offline
-          cargo clippy --locked --offline --all-targets -- -D warnings
-      - name: Build the baseline-compatible shared library
-        run: python3 scripts/build-rust-core
-      - uses: actions/upload-artifact@v4
-        with:
-          name: rust-core-x86_64
-          path: build/rust/*
-          if-no-files-found: error
-
-  rust-core-arm64:
-    runs-on: ubuntu-24.04-arm
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install pinned Rust toolchain
-        run: rustup toolchain install 1.98.0 --profile minimal
-      - name: Build and test native ARM64 runtime on the libc baseline
-        run: |
-          toolchain=$(rustup run 1.98.0 rustc --print sysroot)
-          docker run --rm -v "$GITHUB_WORKSPACE:/work" -v "$toolchain:/opt/rust:ro" \
-            -w /work -e PATH=/opt/rust/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-            -e CARGO_HOME=/work/build/cargo-home ubuntu:22.04 bash -euc '
-              apt-get update
-              apt-get install -y gcc binutils python3
-              python3 scripts/build-rust-core
-              (cd core && cargo test --locked --offline)
-              PYTHONPATH=src:tests python3 -m unittest test_backend test_events test_native_storage test_inotify_core test_background -v
-            '
-      - uses: actions/upload-artifact@v4
-        with:
-          name: rust-core-aarch64
-          path: build/rust/*
-          if-no-files-found: error
-
-  linux-filesystem:
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
-    needs: rust-core
+  metadata:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: rust-core-x86_64
-          path: build/rust
-      - name: Install native filesystem and D-Bus dependencies
+      - name: Validate platform-independent desktop metadata
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pyfuse3 python3-trio fuse3 python3-gi dbus-daemon
-      - name: Exercise the real Linux FUSE mount
-        env:
-          PYTHONPATH: src
-          NEUTRONDRIVE_FUSE_TEST: '1'
-        run: |
-          /usr/bin/python3 -m unittest discover -s tests -p test_fuse_mount.py -v
-          NEUTRONDRIVE_DBUS_TEST=1 /usr/bin/python3 -m unittest discover -s tests -p test_desktop_integration.py -v
-
-  bridge-protocol:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.4.2'
-      - name: Validate SDK event bridge protocol
-        run: bun test packaging/bridge/eventProtocol.test.ts
-
-  qt-lts:
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
-    needs: rust-core
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: rust-core-x86_64
-          path: build/rust
-      - name: Install the oldest supported x86_64 desktop runtime
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y dbus-daemon python3-gi xvfb libegl1 libopengl0 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-randr0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-render0 libxcb-shape0 libxcb-glx0 libfontconfig1 libdbus-1-3 libsm6 libice6 libatomic1 libwayland-client0 libwayland-cursor0 libwayland-egl1
-      - name: Fetch pinned Qt runtime
-        run: python3 packaging/qt_runtime.py --dest build/qt
-      - name: Check Qt X11 shared-library dependencies
-        run: python3 -c "import subprocess; output=subprocess.check_output(['ldd','build/qt/PySide6/Qt/plugins/platforms/libqxcb.so'],text=True); print(output); assert 'not found' not in output"
-      - name: Exercise Qt 6 on Ubuntu 22.04
-        run: xvfb-run -a env QT_DEBUG_PLUGINS=1 QT_QPA_PLATFORM=xcb PYTHONPATH=src:build/qt NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
-      - name: Exercise live appearance portal messages on a private bus
-        run: xvfb-run -a env QT_QPA_PLATFORM=xcb PYTHONPATH=src:build/qt NEUTRONDRIVE_UI_TESTS=1 NEUTRONDRIVE_DBUS_TEST=1 /usr/bin/python3 -m unittest discover -s tests -p test_appearance.py -v
-
-  tests:
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
-    needs: rust-core
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python: ['3.10', '3.11', '3.12', '3.13']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: rust-core-x86_64
-          path: build/rust
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-      - name: Test backend and synchronization logic
-        env:
-          PYTHONPATH: src
-        run: python -m unittest discover -s tests -v
-      - name: Compile application and packaging modules
-        run: python -m compileall -q src packaging scripts
-
-  deb:
-    needs: [tests, rust-core-arm64]
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
-    strategy:
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            architecture: amd64
-          - runner: ubuntu-24.04-arm
-            architecture: arm64
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: rust-core-${{ matrix.architecture == 'arm64' && 'aarch64' || 'x86_64' }}
-          path: build/rust
-      - name: Install validation tools and GUI dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-gi libsecret-1-0 xdg-utils desktop-file-utils appstream xvfb python3-pyfuse3 python3-trio fuse3
-      - name: Validate desktop integration
-        run: |
+          sudo apt-get install -y desktop-file-utils appstream
           desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
           appstreamcli validate --no-net data/io.github.SigmaCodez.NeutronDrive.metainfo.xml
-      - name: Build bundled DEB
-        run: python3 scripts/build-deb --arch '${{ matrix.architecture }}'
-      - name: Inspect package and smoke-test bundled CLI
+
+  native:
+    if: inputs.verified_native_run == ''
+    uses: ./.github/workflows/native-build.yml
+
+  verified_native:
+    if: inputs.verified_native_run != ''
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        architecture: [x86_64, aarch64]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ND_NATIVE_RUN: ${{ inputs.verified_native_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require successful native tests and unchanged application/build inputs
         run: |
+          python3 -c 'import os; assert os.environ["ND_NATIVE_RUN"].isdigit(), "Expected a numeric run ID"'
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$ND_NATIVE_RUN" > "$RUNNER_TEMP/native-run.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$ND_NATIVE_RUN/jobs?per_page=100" > "$RUNNER_TEMP/native-jobs.json"
+          nd_source_sha=$(python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          run = json.loads((root/'native-run.json').read_text())
+          assert run['status'] == 'completed', 'Source run must be completed'
+          sha = run['head_sha']
+          assert re.fullmatch('[0-9a-f]{40}', sha)
+          jobs = [j for page in json.loads((root/'native-jobs.json').read_text()) for j in page['jobs']]
+          for architecture in ('x86_64', 'aarch64'):
+              matches = [j for j in jobs if j['name'].startswith('native / native (') and architecture in j['name']]
+              assert len(matches) == 1 and matches[0]['conclusion'] == 'success', architecture+' native test job did not pass'
+          print(sha)
+          PY
+          )
+          git fetch --no-tags --depth=1 origin "$nd_source_sha"
+          git diff --name-only -z "$nd_source_sha" HEAD > "$RUNNER_TEMP/native-source-diff"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          paths = (Path(os.environ['RUNNER_TEMP'])/'native-source-diff').read_bytes().split(b'\0')
+          allowed = {b'.github/workflows/ci.yml', b'.github/workflows/portable-packages.yml'}
+          changed = [p.decode() for p in paths if p and p not in allowed and not p.startswith(b'docs/') and not (b'/' not in p and p.endswith(b'.md'))]
+          assert not changed, 'Native artifact reuse rejects changed application/build/test inputs: '+repr(changed)
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.verified_native_run }}
+          name: native-frontend-${{ matrix.architecture }}
+          path: build/native-frontend
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.verified_native_run }}
+          name: sdk-bridge-${{ matrix.architecture }}
+          path: build/backend
+      - name: Verify frontend and SDK source provenance again
+        env:
+          ND_ARCHITECTURE: ${{ matrix.architecture }}
+        run: |
+          python3 - <<'PY'
+          import importlib.util, os
+          from pathlib import Path
+          def load(name, filename):
+              spec = importlib.util.spec_from_file_location(name, Path('packaging')/filename)
+              module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+              return module
+          architecture = os.environ['ND_ARCHITECTURE']
+          load('native_frontend', 'native_frontend.py').verify(Path('build/native-frontend'), architecture)
+          load('backend', 'fetch-backend.py').verify_source_build(Path('build/backend/proton-drive'), architecture)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-frontend-${{ matrix.architecture }}
+          path: build/native-frontend/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-bridge-${{ matrix.architecture }}
+          path: build/backend/proton-drive*
+          if-no-files-found: error
+
+  deb:
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            architecture: amd64
+            artifact: x86_64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            artifact: aarch64
+    runs-on: ${{ matrix.runner }}
+    env:
+      NEUTRONDRIVE_NATIVE_BUILD: ${{ github.workspace }}/build/native-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-frontend-${{ matrix.artifact }}
+          path: build/native-frontend
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-bridge-${{ matrix.artifact }}
+          path: build/backend
+      - name: Install package validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y desktop-file-utils
+          desktop-file-validate data/io.github.SigmaCodez.NeutronDrive.desktop
+      - name: Build and install the native DEB
+        run: |
+          python3 scripts/build-deb --arch '${{ matrix.architecture }}' --backend build/backend/proton-drive
           dpkg-deb --info dist/*.deb
           sudo apt-get install -y ./dist/*.deb
-          xvfb-run -a env QT_QPA_PLATFORM=xcb PYTHONPATH=/usr/lib/neutrondrive:/usr/lib/neutrondrive/qt NEUTRONDRIVE_UI_TESTS=1 /usr/bin/python3 -m unittest discover -s tests -p test_ui.py -v
-          /usr/lib/neutrondrive/bin/proton-drive version --json
+          python3 desktop/tests/check-staged-runtime.py /usr
           neutrondrive --help
           neutrondrive --diagnose
-          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software PYTHONPATH=/usr/lib/neutrondrive:/usr/lib/neutrondrive/qt NEUTRONDRIVE_UI_TESTS=1 python3 -m unittest discover -s tests -p test_ui.py -v
-          PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_rust_core.py -v
-          /usr/bin/python3 -c 'import pyfuse3, trio, gi'
-          PYTHONPATH=/usr/lib/neutrondrive /usr/bin/python3 -m unittest discover -s tests -p test_local_trash.py -v
-          PYTHONPATH=/usr/lib/neutrondrive:tests /usr/bin/python3 -m unittest test_backend test_events test_native_storage test_inotify_core test_background -v
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.architecture }}
@@ -189,9 +161,8 @@ jobs:
           if-no-files-found: error
 
   rpm:
-    needs: tests
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -199,34 +170,34 @@ jobs:
         include:
           - distribution: fedora
             container: fedora:44
-            install: dnf install -y git python3 rpm-build gcc pkgconf-pkg-config fuse3-devel python3-devel python3-pip python3-setuptools python3-setuptools_scm python3-cython python3-wheel python3-trio
+            install: dnf install -y git python3 rpm-build binutils
             install_package: dnf install -y ./dist/*.rpm
           - distribution: opensuse
             container: opensuse/tumbleweed:latest
-            install: zypper --non-interactive install git python3 rpm-build
+            install: zypper --non-interactive install git python3 rpm-build binutils
             install_package: zypper --non-interactive --no-gpg-checks install --allow-unsigned-rpm ./dist/*.rpm
     container: ${{ matrix.container }}
+    env:
+      NEUTRONDRIVE_NATIVE_BUILD: ${{ github.workspace }}/build/native-frontend
     steps:
       - name: Install build tools
         run: ${{ matrix.install }}
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: rust-core-x86_64
-          path: build/rust
-      - name: Build bundled RPM
-        run: python3 scripts/build-rpm
-      - name: Inspect package
-        run: rpm -qpi dist/*.rpm
-      - name: Install package and verify runtime dependencies
+          name: native-frontend-x86_64
+          path: build/native-frontend
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-bridge-x86_64
+          path: build/backend
+      - name: Build and test the installed native RPM
         run: |
+          python3 scripts/build-rpm --backend build/backend/proton-drive
+          rpm -qpi dist/*.rpm
           ${{ matrix.install_package }}
-          PYTHONPATH=/usr/lib/neutrondrive python3 -c 'import pyfuse3, trio, gi; print(pyfuse3.__file__)'
-          PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_ondemand.py -v
-          PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_local_trash.py -v
+          python3 desktop/tests/check-staged-runtime.py /usr
           neutrondrive --diagnose
-          QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software PYTHONPATH=/usr/lib/neutrondrive:/usr/lib/neutrondrive/qt NEUTRONDRIVE_UI_TESTS=1 python3 -m unittest discover -s tests -p test_ui.py -v
-          PYTHONPATH=/usr/lib/neutrondrive python3 -m unittest discover -s tests -p test_rust_core.py -v
       - uses: actions/upload-artifact@v4
         with:
           name: rpm-${{ matrix.distribution }}-x86_64
@@ -234,25 +205,29 @@ jobs:
           if-no-files-found: error
 
   flatpak:
-    needs: tests
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     runs-on: ubuntu-24.04
+    env:
+      NEUTRONDRIVE_NATIVE_BUILD: ${{ github.workspace }}/build/native-frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: rust-core-x86_64
-          path: build/rust
-      - name: Install Flatpak tools
+          name: native-frontend-x86_64
+          path: build/native-frontend
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-bridge-x86_64
+          path: build/backend
+      - name: Install the Flatpak runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak librsvg2-common
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-      - name: Build bundled Flatpak
-        run: python3 scripts/build-flatpak --install-deps
-      - name: Verify CLI was preserved by the builder
-        run: python3 packaging/fetch-backend.py build/flatpak-x86_64/files/lib/neutrondrive/bin/proton-drive --arch x86_64
+          flatpak install --user --noninteractive flathub org.gnome.Platform//50
+      - name: Build and test inside the real runtime
+        run: python3 scripts/build-flatpak-bundle --backend build/backend/proton-drive --smoke-test
       - uses: actions/upload-artifact@v4
         with:
           name: flatpak-x86_64
@@ -260,25 +235,54 @@ jobs:
           if-no-files-found: error
 
   snap:
-    needs: tests
-    env:
-      NEUTRONDRIVE_CORE_BUILD: ${{ github.workspace }}/build/rust
+    needs: [native, verified_native]
+    if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')
     runs-on: ubuntu-24.04
+    env:
+      NEUTRONDRIVE_NATIVE_BUILD: ${{ github.workspace }}/build/native-frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: rust-core-x86_64
-          path: build/rust
+          name: native-frontend-x86_64
+          path: build/native-frontend
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdk-bridge-x86_64
+          path: build/backend
       - name: Install Snapcraft
         run: sudo snap install snapcraft --classic
-      - name: Prepare isolated source and verified backend
-        run: python3 scripts/build-snap --prepare-only build/snap-project
+      - name: Prepare verified native frontend and current SDK
+        run: python3 scripts/build-snap --backend build/backend/proton-drive --prepare-only build/snap-project
       - name: Build strict snap on the disposable runner
         working-directory: build/snap-project
         run: sudo snapcraft --destructive-mode --build-for=amd64
+      - name: Install and test strict Snap on the disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth
+          sudo snap install --dangerous ./build/snap-project/*.snap
+          snap run neutrondrive --version
+          snap run neutrondrive --diagnose
+          # snap run itself needs the real session bus to create its cgroup.
+          # Isolate the theme fixture only after entering the strict sandbox
+          # and its normal command-chain, without disabling confinement.
+          if ! xvfb-run -a -f "$HOME/.Xauthority" snap run --shell neutrondrive -c \
+            'export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software; exec "$SNAP/usr/bin/neutrondrive" --check-window "$SNAP/usr/lib/neutrondrive/neutrondrive/locales"' \
+            > "$RUNNER_TEMP/neutrondrive-snap-window.log" 2>&1; then
+            cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
+            sudo journalctl --no-pager -n 80 -k
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
+          grep -q NATIVE_MAIN_WINDOW_OK "$RUNNER_TEMP/neutrondrive-snap-window.log"
       - uses: actions/upload-artifact@v4
         with:
           name: snap-amd64
           path: build/snap-project/*.snap
           if-no-files-found: error
+
+  portable:
+    needs: deb
+    if: always() && needs.deb.result == 'success'
+    uses: ./.github/workflows/portable-packages.yml

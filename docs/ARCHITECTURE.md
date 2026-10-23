@@ -11,7 +11,7 @@ flowchart TD
     Sync --> Cache[Event-invalidated remote directory cache]
     Cache --> Backend
     GTK --> DBus[Application-specific session D-Bus service]
-    DBus --> FUSE[pyfuse3 and Trio filesystem]
+    DBus --> FUSE[Rust fuser kernel adapter]
     FUSE --> Content[Verified local content and recovery journal]
     FUSE --> Backend
     Events --> Backend
@@ -143,7 +143,7 @@ reduce conflict risk but cannot eliminate a concurrent remote writer's race.
 
 ## On-demand files and recovery
 
-`ondemand.py` is the filesystem model; `fuse.py` exposes it with pyfuse3 and Trio.
+`core/src/ondemand_fs.rs` owns the filesystem model; `core/src/fuse.rs` exposes it through the native Rust kernel adapter. `core/src/mount_manager.rs` owns lifecycle, status, mount validation and relative-path commands. The Python modules are transitional desktop call/thread bindings.
 The mount is read-only by default and restricted to My Files. Directory entries
 are metadata, not zero-filled placeholder files. Opening an uncached file
 hydrates the complete content through the official SDK and verifies size/SHA1

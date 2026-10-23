@@ -16,18 +16,25 @@ interface and icon are original; no Windows/macOS application code is copied.
 
 [Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
 
-The Rust core handles sync decisions, background scheduling, SDK event validation
-and delivery planning, remote cache invalidation and daemon event routing.
-Version 0.6.0 alpha5 additionally moves backend process management, private
-state I/O, job transactions and the running inotify watcher into Rust. The full
-migration is still in progress: transfer/trash/FUSE orchestration and the
-Qt Quick/QML controller retain Python dependencies.
-See [migration boundaries](docs/RUST-MIGRATION.md).
+The development application now runs in Rust, including the Qt controller,
+background synchronization, transfers, recoverable trash, online-drive/FUSE
+services, preferences and updates. Qt Quick/QML and the pinned Proton SDK remain.
+Python is used for build and regression tools, not the application runtime.
+The old Python UI modules have been removed; compatibility adapters are retained
+only under `tests/core_contract` for native-core regression tests. Native tests
+pass on x86-64 and ARM64; current-source DEB, RPM, Flatpak, Snap, AppImage and
+Arch package checks and authorized live sync/FUSE/trash tests have passed.
+Published alpha6 packages are unchanged; this is the unreleased source migration.
+See [migration status and evidence](docs/RUST-MIGRATION.md).
 
 ## Language
 
 The interface automatically uses your operating system's language at startup.
-Restart NeutronDrive after changing your system language. Unsupported languages
+In the development version, Settings → Appearance also offers a manual language
+selection and Light/Dark/System appearance. These choices persist across starts;
+appearance changes immediately, while language changes require an app restart.
+Release alpha6 still uses automatic selection only.
+Restart NeutronDrive after changing your system language when using System setting. Unsupported languages
 fall back to English; no translation service or model is contacted at runtime.
 
 The 25 supported variants are English, German, French, Dutch, Spanish,
@@ -83,6 +90,10 @@ packages are not official Proton packages, Flathub listings or Snap Store releas
 | Snap | snapd-enabled distributions | Connect `password-manager-service`; online drive needs native package |
 | AppImage | x86_64 GLIBC desktops, Ubuntu 22.04+/Debian 12+ | Bundled Python/Qt; persistent private runtime cache; native helper for online drive |
 | Arch package / AUR recipe | Arch Linux, Manjaro | `neutrondrive-bin` PKGBUILD; AUR publication pending account setup |
+
+This table describes the published alpha6 packages. Development package staging
+now uses the Rust frontend and excludes Python/PySide; replacement release
+artifacts have not yet been published.
 
 Native x86_64 retains Ubuntu 22.04+/Debian 12+ coverage. The official ARM64 Qt
 wheels require GLIBC 2.39: use Ubuntu 24.04+, Debian 13+ or an equivalent runtime
@@ -149,39 +160,50 @@ with NeutronDrive operations against the same cache.
 
 ## Run from source
 
-Install Python 3.10–3.14 and native libraries through your distribution. For Debian or Ubuntu:
+The application runs as a Rust executable with Qt Quick/QML. Building requires
+Rust 1.98.0, a C++17 compiler and a matching Qt 6.10.2 development SDK. Python is
+used by the download, packaging and test helpers, not by the running application.
+See [`desktop/README.md`](desktop/README.md) for SDK preparation and native tests.
+
+For Debian or Ubuntu, install the build tools and runtime libraries:
 
 ```sh
-sudo apt install python3 python3-gi libegl1 libopengl0 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libsecret-1-0 gnome-keyring xdg-utils python3-pyfuse3 python3-trio fuse3
-rustup toolchain install 1.98.0 --profile minimal
-python3 scripts/build-rust-core
+sudo apt install python3 g++ binutils libegl1 libopengl0 libgl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libsecret-1-0 libgssapi-krb5-2 libbrotli1 gnome-keyring xdg-utils fuse3
+rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy
 python3 packaging/qt_runtime.py --dest build/qt
-export PYTHONPATH="$PWD/build/qt${PYTHONPATH:+:$PYTHONPATH}"
-python3 packaging/fetch-backend.py build/backend/proton-drive
-NEUTRONDRIVE_CLI="$PWD/build/backend/proton-drive" python3 bin/neutrondrive
+export QMAKE=/absolute/path/to/your/Qt-6.10.2-SDK/bin/qmake
+export CARGO_TARGET_DIR="$PWD/build/native-qt-target"
+(cd desktop && cargo build --locked --offline)
+bin/neutrondrive --demo
 ```
 
-The fetcher downloads only the version and SHA512-pinned binary in
-[`packaging/backend-lock.json`](packaging/backend-lock.json). Nothing downloads
-or installs executable code when the app starts. Use `--cli /absolute/path` to
-select a compatible bridge. The older unmodified CLI does not expose the event
-protocol needed for background synchronization.
+Replace `QMAKE` with the actual executable in your matching Qt SDK. The source
+launcher selects the debug executable in `CARGO_TARGET_DIR`; set
+`NEUTRONDRIVE_NATIVE_PROFILE=release` for a release build, or
+`NEUTRONDRIVE_NATIVE_EXECUTABLE=/absolute/path/to/neutrondrive-qt` for an explicit
+binary. It does not compile or download anything at application startup.
+
+For real account operations, build the current pinned Proton bridge using Bun
+1.4.2, or provide an already verified compatible bridge with `--cli`:
 
 ```sh
-python3 bin/neutrondrive --demo      # clearly labelled read-only UI examples
-python3 bin/neutrondrive --diagnose --cli "$PWD/build/backend/proton-drive"
-python3 -m unittest discover -s tests -v
+python3 scripts/build-backend --output build/backend/proton-drive
+bin/neutrondrive --diagnose --cli "$PWD/build/backend/proton-drive"
+bin/neutrondrive --cli "$PWD/build/backend/proton-drive"
+scripts/check-native-qt
 ```
 
-For a virtual machine or a graphics driver that cannot initialize Qt Quick's GPU
-renderer, try `QT_QUICK_BACKEND=software python3 bin/neutrondrive --demo`.
-Packaged installations accept the same environment variable with `neutrondrive`.
+The older unmodified Proton CLI does not expose the event protocol needed for
+background synchronization. No Proton password is needed in an environment file.
+For graphics drivers unable to initialize Qt Quick's GPU renderer, use
+`QT_QUICK_BACKEND=software bin/neutrondrive --demo` (or `neutrondrive` for an
+installed package).
 
-Qt/PySide6 is downloaded only by the build helper, pinned by SHA256 and bundled
-privately. PyGObject remains a dependency of the D-Bus/portal adapters, not the UI.
-Core adapter and sync tests use the Python standard library and the built Rust
-shared library. Rust dependencies are vendored; Cargo builds offline. Building and
-running this project does not require a Proton password in an environment file.
+The build helper fetches checksum-pinned Qt archives. The native application
+loads only their C++ libraries and QML resources; it does not use PySide or
+PyGObject. Rust dependencies are vendored and Cargo builds offline. Portable
+package builds must additionally pass the native ELF baseline and provenance
+checks in `scripts/build-native-qt`.
 
 ## Synchronization safeguards
 
@@ -285,7 +307,7 @@ Native DEB/RPM include the D-Bus helper and its activation file. **Flatpak needs
 that native package installed on the host for online files**; the helper has its
 own native keyring session and can request its own browser login. No unrestricted
 host command permission is granted. On Arch/Manjaro, install from source with
-`python-gobject`, a compatible Qt/PySide6 runtime, `libsecret`, `python-pyfuse3`, `python-trio`, `fuse3` and
+a compatible native Rust/Qt build, `libsecret`, `fuse3` and
 install the D-Bus activation file for the resulting launcher. Flatpak background
 folder sync itself does not require this helper.
 
@@ -336,3 +358,19 @@ with Qt color-scheme/palette fallback. Desktop settings are never changed.
 Cloud-event routing and bounded pending-event queue decisions now run in Rust.
 The host retains locks, guarded I/O and durable acknowledgement. No extra C layer
 is introduced without a demonstrated benefit.
+
+## Update checks (development version)
+
+Settings → Updates can check GitHub daily or on demand, with a prerelease
+channel option. Native DEB installations also support verified downloads and
+installation after system authorization. Other formats show the release page
+and use their normal package/update workflow. See [update behavior and limits](docs/UPDATES.md).
+
+## Computer backup (development version)
+
+Automatic sync now includes a Computer backup card that registers a Linux
+computer through the official SDK and synchronizes selected folders under
+Proton Drive's Computers section. It requires the new source-built SDK bridge
+and Rust core; it is not in the published alpha6 packages. See
+[setup and safety behavior](docs/COMPUTER-BACKUP.md) and the
+[Windows feature comparison](docs/WINDOWS-PARITY.md) for remaining gaps.

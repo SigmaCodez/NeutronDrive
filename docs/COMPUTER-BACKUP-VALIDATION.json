@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-23",
+  "status": "Development implementation; not full Windows parity or a published release",
+  "rust_unit_tests": 19,
+  "sdk_bridge_tests": 13,
+  "typescript_check": "passed",
+  "rust_clippy": "passed with warnings denied",
+  "python_suites": {
+    "computer_setup": {
+      "tests": 8,
+      "passed": true
+    },
+    "synchronization": {
+      "tests": 69,
+      "passed": true
+    },
+    "background": {
+      "tests": 44,
+      "passed": true
+    },
+    "events": {
+      "tests": 14,
+      "passed": true
+    },
+    "updates": {
+      "tests": 8,
+      "passed": true
+    },
+    "ui": {
+      "tests": 26,
+      "passed": true
+    },
+    "localization": {
+      "tests": 9,
+      "passed": true
+    },
+    "backend": {
+      "tests": 52,
+      "passed": true
+    },
+    "rust_python": {
+      "tests": 8,
+      "passed": true
+    },
+    "package_versions": {
+      "tests": 1,
+      "passed": true
+    },
+    "backend_provenance": {
+      "tests": 1,
+      "passed": true
+    }
+  },
+  "live_tests": {
+    "computer_registration": true,
+    "upload_download_roundtrip": true,
+    "sdk_events": true,
+    "automatic_upload": true,
+    "automatic_remote_download": true,
+    "local_delete_to_cloud_trash": true,
+    "cloud_delete_to_local_trash": true,
+    "local_trash_content_verified": true,
+    "isolated_daemon_stopped": true,
+    "test_job_paused": true
+  },
+  "limitations": [
+    "No full Windows parity",
+    "No ARM64 runtime test for these changes",
+    "Development Rust binary needs GLIBC 2.39; baseline package rebuild required",
+    "No new release or local installation"
+  ],
+  "test_harness_correction": "The remote-delete receipt check initially used the per-job sync state. Corrected verification used the app local-trash store and verified exact synthetic-file content.",
+  "development_binary_sha256": {
+    "proton-drive": "71017c18589334e7a9a086fb27298125a04c62c21fa6cc7f10c84b8486607085",
+    "libneutrondrive_core.so": "dfcdb2fb756e23e432ccd6a2ba324b96ed7a1dbfb2c29d5a74b694a105e7fdf2"
+  }
+}

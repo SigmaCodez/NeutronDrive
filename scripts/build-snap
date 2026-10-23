@@ -21,20 +21,27 @@ parser.add_argument("--prepare-only", type=Path, help="Write the project to a ne
 args = parser.parse_args()
 if not args.prepare_only and not shutil.which("snapcraft"):
     parser.error("snapcraft is required (or use --prepare-only DIRECTORY)")
-binary = args.backend or backend.fetch(ROOT / "build/backend" / backend.architecture(args.arch) / "proton-drive", args.arch)
-backend.verify(binary, json.loads(backend.LOCK.read_text())["architectures"][backend.architecture(args.arch)]["sha512"])
+binary = args.backend or ROOT / "build/backend/proton-drive"
+if not binary.is_file():
+    parser.error("Build the current pinned SDK with scripts/build-backend or pass --backend")
+try:
+    backend.verify(binary, json.loads(backend.LOCK.read_text())["architectures"][backend.architecture(args.arch)]["sha512"])
+except ValueError:
+    backend.verify_source_build(binary, args.arch)
 
 
 def prepare(project):
-    rust_spec = importlib.util.spec_from_file_location("rust_build", ROOT / "packaging/rust_core.py")
-    rust_build = importlib.util.module_from_spec(rust_spec)
-    rust_spec.loader.exec_module(rust_build)
-    core = Path(os.environ["NEUTRONDRIVE_CORE_BUILD"]).resolve() if os.environ.get("NEUTRONDRIVE_CORE_BUILD") else rust_build.build()
-    rust_build.verify(core, args.arch)
-    target = project / "native-core" / args.arch
+    native_spec = importlib.util.spec_from_file_location("native_frontend", ROOT / "packaging/native_frontend.py")
+    native = importlib.util.module_from_spec(native_spec)
+    native_spec.loader.exec_module(native)
+    if not os.environ.get("NEUTRONDRIVE_NATIVE_BUILD"):
+        raise RuntimeError("Set NEUTRONDRIVE_NATIVE_BUILD to a verified Rust/Qt frontend build")
+    frontend = Path(os.environ["NEUTRONDRIVE_NATIVE_BUILD"]).resolve()
+    native.verify(frontend, args.arch)
+    target = project / "native-frontend" / args.arch
     target.mkdir(parents=True)
-    for name in (rust_build.LIBRARY, "core-build.json"):
-        shutil.copyfile(core / name, target / name)
+    for name in (native.BINARY, native.REPORT):
+        shutil.copyfile(frontend / name, target / name)
     qt_spec = importlib.util.spec_from_file_location("qt_runtime", ROOT / "packaging/qt_runtime.py")
     qt_runtime = importlib.util.module_from_spec(qt_spec)
     qt_spec.loader.exec_module(qt_runtime)
@@ -43,13 +50,32 @@ def prepare(project):
     qt_dest.mkdir(parents=True)
     for wheel in wheels:
         shutil.copyfile(wheel, qt_dest / wheel.name)
-    for name in ("src", "data", "packaging", "core"):
-        shutil.copytree(ROOT / name, project / name, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "target"))
+    def ignore_build_cache(directory, names):
+        ignored = set(shutil.ignore_patterns("__pycache__", "*.pyc", "target")(directory, names))
+        if Path(directory) == ROOT / "core":
+            ignored.add("vendor")
+        return ignored
+    for name in ("src", "data", "packaging", "core", "desktop"):
+        shutil.copytree(ROOT / name, project / name, ignore=ignore_build_cache)
+    # This project stages a prebuilt, verified executable; retain dependency
+    # notices without copying the entire compiler dependency source cache.
+    for crate in (ROOT / "core/vendor").iterdir():
+        if crate.is_dir():
+            for notice in crate.glob("LICENSE*"):
+                if notice.is_file():
+                    target = project / "core/vendor" / crate.name / notice.name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(notice, target)
+    (project / "scripts").mkdir()
+    shutil.copyfile(ROOT / "scripts/build-backend", project / "scripts/build-backend")
     shutil.copyfile(ROOT / "LICENSE", project / "LICENSE")
     (project / "snap").mkdir()
     shutil.copyfile(ROOT / "packaging/snap/snapcraft.yaml", project / "snap/snapcraft.yaml")
     (project / "backend" / args.arch).mkdir(parents=True)
     shutil.copyfile(binary, project / "backend" / args.arch / "proton-drive")
+    provenance = Path(binary).with_name(Path(binary).name + ".provenance.json")
+    if provenance.exists():
+        shutil.copyfile(provenance, project / "backend" / args.arch / "proton-drive.provenance.json")
 
 
 if args.prepare_only:

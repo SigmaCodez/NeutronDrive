@@ -7,8 +7,8 @@ import unittest
 import tempfile
 import time
 import threading
-from neutrondrive import rust_core
-from neutrondrive.background import InotifyWatcher
+from core_contract import rust_core
+from reference_daemon import InotifyWatcher
 
 
 def event(watch, mask, name=b''):

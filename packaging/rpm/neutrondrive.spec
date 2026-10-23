@@ -2,19 +2,12 @@ Name:           neutrondrive
 Version:        0.6.0~alpha6
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive (alpha)
-%if 0%{?neutrondrive_vendor_pyfuse3}
-License:        MIT AND LGPL-2.1-or-later
-%else
 License:        MIT
-%endif
 URL:            https://github.com/SigmaCodez/NeutronDrive
 Source0:        neutrondrive-payload.tar.gz
 ExclusiveArch:  x86_64 aarch64
-Requires:       python3 >= 3.10
-Requires:       python3-gobject
 Requires:       xdg-utils
 Requires:       ca-certificates
-Requires:       python3 < 3.15
 Requires:       libEGL.so.1()(64bit)
 Requires:       libGL.so.1()(64bit)
 Requires:       libOpenGL.so.0()(64bit)
@@ -25,6 +18,8 @@ Requires:       libxcb-image.so.0()(64bit)
 Requires:       libxcb-keysyms.so.1()(64bit)
 Requires:       libxcb-render-util.so.0()(64bit)
 Requires:       libfontconfig.so.1()(64bit)
+Requires:       libgssapi_krb5.so.2()(64bit)
+Requires:       libbrotlidec.so.1()(64bit)
 Requires:       libdbus-1.so.3()(64bit)
 Requires:       libSM.so.6()(64bit)
 Requires:       libICE.so.6()(64bit)
@@ -33,25 +28,19 @@ Requires:       libc.so.6(GLIBC_2.39)(64bit)
 %else
 Requires:       libc.so.6(GLIBC_2.34)(64bit)
 %endif
-%if 0%{?neutrondrive_vendor_pyfuse3}
-Requires:       python(abi) = %{neutrondrive_python_abi}
-Provides:       bundled(python3dist(pyfuse3)) = 3.4.2
-%else
-Requires:       python3dist(pyfuse3)
-%endif
-Requires:       python3dist(trio)
 Requires:       fuse3
-%if 0%{?suse_version}
-Requires:       libsecret-1-0
-%else
-Requires:       libsecret
+Requires:       libsecret-1.so.0()(64bit)
 Recommends:     gnome-keyring
-%endif
 
 # Proton's Bun executable has appended application data. Stripping or rewriting
 # it corrupts the payload, so distribution BRP strip/debug generation is disabled.
 %global debug_package %{nil}
 %global __os_install_post %{nil}
+
+# Bundled libraries are private to NeutronDrive's RUNPATH, not system Qt/ICU
+# providers. Keep automatic requirements on external system libraries only.
+%global __provides_exclude_from ^/usr/lib/neutrondrive/.*$
+%global __requires_exclude ^(libQt6.*|libicu(data|i18n|uc)\\.so\\.73).*$
 
 %description
 Browse and transfer files with a native Qt interface and the bundled SDK-based NeutronDrive event bridge. Requires an account, browser and running Secret Service.

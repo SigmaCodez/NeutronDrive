@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Prepare a local Arch package recipe from a provenance-verified native DEB.
+
+No AUR account or publication is involved. Run makepkg in the output directory
+on Arch Linux. Published AUR metadata is updated separately with a real release.
+"""
+import argparse
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+def module(name, filename):
+    spec = importlib.util.spec_from_file_location(name, ROOT/'packaging'/filename)
+    value = importlib.util.module_from_spec(spec); spec.loader.exec_module(value)
+    return value
+native = module('native_frontend', 'native_frontend.py')
+backend = module('backend', 'fetch-backend.py')
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--deb', type=Path, required=True)
+parser.add_argument('--output', type=Path, required=True)
+args = parser.parse_args()
+if args.output.exists():
+    parser.error('Choose a new output directory')
+package = subprocess.check_output(['dpkg-deb', '--field', str(args.deb), 'Package'], text=True).strip()
+architecture = subprocess.check_output(['dpkg-deb', '--field', str(args.deb), 'Architecture'], text=True).strip()
+if package != 'neutrondrive' or architecture not in ('amd64', 'arm64'):
+    parser.error('Expected a native NeutronDrive DEB')
+architecture = native.arch(architecture)
+with tempfile.TemporaryDirectory(prefix='nd-arch-verify-') as temporary:
+    root = Path(temporary)
+    subprocess.run(['dpkg-deb', '-x', str(args.deb), str(root)], check=True)
+    app = root/'usr/lib/neutrondrive'
+    binary = app/'bin/neutrondrive-qt'
+    report = json.loads((root/'usr/share/doc/neutrondrive/native-build.json').read_text())
+    facts = native.inspect(binary, architecture)
+    if report.get('source_sha256') != native.sources() or report.get('sha256') != native.sha(binary) or any(report.get(k) != v for k,v in facts.items()):
+        raise ValueError('DEB frontend provenance does not match this checkout')
+    if any(path.suffix in ('.py', '.pyc', '.pyi') for path in app.rglob('*') if path.is_file()):
+        raise ValueError('Legacy Python payload cannot become a native Arch package')
+    sdk = app/'bin/proton-drive'
+    shutil.copyfile(root/'usr/share/doc/neutrondrive/backend-build.provenance.json', sdk.with_name('proton-drive.provenance.json'))
+    backend.verify_source_build(sdk, architecture)
+version = re.search(r'^version = "([^"]+)"', (ROOT/'desktop/Cargo.toml').read_text(), re.M)[1]
+pkgver = version.replace('-alpha.', 'alpha').replace('-beta.', 'beta').replace('-rc.', 'rc')
+if not re.fullmatch(r'[0-9A-Za-z.+]+', pkgver):
+    raise ValueError('Unsupported Arch version')
+args.output.mkdir(parents=True)
+shutil.copyfile(args.deb, args.output/'neutrondrive.deb')
+digest = hashlib.sha256((args.output/'neutrondrive.deb').read_bytes()).hexdigest()
+recipe = f'''# Local native package; generated from the verified DEB by prepare-native-arch.
+pkgname=neutrondrive-bin
+pkgver={pkgver}
+pkgrel=1
+pkgdesc='Independent Rust/Qt Quick client for Proton Drive (alpha)'
+arch=('{architecture}')
+url='https://github.com/SigmaCodez/NeutronDrive'
+license=('MIT' 'LGPL-3.0-only')
+depends=('hicolor-icon-theme' 'fuse3' 'libsecret' 'xdg-utils' 'ca-certificates'
+         'glibc' 'gcc-libs' 'wayland' 'libglvnd' 'libxkbcommon-x11' 'libxcb'
+         'xcb-util-cursor' 'xcb-util-wm' 'xcb-util-image' 'xcb-util-keysyms'
+         'xcb-util-renderutil' 'libx11' 'fontconfig' 'freetype2' 'dbus'
+         'libsm' 'libice' 'zstd' 'krb5' 'brotli')
+optdepends=('gnome-keyring: Secret Service provider')
+provides=("neutrondrive=$pkgver")
+conflicts=('neutrondrive')
+options=('!strip' '!debug')
+source=('neutrondrive.deb')
+sha256sums=('{digest}')
+noextract=('neutrondrive.deb')
+
+package() {{
+    bsdtar -xOf "$srcdir/neutrondrive.deb" data.tar.xz |
+        bsdtar -xJf - -C "$pkgdir" ./usr
+    mv "$pkgdir/usr/share/licenses/neutrondrive" "$pkgdir/usr/share/licenses/$pkgname"
+}}
+'''
+(args.output/'PKGBUILD').write_text(recipe)
+print(args.output.resolve())

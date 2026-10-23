@@ -11,10 +11,11 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from neutrondrive.backend import BackendError
-from neutrondrive import desktop_integration as integration
-from neutrondrive.desktop_service import ServiceCore, DesktopClient
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tests'))
+from core_contract.backend import BackendError
+from core_contract import desktop_integration as integration
+from core_contract.desktop_service import DesktopClient
+from reference_desktop_service import ServiceCore
 
 
 class FakeManager:
@@ -152,7 +153,7 @@ class DesktopIntegrationTests(unittest.TestCase):
         self.assertTrue(core.manager.mounted)
 
     def test_event_stop_does_not_cancel_mount_backend(self):
-        from neutrondrive.backend import Backend
+        from core_contract.backend import Backend
         created = []
         class Events:
             running = False
@@ -187,6 +188,32 @@ class DesktopIntegrationTests(unittest.TestCase):
         finally:
             worker.join(3)
 
+    def test_failed_event_start_keeps_mount_and_reports_safe_degraded_status(self):
+        class Events:
+            running = False
+            status = {'state': 'stopped'}
+            def __init__(self, *args, **kwargs):
+                pass
+            def start(self, callback):
+                raise RuntimeError('synthetic private diagnostic')
+            def stop(self):
+                pass
+        core = ServiceCore(FakeBackend(), self.root / 'service', FakeManager, Events)
+        status = core.request({'action': 'mount', 'mountpoint': str(self.root / 'virtual')})
+        self.assertTrue(status['mounted'])
+        self.assertFalse(status['busy'])
+        self.assertEqual(status['events']['state'], 'error')
+        self.assertNotIn('private diagnostic', status['events']['error'])
+        self.assertIsNone(core.events)
+
+    def test_corrupt_restore_flag_cannot_trigger_mount(self):
+        core = ServiceCore(FakeBackend(), self.root / 'service', FakeManager)
+        core._save({'restore': 'false', 'mountpoint': str(self.root / 'virtual')})
+        with self.assertRaises(BackendError):
+            core.request({'action': 'restore'})
+        self.assertEqual(core.manager.calls, [])
+        self.assertEqual(core._operation, '')
+
     def test_autostart_stale_tempfile_does_not_block_update(self):
         with patch.object(integration, 'app_command', return_value=['/usr/bin/neutrondrive', '--background']):
             integration.set_autostart(True)
@@ -208,7 +235,7 @@ class DesktopIntegrationTests(unittest.TestCase):
             self.assertTrue(integration.autostart_enabled())
 
     def test_strict_snap_fuse_reports_native_package_requirement(self):
-        from neutrondrive.fuse import availability
+        from core_contract.fuse import availability
         with patch.dict(os.environ, {'SNAP': '/snap/neutrondrive/test'}):
             available, reason = availability()
         self.assertFalse(available)
@@ -224,26 +251,28 @@ class DesktopIntegrationTests(unittest.TestCase):
         binary.write_bytes(b'synthetic payload; binary verification is tested separately')
         for native in (False, True):
             target = self.root / ('native' if native else 'snap')
-            with patch.object(stage.backend, 'verify'):
+            # This contract tests resources/service selection. ELF provenance is
+            # exercised independently by test_native_packaging and package builds.
+            with patch.object(stage.backend, 'verify'), patch.object(stage.native_frontend, 'stage'):
                 stage.stage(target, '/usr', 'x86_64', binary, host_services=native)
             activation = target / 'usr/share/dbus-1/services/io.github.SigmaCodez.NeutronDrive.Service.service'
             unit = target / 'usr/lib/systemd/user/neutrondrive-background.service'
             self.assertEqual(activation.exists(), native)
             self.assertEqual(unit.exists(), native)
             self.assertTrue((target / 'usr/bin/neutrondrive').is_file())
-            from neutrondrive.i18n import SUPPORTED
+            from core_contract.i18n import SUPPORTED
             catalogs = target / 'usr/lib/neutrondrive/neutrondrive/locales'
             self.assertEqual({p.stem for p in catalogs.glob('*.json')}, set(SUPPORTED))
             source_catalogs = stage.ROOT / 'src/neutrondrive/locales'
             for code in SUPPORTED:
                 self.assertEqual((catalogs / (code + '.json')).read_bytes(),
                                  (source_catalogs / (code + '.json')).read_bytes())
-            translations = target / 'usr/lib/neutrondrive/qt/PySide6/Qt/translations'
+            translations = target / 'usr/lib/neutrondrive/qt/translations'
             self.assertTrue((translations / 'qtbase_fr.qm').is_file())
             self.assertTrue((translations / 'qtdeclarative_fr.qm').is_file())
 
     def test_service_does_not_mount_inside_sync_folder(self):
-        from neutrondrive.background import JobStore
+        from core_contract.background import JobStore
         sync = self.root / 'sync'
         sync.mkdir()
         JobStore(self.root / 'state/neutrondrive/background').add(sync, '/my-files/test')
@@ -261,13 +290,13 @@ class BusIntegrationTests(unittest.TestCase):
                 root = Path(directory)
                 env = os.environ.copy()
                 env.update({'XDG_STATE_HOME': str(root / 'state'), 'XDG_CONFIG_HOME': str(root / 'config'),
-                            'XDG_DATA_HOME': str(root / 'data'), 'PYTHONPATH': str(Path(__file__).resolve().parents[1] / 'src') + os.pathsep + env.get('PYTHONPATH', '')})
+                            'XDG_DATA_HOME': str(root / 'data'), 'PYTHONPATH': str(Path(__file__).resolve().parents[1] / 'tests') + os.pathsep + env.get('PYTHONPATH', '')})
                 for key in ('FLATPAK_ID', 'SNAP', 'SNAP_USER_DATA', 'SNAP_USER_COMMON'):
                     env.pop(key, None)
                 if mode == 'activation':
                     service_dir = root / 'data/dbus-1/services'
                     service_dir.mkdir(parents=True)
-                    from neutrondrive.desktop_service import BUS_NAME
+                    from core_contract.desktop_service import BUS_NAME
                     command = [sys.executable, str(Path(__file__).resolve()), '--dbus-server', str(root)]
                     import shlex
                     (service_dir / (BUS_NAME + '.service')).write_text('[D-BUS Service]\nName=' + BUS_NAME + '\nExec=' + shlex.join(command) + '\n')
@@ -292,7 +321,8 @@ class BusIntegrationTests(unittest.TestCase):
 
 
 def _bus_case(mode, directory):
-    from neutrondrive.desktop_service import BUS_NAME, OBJECT_PATH, INTERFACE, _gio
+    from core_contract.desktop_service import BUS_NAME, OBJECT_PATH, INTERFACE
+    from reference_desktop_service import _gio
     Gio, GLib = _gio()
     root = Path(directory)
     client = DesktopClient()
@@ -414,7 +444,8 @@ def _bus_case(mode, directory):
 
 if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '--snap-restore-case':
-        from neutrondrive.desktop_service import BUS_NAME, _gio
+        from core_contract.desktop_service import BUS_NAME
+        from reference_desktop_service import _gio
         assert BUS_NAME.endswith('.SnapService')
         client = DesktopClient()
         assert not client.request('status')['available']
@@ -431,7 +462,7 @@ if __name__ == '__main__':
             os.kill(pid, signal.SIGTERM)
         raise SystemExit(0)
     if len(sys.argv) > 1 and sys.argv[1] == '--dbus-kernel-server':
-        from neutrondrive.desktop_service import run_service
+        from reference_desktop_service import run_service
         from test_ondemand import FakeBackend as CloudBackend
         class KernelBackend(CloudBackend):
             def cancel(self):
@@ -451,7 +482,7 @@ if __name__ == '__main__':
         core = ServiceCore(KernelBackend(), location / 'service', event_factory=Events)
         raise SystemExit(run_service(core=core))
     if len(sys.argv) > 1 and sys.argv[1] == '--dbus-server':
-        from neutrondrive.desktop_service import run_service
+        from reference_desktop_service import run_service
         location = Path(sys.argv[2])
         (location / 'activated').write_text('started')
         core = ServiceCore(FakeBackend(), location / 'service', FakeManager)

@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble a Flatpak from Python sources and the pinned binary, without an SDK.
-
-The normal flatpak-builder recipe remains available. This alternative needs no
-compiler because no native code is built: Python sources and Proton's verified
-standalone executable are installed directly into a standard Flatpak payload.
-"""
+"""Assemble a Flatpak from verified native Rust/Qt and Proton SDK artifacts."""
 import argparse
 from datetime import datetime, timezone
 import importlib.util
@@ -22,6 +17,7 @@ spec.loader.exec_module(stage)
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--arch", default=None)
 parser.add_argument("--backend", type=Path)
+parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
 parser.add_argument("--smoke-test", action="store_true", help="Run diagnostics inside an already installed GNOME 50 runtime")
 args = parser.parse_args()
 arch = stage.backend.architecture(args.arch)
@@ -32,7 +28,7 @@ app_id = manifest["app-id"]
 branch = "master"
 timestamp = datetime.fromtimestamp(int(os.environ.get("SOURCE_DATE_EPOCH", "1792454400")), timezone.utc).isoformat()
 (ROOT / "build").mkdir(exist_ok=True)
-(ROOT / "dist").mkdir(exist_ok=True)
+args.output_dir.mkdir(parents=True, exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") as temporary:
     work = Path(temporary)
     payload = work / "app"
@@ -49,6 +45,8 @@ with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") a
         runtime_command = [
             "flatpak", "build", "--runtime", "--unshare=network",
             "--env=XDG_STATE_HOME=/tmp/neutrondrive-state",
+            "--env=XDG_CONFIG_HOME=/tmp/neutrondrive-config",
+            "--env=QT_QPA_PLATFORM=offscreen",
             "--env=XDG_DATA_HOME=/tmp/neutrondrive-data",
             "--env=XDG_CACHE_HOME=/tmp/neutrondrive-cache",
             str(payload),
@@ -57,13 +55,11 @@ with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") a
             *runtime_command, "/app/bin/neutrondrive", "--diagnose",
         ], check=True)
         subprocess.run([
-            *runtime_command, "python3", "-c",
-            "import sys; sys.path.insert(0, '/app/lib/neutrondrive/qt'); "
-            "from PySide6.QtCore import qVersion; from PySide6.QtQml import QQmlApplicationEngine; from PySide6.QtQuick import QQuickWindow; "
-            "print('Qt', qVersion(), 'available')",
+            *runtime_command, "/app/bin/neutrondrive",
+            "--check-window", "/app/lib/neutrondrive/neutrondrive/locales",
         ], check=True)
     repository = work / "repo"
     subprocess.run(["flatpak", "build-export", f"--arch={arch}", f"--timestamp={timestamp}", str(repository), str(payload), branch], check=True)
-    output = ROOT / "dist" / f"neutrondrive-0.6.0a6-{arch}.flatpak"
+    output = args.output_dir.resolve() / f"neutrondrive-0.6.0a6-{arch}.flatpak"
     subprocess.run(["flatpak", "build-bundle", f"--arch={arch}", "--runtime-repo=https://flathub.org/repo/flathub.flatpakrepo", str(repository), str(output), app_id, branch], check=True)
     print(output)

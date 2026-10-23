@@ -1,13 +1,15 @@
 # Portable AppImage (x86_64)
 
-The package wraps the unchanged, checksum-pinned alpha6 amd64 DEB. Ubuntu 22.04
-supplies Python 3.10, PyGObject, Trio, pyfuse3 and native dependencies. Qt, the
-Rust core, Proton bridge and all 25 catalogs come from the verified DEB.
-The application version stays alpha6; this is an additional packaging format.
+The package wraps a native DEB built from this checkout. Its application runtime
+is Rust plus the pinned Qt/QML libraries and Proton SDK; Python is used only by
+build tooling and is not bundled. All 25 language catalogs are retained.
 
-The dedicated GitHub workflow builds and tests on Ubuntu 22.04. `scripts/build-appimage`
-refuses another baseline. linuxdeploy, appimagetool, the type-2 runtime and the
-input DEB are SHA256-pinned in `tools-lock.json`; changed upstream assets fail closed.
+Build on Ubuntu 22.04 using `scripts/build-appimage --deb PATH_TO_NATIVE_DEB`.
+The builder checks the DEB's native frontend source hashes, ELF compatibility and
+binary hash before assembling the AppImage. linuxdeploy, appimagetool and the
+type-2 runtime are SHA256-pinned in `tools-lock.json`; changed assets fail closed.
+The Rust executable owns cache materialization and verification before starting
+Qt or a background service.
 The host supplies GLIBC (2.35+), graphical drivers, a browser and a Secret Service.
 No musl/Alpine or 32-bit support is claimed. ARM64 users can use the native package.
 

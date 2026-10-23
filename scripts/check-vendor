@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""Verify a fresh Git checkout contains every checksum-listed vendored file."""
+import json
+from pathlib import Path
+import subprocess
+
+ROOT = Path(__file__).resolve().parents[1]
+tracked = set(subprocess.check_output(['git', 'ls-files', '-z', 'core/vendor'], cwd=ROOT).decode().split('\0'))
+missing = []
+for manifest in sorted((ROOT/'core/vendor').glob('*/.cargo-checksum.json')):
+    required = [manifest, *(manifest.parent/name for name in json.loads(manifest.read_text())['files'])]
+    for path in required:
+        relative = path.relative_to(ROOT).as_posix()
+        if relative not in tracked or not path.is_file():
+            missing.append(relative)
+if missing:
+    raise SystemExit('Missing vendored Git files:\n'+'\n'.join(missing))
+print('Vendored checksum manifests are complete in Git and on disk')

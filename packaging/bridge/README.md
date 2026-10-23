@@ -24,8 +24,8 @@ scripts/build-backend --bun /path/to/bun \
   --target bun-linux-arm64 --output build/backend/v0.2.0/proton-drive-linux-arm64
 ```
 
-The script fetches and verifies the pinned upstream Git commit, copies the three
-bridge source files into that isolated build checkout, applies the version
+The script fetches and verifies the pinned upstream Git commit, copies the
+bridge source and test files into that isolated build checkout, applies the version
 patch, installs the frozen Bun lockfile, runs event and branding tests plus the
 complete TypeScript check, and invokes upstream's CLI build
 script. Upstream's generated lockfile points at Proton's private package mirror;
@@ -106,3 +106,14 @@ The upstream source and licensing are available at the pinned commit:
 [MIT license](https://github.com/ProtonDriveApps/sdk/blob/8a44654aece1609f0f7218be51c205103945abd8/LICENSE.md),
 [public event interface](https://github.com/ProtonDriveApps/sdk/blob/8a44654aece1609f0f7218be51c205103945abd8/client/js/src/interface/events.ts),
 [event iteration](https://github.com/ProtonDriveApps/sdk/blob/8a44654aece1609f0f7218be51c205103945abd8/client/js/src/internal/events/index.ts).
+
+## Computer commands (development)
+
+The current source also adds `computers create --json -- NAME` (Linux device)
+and `computers info --json -- UID`. They use `sdk.createDevice` and
+`sdk.getDevice`, with duplicate-name rejection before creation. Event polling
+accepts explicit `/devices/COMPUTER` roots as well as My files. The frozen SDK,
+crypto and authentication behavior are retained. Computer command tests run
+alongside protocol and branding tests during `scripts/build-backend`.
+An explicit source-built backend can be passed to package builders with
+`--backend`; its adjacent provenance must match this checkout and architecture.

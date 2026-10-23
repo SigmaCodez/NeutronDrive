@@ -1,17 +1,18 @@
 """Only synthetic private trees; no personal trash, credentials or cloud writes."""
-import errno
 import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
 import uuid
 
-from neutrondrive import local_trash as module
-from neutrondrive.local_trash import LocalTrash, LocalTrashError
-from neutrondrive.backend import Cancelled
+from core_contract import rust_core
+from core_contract.local_trash import LocalTrash, LocalTrashError
+from core_contract.backend import Cancelled
 
-
+# Native move race/commit/ordering tests live in core/src/trash_move.rs.
+# Native mount identity and nested-fsync tests live in core/src/filesystem.rs.
+# Restore parent races and interrupted commits are tested at the native syscall/
+# persistence boundary in core/src/trash_restore.rs; Python mocks no longer reach it.
 class LocalTrashTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix='neutrondrive-trash-test-')
@@ -19,7 +20,7 @@ class LocalTrashTests(unittest.TestCase):
         self.base = Path(self.temporary.name)
         self.root = self.base / 'sync'
         self.root.mkdir()
-        self.root_fd = os.open(self.root, module.DIR)
+        self.root_fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
         self.addCleanup(os.close, self.root_fd)
         self.trash = LocalTrash(self.base / 'state', data_home=self.base / 'xdg-data')
         self.path = self.root / 'hello %.txt'
@@ -27,8 +28,12 @@ class LocalTrashTests(unittest.TestCase):
 
     def expected(self, relative=None):
         relative = relative or self.path.name
-        with module._parent(self.root_fd, module._parts(relative)) as (fd, name, _):
-            snapshot = module._snapshot(fd, name)
+        path = self.root / relative
+        fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            snapshot = rust_core.backend_value('trash_snapshot', parent=fd, name=path.name)
+        finally:
+            os.close(fd)
         return snapshot[''], {relative + '/' + name if name else relative: item for name, item in snapshot.items()}
 
     def move(self, *, relative=None, expected=None, **kwargs):
@@ -53,6 +58,15 @@ class LocalTrashTests(unittest.TestCase):
         self.assertEqual(self.path.stat().st_ino, original.st_ino)
         self.assertFalse(Path(receipt.trash_path).exists())
 
+    def test_multibyte_trash_prefix_preserves_valid_unicode_and_restores(self):
+        self.path = self.root / ('a' + '😀' * 30 + '.txt')
+        self.path.write_bytes(b'unicode content')
+        receipt = self.move()
+        self.assertEqual(Path(receipt.trash_path).read_bytes(), b'unicode content')
+        Path(receipt.trash_path).name.encode('utf-8')
+        self.trash.restore(receipt.id)
+        self.assertEqual(self.path.read_bytes(), b'unicode content')
+
     def test_managed_trash_is_private_and_outside_sync_root(self):
         self.trash.prefer_desktop = False
         receipt = self.move()
@@ -62,28 +76,8 @@ class LocalTrashTests(unittest.TestCase):
         self.trash.restore(receipt.id)
         self.assertTrue(self.path.exists())
 
-    def test_external_mount_uses_trash_uid_and_relative_info_path(self):
-        with patch.object(module, '_mount_top', side_effect=lambda path: self.base if self.base / 'sync' in (path, *path.parents) else Path('/')):
-            receipt = self.move()
-        self.assertIn(f'.Trash-{os.getuid()}', receipt.trash_path)
-        self.assertIn('Path=sync/hello%20%25.txt\n', Path(receipt.metadata_path).read_text())
-
-    def test_external_sticky_shared_trash_is_preferred(self):
-        shared = self.base / '.Trash'
-        shared.mkdir(mode=0o1777)
-        shared.chmod(0o1777)
-        with patch.object(module, '_mount_top', side_effect=lambda path: self.base if self.root in (path, *path.parents) else Path('/')):
-            receipt = self.move()
-        self.assertIn(f'/.Trash/{os.getuid()}/', receipt.trash_path)
-
-    def test_unsafe_shared_trash_falls_back_without_following_link(self):
-        outside = self.base / 'outside'
-        outside.mkdir()
-        (self.base / '.Trash').symlink_to(outside)
-        with patch.object(module, '_mount_top', side_effect=lambda path: self.base if self.root in (path, *path.parents) else Path('/')):
-            receipt = self.move()
-        self.assertIn(f'.Trash-{os.getuid()}', receipt.trash_path)
-        self.assertEqual(list(outside.iterdir()), [])
+    # External mount selection, sticky shared trash and symlink fallback now
+    # execute in Rust; fault cases live in core/src/trash_location.rs.
 
     def test_changed_source_is_not_moved(self):
         expected = self.expected()[0]
@@ -205,74 +199,6 @@ class LocalTrashTests(unittest.TestCase):
         self.assertEqual(self.path.read_text(), 'new independent local file')
         self.assertTrue(Path(receipt.trash_path).exists())
 
-    def test_collision_in_trash_never_overwrites_content(self):
-        rename = module._rename_noreplace
-        def collide(src_fd, src, dst_fd, dst):
-            fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=dst_fd)
-            os.write(fd, b'other trash object')
-            os.close(fd)
-            rename(src_fd, src, dst_fd, dst)
-        with patch.object(module, '_rename_noreplace', side_effect=collide):
-            with self.assertRaises(LocalTrashError) as error:
-                self.move()
-        self.assertTrue(self.path.exists())
-        self.assertEqual(Path(error.exception.receipt.trash_path).read_bytes(), b'other trash object')
-
-    def test_replacement_in_last_rename_window_is_rolled_back_without_loss(self):
-        rename = module._rename_noreplace
-        calls = []
-        def race(src_fd, src, dst_fd, dst):
-            if not calls:
-                calls.append(True)
-                self.path.rename(self.root / 'original-preserved')
-                self.path.write_text('replacement raced rename')
-            rename(src_fd, src, dst_fd, dst)
-        with patch.object(module, '_rename_noreplace', side_effect=race):
-            with self.assertRaises(LocalTrashError) as error:
-                self.move()
-        self.assertEqual(error.exception.receipt.status, 'aborted')
-        self.assertEqual(self.path.read_text(), 'replacement raced rename')
-        self.assertEqual((self.root / 'original-preserved').read_bytes(), b'valuable original bytes\x00\xff')
-
-    def test_post_move_race_with_occupied_original_keeps_recovery(self):
-        rename = module._rename_noreplace
-        calls = []
-        def race(src_fd, src, dst_fd, dst):
-            rename(src_fd, src, dst_fd, dst)
-            if not calls:
-                calls.append(True)
-                self.path.write_text('another file now occupies original')
-                fd = os.open(dst, os.O_WRONLY | os.O_TRUNC, dir_fd=dst_fd)
-                os.write(fd, b'concurrent edit via already-open descriptor')
-                os.close(fd)
-        with patch.object(module, '_rename_noreplace', side_effect=race):
-            with self.assertRaises(LocalTrashError) as error:
-                self.move()
-        self.assertEqual(error.exception.receipt.status, 'recovery')
-        self.assertTrue(Path(error.exception.receipt.trash_path).exists())
-        self.assertEqual(self.path.read_text(), 'another file now occupies original')
-
-    def test_durable_prepared_journal_survives_commit_failure(self):
-        save = self.trash._save
-        def fail_commits(fd, record, *, initial=False):
-            if not initial:
-                raise OSError(errno.EIO, 'synthetic fsync failure')
-            return save(fd, record, initial=True)
-        with patch.object(self.trash, '_save', side_effect=fail_commits):
-            with self.assertRaises(LocalTrashError) as error:
-                self.move()
-        record = self.trash.list_entries()[0]
-        self.assertEqual(record.status, 'prepared')
-        self.assertTrue(Path(record.trash_path).exists())
-        self.trash.restore(record.id)
-        self.assertEqual(self.path.read_bytes(), b'valuable original bytes\x00\xff')
-
-    def test_cross_device_rename_failure_does_not_copy_or_delete(self):
-        with patch.object(module, '_rename_noreplace', side_effect=OSError(errno.EXDEV, 'synthetic separate filesystem')):
-            with self.assertRaises(LocalTrashError):
-                self.move()
-        self.assertEqual(self.path.read_bytes(), b'valuable original bytes\x00\xff')
-
     def test_lists_only_registered_receipts_and_detects_missing_objects(self):
         receipt = self.move()
         (Path(receipt.trash_path).parent / 'unrelated-personal-file').write_text('not enumerated')
@@ -292,72 +218,6 @@ class LocalTrashTests(unittest.TestCase):
         self.assertEqual(receipt.backend, 'managed')
         self.assertEqual(list(external.iterdir()), [])
 
-    def test_source_parent_race_preserves_payload_and_replacement_directory(self):
-        folder = self.root / 'folder'
-        folder.mkdir()
-        (folder / 'one').write_text('one')
-        rename = module._rename_noreplace
-        def race(src_fd, src, dst_fd, dst):
-            folder.rename(self.root / 'old-folder')
-            folder.mkdir()
-            (folder / 'one').write_text('unrelated replacement')
-            return rename(src_fd, src, dst_fd, dst)
-        with patch.object(module, '_rename_noreplace', side_effect=race):
-            with self.assertRaises(LocalTrashError) as error:
-                self.move(relative='folder/one')
-        self.assertEqual(error.exception.receipt.status, 'recovery')
-        self.assertEqual(Path(error.exception.receipt.trash_path).read_text(), 'one')
-        self.assertEqual((folder / 'one').read_text(), 'unrelated replacement')
-
-    def test_restore_parent_race_reports_actual_preserved_location(self):
-        folder = self.root / 'folder'
-        folder.mkdir()
-        (folder / 'one').write_text('one')
-        receipt = self.move(relative='folder/one')
-        rename = module._rename_noreplace
-        def race(src_fd, src, dst_fd, dst):
-            folder.rename(self.root / 'old-folder')
-            folder.mkdir()
-            (folder / 'one').write_text('unrelated replacement')
-            return rename(src_fd, src, dst_fd, dst)
-        with patch.object(module, '_rename_noreplace', side_effect=race):
-            with self.assertRaises(LocalTrashError) as error:
-                self.trash.restore(receipt.id)
-        self.assertEqual(error.exception.receipt.status, 'recovery')
-        self.assertEqual((self.root / 'old-folder' / 'one').read_text(), 'one')
-        self.assertEqual((folder / 'one').read_text(), 'unrelated replacement')
-        self.assertIn('/old-folder/one', self.trash.get_receipt(receipt.id).restore_path)
-
-    def test_interrupted_restore_is_reconciled_by_inode_and_content(self):
-        receipt = self.move()
-        save = self.trash._save
-        def fail_commit(fd, record, *, initial=False):
-            if record['status'] != 'restoring':
-                raise OSError(errno.EIO, 'synthetic final commit failure')
-            return save(fd, record, initial=initial)
-        with patch.object(self.trash, '_save', side_effect=fail_commit):
-            with self.assertRaises(LocalTrashError):
-                self.trash.restore(receipt.id)
-        self.assertTrue(self.path.exists())
-        self.assertEqual(self.trash.get_receipt(receipt.id).status, 'recovery')
-        final = self.trash.restore(receipt.id)
-        self.assertEqual(final.status, 'restored')
-        self.assertEqual(self.path.read_bytes(), b'valuable original bytes\x00\xff')
-
-    def test_journal_write_failure_before_rename_leaves_source(self):
-        with patch.object(self.trash, '_save', side_effect=OSError(errno.ENOSPC, 'synthetic full disk')):
-            with self.assertRaises(LocalTrashError):
-                self.move()
-        self.assertTrue(self.path.exists())
-        self.assertEqual(self.trash.list_entries(), [])
-
-    def test_mount_identity_change_is_rejected_even_on_same_device(self):
-        # Simulate a bind mount's distinct mnt_id with the same st_dev.
-        with patch.object(module, '_mount_id', side_effect=[1, 2]):
-            with self.assertRaises(LocalTrashError):
-                module._snapshot(self.root_fd, self.path.name)
-        self.assertTrue(self.path.exists())
-
     def test_restore_retry_after_user_resolves_target_conflict(self):
         receipt = self.move()
         self.path.write_text('user change')
@@ -367,22 +227,6 @@ class LocalTrashTests(unittest.TestCase):
         self.assertEqual(self.trash.restore(receipt.id).status, 'restored')
         self.assertEqual(self.path.read_bytes(), b'valuable original bytes\x00\xff')
         self.assertEqual((self.root / 'user-kept-change').read_text(), 'user change')
-
-    def test_every_nested_directory_is_fsynced_before_move(self):
-        folder = self.root / 'folder'
-        (folder / 'nested').mkdir(parents=True)
-        (folder / 'nested' / 'data').write_text('new child')
-        real_fsync = os.fsync
-        directories = set()
-        def fsync(fd):
-            import stat
-            if stat.S_ISDIR(os.fstat(fd).st_mode):
-                directories.add(Path(os.readlink('/proc/self/fd/' + str(fd))))
-            return real_fsync(fd)
-        with patch.object(module.os, 'fsync', side_effect=fsync):
-            module._snapshot(self.root_fd, 'folder')
-        self.assertIn(folder, directories)
-        self.assertIn(folder / 'nested', directories)
 
     def test_cancelled_hash_keeps_source_and_cancellation_type(self):
         expected = self.expected()[0]
@@ -395,47 +239,29 @@ class LocalTrashTests(unittest.TestCase):
             self.move(expected=expected, check_cancel=cancel)
         self.assertTrue(self.path.exists())
 
+    def test_native_restore_cancellation_preserves_type_and_receipt(self):
+        receipt = self.move()
+        calls = []
+        def cancel():
+            calls.append(True)
+            if len(calls) >= 3:
+                raise Cancelled('cancel synthetic restore proof')
+        with self.assertRaises(Cancelled) as error:
+            self.trash.restore(receipt.id, check_cancel=cancel)
+        self.assertEqual(error.exception.receipt.id, receipt.id)
+        self.assertTrue(Path(receipt.trash_path).exists())
+        self.assertFalse(self.path.exists())
+
     def test_lock_wait_is_bounded(self):
         import fcntl
         fd = os.open(self.trash.state_dir / 'lock', os.O_CREAT | os.O_RDWR, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
-            with self.assertRaisesRegex(LocalTrashError, 'busy'):
-                with self.trash._locked(timeout=0):
-                    self.fail('lock unexpectedly acquired')
+            with self.assertRaisesRegex(Exception, 'busy'):
+                rust_core.backend_value('trash_journal', operation=dict(
+                    action='lock', state=str(self.trash.state_dir), timeout=0))
         finally:
             os.close(fd)
-
-    def test_final_remote_validation_runs_after_local_hashing(self):
-        snapshot = module._snapshot
-        events = []
-        def traced(*args, **kwargs):
-            events.append('hash')
-            return snapshot(*args, **kwargs)
-        rename = module._rename_noreplace
-        def moved(*args):
-            events.append('rename')
-            return rename(*args)
-        expected = self.expected()[0]
-        with patch.object(module, '_snapshot', side_effect=traced), patch.object(module, '_rename_noreplace', side_effect=moved):
-            self.move(expected=expected, validate=lambda: events.append('remote-proof'))
-        self.assertEqual(events, ['hash', 'hash', 'remote-proof', 'rename', 'hash'])
-
-    def test_restore_parent_moved_without_replacement_has_recovery_path(self):
-        folder = self.root / 'folder'
-        folder.mkdir()
-        (folder / 'one').write_text('one')
-        receipt = self.move(relative='folder/one')
-        rename = module._rename_noreplace
-        def race(src_fd, src, dst_fd, dst):
-            folder.rename(self.root / 'old-folder')
-            return rename(src_fd, src, dst_fd, dst)
-        with patch.object(module, '_rename_noreplace', side_effect=race):
-            with self.assertRaises(LocalTrashError) as error:
-                self.trash.restore(receipt.id)
-        self.assertIn('/old-folder/one', error.exception.receipt.restore_path)
-        self.assertEqual(Path(error.exception.receipt.restore_path).read_text(), 'one')
-
 
 if __name__ == '__main__':
     unittest.main()

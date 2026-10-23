@@ -1,0 +1,427 @@
+//! Typed Drive operations. The pinned SDK remains the cryptographic boundary.
+//! Validation, command construction and result contracts live here, not in UI bindings.
+use crate::{backend, process};
+use process::Failure;
+use serde::Deserialize;
+use serde_json::{json, Value};
+use std::collections::HashMap;
+
+type Result<T> = std::result::Result<T, Failure>;
+#[derive(Deserialize)]
+#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Operation {
+    ComputerCreate {
+        name: String,
+    },
+    ComputerInfo {
+        uid: String,
+    },
+    Version,
+    Login,
+    Logout,
+    List {
+        path: String,
+    },
+    Info {
+        path: String,
+    },
+    Mkdir {
+        parent: String,
+        name: String,
+    },
+    Rename {
+        path: String,
+        name: String,
+    },
+    Move {
+        paths: Vec<String>,
+        destination: String,
+    },
+    Trash {
+        paths: Vec<String>,
+    },
+    Restore {
+        paths: Vec<String>,
+    },
+    Upload {
+        paths: Vec<String>,
+        parent: String,
+        file_strategy: String,
+        folder_strategy: String,
+    },
+    Download {
+        paths: Vec<String>,
+        destination: String,
+        file_strategy: String,
+        folder_strategy: String,
+    },
+    Sharing {
+        path: String,
+    },
+    CreateLink {
+        path: String,
+    },
+    RemoveLink {
+        path: String,
+    },
+}
+fn selected(paths: &[String]) -> Result<()> {
+    if paths.is_empty() {
+        return Err("Keine Dateien ausgewählt.".into());
+    }
+    for path in paths {
+        backend::remote(path)?;
+    }
+    Ok(())
+}
+fn command(parts: &[&str]) -> Vec<String> {
+    parts.iter().map(|v| (*v).into()).collect()
+}
+fn nodes(value: Value, path: &str) -> Result<Value> {
+    let values = value
+        .as_array()
+        .ok_or("Die Proton-CLI lieferte keine Dateiliste.")?;
+    let mut nodes = values
+        .iter()
+        .map(|v| backend::node(v.clone(), path))
+        .collect::<Result<Vec<_>>>()?;
+    if matches!(path, "/trash" | "/shared-with-me" | "/devices") {
+        let mut counts = HashMap::new();
+        for node in &nodes {
+            *counts
+                .entry(node["name"].as_str().unwrap_or("").to_owned())
+                .or_insert(0) += 1;
+        }
+        for node in &mut nodes {
+            if counts[node["name"].as_str().unwrap_or("")] > 1 {
+                node["safe"] = json!(false);
+            }
+        }
+    }
+    Ok(json!(nodes))
+}
+
+pub fn run(
+    executable: String,
+    operation: Operation,
+    callback: &mut impl FnMut(Value) -> i32,
+) -> Result<Value> {
+    execute(
+        operation,
+        callback,
+        &mut |args, timeout, parse, login, callback| {
+            process::run(
+                process::Request {
+                    version: 1,
+                    executable: executable.clone(),
+                    args,
+                    timeout,
+                    parse,
+                    login,
+                    max_output: 64 * 1024 * 1024,
+                },
+                callback,
+            )
+        },
+    )
+}
+
+// A transport seam permits deterministic SDK contract tests without accounts.
+fn execute<C, T>(operation: Operation, callback: &mut C, transport: &mut T) -> Result<Value>
+where
+    C: FnMut(Value) -> i32,
+    T: FnMut(Vec<String>, f64, bool, bool, &mut C) -> Result<Value>,
+{
+    let mut timeout = 3600.;
+    let mut parse = true;
+    let mut login = false;
+    let mut node_parent = None;
+    let mut list_path = None;
+    let mut optional = false;
+    let args = match operation {
+        Operation::ComputerCreate { name } => {
+            backend::name(&name)?;
+            command(&["computers", "create", "--json", "--", &name])
+        }
+        Operation::ComputerInfo { uid } => {
+            if uid.is_empty() || uid.len() > 512 || uid.chars().any(char::is_control) {
+                return Err("Invalid computer identity".into());
+            }
+            command(&["computers", "info", "--json", "--", &uid])
+        }
+        Operation::Version => {
+            timeout = 30.;
+            parse = false;
+            command(&["version"])
+        }
+        Operation::Login => {
+            timeout = 600.;
+            login = true;
+            command(&["auth", "login", "--json"])
+        }
+        Operation::Logout => {
+            timeout = 60.;
+            command(&["auth", "logout", "--json"])
+        }
+        Operation::List { path } => {
+            backend::remote(&path)?;
+            list_path = Some(path.clone());
+            command(&["filesystem", "list", "--json", "--", &path])
+        }
+        Operation::Info { path } => {
+            backend::remote(&path)?;
+            node_parent = Some(
+                path.rsplit_once('/')
+                    .map(|(p, _)| if p.is_empty() { path.as_str() } else { p })
+                    .unwrap_or(&path)
+                    .to_owned(),
+            );
+            command(&["filesystem", "info", "--json", "--", &path])
+        }
+        Operation::Mkdir { parent, name } => {
+            backend::remote(&parent)?;
+            backend::name(&name)?;
+            node_parent = Some(parent.clone());
+            command(&[
+                "filesystem",
+                "create-folder",
+                "--json",
+                "--",
+                &parent,
+                &name,
+            ])
+        }
+        Operation::Rename { path, name } => {
+            backend::remote(&path)?;
+            backend::name(&name)?;
+            command(&["filesystem", "rename", "--json", "--", &path, &name])
+        }
+        Operation::Move { paths, destination } => {
+            selected(&paths)?;
+            backend::remote(&destination)?;
+            let mut args = command(&["filesystem", "move", "--json", "--"]);
+            args.extend(paths);
+            args.push(destination);
+            args
+        }
+        Operation::Trash { paths } => {
+            selected(&paths)?;
+            let mut args = command(&["filesystem", "trash", "--json", "--"]);
+            args.extend(paths);
+            args
+        }
+        Operation::Restore { paths } => {
+            selected(&paths)?;
+            let current = execute(
+                Operation::List {
+                    path: "/trash".into(),
+                },
+                callback,
+                transport,
+            )?;
+            for path in &paths {
+                let matches: Vec<_> = current
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter(|node| node["path"] == *path)
+                    .collect();
+                if matches.len() != 1 || matches[0]["safe"] != true {
+                    return Err("Mehrdeutiger Papierkorb-Eintrag. Bitte in der Proton-Web-App wiederherstellen.".into());
+                }
+            }
+            let mut args = command(&["filesystem", "restore", "--json", "--"]);
+            args.extend(paths);
+            args
+        }
+        Operation::Upload {
+            paths,
+            parent,
+            file_strategy,
+            folder_strategy,
+        } => {
+            if paths.is_empty()
+                || !["rename", "create-new-revision", "skip"].contains(&file_strategy.as_str())
+                || !["merge", "rename", "skip"].contains(&folder_strategy.as_str())
+            {
+                return Err("Ungültige Upload-Einstellungen.".into());
+            }
+            backend::remote(&parent)?;
+            let mut args = command(&[
+                "filesystem",
+                "upload",
+                "--json",
+                "--file-conflict-strategy",
+                &file_strategy,
+                "--folder-conflict-strategy",
+                &folder_strategy,
+                "--",
+            ]);
+            for path in paths {
+                let path = backend::local_path(&path, false)?;
+                backend::scan_upload(&path, callback)?;
+                args.push(
+                    path.to_str()
+                        .ok_or("Nicht-UTF-8-Pfade werden vom SDK nicht unterstützt.")?
+                        .to_owned(),
+                );
+            }
+            args.push(parent);
+            args
+        }
+        Operation::Download {
+            paths,
+            destination,
+            file_strategy,
+            folder_strategy,
+        } => {
+            if paths.is_empty()
+                || !["rename", "skip"].contains(&file_strategy.as_str())
+                || !["merge", "rename", "skip"].contains(&folder_strategy.as_str())
+            {
+                return Err("Ungültige Download-Einstellungen.".into());
+            }
+            selected(&paths)?;
+            let destination = backend::local_path(&destination, true)?;
+            let mut args = command(&[
+                "filesystem",
+                "download",
+                "--json",
+                "--file-conflict-strategy",
+                &file_strategy,
+                "--folder-conflict-strategy",
+                &folder_strategy,
+                "--",
+            ]);
+            args.extend(paths);
+            args.push(
+                destination
+                    .to_str()
+                    .ok_or("Nicht-UTF-8-Pfade werden vom SDK nicht unterstützt.")?
+                    .to_owned(),
+            );
+            args
+        }
+        Operation::Sharing { path } => {
+            backend::remote(&path)?;
+            parse = false;
+            optional = true;
+            command(&["sharing", "status", "--json", "--", &path])
+        }
+        Operation::RemoveLink { path } => {
+            backend::remote(&path)?;
+            parse = false;
+            optional = true;
+            command(&["sharing", "remove-url", "--json", "--", &path])
+        }
+        Operation::CreateLink { path } => {
+            backend::remote(&path)?;
+            command(&[
+                "sharing", "set-url", "--json", "--role", "viewer", "--", &path,
+            ])
+        }
+    };
+    if callback(json!({"kind":"poll"})) != 0 {
+        return Err(Failure {
+            message: "Vorgang abgebrochen.".into(),
+            cancelled: true,
+        });
+    }
+    let result = transport(args, timeout, parse, login, callback)?;
+    if let Some(path) = list_path {
+        return nodes(result, &path);
+    }
+    if let Some(parent) = node_parent {
+        return backend::node(result, &parent);
+    }
+    if optional {
+        let text = result
+            .as_str()
+            .ok_or("Die Proton-CLI lieferte keinen gültigen Freigabestatus.")?;
+        if text == "undefined" {
+            return Ok(Value::Null);
+        }
+        let value = process::checked_json(text)?;
+        if !value.is_object() {
+            return Err("Die Proton-CLI lieferte keinen gültigen Freigabestatus.".into());
+        }
+        return Ok(value);
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn invalid_selection_never_reaches_transport() {
+        for op in [
+            Operation::Trash { paths: vec![] },
+            Operation::Move {
+                paths: vec!["/my-files/a".into()],
+                destination: "/unknown".into(),
+            },
+            Operation::Rename {
+                path: "/my-files/a".into(),
+                name: "../b".into(),
+            },
+        ] {
+            assert!(execute(op, &mut |_| 0, &mut |_, _, _, _, _| panic!(
+                "unexpected transport"
+            ))
+            .is_err());
+        }
+    }
+    #[test]
+    fn cancellation_stops_before_transport() {
+        let result = execute(Operation::Logout, &mut |_| 1, &mut |_, _, _, _, _| {
+            panic!("unexpected transport")
+        });
+        assert!(result.unwrap_err().cancelled);
+    }
+    #[test]
+    fn optional_sharing_and_required_json_remain_distinct() {
+        let value = execute(
+            Operation::Sharing {
+                path: "/my-files/a".into(),
+            },
+            &mut |_| 0,
+            &mut |args, _, parse, _, _| {
+                assert_eq!(
+                    args,
+                    command(&["sharing", "status", "--json", "--", "/my-files/a"])
+                );
+                assert!(!parse);
+                Ok(json!("undefined"))
+            },
+        )
+        .unwrap();
+        assert!(value.is_null());
+        assert!(execute(
+            Operation::Sharing {
+                path: "/my-files/a".into()
+            },
+            &mut |_| 0,
+            &mut |_, _, _, _, _| Ok(json!("[]"))
+        )
+        .is_err());
+    }
+    #[test]
+    fn ambiguous_restore_only_lists_without_mutation() {
+        let mut calls = 0;
+        let result = execute(
+            Operation::Restore {
+                paths: vec!["/trash/same".into()],
+            },
+            &mut |_| 0,
+            &mut |args, _, _, _, _| {
+                calls += 1;
+                assert_eq!(args[1], "list");
+                let n = json!({"uid":format!("{}~{}","a".repeat(22),"b".repeat(22)),"name":{"ok":true,"value":"same"},"type":"file"});
+                Ok(json!([n, n]))
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(calls, 1);
+    }
+}

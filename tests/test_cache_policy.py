@@ -1,9 +1,9 @@
 """Cache policy parity and stale-metadata protection at the Rust/host boundary."""
 import random
 import unittest
-from unittest.mock import patch
-from neutrondrive import rust_core
-from neutrondrive.background import RemoteTreeCache
+from core_contract import rust_core
+from core_contract.background import RemoteTreeCache
+from core_contract.backend import BackendError
 
 
 def previous_policy(snapshot):
@@ -54,23 +54,39 @@ class CachePolicyTests(unittest.TestCase):
             with self.subTest(case=case):
                 self.assertEqual(rust_core.call('cache_invalidate', snapshot=snapshot), previous_policy(snapshot))
 
-    def test_failure_discards_stale_listings_and_advances_generation(self):
-        cache = RemoteTreeCache(object())
-        cache._listings = {'root': ()}
-        with patch.object(rust_core, 'call', side_effect=rust_core.CoreError('synthetic')):
-            with self.assertRaises(rust_core.CoreError):
-                cache.event('node', None, ['root'])
-        self.assertEqual(cache._listings, {})
-        self.assertEqual(cache._generation, 1)
+    def test_failed_write_discards_stale_listing(self):
+        class Backend:
+            calls = 0
+            def list_nodes(self, path):
+                self.calls += 1
+                return []
+            def mkdir(self, parent, name):
+                raise BackendError('synthetic lost acknowledgement')
+        backend = Backend()
+        cache = RemoteTreeCache(backend)
+        self.assertEqual(cache.list_nodes('root'), [])
+        self.assertEqual(cache.list_nodes('root'), [])
+        self.assertEqual(backend.calls, 1)
+        with self.assertRaises(BackendError):
+            cache.mkdir('root', 'new')
+        self.assertEqual(cache.list_nodes('root'), [])
+        self.assertEqual(backend.calls, 2)
 
     def test_in_flight_listing_is_not_reinserted_after_event(self):
         class Backend:
+            calls = 0
             def list_nodes(self, path):
-                cache.event(None, None, ['root'])
+                self.calls += 1
+                if self.calls == 1:
+                    cache.event(None, None, ['root'])
                 return []
-        cache = RemoteTreeCache(Backend())
+        backend = Backend()
+        cache = RemoteTreeCache(backend)
         self.assertEqual(cache.list_nodes_fresh('root'), [])
-        self.assertNotIn('root', cache._listings)
+        self.assertEqual(cache.list_nodes('root'), [])
+        self.assertEqual(backend.calls, 2)
+        self.assertEqual(cache.list_nodes('root'), [])
+        self.assertEqual(backend.calls, 2)
 
     def test_invalid_snapshot_rejected(self):
         with self.assertRaises(rust_core.CoreError):

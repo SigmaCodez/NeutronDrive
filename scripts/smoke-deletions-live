@@ -16,10 +16,10 @@ import tempfile
 import time
 import uuid
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from neutrondrive.backend import Backend, BackendError
-from neutrondrive.background import Controller, JobStore
-from neutrondrive.local_trash import LocalTrash
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
+from core_contract.backend import Backend, BackendError
+from core_contract.background import Controller, JobStore
+from core_contract.local_trash import LocalTrash
 
 
 class CheckFailed(RuntimeError):

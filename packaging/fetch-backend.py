@@ -31,6 +31,25 @@ def verify(path, expected):
         raise ValueError(f"SHA-512 mismatch for {path}; refusing to package the backend")
 
 
+def verify_source_build(path, arch):
+    """Accept explicit developer builds only when provenance matches this checkout."""
+    path = Path(path)
+    bridge = LOCK.parent / "bridge"
+    lock = json.loads((bridge / "source-lock.json").read_text())
+    report = json.loads(path.with_name(path.name + ".provenance.json").read_text())
+    for key, value in lock.items():
+        if report.get(key) != value:
+            raise ValueError("Backend source provenance does not match the pinned SDK")
+    expected = {"x86_64": "bun-linux-x64-baseline", "aarch64": "bun-linux-arm64"}[architecture(arch)]
+    hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in bridge.glob("*.ts")}
+    if report.get("target") != expected or report.get("bridge_files") != hashes:
+        raise ValueError("Backend build target or bridge sources do not match")
+    builder = LOCK.parent.parent / "scripts/build-backend"
+    if report.get("builder_sha256") != hashlib.sha256(builder.read_bytes()).hexdigest():
+        raise ValueError("Backend build script provenance does not match")
+    verify(path, report["sha512"])
+
+
 def fetch(destination, arch=None):
     entry = json.loads(LOCK.read_text())["architectures"][architecture(arch)]
     destination = Path(destination)

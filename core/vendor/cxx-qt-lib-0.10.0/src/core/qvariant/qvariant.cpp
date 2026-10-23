@@ -1,0 +1,142 @@
+// clang-format off
+// SPDX-FileCopyrightText: 2022 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+// clang-format on
+// SPDX-FileContributor: Andrew Hayzen <andrew.hayzen@kdab.com>
+// SPDX-FileContributor: Leon Matthes <leon.matthes@kdab.com>
+//
+// SPDX-License-Identifier: MIT OR Apache-2.0
+#include "cxx-qt-lib/qvariant.h"
+
+#include <QtCore/QMetaObject>
+
+#include <cxx-qt-lib/assertion_utils.h>
+
+#include <cstring>
+
+// The layout has changed between Qt 5 and Qt 6
+//
+// Qt6 QVariant has one member, which contains three pointers and a union
+// (with a pointer / double as the largest member)
+// https://code.qt.io/cgit/qt/qtbase.git/tree/src/corelib/kernel/qvariant.h?h=v6.2.4#n540
+// https://code.qt.io/cgit/qt/qtbase.git/tree/src/corelib/kernel/qvariant.h?h=v6.2.4#n474
+//
+// Qt5 QVariant has one member, which contains three uints and a union
+// (with a pointer / double as the largest member)
+// The three uints are optimised to a reduced size of ushorts
+// https://code.qt.io/cgit/qt/qtbase.git/tree/src/corelib/kernel/qvariant.h?h=v5.15.6-lts-lgpl#n491
+// https://code.qt.io/cgit/qt/qtbase.git/tree/src/corelib/kernel/qvariant.h?h=v5.15.6-lts-lgpl#n411
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+assert_alignment_and_size(QVariant, {
+  double a0;
+  ::std::size_t a1[3];
+});
+#else
+assert_alignment_and_size(QVariant, {
+  double a0;
+  ::std::uint32_t a1;
+});
+#endif
+
+static_assert(!::std::is_trivially_copy_assignable<QVariant>::value);
+static_assert(!::std::is_trivially_copy_constructible<QVariant>::value);
+
+// Ensure that trivially destructible is correct
+// If this is false then we need to manually implement Drop rather than derive
+static_assert(!::std::is_trivially_destructible<QVariant>::value);
+
+static_assert(QTypeInfo<QVariant>::isRelocatable);
+
+// Need to use a macro here as we can't template because the types
+// are always QVariant and bool. So then CXX can't decide which to use.
+#define CXX_QT_QVARIANT_CAN_CONVERT_IMPL(typeName, name)                       \
+  bool qvariantCanConvert##name(const QVariant& variant)                       \
+  {                                                                            \
+    return variant.canConvert<typeName>();                                     \
+  }
+
+namespace rust {
+namespace cxxqtlib1 {
+namespace qvariant {
+
+::rust::Slice<const ::std::uint8_t>
+qvariantTypeName(const QVariant& variant) noexcept
+{
+  if (const char* name = variant.typeName()) {
+    const ::std::size_t len = ::std::strlen(name);
+    return ::rust::Slice{ reinterpret_cast<const ::std::uint8_t*>(name), len };
+  }
+
+  return {};
+}
+
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(bool, Bool)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(float, F32)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(double, F64)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::int8_t, I8)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::int16_t, I16)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::int32_t, I32)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::int64_t, I64)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QByteArray, QByteArray)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QDate, QDate)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QDateTime, QDateTime)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QJsonArray, QJsonArray)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QJsonObject, QJsonObject)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QJsonValue, QJsonValue)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QLine, QLine)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QLineF, QLineF)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QModelIndex, QModelIndex)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QObject*, QObjectMutPtr)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QPersistentModelIndex, QPersistentModelIndex)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QPoint, QPoint)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QPointF, QPointF)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QRect, QRect)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QRectF, QRectF)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QSize, QSize)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QSizeF, QSizeF)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QString, QString)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QStringList, QStringList)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QTime, QTime)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QUrl, QUrl)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QUuid, QUuid)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QVariantHash, QVariantHash)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QVariantList, QVariantList)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QVariantMap, QVariantMap)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::uint8_t, U8)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::uint16_t, U16)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::uint32_t, U32)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::std::uint64_t, U64)
+
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<bool>, QList_bool)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<float>, QList_f32)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<double>, QList_f64)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::int8_t>, QList_i8)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::int16_t>, QList_i16)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::int32_t>, QList_i32)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::int64_t>, QList_i64)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::uint8_t>, QList_u8)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::uint16_t>, QList_u16)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::uint32_t>, QList_u32)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::std::uint64_t>, QList_u64)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::QObjectMutPtr>, QList_QObjectMutPtr)
+// In Qt 5 QStringList is a subclass of QList<QString> but not an alias for it.
+// Therefore, these two are distinct types and each needs its own
+// implementation.
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QList<::QString>, QList_QString)
+
+#ifdef CXX_QT_GUI_FEATURE
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QColor, QColor)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QFont, QFont)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QImage, QImage)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QPen, QPen)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QPolygon, QPolygon)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QPolygonF, QPolygonF)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QQuaternion, QQuaternion)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QRegion, QRegion)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QVector2D, QVector2D)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QVector3D, QVector3D)
+CXX_QT_QVARIANT_CAN_CONVERT_IMPL(::QVector4D, QVector4D)
+#endif
+
+}
+}
+}

@@ -8,9 +8,8 @@ const options: Options = {
 async function query({ sdk, paths, args, options }: ActionArgs, signal: AbortSignal) {
     const roots: Root[] = [];
     for (const path of args) {
-        // v1 deliberately covers My files; Photos/core/shared scopes are not
-        // silently treated as interchangeable event sources.
-        const node = await paths.getNode(path, [PathType.MyFiles]);
+        // My files and explicit computer roots retain separate SDK event scopes.
+        const node = await paths.getNode(path, [PathType.MyFiles, PathType.Devices]);
         if (node.type !== 'folder') throw new Error('Event roots must be folders');
         roots.push({ path, uid: node.uid, scopeId: node.treeEventScopeId });
     }

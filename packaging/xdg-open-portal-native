@@ -1,0 +1,11 @@
+#!/bin/sh
+# Open a web URL through the desktop portal without a Python or GUI runtime.
+set -eu
+if [ "$#" -ne 1 ]; then
+    echo 'Expected one HTTP(S) browser URL' >&2
+    exit 2
+fi
+nd_helper=$(readlink -f -- "$0")
+nd_app=$(CDPATH= cd -- "$(dirname -- "$nd_helper")/.." && pwd)
+export LD_LIBRARY_PATH="$nd_app/qt/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$nd_app/bin/neutrondrive-qt" --open-uri "$1"

@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Prepare an isolated Qt header/tool SDK from already downloaded, pinned debs.
+Build tooling only: no packages are installed and no application is launched.
+"""
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import tempfile
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--packages', type=Path, default=ROOT / 'build/qt-native-sdk/packages')
+parser.add_argument('--runtime', type=Path, default=ROOT / 'build/qt/PySide6/Qt')
+parser.add_argument('--fetch', action='store_true', help='Fetch missing checksum-pinned development archives')
+parser.add_argument('--tools', type=Path, help='Verified baseline qmake/moc from build-native-qt-tools')
+args = parser.parse_args()
+lock = json.loads((ROOT / 'packaging/qt-native-dev-lock.json').read_text())
+architecture = platform.machine()
+if architecture not in lock['architectures']:
+    raise SystemExit('Unsupported native Qt development architecture: ' + architecture)
+triplet = {'x86_64': 'x86_64-linux-gnu', 'aarch64': 'aarch64-linux-gnu'}[architecture]
+if args.output.exists():
+    raise SystemExit('Choose a new SDK directory; existing directories are never overwritten.')
+archives = []
+for item in lock['architectures'][architecture]:
+    archive = args.packages / item['filename']
+    if not archive.exists() and args.fetch:
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=archive.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            try:
+                with urllib.request.urlopen(item['url'], timeout=120) as response:
+                    shutil.copyfileobj(response, stream)
+                stream.close()
+                if hashlib.sha256(temporary.read_bytes()).hexdigest() != item['sha256']:
+                    raise SystemExit('SDK archive checksum mismatch: ' + archive.name)
+                os.replace(temporary, archive)
+            finally:
+                temporary.unlink(missing_ok=True)
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != item['sha256']:
+        raise SystemExit('SDK archive checksum mismatch: ' + archive.name)
+    archives.append(archive)
+if not (args.runtime / 'lib/libQt6Core.so.6').is_file():
+    raise SystemExit('Prepare the pinned Qt runtime first.')
+args.output.mkdir(parents=True)
+for archive in archives:
+    subprocess.run(['dpkg-deb', '-x', str(archive), str(args.output)], check=True)
+root = args.output.resolve() / 'usr'
+libraries = root / 'lib' / triplet
+for source in (args.runtime / 'lib').glob('*.so*'):
+    target = libraries / source.name
+    if not target.exists() and not target.is_symlink():
+        target.symlink_to(source.resolve())
+    if source.name.startswith('libQt6') and source.name.endswith('.so.6'):
+        target = libraries / (source.name + '.10.2')
+        if not target.exists() and not target.is_symlink():
+            target.symlink_to(source.resolve())
+# Qt tools launched by CXX-Qt clear the environment. Use the runtime tools whose
+# own RPATH resolves the matching Qt libraries without LD_LIBRARY_PATH.
+for name in ('qmlcachegen', 'qmltyperegistrar', 'qmlimportscanner', 'rcc', 'uic'):
+    source = args.runtime / 'libexec' / name
+    if not source.is_file():
+        raise SystemExit('Missing Qt build tool: ' + str(source) + '; prepare qt_runtime.py --build-tools')
+    target = root / 'lib/qt6/libexec' / name
+    target.unlink(missing_ok=True)
+    target.symlink_to(source.resolve())
+(root / 'lib/qt6/bin/qt.conf').write_text(
+    f'[Paths]\nPrefix=../../..\nHeaders=include/{triplet}/qt6\n'
+    f'Libraries=lib/{triplet}\nBinaries=lib/qt6/bin\n'
+    f'LibraryExecutables=lib/qt6/libexec\nArchData=lib/{triplet}/qt6\nData=share/qt6\n')
+qmake = root / 'lib/qt6/bin/qmake6'
+if args.tools:
+    spec = importlib.util.spec_from_file_location('qt_tools', ROOT/'packaging/qt_tools.py')
+    tools = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tools)
+    verified = tools.verify(args.tools)
+    for source, destination in [('qmake', qmake), ('moc', root/'lib/qt6/libexec/moc')]:
+        destination.unlink(missing_ok=True)
+        shutil.copyfile(verified/source, destination)
+        destination.chmod(0o755)
+subprocess.run([str(root/'lib/qt6/libexec/qmlcachegen'), '--version'], check=True, stdout=subprocess.DEVNULL)
+version = subprocess.check_output([qmake, '-query', 'QT_VERSION'], text=True).strip()
+if version != lock['qt_version']:
+    raise SystemExit('Qt tool version mismatch')
+print(qmake)

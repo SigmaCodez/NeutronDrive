@@ -4,11 +4,13 @@ import { applyDefaultCliOptions, run } from './cli';
 import { COMMANDS } from './commands';
 import { CommandEventsPoll, CommandEventsWatch } from './eventCommands';
 
+import { CommandComputerCreate, CommandComputerInfo } from './computerCommands';
+
 declare const APP_VERSION: string;
 declare const SDK_VERSION: string | undefined;
 
 const eventMode = Bun.argv[2] === 'events';
-await run([...COMMANDS, ...applyDefaultCliOptions([new CommandEventsPoll(), new CommandEventsWatch()])], {
+await run([...COMMANDS, ...applyDefaultCliOptions([new CommandEventsPoll(), new CommandEventsWatch(), new CommandComputerCreate(), new CommandComputerInfo()])], {
     appVersion: APP_VERSION,
     sdkVersion: SDK_VERSION,
     clientUidPrefix: 'neutrondrive',

@@ -71,7 +71,13 @@ def runtime_member(name):
             or any(filename in {"Qt" + module + ".abi3.so", "Qt" + module + ".pyi"} for module in MODULES))
 
 
-def extract(paths,destination):
+BUILD_TOOLS = {"qmlcachegen", "qmltyperegistrar", "qmlimportscanner", "rcc", "uic"}
+BUILD_LIBRARIES = {"libQt6QmlCompiler.so.6"}
+
+
+def extract(paths,destination, *, native=False, build_tools=False):
+    if native and build_tools:
+        raise ValueError("Build tools must not be included in the installed native runtime")
     destination=Path(destination);destination.mkdir(parents=True,exist_ok=True)
     for path in paths:
         with zipfile.ZipFile(path) as archive:
@@ -79,8 +85,13 @@ def extract(paths,destination):
                 name=PurePosixPath(info.filename)
                 if name.is_absolute() or '..' in name.parts or (info.external_attr >> 16) & 0o170000 == 0o120000:
                     raise ValueError('Unsafe Qt wheel member')
-                if not info.is_dir() and runtime_member(info.filename):
-                    target=destination.joinpath(*name.parts);target.parent.mkdir(parents=True,exist_ok=True)
+                if native and (name.parts[:2] != ('PySide6', 'Qt') or name.suffix in {'.py', '.pyi', '.pyc'}):
+                    continue
+                is_build_tool = name.parts[:3] == ("PySide6", "Qt", "libexec") and len(name.parts) == 4 and name.name in BUILD_TOOLS
+                is_build_library = name.parts[:3] == ("PySide6", "Qt", "lib") and len(name.parts) == 4 and name.name in BUILD_LIBRARIES
+                if not info.is_dir() and (runtime_member(info.filename) or (build_tools and (is_build_tool or is_build_library))):
+                    relative = name.parts[2:] if native else name.parts
+                    target=destination.joinpath(*relative);target.parent.mkdir(parents=True,exist_ok=True)
                     with archive.open(info) as source,target.open('wb') as out:shutil.copyfileobj(source,out)
                     target.chmod(0o755 if (info.external_attr >> 16) & 0o111 else 0o644)
     # Fail at build time if a selected plugin requires an omitted Qt module.
@@ -96,19 +107,26 @@ def extract(paths,destination):
     return destination
 
 
-def stage(app,base,architecture):
-    extract(fetch(architecture),app / 'qt')
+def stage(app,base,architecture, *, native=False):
+    extract(fetch(architecture),app / 'qt', native=native)
     docs=base / 'share/doc/neutrondrive';docs.mkdir(parents=True,exist_ok=True)
     shutil.copyfile(LOCK,docs / 'qt-lock.json')
     shutil.copyfile(ROOT / 'packaging/qt-sources-lock.json', docs / 'qt-sources-lock.json')
-    shutil.copytree(ROOT / 'packaging/licenses/qt', base / 'share/licenses/neutrondrive/qt', dirs_exist_ok=True)
-    shutil.copyfile(ROOT / 'packaging/QT-NOTICES.md',docs / 'QT-NOTICES.md')
+    # Upstream license collection also contains a license-wizard example and
+    # license-checking tool. They are not notices or part of the native runtime.
+    # Do not turn those unused programs into a package-level Python dependency.
+    ignored = shutil.ignore_patterns('*.py', '*.pyc', '*.pyi', '*.pyproject') if native else None
+    shutil.copytree(ROOT / 'packaging/licenses/qt', base / 'share/licenses/neutrondrive/qt',
+                    dirs_exist_ok=True, ignore=ignored)
+    notice = 'QT-NATIVE-NOTICES.md' if native else 'QT-NOTICES.md'
+    shutil.copyfile(ROOT / 'packaging' / notice, docs / 'QT-NOTICES.md')
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--arch');parser.add_argument('--dest',type=Path)
+    parser.add_argument('--build-tools', action='store_true', help='Include pinned Qt generators for the development SDK only')
     args=parser.parse_args();paths=fetch(args.arch)
-    if args.dest:print(extract(paths,args.dest))
+    if args.dest:print(extract(paths,args.dest,build_tools=args.build_tools))
     else:
         for path in paths:print(path)

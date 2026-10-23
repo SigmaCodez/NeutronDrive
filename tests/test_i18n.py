@@ -1,12 +1,11 @@
 """Locale resolution, catalog safety and public presentation coverage."""
-import ast
 import json
 import os
 from pathlib import Path
 import re
 import unittest
 from unittest import mock
-from neutrondrive import i18n
+from core_contract import i18n
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,6 +32,12 @@ class LocaleTests(unittest.TestCase):
             with self.subTest(env=env):self.assertEqual(i18n.select_language(env),expected)
         self.assertEqual(i18n.select_language({},['zh-Hant-TW']),'zh-TW')
         self.assertEqual(i18n.select_language({},['ja-JP']),'en')
+
+    def test_explicit_language_overrides_system_and_can_be_reset(self):
+        with mock.patch.dict(os.environ, {"LC_ALL": "de_CH.UTF-8", "LANGUAGE": "de"}), mock.patch.object(i18n, "_current", None):
+            self.assertEqual(i18n.configure(override="fr"), "fr")
+            self.assertEqual(i18n.configure(override="system"), "de")
+            self.assertEqual(i18n.configure(override="invalid"), "de")
 
     def test_exact_coverage_and_placeholder_integrity(self):
         english=i18n.catalog('en')
@@ -70,15 +75,41 @@ class LocaleTests(unittest.TestCase):
 
     def test_all_explicit_ui_messages_are_catalogued(self):
         english=i18n.catalog('en')
-        for name in ('app.py','__main__.py'):
-            tree=ast.parse((ROOT/'src/neutrondrive'/name).read_text())
-            for node in ast.walk(tree):
-                if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='tr' and node.args and isinstance(node.args[0],ast.Constant):
-                    self.assertIn(node.args[0].value,english)
+        for path in (ROOT/'desktop/src').glob('*.rs'):
+            for literal in re.findall(r'\btr\(\s*("(?:[^"\\]|\\.)*")', path.read_text()):
+                self.assertIn(json.loads(literal), english, str(path))
         qml=(ROOT/'src/neutrondrive/qml/Main.qml').read_text()
         for literal in re.findall(r'window\.tr\(("(?:[^"\\]|\\.)*")\)',qml):
             self.assertIn(json.loads(literal),english)
         self.assertNotIn('modelData.kind===',qml)
 
-    def test_package_data_includes_offline_catalogs(self):
-        self.assertIn('"locales/*.json"',(ROOT/'pyproject.toml').read_text())
+    def test_native_diagnostics_preserve_literal_values_for_every_catalog(self):
+        from string import Formatter
+        values = {'p0': 'Meine Dateien {p1} 中文.txt', 'p1': 'ü😀\nsecond line', 'p2': 'path/with spaces'}
+        english = i18n.catalog('en')
+        for source in english:
+            try:
+                fields = [name for _, name, _, _ in Formatter().parse(source) if name is not None]
+            except ValueError:
+                continue
+            if not fields:
+                continue
+            message = source.format(**values)
+            for code in i18n.SUPPORTED:
+                with self.subTest(source=source, code=code), mock.patch.object(i18n, '_current', code):
+                    self.assertEqual(i18n.diagnostic(message), i18n.catalog(code)[source].format(**values))
+
+    def test_native_catalog_failure_and_placeholder_validation(self):
+        import tempfile
+        self.assertEqual(tuple(i18n._native('supported')), i18n.SUPPORTED)
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(i18n, '_ROOT', Path(directory)):
+            try:
+                i18n.catalog.cache_clear()
+                with self.assertRaises(RuntimeError): i18n.catalog('en')
+                (Path(directory) / 'en.json').write_text(json.dumps({'Test {p0}': 'Test {p0}'}))
+                (Path(directory) / 'fr.json').write_text(json.dumps({'Test {p0}': 'Test {p0.__class__}'}))
+                self.assertEqual(i18n.tr('Test {p0}', code='fr'), 'Test {p0}')
+                os.mkfifo(Path(directory) / 'de.json')
+                self.assertEqual(i18n.catalog('de'), {})
+            finally:
+                i18n.catalog.cache_clear()

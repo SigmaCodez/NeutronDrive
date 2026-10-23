@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 
@@ -19,29 +18,17 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--arch", default=None)
 parser.add_argument("--backend", type=Path)
 parser.add_argument("--output-dir", type=Path, default=ROOT / "dist")
-parser.add_argument("--vendor-pyfuse3", action="store_true", help="Compile pinned private pyfuse3 (automatic on Fedora)")
 args = parser.parse_args()
 arch = stage.backend.architecture(args.arch)
 if not shutil.which("rpmbuild"):
     parser.error("rpmbuild is required; install rpm-build (Fedora) or rpm-build (openSUSE)")
 args.output_dir.mkdir(parents=True, exist_ok=True)
 epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "1792454400"))
-vendor_pyfuse3 = args.vendor_pyfuse3 or bool(subprocess.check_output(["rpm", "--eval", "%{?fedora}"], text=True).strip())
-rpm_defines = []
-if vendor_pyfuse3:
-    if arch != stage.backend.architecture():
-        parser.error("Bundled pyfuse3 must be compiled natively for the target architecture")
-    rpm_defines = ["--define", "neutrondrive_vendor_pyfuse3 1",
-                   "--define", f"neutrondrive_python_abi {sys.version_info.major}.{sys.version_info.minor}"]
 with tempfile.TemporaryDirectory(prefix="neutrondrive-rpm-") as temporary:
     top = Path(temporary)
     for name in ("BUILD", "BUILDROOT", "RPMS", "SOURCES", "SPECS", "SRPMS", "payload", "tmp", "rpmdb"):
         (top / name).mkdir()
     stage.stage(top / "payload", "/usr", arch, args.backend)
-    if vendor_pyfuse3:
-        subprocess.run([sys.executable, str(ROOT / "packaging/rpm/vendor-pyfuse3.py"),
-                        "--payload", str(top / "payload")], check=True,
-                       env=dict(os.environ, SOURCE_DATE_EPOCH=str(epoch)))
     archive_path = top / "SOURCES/neutrondrive-payload.tar.gz"
     with archive_path.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb", mtime=epoch, filename="") as compressed, tarfile.open(fileobj=compressed, mode="w") as archive:
         for path in sorted((top / "payload").rglob("*")):
@@ -64,7 +51,6 @@ with tempfile.TemporaryDirectory(prefix="neutrondrive-rpm-") as temporary:
         "--define", "_build_id_links none",
         "--define", "_buildhost neutrondrive-builder",
         "--define", "use_source_date_epoch_as_buildtime 1",
-        *rpm_defines,
         str(specfile),
     ], check=True, env=dict(os.environ, SOURCE_DATE_EPOCH=str(epoch)))
     for package in (top / "RPMS").rglob("*.rpm"):

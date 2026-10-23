@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2021 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>
+# SPDX-FileContributor: Andrew Hayzen <andrew.hayzen@kdab.com>
+# SPDX-FileContributor: Gerhard de Clercq <gerhard.declercq@kdab.com>
+# SPDX-FileContributor: Leon Matthes <leon.matthes@kdab.com>
+#
+# SPDX-License-Identifier: MIT OR Apache-2.0
+[package]
+name = "cxx-qt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Safe interop between Rust and Qt"
+repository.workspace = true
+homepage = "https://kdab.github.io/cxx-qt/book/"
+readme = "README.md"
+keywords = ["cxx", "ffi", "QML", "Qt"]
+categories = ["api-bindings", "gui"]
+rust-version.workspace = true
+
+# When creating a library with cxx-qt-build, we need to set a fake "links" key
+# to make sure the build scripts are run in the correct order and the build scripts
+# can pass metadata from library to dependent.
+# See also: https://doc.rust-lang.org/cargo/reference/build-scripts.html#the-links-manifest-key
+links = "cxx-qt"
+
+[dependencies]
+cxx.workspace = true
+cxx-qt-macro.workspace = true
+static_assertions = "1.1.0"
+thiserror.workspace = true
+
+[build-dependencies]
+cxx-qt-build.workspace = true
+qt-build-utils.workspace = true
+
+[dev-dependencies]
+cxx.workspace = true
+
+[lints]
+workspace = true

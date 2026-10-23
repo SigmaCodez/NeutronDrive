@@ -2,11 +2,9 @@
 set -eu
 APPDIR=$(CDPATH= cd -- "${0%/*}" && pwd -P)
 export APPDIR
-export PYTHONHOME="$APPDIR/usr"
-export PYTHONPATH="$APPDIR/usr/lib/python3/dist-packages:$APPDIR/usr/lib/neutrondrive:$APPDIR/usr/lib/neutrondrive/qt"
-export PYTHONNOUSERSITE=1
-export PYTHONDONTWRITEBYTECODE=1
-export LD_LIBRARY_PATH="$APPDIR/usr/lib/neutrondrive/qt/PySide6/Qt/lib:$APPDIR/usr/lib:$APPDIR/usr/lib/x86_64-linux-gnu"
-export GI_TYPELIB_PATH="$APPDIR/usr/lib/x86_64-linux-gnu/girepository-1.0"
+export LD_LIBRARY_PATH="$APPDIR/usr/lib/neutrondrive/qt/lib:$APPDIR/usr/lib:$APPDIR/usr/lib/x86_64-linux-gnu"
+export QT_PLUGIN_PATH="$APPDIR/usr/lib/neutrondrive/qt/plugins"
+export QML_IMPORT_PATH="$APPDIR/usr/lib/neutrondrive/qt/qml"
+export QML2_IMPORT_PATH="$QML_IMPORT_PATH"
 export PATH="$APPDIR/usr/bin:$APPDIR/usr/lib/neutrondrive/bin:$PATH"
-exec "$APPDIR/usr/bin/python3.10" "$APPDIR/usr/lib/neutrondrive/appimage-bootstrap.py" "$@"
+exec "$APPDIR/usr/lib/neutrondrive/bin/neutrondrive-qt" --appimage-bootstrap "$APPDIR" "$@"

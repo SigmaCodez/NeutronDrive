@@ -6,8 +6,8 @@ import tempfile
 import threading
 import unittest
 
-from neutrondrive.backend import BackendError
-from neutrondrive.rust_core import backend_value
+from core_contract.backend import BackendError
+from core_contract.rust_core import backend_value
 
 
 class NativeStorageTests(unittest.TestCase):

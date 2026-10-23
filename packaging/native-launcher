@@ -1,0 +1,12 @@
+#!/bin/sh
+# Relocatable launcher for the Rust application and pinned Qt libraries.
+set -eu
+nd_launcher=$(readlink -f -- "$0")
+nd_prefix=$(CDPATH= cd -- "$(dirname -- "$nd_launcher")/.." && pwd)
+nd_app="$nd_prefix/lib/neutrondrive"
+export PATH="$nd_app/bin:${PATH:-/usr/bin:/bin}"
+export LD_LIBRARY_PATH="$nd_app/qt/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export QT_PLUGIN_PATH="$nd_app/qt/plugins"
+export QML_IMPORT_PATH="$nd_app/qt/qml"
+export QML2_IMPORT_PATH="$nd_app/qt/qml"
+exec "$nd_app/bin/neutrondrive-qt" "$@"

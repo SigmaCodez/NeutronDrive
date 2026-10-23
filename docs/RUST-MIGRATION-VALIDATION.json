@@ -1,0 +1,1394 @@
+{
+  "status": "migration checkpoint, incomplete",
+  "date": "2026-10-23",
+  "scope": "First-party application runtime to Rust; retain Qt/QML and pinned Proton SDK",
+  "new_native_runtime": [
+    "Descriptor-relative local scan and stable content proof",
+    "Upload staging and guarded download installation with recovery backups",
+    "Local trash tree proof with mount identity and fsync",
+    "Computer registration, identity verification and initially paused job setup",
+    "Offline localization: OS locale selection, English fallback, bounded catalog validation, literal diagnostic substitution",
+    "Authenticated Unix control-socket client with bounded replies and a whole-request deadline",
+    "Server-side Unix control-message transport: peer credentials, typed decoding, bounded receive/send, deadlines, preserved borrowed descriptors",
+    "Background echo verification: no-follow stat-only tree matching, mount exclusions and root/parent identity revalidation",
+    "Owned local-trash journal transactions: bounded/cancellable process locks, private reads, exclusive creation, atomic durable updates and path-identity checks",
+    "Complete local restore transaction with no-overwrite moves, ancestor/content proofs, durable recovery metadata and interrupted-commit reconciliation",
+    "Complete local move-to-trash transaction with final remote validation, no-overwrite rename, guarded rollback and durable recovery",
+    "Registered receipt inspection and same-filesystem trash location selection",
+    "Remote sync metadata validation, account ancestry, recursive traversal and fresh lookups; direct SDK or synchronous host services",
+    "Sync baseline preparation, compatible SHA-256 key/digest, v1/v2 schema validation and durable atomic persistence",
+    "Complete sync preview preparation with scans, baseline, policy and deletion proofs",
+    "Fresh deletion preflight with local/remote roots, ancestors, inode/revision identity and original trash-parent proofs",
+    "Complete sync execution with native process lock, staged transfers, durable deletion intent, receipt reconciliation and final convergence/baseline update",
+    "Owned directory metadata cache, generation-guarded fetches and mutation invalidation",
+    "Unknown remote event ancestry resolution and active-job reconciliation fallback",
+    "Complete active job account/root ancestry proof before identity pinning",
+    "Service controller status/start/stop, private logging, child cleanup and acknowledgement",
+    "Daemon job outcome transitions, bounded retry and settled-write filtering",
+    "Owned daemon lock/listener/PID lifecycle with authenticated control loop and identity-checked cleanup",
+    "Daemon command selection and configuration reconciliation, preserving identity pins and persistence-before-acknowledgement",
+    "Complete production daemon state ownership, native inotify/control/event/sync threads, scheduling, SDK serialization and cancellation",
+    "Online-drive private cache I/O, stable borrowed-FD hashing, bounded durable JSON, compatible Unicode keys and verified hydration",
+    "Online-drive writeback transaction: revision checks, staging, durable recovery, post-upload proof and independent cache inode installation",
+    "Online-drive filename/node validation, saved metadata loading, reachable-tree persistence and cloud directory reconciliation preserving open/pinned/local entries",
+    "Owned online-drive file descriptors, verified edit-copy preparation, durable intent before local writes/truncation, append and read I/O, sync and release recovery/cleanup",
+    "Native editor file replacement: preflight, source hydration, verified target writeback, durable tree update before source trash, recovery on partial failure and confirmed baseline retention",
+    "Inactive recovery-journal enumeration with private regular-file, shape and data-basename validation",
+    "Cloud namespace mkdir, rename/move, replacement dispatch and trash with durable native reconciliation, account/open-file/source-revision guards and raw-listing nonempty-folder checks",
+    "Complete owned online-filesystem coordinator: cache flock, mount/inode/open-file state, listing TTL/offline fallback, pin/evict, root blocking, open/create/write/truncate/flush/release and shutdown recovery",
+    "Native fuser kernel adapter, owned request channels and scoped service pump, direct SDK production transport and nonblocking recovery status",
+    "Owned mount manager: directory/home validation, session reservation, readiness/termination, identity-checked helper unmount, nonblocking status, pin/evict/refresh, account events and released-handle protection",
+    "Owned desktop event source: cursors, dynamic roots, direct SDK polling, acknowledged delivery, status, retry scheduling, independent cancellation and idle signal polling; shared compatible cursor filename hashing",
+    "Native HTTPS release checks and verified package downloads: system trust verification, HTTPS-only redirects, bounded streaming, private staging, cancellation cleanup and stable descriptor/path revalidation",
+    "Native XDG/Snap autostart path/launcher resolution, Desktop Exec escaping, managed-entry validation and durable atomic file replacement/removal",
+    "Native desktop D-Bus client: bounded typed request/reply handling, non-activating status, independent Snap name, source-helper ownership/reaping, retry only after undelivered requests",
+    "Native Background portal transaction and appearance monitor: early/changed-path responses, unique-sender validation, owner-filtered settings signals, legacy nested variants, read/change ordering and cancellation",
+    "Online-drive service core: serialized mutation ownership, concurrent status, guarded configuration, validated restore flags, sync overlap checks, mount rollback, account-switch guard and degraded event-watch lifecycle",
+    "Production desktop service entirely native: UID-checked D-Bus server, exclusive native/Snap names, bounded serialized queue, concurrent status/cancel, owned mount/event workers, SDK process cancellation and shutdown"
+  ],
+  "validation": {
+    "rust_unit_tests": 160,
+    "rust_executable_integration_tests": 14,
+    "application_tests": 363,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "application_scope": [
+      "SDK contracts and cancellation",
+      "Background synchronization",
+      "Durable events",
+      "Filesystem races and recovery",
+      "Computer backup with synthetic SDK process",
+      "Qt UI with offscreen platform",
+      "Real isolated D-Bus",
+      "Real kernel FUSE with synthetic backend",
+      "Native and sandbox package staging",
+      "All 25 UI languages and diagnostic templates with literal Unicode values",
+      "Fragmented, malformed, truncated and timed-out Unix control replies",
+      "Malformed control requests cannot stop the daemon or resume paused jobs",
+      "Echo suppression detects same-size edits, new/deleted children, symlinks and unsafe relative paths",
+      "Journal contention/cancellation, duplicate receipts, replaced directory and hardlink rejection, long Unicode recovery names",
+      "Native restore cancellation propagates the original exception with its recovery receipt",
+      "Native job transitions and control listener lifecycle",
+      "Cache invalidation behavior across the Rust callback boundary",
+      "Native production daemon FFI entry without Python daemon owner",
+      "Standalone native daemon and real inotify with synthetic SDK, no Python on PATH",
+      "Native cache hydration without Python, including verified content and staging cleanup",
+      "Hydration inode replacement rejection after final remote lookup",
+      "Writeback lost acknowledgement and local failure after confirmed remote commit retain correct recovery baseline and local bytes",
+      "Native directory reconciliation, Unicode limits, corrupt graph preservation and executable metadata roundtrip with numeric inode maps",
+      "Owned read FD lifetime, journal failures blocking edits, dirty release, independent edit copies and ENOSPC during truncating open without leaked handle or content change",
+      "Native replacement success, stale/open target rejection, source-trash failure, concurrent source change, metadata failure after upload, stripped raw journal fields and malformed recovery inspection",
+      "Native namespace rejects open/stale/wrong-account mutations and folders containing unsupported hidden cloud documents; only confirmed replacement commits update observations",
+      "Owned native mount with SDK transport without Python, offline remount with absent SDK, exclusive cache lock, native ENOSPC rollback and truncating-open cleanup, unflushed-close recovery and timestamp offsets/fractions",
+      "Recovery inspection and status remain available after native mount closure; account blocking survives a simultaneous recovery journal failure",
+      "Nine real kernel-FUSE tests including status under blocked hydration, permissions/xattrs, busy unmount, callback cancellation cleanup and production SDK transport with Python backend methods forbidden",
+      "Twelve real kernel mount tests and direct Rust manager lifecycle in a process with no Python in PATH; startup failure, exchanged prepared directory, exclusive session, account-event invalidation and stale released manager references",
+      "Native desktop event-source query/delivery/acknowledgement/wait/stop with no Python in PATH; consumer failure replay, Unicode filenames, redaction, callback stop, active SDK cancellation/reaping and failed thread-start retry",
+      "Native TLS loopback tests for trusted/untrusted certificates and HTTPS downgrade rejection, corrupt/short/oversized download cleanup, hardlink and directory replacement rejection; standalone update verification without Python",
+      "Native autostart file roundtrip and rejection of foreign entries, symlinks, hardlinks and oversized files; standalone Snap/Flatpak launcher boundaries with no Python; real desktop Exec parsing through Gio",
+      "Six isolated native D-Bus cases without Python on PATH: early Background response/changed path, spoofed sender rejection, cancellation, nested Settings.Read, concurrent change before read, and no replay after NoReply; existing real Qt/service/Snap/FUSE tests retained"
+    ],
+    "clippy": "all targets, warnings denied, passed",
+    "diff_check": "passed",
+    "real_proton_account_test": "not run for this checkpoint",
+    "focused_background_tests": 48,
+    "focused_sync_trash_tests": 98,
+    "migrated_tests": "Legacy injected-backend daemon harness moved to tests/reference_daemon.py and excluded from application packages. Native executable tests cover actual daemon download, events/cursors, inotify, failed upload preservation/retry, pause/resume/stop and SIGTERM SDK cleanup. Production FFI entry test rejects legacy daemon use. Two online-drive journal monkeypatch tests moved from Python to native mount fault-injection tests at the real journal boundary; coverage retained. Account-event injection into Python manager state was replaced by an actual native manager/kernel test; closed filesystem recovery remains tested directly and closed-manager events through the kernel suite. The desktop reconnection status-transition test moved to Rust; Python tests now exercise the native source rather than assigning scheduler state. Update URL-open monkeypatch tests moved to native transport fixtures; Python retains public API checks and adds native hardlink rejection. Seven native update unit tests cover the replaced transport cases and real TLS.",
+    "focused_ondemand_backend_tests": 88,
+    "repairs_this_increment": [
+      "Remove the Gio server and injectable service adapters from shipped application code; keep reference implementations under tests only",
+      "Disable zbus default replacement of existing service names",
+      "Wait for service shutdown, not only bus disconnection, before checking SDK child reaping",
+      "Increase two synthetic Python fixture startup limits from 250 ms to 1 s; retain descendant reaping and 200 ms graceful-cleanup assertions"
+    ],
+    "focused_ondemand_backend_fuse_tests": 97,
+    "focused_ondemand_kernel_tests": 47,
+    "focused_event_binding_tests": 16,
+    "focused_update_binding_tests": 7,
+    "public_update_check": "passed against public GitHub release API with production system certificate verifier; no credentials or user data sent",
+    "focused_autostart_binding_tests": 5,
+    "rust_desktop_bus_integration_tests": 4,
+    "isolated_native_bus_cases": 11,
+    "focused_desktop_portal_tests": 3,
+    "focused_desktop_service_tests": 12,
+    "focused_desktop_server_tests": 2
+  },
+  "artifacts": {
+    "directory": "build/rust-native-desktop-runtime-check",
+    "architecture": "x86_64",
+    "build_baseline": "Ubuntu 22.04.5 isolated rootfs",
+    "maximum_glibc": "2.34",
+    "core_provenance_verified": true,
+    "other_architectures_tested": false,
+    "complete_installer_packages_built": false
+  },
+  "installed": false,
+  "released": false,
+  "remaining_runtime": [
+    "Qt controller, appearance/locale preference state and main-window instance",
+    "Update Qt controller and installer orchestration",
+    "Foreground mount/CLI launch binding and final native Qt launcher/package wiring",
+    "Remove remaining Python DTO/binding modules from application runtime"
+  ],
+  "latest_increment": {
+    "components": [
+      "Native production desktop D-Bus server",
+      "Owned native mount and event workers",
+      "Test-only relocation of former Gio server and worker injection adapters"
+    ],
+    "rust_unit_tests": 160,
+    "rust_executable_integration_tests": 14,
+    "rust_desktop_bus_integration_tests": 4,
+    "isolated_native_bus_cases": 11,
+    "application_tests": 363,
+    "focused_desktop_server_tests": 2,
+    "skipped": 0,
+    "clippy_warnings_denied": "passed",
+    "cargo_fmt_check": "passed",
+    "full_application_retested": true,
+    "application_exit_code": 0,
+    "no_python_watch_threads_after_tests": true,
+    "baseline_rebuilt": true,
+    "migration_goal": "active",
+    "initial_application_fixture_start_failures": 2,
+    "logs": [
+      "/tmp/nd-desktop-runtime-rust.log",
+      "/tmp/nd-desktop-runtime-final-native.log",
+      "/tmp/nd-desktop-runtime-python-bus.log",
+      "/tmp/nd-desktop-runtime-clippy.log",
+      "/tmp/nd-desktop-runtime-fmt.log",
+      "/tmp/nd-desktop-runtime-baseline.log",
+      "/tmp/nd-desktop-runtime-build-exit",
+      "/tmp/nd-desktop-runtime-first-all.log",
+      "/tmp/nd-desktop-runtime-all.log",
+      "/tmp/nd-desktop-runtime-test-exit"
+    ]
+  },
+  "native_qt_foundation": {
+    "stage": "Native Qt foundation; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 1,
+    "qml_check": "passed, including reactive property notifications, invalid-mode fallback, Qt fallback and idempotent worker shutdown",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "unchanged_core_provenance_verified": "build/rust-native-desktop-runtime-check",
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "50610bc6a5771ed5a2b3d131a082c36628aae3748f9d05f65b98ac4101bc5f20",
+    "logs": [
+      "/tmp/nd-qt-native-validation.log",
+      "/tmp/nd-qt-native-validation-exit",
+      "/tmp/nd-qt-sdk-verify.log"
+    ],
+    "remaining": [
+      "Main controller and full QML wiring",
+      "Preferences, localization and update controller",
+      "Native CLI and foreground mount launch",
+      "Portable Qt SDK/architecture builds and installer wiring",
+      "Remove all production Python bindings after complete parity checks"
+    ]
+  },
+  "native_qt_controllers": {
+    "stage": "Native Qt file controller and preferences; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 11,
+    "qml_check": "Both AppearanceCheck and ControllerCheck passed: reactive bindings, preferences, asynchronous listing, dialogs, failure handling, cancellation and shutdown",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "unchanged_core_provenance_verified": "build/rust-native-desktop-runtime-check",
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "14dc643ae603562d949b28887aacae03be9ee3b226373e6a55fcb28376ceb117",
+    "logs": [
+      "/tmp/nd-qt-controller-validation.log"
+    ],
+    "remaining": [
+      "Main-window/service-page orchestration and complete QML wiring",
+      "Login/logout, update controller and verified installer",
+      "Qt translations and single-instance/window lifecycle",
+      "Native CLI and foreground mount launch",
+      "Portable Qt SDK/architecture builds and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    }
+  },
+  "native_qt_accounts": {
+    "stage": "Native Qt account orchestration and headless services; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 16,
+    "qml_check": "Appearance and controller checks passed, including synthetic streaming login, QML action cancellation, failure handling and shutdown",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "unchanged_core_provenance_verified": "build/rust-native-desktop-runtime-check",
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "58bd79c50ebf250201fade03fd4d35c83fd7ba9e5f5e784c18a017309ab445c9",
+    "logs": [
+      "/tmp/nd-qt-account-validation.log",
+      "/tmp/nd-qt-headless-validation.log"
+    ],
+    "remaining": [
+      "Main-window/service-page orchestration and complete QML wiring",
+      "Update controller and verified installer",
+      "Qt translations and single-instance/window lifecycle",
+      "Remaining CLI modes including diagnostics and foreground mounts",
+      "Combined background restoration integration test",
+      "Portable Qt SDK/architecture builds and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service starts without graphics, serves status and exits zero on SIGTERM",
+      "daemon starts without graphics, exits zero on SIGTERM and removes control socket/PID record"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": false,
+    "later_state_isolation_correction": "Headless/FUSE scripts originally set XDG_DATA_HOME instead of XDG_STATE_HOME. See native_qt_background for corrected rerun and synthetic-cache quarantine."
+  },
+  "native_qt_cli": {
+    "stage": "Native CLI and foreground mounts; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 19,
+    "qml_check": "Appearance and controller checks passed, including synthetic streaming login, QML action cancellation, failure handling and shutdown",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "ddaa0c0f3b25de0f21dc39c8ff04f283e15ad4427a51379d64b28b048ad5e518",
+    "logs": [
+      "/tmp/nd-qt-cli-validation.log",
+      "/tmp/nd-core-cli-validation.log",
+      "/tmp/nd-core-cli-clippy.log",
+      "/tmp/nd-qt-cli-combined-validation.log"
+    ],
+    "remaining": [
+      "Main-window/service-page orchestration and complete QML wiring",
+      "Update controller and verified installer",
+      "Qt translations and single-instance/window lifecycle",
+      "Localized CLI text and installed resource discovery",
+      "Portable core/frontend rebuilds, architecture checks and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "later_state_isolation_correction": "Headless/FUSE scripts originally set XDG_DATA_HOME instead of XDG_STATE_HOME. See native_qt_background for corrected rerun and synthetic-cache quarantine."
+  },
+  "native_qt_background": {
+    "stage": "Native background-page orchestration; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 25,
+    "qml_check": "AppearanceCheck, ControllerCheck and BackgroundCheck passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "b026b625cfef92a4d179494ccf34e0d6c108aafa06425dfbd73ce8dd288abde9",
+    "logs": [
+      "/tmp/nd-qt-background-validation.log",
+      "/tmp/nd-user-state-isolation-validation.json"
+    ],
+    "remaining": [
+      "Main-window wiring, mount/trash page controller integration",
+      "Update controller and verified installer",
+      "Qt translations and single-instance/window lifecycle",
+      "Localized CLI text and installed resource discovery",
+      "Portable core/frontend rebuilds, architecture checks and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    }
+  },
+  "native_qt_mount_trash": {
+    "stage": "Native mount and local-trash pages; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 30,
+    "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck and MountCheck passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "6e4b510566cb6a24bead609d48b798e406f0085fb092606d799dc3dbdd0863f3",
+    "logs": [
+      "/tmp/nd-qt-mount-trash-validation.log",
+      "/tmp/nd-user-state-isolation-validation.json"
+    ],
+    "remaining": [
+      "Complete main-window QML wiring",
+      "Update controller and verified installer",
+      "Autostart, Qt translations and single-instance/window lifecycle",
+      "Localized CLI text and installed resource discovery",
+      "Portable core/frontend rebuilds, architecture checks and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    },
+    "mount_qml_lifecycle": [
+      "mount with captured folder/options",
+      "pin",
+      "managed unpin and eviction",
+      "re-pin",
+      "unmount",
+      "offline mount and pin without a third download",
+      "unmount and native empty trash listing",
+      "verify cache contents and no remaining mount"
+    ],
+    "real_trash_binding_test": [
+      "cancelled restore preserves payload",
+      "occupied destination is not overwritten",
+      "recovery entry retained",
+      "successful retry",
+      "duplicate restore rejected"
+    ]
+  },
+  "native_qt_autostart": {
+    "stage": "Native autostart controller; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 34,
+    "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck and MountCheck passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "0e0e3113442527a63f8d35cdf8b2ee165924508af06793f9f13fa38a86150536",
+    "logs": [
+      "/tmp/nd-qt-autostart-final.log",
+      "/tmp/nd-user-state-isolation-validation.json"
+    ],
+    "remaining": [
+      "Complete main-window QML wiring",
+      "Update controller and verified installer",
+      "Qt translations and single-instance/window lifecycle",
+      "Localized CLI text and installed resource discovery",
+      "Portable core/frontend rebuilds, architecture checks and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    },
+    "mount_qml_lifecycle": [
+      "mount with captured folder/options",
+      "pin",
+      "managed unpin and eviction",
+      "re-pin",
+      "unmount",
+      "offline mount and pin without a third download",
+      "unmount and native empty trash listing",
+      "verify cache contents and no remaining mount"
+    ],
+    "real_trash_binding_test": [
+      "cancelled restore preserves payload",
+      "occupied destination is not overwritten",
+      "recovery entry retained",
+      "successful retry",
+      "duplicate restore rejected"
+    ],
+    "native_autostart_checks": [
+      "Flatpak portal denial cannot write entry",
+      "Snap launcher omits session SDK path",
+      "AppImage outer path retained; bundled SDK rediscovered on next launch",
+      "Custom AppImage SDK preserved",
+      "Native QML enable/disable using isolated XDG_CONFIG_HOME",
+      "User service/foreground file names, sizes and mtimes unchanged"
+    ]
+  },
+  "native_qt_updates": {
+    "stage": "Native update controller; complete UI not yet migrated",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 43,
+    "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck, MountCheck and UpdateCheck passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "27451b5622e78f0afc928edf9998a94b4b56ed68d4e31b536ae31423bbf4f3fb",
+    "logs": [
+      "/tmp/nd-qt-updates-final-2.log"
+    ],
+    "remaining": [
+      "Complete main-window QML wiring",
+      "Main-window update timers, notices and install-close deferral",
+      "Qt translations and single-instance/window lifecycle",
+      "Localized CLI text and installed resource discovery",
+      "Portable core/frontend rebuilds, architecture checks and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    },
+    "mount_qml_lifecycle": [
+      "mount with captured folder/options",
+      "pin",
+      "managed unpin and eviction",
+      "re-pin",
+      "unmount",
+      "offline mount and pin without a third download",
+      "unmount and native empty trash listing",
+      "verify cache contents and no remaining mount"
+    ],
+    "real_trash_binding_test": [
+      "cancelled restore preserves payload",
+      "occupied destination is not overwritten",
+      "recovery entry retained",
+      "successful retry",
+      "duplicate restore rejected"
+    ],
+    "native_autostart_checks": [
+      "Flatpak portal denial cannot write entry",
+      "Snap launcher omits session SDK path",
+      "AppImage outer path retained; bundled SDK rediscovered on next launch",
+      "Custom AppImage SDK preserved",
+      "Native QML enable/disable using isolated XDG_CONFIG_HOME",
+      "User service/foreground file names, sizes and mtimes unchanged"
+    ],
+    "native_update_checks": [
+      "release-channel default and 24-hour cadence including clock rollback",
+      "automatic download never implicitly installs",
+      "busy file operation prevents explicit installation",
+      "failed installation retains verified download for retry",
+      "closed or undelivered download ownership cleanup",
+      "nested update errors propagate",
+      "foreign package name rejected before privilege prompt",
+      "synthetic DEB metadata inspection and cancellation; no package installation",
+      "QML preference persistence, localization, demo guards and idempotent shutdown"
+    ],
+    "update_actual_install_test": false,
+    "update_live_network_test": false
+  },
+  "native_qt_main_window": {
+    "stage": "Shared QML main window using native controllers in isolated demo; production bootstrap pending",
+    "goal": "active",
+    "production_frontend": "Existing Python/PySide6 controller still active",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 45,
+    "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck, MountCheck, UpdateCheck and NativeShell main-window check passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "1d9721b85a2f8e437e3330086cf1b496dbba72f02c4cf34928b7749714b8576a",
+    "logs": [
+      "/tmp/nd-qt-main-window-final-2.log"
+    ],
+    "remaining": [
+      "Production GUI bootstrap with actual SDK and installed resources",
+      "Qt translations and single-instance activation",
+      "Full main-window account/operation parity and install-close integration checks",
+      "Localized CLI text",
+      "Portable core/frontend rebuilds, architecture checks and installer wiring",
+      "Remove production Python bindings after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    },
+    "mount_qml_lifecycle": [
+      "mount with captured folder/options",
+      "pin",
+      "managed unpin and eviction",
+      "re-pin",
+      "unmount",
+      "offline mount and pin without a third download",
+      "unmount and native empty trash listing",
+      "verify cache contents and no remaining mount"
+    ],
+    "real_trash_binding_test": [
+      "cancelled restore preserves payload",
+      "occupied destination is not overwritten",
+      "recovery entry retained",
+      "successful retry",
+      "duplicate restore rejected"
+    ],
+    "native_autostart_checks": [
+      "Flatpak portal denial cannot write entry",
+      "Snap launcher omits session SDK path",
+      "AppImage outer path retained; bundled SDK rediscovered on next launch",
+      "Custom AppImage SDK preserved",
+      "Native QML enable/disable using isolated XDG_CONFIG_HOME",
+      "User service/foreground file names, sizes and mtimes unchanged"
+    ],
+    "native_update_checks": [
+      "release-channel default and 24-hour cadence including clock rollback",
+      "automatic download never implicitly installs",
+      "busy file operation prevents explicit installation",
+      "failed installation retains verified download for retry",
+      "closed or undelivered download ownership cleanup",
+      "nested update errors propagate",
+      "foreign package name rejected before privilege prompt",
+      "synthetic DEB metadata inspection and cancellation; no package installation",
+      "QML preference persistence, localization, demo guards and idempotent shutdown"
+    ],
+    "update_actual_install_test": false,
+    "update_live_network_test": false,
+    "native_main_window": {
+      "shared_view_embedded": "src/neutrondrive/qml/Main.qml",
+      "demo_only": true,
+      "pages_checked": [
+        "files",
+        "settings",
+        "background",
+        "ondemand",
+        "local-trash",
+        "activity"
+      ],
+      "close_process_exit_code": 0,
+      "captures": [
+        "/tmp/nd-native-window-images-ANdzj1/dark-settings.png",
+        "/tmp/nd-native-window-images-ANdzj1/light-files.png"
+      ],
+      "visually_inspected": true,
+      "close_policy_unit_tests": [
+        "explicit installation prevents close",
+        "busy operation requires confirmation and cancellation completion",
+        "stale confirmation ignored",
+        "Flatpak active daemon hides window; stopped daemon closes"
+      ],
+      "user_service_and_foreground_state_unchanged": true
+    }
+  },
+  "native_qt_startup": {
+    "stage": "Regular native GUI bootstrap and compatible window activation; package switch pending",
+    "goal": "active",
+    "production_frontend": "Installed/package launchers still use Python; native binary now implements normal GUI and service entrypoints",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 51,
+    "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck, MountCheck, UpdateCheck and NativeShell main-window check passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "dd78c2feee3e3ea8df94b926f6acf6f22c5e913a061f9de3875b9ec9d139f412",
+    "logs": [
+      "/tmp/nd-qt-startup-resources-final.log",
+      "/tmp/nd-native-no-display.log"
+    ],
+    "remaining": [
+      "Full main-window account/operation parity and install-close integration checks",
+      "Localized CLI/launcher error text",
+      "Portable core/frontend rebuilds, architecture checks and installer/launcher wiring",
+      "Remove production Python bindings and dependencies after complete parity checks"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 161,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    },
+    "mount_qml_lifecycle": [
+      "mount with captured folder/options",
+      "pin",
+      "managed unpin and eviction",
+      "re-pin",
+      "unmount",
+      "offline mount and pin without a third download",
+      "unmount and native empty trash listing",
+      "verify cache contents and no remaining mount"
+    ],
+    "real_trash_binding_test": [
+      "cancelled restore preserves payload",
+      "occupied destination is not overwritten",
+      "recovery entry retained",
+      "successful retry",
+      "duplicate restore rejected"
+    ],
+    "native_autostart_checks": [
+      "Flatpak portal denial cannot write entry",
+      "Snap launcher omits session SDK path",
+      "AppImage outer path retained; bundled SDK rediscovered on next launch",
+      "Custom AppImage SDK preserved",
+      "Native QML enable/disable using isolated XDG_CONFIG_HOME",
+      "User service/foreground file names, sizes and mtimes unchanged"
+    ],
+    "native_update_checks": [
+      "release-channel default and 24-hour cadence including clock rollback",
+      "automatic download never implicitly installs",
+      "busy file operation prevents explicit installation",
+      "failed installation retains verified download for retry",
+      "closed or undelivered download ownership cleanup",
+      "nested update errors propagate",
+      "foreign package name rejected before privilege prompt",
+      "synthetic DEB metadata inspection and cancellation; no package installation",
+      "QML preference persistence, localization, demo guards and idempotent shutdown"
+    ],
+    "update_actual_install_test": false,
+    "update_live_network_test": false,
+    "native_main_window": {
+      "shared_view_embedded": "src/neutrondrive/qml/Main.qml",
+      "demo_only": true,
+      "pages_checked": [
+        "files",
+        "settings",
+        "background",
+        "ondemand",
+        "local-trash",
+        "activity"
+      ],
+      "close_process_exit_code": 0,
+      "captures": [
+        "/tmp/nd-native-window-images-H9yTGu/dark-settings.png",
+        "/tmp/nd-native-window-images-H9yTGu/light-files.png"
+      ],
+      "visually_inspected": false,
+      "close_policy_unit_tests": [
+        "explicit installation prevents close",
+        "busy operation requires confirmation and cancellation completion",
+        "stale confirmation ignored",
+        "Flatpak active daemon hides window; stopped daemon closes"
+      ],
+      "user_service_and_foreground_state_unchanged": true,
+      "prior_visually_inspected_captures": [
+        "/tmp/nd-native-window-images-ANdzj1/dark-settings.png",
+        "/tmp/nd-native-window-images-ANdzj1/light-files.png"
+      ]
+    },
+    "native_startup": {
+      "normal_demo_process_launch": true,
+      "explicit_sdk_option": true,
+      "installed_catalog_precedence_unit_test": true,
+      "source_catalog_fallback": true,
+      "private_window_directory_checks": true,
+      "qt_lock_file_compatibility": true,
+      "bounded_nonblocking_activation_connect": true,
+      "second_process_contacts_owner": true,
+      "forced_demo_crash_and_successor_recovery": true,
+      "clean_successor_exit": true,
+      "qt_translation_domains": [
+        "qtbase",
+        "qtdeclarative"
+      ],
+      "desktop_file_identity": true,
+      "no_display_exit_code": 1,
+      "actual_installed_package_test": false,
+      "live_account_test": false
+    }
+  },
+  "native_packaging_preparation": {
+    "goal": "active",
+    "stage": "Native package staging preparation; default packages not switched",
+    "native_packaging_tests": 5,
+    "existing_appimage_cache_tests": 5,
+    "host_only_payload": "/mnt/projekte/NeutronDrive/build/native-runtime-check-o53omxw5",
+    "host_only_window_test_exit": 0,
+    "python_files_in_payload": 0,
+    "pyside_and_shiboken_bindings_in_payload": 0,
+    "python_on_test_path": false,
+    "qt_libraries_plugins_qml_translations_retained": true,
+    "portable_frontend_build": false,
+    "host_frontend_glibc_requirement": [
+      2,
+      39
+    ],
+    "host_frontend_correctly_rejected_for_portable_packaging": true,
+    "native_staging_requires_fresh_destination": true,
+    "native_sandbox_staging_guarded_until_portal_migration": true,
+    "logs": [
+      "/tmp/nd-native-payload-window.log"
+    ],
+    "remaining": [
+      "Portable native frontend toolchain/build and architecture verification",
+      "Rust browser-portal helper",
+      "Rust AppImage stable runtime cache/bootstrap",
+      "Default package/launcher/dependency switch",
+      "Complete integration checks and production Python removal"
+    ]
+  },
+  "native_browser_portal": {
+    "stage": "Native browser portal helper; portable/package migration still active",
+    "goal": "active",
+    "production_frontend": "Installed/package launchers still use Python; native binary now implements normal GUI and service entrypoints",
+    "qt_version": "6.10.2",
+    "cxx_qt_version": "0.10.0",
+    "cxx_version": "1.0.205",
+    "native_unit_tests": 52,
+    "qml_check": "AppearanceCheck, ControllerCheck, BackgroundCheck, MountCheck, UpdateCheck and NativeShell main-window check passed",
+    "clippy_warnings_denied": "passed",
+    "format_check": "passed",
+    "exit_code": 0,
+    "all_core_package_identities_preserved": true,
+    "additional_vendored_package_versions": 35,
+    "python_on_test_path": false,
+    "host_portal_activation": false,
+    "host_sdk_only": true,
+    "portable_frontend_build": false,
+    "full_application_retested": false,
+    "binary": "/tmp/nd-qt-target/debug/neutrondrive-qt",
+    "binary_sha256": "b039d629cc45689e2e660c2f6a5232c5678e974cbb269bcff5f4f3d8c60fd694",
+    "logs": [
+      "/tmp/nd-native-browser-qt-tests.log",
+      "/tmp/nd-portal-rust-tests.log",
+      "/tmp/nd-portal-core-clippy.log"
+    ],
+    "remaining": [
+      "Rust AppImage cache/bootstrap migration",
+      "Portable native build and architecture validation",
+      "Installed binary Qt-library lookup for autostart without inherited loader variables",
+      "Default package/dependency/launcher switch",
+      "Full application parity checks and Python runtime removal"
+    ],
+    "native_sdk_children_reaped": 2,
+    "isolated_preference_writes": true,
+    "unicode_casefold": {
+      "version": "16.0.0",
+      "mappings": 1557,
+      "python_reference_scalar_values_compared": 1112064,
+      "differences": 0
+    },
+    "native_headless_process_checks": [
+      "desktop service and daemon startup without graphics; SIGTERM cleanup",
+      "combined restore/background startup; CLI stop of active daemon",
+      "native service/sync status JSON",
+      "successful and missing-SDK diagnosis; version output",
+      "diagnostic SDK cancellation and child reaping"
+    ],
+    "live_account_test": false,
+    "background_combined_startup_test": true,
+    "core_unit_tests": 162,
+    "core_clippy_all_targets": "passed",
+    "native_foreground_mount_checks": [
+      "online synthetic file read; SIGTERM exit 0; mount gone",
+      "offline cached file read; SIGTERM exit 0; mount gone"
+    ],
+    "portable_core_rebuild_required": true,
+    "background_qml_lifecycle": [
+      "folder and confirmation dialogs",
+      "job add and native daemon start",
+      "pause",
+      "remove and reload",
+      "stop",
+      "status polling and worker shutdown"
+    ],
+    "core_tests_repeated_this_checkpoint": false,
+    "state_isolation": {
+      "correct_variable": "XDG_STATE_HOME",
+      "prior_error": "Earlier headless/FUSE scripts set XDG_DATA_HOME instead",
+      "synthetic_cache_quarantine": "/tmp/nd-isolation-test-cache-_92vvawy",
+      "corrected_run_user_file_list_sizes_mtimes_unchanged": true,
+      "report": "/tmp/nd-user-state-isolation-validation.json"
+    },
+    "mount_qml_lifecycle": [
+      "mount with captured folder/options",
+      "pin",
+      "managed unpin and eviction",
+      "re-pin",
+      "unmount",
+      "offline mount and pin without a third download",
+      "unmount and native empty trash listing",
+      "verify cache contents and no remaining mount"
+    ],
+    "real_trash_binding_test": [
+      "cancelled restore preserves payload",
+      "occupied destination is not overwritten",
+      "recovery entry retained",
+      "successful retry",
+      "duplicate restore rejected"
+    ],
+    "native_autostart_checks": [
+      "Flatpak portal denial cannot write entry",
+      "Snap launcher omits session SDK path",
+      "AppImage outer path retained; bundled SDK rediscovered on next launch",
+      "Custom AppImage SDK preserved",
+      "Native QML enable/disable using isolated XDG_CONFIG_HOME",
+      "User service/foreground file names, sizes and mtimes unchanged"
+    ],
+    "native_update_checks": [
+      "release-channel default and 24-hour cadence including clock rollback",
+      "automatic download never implicitly installs",
+      "busy file operation prevents explicit installation",
+      "failed installation retains verified download for retry",
+      "closed or undelivered download ownership cleanup",
+      "nested update errors propagate",
+      "foreign package name rejected before privilege prompt",
+      "synthetic DEB metadata inspection and cancellation; no package installation",
+      "QML preference persistence, localization, demo guards and idempotent shutdown"
+    ],
+    "update_actual_install_test": false,
+    "update_live_network_test": false,
+    "native_main_window": {
+      "shared_view_embedded": "src/neutrondrive/qml/Main.qml",
+      "demo_only": true,
+      "pages_checked": [
+        "files",
+        "settings",
+        "background",
+        "ondemand",
+        "local-trash",
+        "activity"
+      ],
+      "close_process_exit_code": 0,
+      "captures": [
+        "/tmp/nd-native-window-images-H9yTGu/dark-settings.png",
+        "/tmp/nd-native-window-images-H9yTGu/light-files.png"
+      ],
+      "visually_inspected": false,
+      "close_policy_unit_tests": [
+        "explicit installation prevents close",
+        "busy operation requires confirmation and cancellation completion",
+        "stale confirmation ignored",
+        "Flatpak active daemon hides window; stopped daemon closes"
+      ],
+      "user_service_and_foreground_state_unchanged": true,
+      "prior_visually_inspected_captures": [
+        "/tmp/nd-native-window-images-ANdzj1/dark-settings.png",
+        "/tmp/nd-native-window-images-ANdzj1/light-files.png"
+      ]
+    },
+    "native_startup": {
+      "normal_demo_process_launch": true,
+      "explicit_sdk_option": true,
+      "installed_catalog_precedence_unit_test": true,
+      "source_catalog_fallback": true,
+      "private_window_directory_checks": true,
+      "qt_lock_file_compatibility": true,
+      "bounded_nonblocking_activation_connect": true,
+      "second_process_contacts_owner": true,
+      "forced_demo_crash_and_successor_recovery": true,
+      "clean_successor_exit": true,
+      "qt_translation_domains": [
+        "qtbase",
+        "qtdeclarative"
+      ],
+      "desktop_file_identity": true,
+      "no_display_exit_code": 1,
+      "actual_installed_package_test": false,
+      "live_account_test": false
+    },
+    "native_browser_portal": {
+      "headless_entrypoint": "--open-uri HTTP(S)_URL",
+      "no_qgui_application_required": true,
+      "url_validation_unit_test": true,
+      "isolated_dbus_cases": [
+        "success with early response and fragment preserved",
+        "unrelated path ignored",
+        "foreign sender cannot override denial",
+        "denied request",
+        "invalid request path",
+        "cancellation while awaiting response"
+      ],
+      "portal_dbus_suite_cases_total": 11,
+      "native_packaging_tests": 6,
+      "core_clippy_all_targets": "passed",
+      "desktop_clippy_all_targets": "passed",
+      "actual_desktop_browser_opened": false
+    }
+  },
+  "native_appimage_bootstrap_and_loader": {
+    "goal": "active",
+    "native_qt_suite": "passed: 52 Rust tests, six QML checks, service/FUSE/instance checks",
+    "cache_unit_tests": 6,
+    "clippy": "passed",
+    "log": "/tmp/nd-native-appimage-final-tests.log",
+    "portable_build": "in progress; no artifact published",
+    "production_packages_switched": false,
+    "all_core_tests": {
+      "unit": 167,
+      "desktop_bus_entries": 2,
+      "desktop_runtime_entries": 2,
+      "runtime_integration": 14,
+      "exit_code": 0,
+      "log": "/tmp/nd-appimage-all-core-tests.log"
+    },
+    "latest_core_unit_tests": 168,
+    "latest_core_clippy": "passed",
+    "latest_native_suite": "/tmp/nd-native-appimage-hardened-tests.log",
+    "portable_initial_build": {
+      "succeeded": true,
+      "maximum_glibc": [
+        2,
+        34
+      ],
+      "maximum_glibcxx": [
+        3,
+        4,
+        11
+      ],
+      "baseline_version_command": "passed on isolated Ubuntu 22.04",
+      "latest_fifo_change_included": false
+    },
+    "portable_final_build": {
+      "succeeded": true,
+      "artifact": "build/native-qt-jammy-x86_64",
+      "maximum_glibc": [
+        2,
+        34
+      ],
+      "maximum_glibcxx": [
+        3,
+        4,
+        11
+      ],
+      "baseline_version_and_main_window": "passed on isolated Ubuntu 22.04.5",
+      "latest_fifo_change_included": true
+    }
+  },
+  "verified_native_staged_payload": {
+    "path": "build/native-package-runtime-check/usr",
+    "native_artifact": "build/native-qt-jammy-x86_64",
+    "backend": "build/computer-backup-dev/proton-drive",
+    "backend_current_source_provenance_verified": true,
+    "python_runtime_or_bindings_present": false,
+    "direct_version_and_main_window_without_development_paths": "passed",
+    "log": "/tmp/nd-staged-native-runtime-check.log",
+    "selected_user_service_foreground_files_unchanged": true,
+    "production_defaults_switched": false
+  },
+  "native_package_default_switch": {
+    "goal": "active",
+    "stage_default": "Rust only; Python staging rejected",
+    "deb": {
+      "package": "/mnt/projekte/NeutronDrive/build/native-installer-check/neutrondrive_0.6.0~alpha6-1_amd64.deb",
+      "runtime_python": false,
+      "verified_payload_files": [
+        "usr/bin/neutrondrive",
+        "usr/lib/neutrondrive/bin/neutrondrive-qt",
+        "usr/lib/neutrondrive/bin/proton-drive",
+        "usr/share/doc/neutrondrive/backend-build.provenance.json",
+        "usr/share/doc/neutrondrive/native-build.json"
+      ],
+      "archive_regular_files": 915,
+      "depends": "libsecret-1-0, libgssapi-krb5-2, libbrotli1, xdg-utils, ca-certificates, libc6 (>= 2.34), libgcc-s1, libstdc++6, libatomic1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libegl1, libopengl0, libgl1, libxkbcommon-x11-0, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-xkb1, libxcb-randr0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-render0, libxcb-shape0, libxcb-glx0, libx11-6, libfontconfig1, libfreetype6, libdbus-1-3, libx11-xcb1, libsm6, libice6, libzstd1, fuse3"
+    },
+    "native_packaging_tests": 7,
+    "appimage_launcher_tests": 1,
+    "package_version_tests": 1,
+    "snap_and_flatpak_recipes": "Flatpak bundle built and runtime-tested; Snap project prepared and provenance-checked, full Snapcraft build pending",
+    "appimage_builder": "uses current verified native DEB and Rust bootstrap; full build pending",
+    "legacy_appimage_python_bootstrap": "removed",
+    "ci_and_aur_recipes": "migration pending; no release published",
+    "flatpak": {
+      "built": true,
+      "artifact": "build/native-installer-check/neutrondrive-0.6.0a6-x86_64.flatpak",
+      "runtime": "org.gnome.Platform/50/x86_64",
+      "native_diagnose": "passed",
+      "native_window_check": "passed",
+      "log": "/tmp/nd-native-flatpak-build.log",
+      "installed": false
+    },
+    "snap": {
+      "prepared_project": "build/native-snap-project-check",
+      "frontend_and_sdk_provenance": "passed against copied sources",
+      "snapcraft_available": false,
+      "full_build": false
+    },
+    "package_temporary_directory": "/var/tmp/neutrondrive-packaging.VaTl2Y",
+    "rpm": {
+      "package": "/mnt/projekte/NeutronDrive/build/native-installer-check/neutrondrive-0.6.0~alpha6-1.x86_64.rpm",
+      "python_runtime": false,
+      "private_qt_or_icu_capabilities_exposed": false,
+      "file_hashes_checked": [
+        "/usr/bin/neutrondrive",
+        "/usr/lib/neutrondrive/bin/neutrondrive-qt",
+        "/usr/lib/neutrondrive/bin/proton-drive",
+        "/usr/share/doc/neutrondrive/backend-build.provenance.json",
+        "/usr/share/doc/neutrondrive/native-build.json"
+      ],
+      "file_entries": 1323,
+      "integrity": "/mnt/projekte/NeutronDrive/build/native-installer-check/neutrondrive-0.6.0~alpha6-1.x86_64.rpm: digests OK",
+      "build_log": "/tmp/nd-native-rpm-verified-build.log",
+      "installed": false
+    }
+  },
+  "current_source_requires_portable_rebuild": true,
+  "historical_package_validation_note": "Recorded portable artifacts predate the native source launcher and CLI/window localization changes; rebuild and verify provenance before release.",
+  "native_source_entrypoint_checkpoint": {
+    "status": "passed; overall migration incomplete",
+    "native_unit_tests": 54,
+    "cli_locale_checks": 26,
+    "actual_window_locale_checks": 26,
+    "clippy_and_format": "passed",
+    "fuse_dbus_headless_autostart_updates_instance_checks": "passed",
+    "source_and_package_launcher_tests": 8,
+    "version_consistency_test": "passed",
+    "python_entrypoint_removed": true,
+    "legacy_python_runtime_sources_remaining": true,
+    "portable_artifacts_require_rebuild": true,
+    "existing_user_state_metadata_unchanged": true,
+    "log": "/tmp/nd-native-input-and-locale-final.log"
+  },
+  "python_application_retirement": {
+    "status": "application sources retired; overall migration still incomplete",
+    "application_python_modules": 0,
+    "deleted_ui_modules": [
+      "app",
+      "appearance",
+      "update_controller",
+      "qt_instance",
+      "demo"
+    ],
+    "test_only_contract_api": "tests/core_contract",
+    "retained_regression_tests": 341,
+    "skipped": 0,
+    "native_frontend_unit_tests": 54,
+    "native_qml_dbus_fuse_suite": "passed",
+    "source_runtime_boundary_packaging_tests": 9,
+    "actual_prompt_and_clipboard": "passed",
+    "portable_rebuild": "running",
+    "existing_user_state_metadata_unchanged": true,
+    "logs": [
+      "/tmp/nd-native-python-ui-retired.log",
+      "/tmp/nd-contract-after-runtime-removal.log",
+      "/tmp/nd-runtime-boundary-packaging-tests.log"
+    ]
+  }
+}
