@@ -5,16 +5,16 @@ and package staging use the Rust Qt controller and Rust services with the existi
 Qt Quick/QML interface. They no longer start Python or load the former C ABI
 adapter. The former Python UI/controller modules have been deleted. Remaining
 core compatibility adapters now live exclusively in `tests/core_contract`; no
-Python modules remain under `src/`. Regression completion, CI recipes and fresh
-portable package builds still require validation; do not describe the entire
-migration as complete. Qt and the pinned Proton SDK remain dependencies.
+Python modules remain under `src/`. Native and regression suites now pass on
+x86-64 and ARM64. Authorized live smoke tests also pass. Final package integration
+is still running; the entire migration is not yet declared complete. Qt and the pinned Proton SDK remain dependencies.
 
 The following sections are a chronological engineering log, including superseded
 intermediate implementations. Portable artifacts recorded below must be rebuilt
 after subsequent source edits; a successful historical build is not validation
 of the current source tree.
 
-## Current native sync runtime
+## Historical sync-runtime migration checkpoint
 
 Sync preview, remote/local proofs, baseline persistence and complete execution now
 run in Rust. Execution owns the process lock, staged transfers, durable deletion
@@ -1521,3 +1521,39 @@ assembling an AppDir. The cached-window theme fixture is isolated from the host
 D-Bus portal; otherwise the user's actual system theme correctly overrides its
 synthetic fallback value. User-state metadata remains unchanged. ARM64, Snap
 and Arch installation remain pending remote CI.
+
+### Native CI and authorized account validation
+
+Both native architecture jobs passed in CI run 40027527431: 168 core unit
+tests, 54 frontend tests, 346 retained regression tests without skips, 13 SDK
+bridge tests, and 26 CLI plus 26 actual-window locale checks per architecture.
+Core integration, real FUSE, private D-Bus, keyboard/mouse interaction, formatting
+and Clippy with warnings denied also pass. ARM64 DEB installation and actual
+Fedora 44/openSUSE Tumbleweed RPM installation and window checks pass. The strict
+Snap builds successfully. Current Flatpak diagnostics/window checks pass, but
+the CI export runner lacked an SVG loader; the x86 DEB job used an older
+AppStream validator that rejects newer metadata fields. Follow-up CI moves
+platform-independent metadata validation to Ubuntu 24.04, installs the SVG
+loader and adds an installed strict Snap window check. AppImage/Arch CI remains
+pending the x86 DEB dependency.
+
+The user-authorized test account was exercised using unique synthetic folders
+and isolated application state. The full general transfer/share/trash/sync
+smoke and real-kernel FUSE online/offline/write/eviction smoke pass. The full
+background smoke rerun passes, including persisted job/event-cursor recovery.
+An initial background restart failed without a diagnostic cause; it was not
+reproduced in 15 isolated restart cycles or the complete diagnostic rerun. No
+production fix is claimed for that observation. The deletion smoke initially
+exceeded its 240-second baseline phase budget; a retry with the supported
+600-second phase budget has passed the baseline and restart handshake and
+continues through deletion, restore and conflict scenarios. Synthetic cloud
+roots are moved to Proton trash on cleanup; no existing user files are changed.
+
+The full live deletion smoke subsequently passed with the supported 600-second
+phase budget (exit 0): local delete to cloud trash, no resurrection after daemon
+restart, cloud restore to local, remote delete to local trash and local restore,
+whole-folder safety guards in both directions, manual folder recovery, and
+delete-versus-edit conflicts preserving edits in both directions. The daemon
+stopped cleanly and the synthetic root was moved to Proton trash. Log:
+/tmp/nd-rust-migration-deletions-long-live.log. No production source change or
+weakened assertion was needed for this retry.

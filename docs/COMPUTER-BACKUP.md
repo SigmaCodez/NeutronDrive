@@ -35,10 +35,15 @@ registration commands. Build with `scripts/build-rust-core` on the supported
 Ubuntu 22.04 baseline and `scripts/build-backend` with pinned Bun 1.4.2, then run
 with `--cli /absolute/path/to/the/new/proton-drive`. The package builders accept
 an explicit `--backend` whose adjacent provenance matches the current source.
-Default release pins still refer to alpha6's old bridge and must be updated as
-part of a future release; no new release or local installation is implied here.
+Published-release pins still refer to alpha6's old bridge and must be updated as
+part of a future release. Current package builders use the source-built bridge
+and verify its provenance; they do not silently substitute that old bridge.
+No new release or user-machine installation is implied here.
 
-The current native development build on Ubuntu 26.04 requires GLIBC 2.39 and is
-for local testing only. It must not be published as the baseline Linux build.
+The current portable x86-64 Rust frontend is built on Ubuntu 22.04 and has a
+verified maximum GLIBC requirement of 2.34. ARM64 uses the Ubuntu 24.04 baseline
+and the pinned Qt runtime requires GLIBC 2.39. Both architectures have passed
+native CI tests; host-built artifacts still require provenance and ABI checks
+before packaging.
 The new setup labels currently have German/English text; other locales fall back
 to English for these labels.

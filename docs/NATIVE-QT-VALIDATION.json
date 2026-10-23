@@ -1,5 +1,5 @@
 {
-  "stage": "Python application modules retired; native UI and 341 retained contracts pass; CI/package validation pending",
+  "stage": "Python application runtime retired; native suites and authorized live smoke tests pass; final package CI pending",
   "goal": "active",
   "production_frontend": "Package staging now defaults exclusively to Rust; installed application remains unchanged",
   "qt_version": "6.10.2",
@@ -47,8 +47,7 @@
     "/tmp/nd-verified-appimage-cached-window.log"
   ],
   "remaining": [
-    "Native frontend CI artifact pipeline",
-    "Fresh portable builds and package integration on supported architectures",
+    "Final package CI integration (Flatpak export environment, strict Snap startup, AppImage and Arch)",
     "Final runtime/function/package completion audit"
   ],
   "native_sdk_children_reaped": 2,
@@ -66,7 +65,7 @@
     "successful and missing-SDK diagnosis; version output",
     "diagnostic SDK cancellation and child reaping"
   ],
-  "live_account_test": false,
+  "live_account_test": true,
   "background_combined_startup_test": true,
   "core_unit_tests": 168,
   "core_clippy_all_targets": "passed",
@@ -210,7 +209,7 @@
     "no_inherited_loader_variables": true,
     "passed": true
   },
-  "all_core_tests": "168 latest unit tests passed; desktop-bus, desktop-runtime and 14 runtime integration tests passed before FIFO-only hardening",
+  "all_core_tests": "168 unit tests, 2 desktop-bus, 2 desktop-runtime and 14 runtime integration tests passed on both x86-64 and ARM64 in CI",
   "portable_frontend": {
     "artifact": "build/native-qt-portable-sdk-x86_64/neutrondrive-qt",
     "report": "build/native-qt-portable-sdk-x86_64/native-build.json",
@@ -228,7 +227,8 @@
     "main_window_check_exit_code": 0,
     "fifo_hardening_included": true,
     "architectures_checked": [
-      "x86_64"
+      "x86_64",
+      "aarch64"
     ],
     "baseline_generators": "Qt 6.10.2 qmake/moc built and verified inside Ubuntu 22.04"
   },
@@ -245,24 +245,64 @@
   },
   "native_packages": {
     "deb": "Current source built, streamed archive verified, installed and native runtime checked inside isolated Ubuntu 22.04",
-    "rpm": "Current source built; integrity, dependency isolation and exact payload hashes verified",
+    "rpm": "Current source installed and native window/diagnostics passed on Fedora 44 and openSUSE Tumbleweed in CI",
     "flatpak": "Current source bundle built; diagnostics and actual QML window passed inside GNOME 50",
-    "snap": "project prepared and frontend/SDK provenance verified; full build pending",
+    "snap": "Current-source strict Snapcraft build passed; installed strict runtime check pending",
     "appimage": "Full current-source builder passed; extracted native runtime and persistent-cache window checks passed",
-    "architecture": "x86_64",
+    "architecture": "x86_64 and aarch64 (DEB); other formats x86_64",
     "installed_or_published": false,
     "arch": "Current DEB verified and local PKGBUILD generated; makepkg/install pending"
   },
   "current_source_requires_portable_rebuild": false,
-  "historical_package_validation_note": "Only the current DEB and portable/staged frontend have been rebuilt after Python runtime retirement; RPM and Flatpak evidence is historical. No user-machine installation or release.",
+  "historical_package_validation_note": "Current-source DEB, RPM, Flatpak and AppImage local builds are verified. CI also verifies ARM64 DEB and installed Fedora/openSUSE RPM runtimes. No user-machine installation or release.",
   "cli_locale_process_checks": 26,
   "actual_window_locale_process_checks": 26,
   "native_keyboard_and_pointer_events": "passed: keyboard focus/selection, select-all actions, stable delegates and folder double-click",
   "source_launcher": "POSIX shell execs Rust; setuptools application and Python __main__ removed",
   "application_python_modules": 0,
-  "retained_contract_tests": 341,
+  "retained_contract_tests": 346,
   "retained_contract_tests_skipped": 0,
   "native_dialog_clipboard_literal_sdk_check": "passed",
   "native_live_theme_selection_and_scroll_checks": "passed",
-  "test_adapter_location": "tests/core_contract (not application runtime)"
+  "test_adapter_location": "tests/core_contract (not application runtime)",
+  "ci_validation": {
+    "run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40027527431",
+    "commit": "5470e13eb6092b89158db0beeec9248ea3813fae",
+    "native_architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "per_architecture": {
+      "core_unit_tests": 168,
+      "native_frontend_tests": 54,
+      "retained_regression_tests": 346,
+      "sdk_bridge_tests": 13,
+      "cli_locales": 26,
+      "window_locales": 26
+    },
+    "native_jobs": "passed",
+    "installed_packages_passed": [
+      "DEB ARM64 Ubuntu 24.04",
+      "RPM Fedora 44",
+      "RPM openSUSE Tumbleweed"
+    ],
+    "package_environment_failures": [
+      "Ubuntu 22.04 AppStream validator predates current metadata fields",
+      "Flatpak exporter missing runner SVG loader"
+    ],
+    "followup_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40031286271"
+  },
+  "live_account_validation": {
+    "scope": "Explicitly authorized test account; unique synthetic folders only; cleanup to Proton trash",
+    "general": "passed: transfers, SHA256 roundtrip, rename/move, share/revoke, trash/restore, sync and conflict preservation",
+    "background": "full rerun passed including restart/cursor recovery; initial restart failure not reproduced, cause unestablished; 15 isolated restart cycles also passed",
+    "fuse": "passed: online placeholders, on-demand read, offline pin, write/fsync, atomic editor replacement, folder/file operations, eviction and unmount",
+    "deletions": "passed all phases with supported 600-second phase budget: bidirectional file deletion/trash/restore, no resurrection after restart, whole-folder safety guards and manual recovery, delete-versus-edit conflicts in both directions, daemon stop and cleanup to trash; initial 240-second baseline attempt timed out",
+    "logs": [
+      "/tmp/nd-rust-migration-live.log",
+      "/tmp/nd-rust-background-restart-diagnostic.log",
+      "/tmp/nd-rust-migration-fuse-live.log",
+      "/tmp/nd-rust-migration-deletions-long-live.log"
+    ]
+  }
 }
