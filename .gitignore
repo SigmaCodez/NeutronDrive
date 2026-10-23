@@ -26,3 +26,6 @@ core/target/
 
 desktop/target/
 .qmlls.ini
+
+# Cargo verifies every file listed in vendored crate manifests.
+!/core/vendor/**

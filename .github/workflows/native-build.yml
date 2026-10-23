@@ -30,6 +30,8 @@ jobs:
       QT_QUICK_BACKEND: software
     steps:
       - uses: actions/checkout@v4
+      - name: Verify vendored source completeness
+        run: python3 scripts/check-vendor
       - name: Install baseline build and isolated-test dependencies
         run: |
           sudo apt-get update
