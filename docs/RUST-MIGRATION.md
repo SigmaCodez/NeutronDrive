@@ -5,11 +5,12 @@ The source launcher and current package builders execute the native Rust Qt
 controller and services. Qt Quick/QML and the pinned Proton SDK remain, as
 agreed. No Python modules remain under `src/`; Python is retained only for
 build/test tooling and test-only compatibility adapters in `tests/core_contract`.
-This is unreleased source work: no user-machine installation or new release is
-implied. Existing Windows-parity gaps remain documented in WINDOWS-PARITY.md.
+Alpha7 publishes this completed application-runtime migration. Existing
+Windows-parity gaps remain documented in WINDOWS-PARITY.md.
 
 Current validation evidence:
 
+- [Alpha7 release CI, run 40043303823](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40043303823) rebuilds both native architectures and validates the installation packages from commit `62b3fe3cbc1381b5a0f6c83bd8febec1bd06cb63`. Final release metadata records the resulting SDK and package hashes; executable inputs are unchanged.
 - [Native CI and packages, run 40034921192](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40034921192):
   both x86-64 and ARM64 passed 168 core unit tests, 54 frontend tests, 347 retained
   regression tests without skips, 13 SDK-bridge tests, 26 CLI locales and 26

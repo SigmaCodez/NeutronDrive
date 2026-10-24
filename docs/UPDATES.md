@@ -1,4 +1,4 @@
-# Desktop update checks (development version)
+# Desktop update checks
 
 Settings → Updates offers a manual check and an optional automatic check, once
 per 24 hours while the GUI is running. Automatic checks are enabled by default;
@@ -47,5 +47,4 @@ GitHub-hosted Flatpak/Snap bundles are not a configured store update channel.
 The new updater labels have German and English text; other UI languages
 currently use English for these additional labels. Existing translations remain.
 
-These changes are not included in the published alpha6 release or the previously
-installed `alpha6-1+local1` preferences update.
+These controls are included in alpha7 native application packages.

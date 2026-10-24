@@ -1,7 +1,8 @@
 # Upstream evidence and provenance
 
 Checked on 2026-10-20 against the public source checkout and built executables.
-NeutronDrive 0.3 retains the 0.2 bridge and uses a source-built, additive event bridge over Proton's MIT
+Alpha7 retains the pinned SDK source and uses a source-built bridge with additive
+event and computer-backup extensions over Proton's MIT
 Drive SDK/CLI. It does not redistribute an unmodified official CLI under an
 unrelated version number, copy the GPL desktop clients, or implement its own
 Proton authentication or cryptography.
@@ -12,7 +13,7 @@ Proton authentication or cryptography.
 | NeutronDrive bridge application identity | `external-drive-neutrondrive@0.2.0-alpha` | `packaging/bridge/source-lock.json` |
 | Embedded SDK identity | `js@0.22.2+8a44654aece1` | Source snapshot label set by the build; not a separate official SDK release |
 | Compiler | Bun `1.4.2` | `packaging/bridge/source-lock.json` and upstream CLI engine requirement |
-| Event protocol | `1` | `packaging/bridge/eventProtocol.ts` and `src/neutrondrive/events.py` |
+| Event protocol | `1` | `packaging/bridge/eventProtocol.ts` and `core/src/event_runtime.rs` |
 | Binary targets | `bun-linux-x64-baseline`, `bun-linux-arm64` | Per-target `.provenance.json` |
 | Packaged artifacts | Per-architecture URL and SHA512 | `packaging/backend-lock.json` |
 
@@ -20,15 +21,15 @@ The release build produces `proton-drive-linux-x64` and
 `proton-drive-linux-arm64`, each with an adjacent `.provenance.json`. Provenance
 records the source commit, compiler, app/SDK identity, target, output SHA512,
 bridge/test source hashes, build-script hash, source-lock hash, version-patch
-hash and transformed dependency-lock hash. The dependency release and ordinary
-application packages have separate release identities; package recipes verify
-the exact locked executable checksum. Nothing builds or downloads code at app
+hash and transformed dependency-lock hash. Alpha7 publishes the SDK artifacts alongside the application packages; package
+recipes verify the locked executable checksum or the complete current-source
+provenance report. Nothing builds or downloads code at app
 startup. Bit-for-bit equivalence across arbitrary build hosts is not claimed.
 
 ## Auditable source changes
 
-The three bridge source files introduce an alternative entry point and two
-commands: `events poll` and `events watch`. They import the upstream command
+The bridge sources introduce an alternative entry point, `events poll` /
+`events watch`, and computer-backup registration commands. They import the upstream command
 registry and public SDK interfaces, retaining upstream login/logout, encrypted
 cache, OS keyring integration, transfer and file-operation implementations.
 The bridge does not initialize Sentry or metrics. Its own event commands disable
@@ -66,7 +67,7 @@ session extraction, or reverse engineering is involved.
 `poll` emits a complete JSON batch. Missing cursors produce the SDK's latest-event
 fast-forward and require an initial reconciliation. Refresh/removal events
 request recovery. A failed page produces no partial cursor acknowledgement.
-Python persists a cursor only after every consumer callback durably accepts the
+Rust persists a cursor only after every consumer callback durably accepts the
 work. Event queries run at least 30 seconds apart, with bounded error backoff;
 they are not periodic recursive directory listings. `watch` is diagnostic
 NDJSON with delivery cursors, not durable application acknowledgements.

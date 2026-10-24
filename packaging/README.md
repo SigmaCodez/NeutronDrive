@@ -15,8 +15,8 @@ Build the backend (Bun 1.4.2 and network access required):
 python3 scripts/build-backend --help
 ```
 
-The published dependency release is `bridge-v0.2.0-alpha1`; application packages
-are in `v0.6.0-alpha7`. Source builds are inspectable; bit-for-bit reproducibility
+The current SDK bridge and application packages are published together in
+`v0.6.0-alpha7`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -255,6 +255,6 @@ makepkg --syncdeps
 
 This recipe has no Python runtime dependencies and verifies the original DEB's
 frontend and SDK provenance before creating its local source/checksum entries.
-The published `packaging/aur/neutrondrive-bin` recipe still pins the existing
-alpha6 release and retains its dependencies until a replacement release exists.
+The published `packaging/aur/neutrondrive-bin` recipe pins the alpha7 native
+DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.
