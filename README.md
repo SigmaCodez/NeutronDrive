@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
-**Status: 0.6.0 alpha 7.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 8.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -12,9 +12,9 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
-## Interface development preview
+## File views and desktop features
 
-The development branch adds a responsive grid view alongside the detailed file
+Alpha8 adds a responsive grid view alongside the detailed file
 list, inspired by the file-browser layout of
 [narrrl/proton-drive-linux](https://github.com/narrrl/proton-drive-linux).
 Use **List view / Grid view** above the files. Selection is shared between both
@@ -22,7 +22,7 @@ views; arrow keys, Ctrl+A, Ctrl-click and double-click folder navigation work in
 both. The view choice lasts for the current application session. Grid tiles use
 file/folder icons, not photo thumbnails.
 
-![Current development grid view in English](docs/previews/files-grid-light.png)
+![Current alpha8 grid view in English](docs/previews/files-grid-light.png)
 
 [Dark grid](docs/previews/files-grid-dark.png) ·
 [Detailed list](docs/previews/files-list-light.png) ·
@@ -32,19 +32,19 @@ file/folder icons, not photo thumbnails.
 [Version history](docs/previews/history-light.png) ·
 [Capture details](docs/previews/capture.json)
 
-These are actual development GUI captures with English synthetic demo files.
-This change is not included in the published alpha7 packages. Rust, Qt Quick/QML
-and the official Proton SDK are retained. The development branch also adds a native tray with sync-service controls, a
+These are actual release GUI captures with English synthetic demo files.
+These features are included in the alpha8 packages. Rust, Qt Quick/QML
+and the official Proton SDK are retained. Alpha8 also adds a native tray with sync-service controls, a
 live sync overview, paginated cloud Photos with thumbnails and downloads, and
 file version history with guarded restore requests. See [desktop feature details
 and limits](docs/DESKTOP-FEATURES.md). This is not a claim of complete reference-project
 or Windows feature parity.
 
-## Published alpha7 interface
+## Published alpha8 interface
 
-![Current alpha7 interface in English with isolated sample files](docs/demo.png)
+![Current alpha8 interface in English with isolated sample files](docs/demo.png)
 
-Actual alpha7 GUI, captured in English using isolated synthetic data; no live account or personal files.
+Actual alpha8 GUI, captured in English using isolated synthetic data; no live account or personal files.
 [Preview build and capture details](docs/GUI-PREVIEWS.json).
 
 [Current dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting or your manual preference.
@@ -57,7 +57,7 @@ The old Python UI modules have been removed; compatibility adapters are retained
 only under `tests/core_contract` for native-core regression tests. Native tests
 pass on x86-64 and ARM64; current-source DEB, RPM, Flatpak, Snap, AppImage and
 Arch package checks and authorized live sync/FUSE/trash tests have passed.
-Alpha7 packages include the completed native runtime migration.
+Alpha8 packages include the completed native runtime migration.
 See [migration status and evidence](docs/RUST-MIGRATION.md).
 
 ## Language
@@ -139,21 +139,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha7-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha8-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha7-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha8-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha7-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha8-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a7-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a8-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha7_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha8_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -161,8 +161,8 @@ Additional formats:
 
 ```sh
 # Portable x86_64 AppImage
-chmod +x NeutronDrive-0.6.0-alpha7-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha7-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha8-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha8-x86_64.AppImage
 
 # Arch/Manjaro: review the PKGBUILD, then build as a regular user
 # Requires base-devel and git.
@@ -402,7 +402,7 @@ and use their normal package/update workflow. See [update behavior and limits](d
 Automatic sync now includes a Computer backup card that registers a Linux
 computer through the official SDK and synchronizes selected folders under
 Proton Drive's Computers section. It requires the new source-built SDK bridge
-and Rust core, included in alpha7 packages. See
+and Rust core, included in alpha8 packages. See
 [setup and safety behavior](docs/COMPUTER-BACKUP.md) and the
 [Windows feature comparison](docs/WINDOWS-PARITY.md) for remaining gaps.
 

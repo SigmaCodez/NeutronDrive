@@ -1,4 +1,36 @@
-# Validation record — 0.6.0 alpha6
+# Validation record — 0.6.0 alpha8
+
+Package source commit: `360e4713f31967cff337e2e9a9d02b5fa6d1e0cc`.
+All required jobs passed in the [full release build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40094128233).
+The optional artifact-reuse job was skipped because both architectures were built
+and tested from source in this run.
+
+Release packages: DEB amd64/arm64, Fedora/openSUSE RPM x86_64, Flatpak x86_64,
+Snap amd64, AppImage x86_64 and Arch x86_64. The downloadable AUR recipe supports
+x86_64/aarch64 DEBs; it has not been published to the AUR.
+
+The pipeline checks Rust unit tests and Clippy, retained differential/regression
+contracts, all 25 UI languages plus unsupported-locale English fallback, actual
+Qt window input, SDK bridge tests/typechecking, and installed package startup.
+See release `TEST_RESULTS.json`, `BUILD_INFO.json`, binary provenance reports and
+`SHA256SUMS` for the run, artifacts and checksums. Passing these checks does not
+certify every Linux distribution or establish absence of all bugs.
+
+The application runtime is Rust with Qt Quick/QML and the official Proton SDK.
+No Python/PySide application runtime is shipped. Python remains in build and
+regression tools. [Fresh English GUI previews](GUI-PREVIEWS.json) come from the
+unmodified release executable with isolated synthetic demo data.
+
+[Desktop feature validation](DESKTOP-FEATURES.md) records the separate authorized
+live test of the Photos timeline and synthetic version restoration. Existing
+personal files were not modified. [Windows parity](WINDOWS-PARITY.md) lists the
+remaining functional limits, including guarded whole-folder deletion.
+
+## Historical alpha6 record
+
+The following evidence applies to alpha6 only and does not describe the current
+Rust runtime or certify alpha8 packages.
+
 
 Previous runtime and live-account evidence: [alpha5](VALIDATION-0.6-alpha5.md).
 

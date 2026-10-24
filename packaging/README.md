@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The current SDK bridge and application packages are published together in
-`v0.6.0-alpha7`. Source builds are inspectable; bit-for-bit reproducibility
+`v0.6.0-alpha8`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -104,7 +104,7 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.6.0a7-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.6.0a8-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
@@ -146,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha7_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha8_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -255,6 +255,6 @@ makepkg --syncdeps
 
 This recipe has no Python runtime dependencies and verifies the original DEB's
 frontend and SDK provenance before creating its local source/checksum entries.
-The published `packaging/aur/neutrondrive-bin` recipe pins the alpha7 native
+The published `packaging/aur/neutrondrive-bin` recipe pins the alpha8 native
 DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.
