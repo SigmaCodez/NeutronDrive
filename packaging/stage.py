@@ -38,12 +38,13 @@ def stage(destination, prefix, arch, binary, portal_browser=False, host_services
     binary = Path(binary) if binary else ROOT / "build/backend/proton-drive"
     if not binary.is_file():
         raise ValueError("Build the current pinned SDK with scripts/build-backend or pass --backend")
-    source_build = False
-    try:
-        backend.verify(binary, entry["sha512"])
-    except ValueError:
+    # Keep source provenance even after this exact SDK binary becomes a pinned
+    # release asset. Arch repackaging verifies this report independently.
+    source_build = binary.with_name(binary.name + ".provenance.json").is_file()
+    if source_build:
         backend.verify_source_build(binary, arch)
-        source_build = True
+    else:
+        backend.verify(binary, entry["sha512"])
     native_frontend.stage(app, base, arch)
     # Retain the installed payload identity used by update-format detection.
     shutil.copytree(source / "locales", app / "neutrondrive/locales")

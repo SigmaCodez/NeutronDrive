@@ -105,7 +105,7 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0~alpha7-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha7-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
 sudo dnf install ./neutrondrive-0.6.0-alpha7-fedora-x86_64.rpm

@@ -55,6 +55,17 @@ class NativePackagingTests(unittest.TestCase):
             self.assertTrue((destination / 'usr/bin/neutrondrive').read_text().startswith('#!/bin/sh'))
             self.assertTrue((destination / 'usr/lib/neutrondrive/neutrondrive/locales/en.json').is_file())
             self.assertEqual(list(destination.rglob('*.py')), [])
+            # A release-pinned SDK must still retain its adjacent source report.
+            provenance = backend.with_name('sdk.provenance.json')
+            provenance.write_text('{"source": "fixture"}')
+            pinned_destination = Path(temporary) / 'pinned-package'
+            with patch.object(stage, 'ROOT', root), patch.object(stage.backend, 'verify') as verify_pin, \
+                 patch.object(stage.backend, 'verify_source_build') as verify_source, \
+                 patch.object(stage.native_frontend, 'stage'), patch.object(stage.qt_runtime, 'stage'):
+                stage.stage(pinned_destination, '/usr', 'x86_64', backend)
+                verify_source.assert_called_once_with(backend, 'x86_64')
+                verify_pin.assert_not_called()
+            self.assertEqual((pinned_destination / 'usr/share/doc/neutrondrive/backend-build.provenance.json').read_bytes(), provenance.read_bytes())
     def test_native_portal_helper_passes_one_literal_url_and_rejects_wrong_arity(self):
         with tempfile.TemporaryDirectory(prefix='nd browser helper ') as temporary:
             app=Path(temporary);(app/'bin').mkdir()
