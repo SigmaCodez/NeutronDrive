@@ -1,0 +1,20 @@
+--- a/cli/src/init.ts
++++ b/cli/src/init.ts
+@@ -81,6 +81,7 @@
+         config,
+         logger: logger as Logger,
+         auth,
++        apiClient,
+         addresses,
+         sdk,
+         photosSdk,
+--- a/cli/src/cli/interface.ts
++++ b/cli/src/cli/interface.ts
+@@ -35,6 +35,7 @@
+     config: Config;
+     logger: Logger;
+     auth: Auth;
++    apiClient?: import("../api").ApiClient;
+     sdk: ProtonDriveClient;
+     photosSdk: ProtonDrivePhotosClient;
+     sdkDiagnostic: Diagnostic;

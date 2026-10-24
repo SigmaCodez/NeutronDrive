@@ -346,7 +346,72 @@ impl Mount {
         }
         Ok(())
     }
+    // A folder pin is a durable policy: later children inherit it during refresh.
+    // Iterative traversal bounds cycles and avoids consuming the Rust stack.
+    fn sync_pin_tree(&mut self, root: u64, host: &mut impl Services) -> Result<()> {
+        let mut pending = vec![root];
+        let mut visited = BTreeSet::new();
+        while let Some(inode) = pending.pop() {
+            host.poll()?;
+            if !visited.insert(inode) {
+                continue;
+            }
+            if visited.len() > 100000 {
+                return Err(fail(
+                    libc::EFBIG,
+                    "Pinned folder exceeds the supported entry limit",
+                ));
+            }
+            let entry = self.entry(inode)?;
+            if entry.node["type"] == "folder" {
+                self.tree.pinned.insert(inode);
+                self.save()?;
+                self.refresh_snapshot(inode, host)?;
+                if let Some(children) = self.tree.children.get(&inode) {
+                    pending.extend(children.values().copied());
+                }
+            } else {
+                // Never replace the identity of an open file or accept a path now
+                // pointing to a different cloud node.
+                if self.open_inodes().contains(&inode) {
+                    if !self.tree.pinned.contains(&inode) {
+                        return Err(fail(
+                            libc::EBUSY,
+                            "Close the file before keeping it on this device",
+                        ));
+                    }
+                    continue;
+                }
+                let current = if self.config.offline {
+                    entry.node.clone()
+                } else {
+                    host.request("info", json!({"path":entry.node["path"]}))?
+                };
+                if current["uid"] != entry.node["uid"] {
+                    return Err(fail(
+                        libc::ESTALE,
+                        "Pinned file identity changed; refresh its parent folder",
+                    ));
+                }
+                tree::node(&current)?;
+                self.hydrate(&current, host)?;
+                if let Some(saved) = self.tree.entries.iter_mut().find(|e| e.inode == inode) {
+                    saved.node = current;
+                }
+                self.tree.pinned.insert(inode);
+                self.save()?;
+            }
+        }
+        Ok(())
+    }
     fn refresh(&mut self, inode: u64, host: &mut impl Services) -> Result<Value> {
+        let result = self.refresh_snapshot(inode, host)?;
+        if self.tree.pinned.contains(&inode) {
+            self.sync_pin_tree(inode, host)?;
+        }
+        Ok(result)
+    }
+    fn refresh_snapshot(&mut self, inode: u64, host: &mut impl Services) -> Result<Value> {
         let entry = self.entry(inode)?;
         if entry.node["type"] != "folder" {
             return Err(fail(libc::ENOTDIR, "Not a directory"));
@@ -807,6 +872,24 @@ impl Mount {
             }
             Action::Invalidate => {
                 self.loaded.clear();
+                // Cloud events keep pinned content current even when no file
+                // manager is browsing the directory.
+                let roots: Vec<_> = self
+                    .tree
+                    .pinned
+                    .iter()
+                    .copied()
+                    .filter(|id| {
+                        self.tree
+                            .entries
+                            .iter()
+                            .find(|e| e.inode == *id)
+                            .is_some_and(|e| e.inode == 1 || !self.tree.pinned.contains(&e.parent))
+                    })
+                    .collect();
+                for inode in roots {
+                    self.sync_pin_tree(inode, host)?;
+                }
                 Value::Null
             }
             Action::BlockAccount => {
@@ -847,23 +930,56 @@ impl Mount {
                 json!({"inode":inode,"folder":entry.node["type"]=="folder","size":size,"mtime_ns":timestamp(field(&entry.node,"modified")),"cached":self.objects.join(io::key(&entry.node)?).is_file(),"pinned":self.tree.pinned.contains(&inode),"writable":self.config.writable})
             }
             Action::Pin { inode, pinned } => {
-                let entry = self.entry(inode)?;
-                if entry.node["type"] == "folder" {
-                    return Err(fail(
-                        libc::EISDIR,
-                        "Pin files individually; recursive folder pinning is not supported",
-                    ));
-                }
+                self.entry(inode)?;
                 if pinned {
-                    self.hydrate(&entry.node, host)?;
-                    self.tree.pinned.insert(inode);
+                    self.check_root(host)?;
+                    self.sync_pin_tree(inode, host)?;
                 } else {
-                    self.tree.pinned.remove(&inode);
+                    let mut pending = vec![inode];
+                    let mut visited = BTreeSet::new();
+                    while let Some(id) = pending.pop() {
+                        if !visited.insert(id) {
+                            continue;
+                        }
+                        self.tree.pinned.remove(&id);
+                        if let Some(children) = self.tree.children.get(&id) {
+                            pending.extend(children.values().copied());
+                        }
+                    }
+                    self.save()?;
                 }
-                self.save()?;
                 Value::Null
             }
             Action::Evict { inode } => {
+                if self.entry(inode)?.node["type"] == "folder" {
+                    let mut pending = vec![inode];
+                    let mut visited = BTreeSet::new();
+                    let mut files = Vec::new();
+                    while let Some(id) = pending.pop() {
+                        if !visited.insert(id) {
+                            continue;
+                        }
+                        if self.tree.pinned.contains(&id)
+                            || self.files.values().any(|f| f.inode == id)
+                        {
+                            return Err(fail(
+                                libc::EBUSY,
+                                "Unpin and close files before freeing folder storage",
+                            ));
+                        }
+                        if self.entry(id)?.node["type"] == "folder" {
+                            if let Some(children) = self.tree.children.get(&id) {
+                                pending.extend(children.values().copied());
+                            }
+                        } else {
+                            files.push(id);
+                        }
+                    }
+                    for id in files {
+                        self.apply(Action::Evict { inode: id }, host)?;
+                    }
+                    return Ok(Value::Null);
+                }
                 if self.tree.pinned.contains(&inode)
                     || self.files.values().any(|f| f.inode == inode)
                 {
@@ -1182,6 +1298,126 @@ mod tests {
             offline,
             metadata_ttl: 15.0,
         }
+    }
+    #[test]
+    fn folder_pin_survives_restart_and_refreshes_revisions_without_opening_files() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        assert!(mount.tree.pinned.contains(&1));
+        assert!(mount.tree.pinned.contains(&inode));
+        host.content = b"new cloud content".to_vec();
+        host.revision = 2;
+        mount.apply(Action::Invalidate, &mut host).unwrap();
+        assert_eq!(mount.entry(inode).unwrap().node["revision"], "r2");
+        assert_eq!(host.uploads, 0);
+        mount.close();
+        drop(mount);
+        host.online = false;
+        let mut offline = Mount::new(config(&temp, true), &mut host).unwrap();
+        assert!(offline.tree.pinned.contains(&1));
+        let file = offline.open(inode, libc::O_RDONLY, &mut host).unwrap();
+        assert!(file > 0);
+    }
+    #[test]
+    fn new_cloud_files_inherit_the_existing_folder_pin() {
+        struct Growing {
+            base: Host,
+            added: bool,
+        }
+        impl Growing {
+            fn later(&self) -> Value {
+                let mut n = self.base.node();
+                n["uid"] = json!("later");
+                n["name"] = json!("later");
+                n["path"] = json!("/my-files/later");
+                n
+            }
+        }
+        impl Services for Growing {
+            fn poll(&mut self) -> std::result::Result<(), Failure> {
+                Ok(())
+            }
+            fn request(
+                &mut self,
+                method: &str,
+                args: Value,
+            ) -> std::result::Result<Value, Failure> {
+                if method == "list_nodes" && self.added {
+                    return Ok(json!([self.base.node(), self.later()]));
+                }
+                if method == "info" && args["path"] == "/my-files/later" {
+                    return Ok(self.later());
+                }
+                if method == "download" && args["paths"][0] == "/my-files/later" {
+                    std::fs::write(
+                        PathBuf::from(args["destination"].as_str().unwrap()).join("later"),
+                        &self.base.content,
+                    )
+                    .unwrap();
+                    return Ok(Value::Null);
+                }
+                self.base.request(method, args)
+            }
+        }
+        let temp = Temp::new();
+        let mut host = Growing {
+            base: Host::new(),
+            added: false,
+        };
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        host.added = true;
+        mount.apply(Action::Invalidate, &mut host).unwrap();
+        let later = mount.lookup(1, "later", &mut host).unwrap();
+        assert!(mount.tree.pinned.contains(&later.inode));
+        assert!(mount.objects.join(io::key(&later.node).unwrap()).is_file());
+        assert_eq!(host.base.uploads, 0);
+    }
+    #[test]
+    fn unpin_folder_removes_descendant_policy_without_uploading_or_deleting_cloud_data() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: false,
+                },
+                &mut host,
+            )
+            .unwrap();
+        assert!(mount.tree.pinned.is_empty());
+        assert_eq!(host.content, b"abc");
+        assert_eq!(host.uploads, 0);
     }
     #[test]
     fn owned_mount_writeback_offline_pin_and_lock_lifecycle() {

@@ -47,6 +47,9 @@ def verify_source_build(path, arch):
     builder = LOCK.parent.parent / "scripts/build-backend"
     if report.get("builder_sha256") != hashlib.sha256(builder.read_bytes()).hexdigest():
         raise ValueError("Backend build script provenance does not match")
+    for filename, key in [("account-status.patch", "account_patch_sha256"), ("version-branding.patch", "version_patch_sha256")]:
+        if report.get(key) != hashlib.sha256((bridge / filename).read_bytes()).hexdigest():
+            raise ValueError("Backend SDK patch provenance does not match")
     verify(path, report["sha512"])
 
 

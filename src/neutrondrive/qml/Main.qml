@@ -73,6 +73,8 @@ ApplicationWindow {
     palette.window: window.theme.canvas; palette.highlightedText: window.theme.onAccent
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
     property bool gridView: false
+    Timer { interval: 60000; repeat: true; running: Boolean(s.authenticated); triggeredOnStart: true; onTriggered: if(!s.busy)controller.send("account_storage",[]) }
+    property var appController: controller
     property var s: controller.state
     property color muted: window.theme.muted
     property var titles: ({"files":s.fields.files_title.value,"photos":window.tr("Photos"),"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
@@ -145,6 +147,32 @@ ApplicationWindow {
         contentItem: Text { text: check.text; textFormat: Text.PlainText; color: window.theme.text; leftPadding: check.indicator.width + check.spacing; verticalAlignment: Text.AlignVCenter }
     }
 
+    Dialog {
+        id: setupWizard; objectName: "setupWizard"
+        visible: Boolean(s.setupNeeded); modal: true; closePolicy: Popup.NoAutoClose
+        anchors.centerIn: parent; width: Math.min(640,window.width-60)
+        title: window.tr("Welcome to NeutronDrive")
+        contentItem: ColumnLayout {
+            spacing: 16
+            Label { text: window.tr("Your files, ready when you need them"); font.pixelSize: 22; font.bold: true; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            Copy { text: window.tr("Sign in, choose an empty sync folder, and start. Files appear without downloading their contents. Open a file or choose Keep on device to download it.") }
+            Action { text: window.tr("Sign in to Proton"); command: "login"; enabled: !s.busy }
+            TextField { id: setupPath; Layout.fillWidth: true; text: s.setupFolder || ""; enabled: !s.busy; onEditingFinished: controller.send("setup_folder",[text]) }
+            Button { text: window.tr("Choose sync folder"); enabled: !s.busy; onClicked: setupFolderPicker.open() }
+            Copy { text: window.tr("Finishing starts the sync service and enables automatic startup at login. Existing files in the selected folder will never be hidden or moved.") }
+            Copy { text: s.fields.notice_label.value || ""; visible: Boolean(text) }
+            RowLayout {
+                Button { text: window.tr("Later"); enabled: !s.busy; onClicked: controller.send("setup_later",[]) }
+                Item { Layout.fillWidth: true }
+                Button { text: window.tr("Finish and start sync"); highlighted: true; enabled: !s.busy && setupPath.text.length>0; onClicked: { controller.send("setup_folder",[setupPath.text]); controller.send("setup_finish",[]); } }
+            }
+        }
+    }
+    FolderDialog {
+        id: setupFolderPicker; title: window.tr("Choose an empty sync folder")
+        onAccepted: { let url=selectedFolder.toString(); controller.send("setup_folder_url",[url]); }
+    }
+
     RowLayout {
         anchors.fill: parent; spacing: 0
         Rectangle {
@@ -163,16 +191,16 @@ ApplicationWindow {
                 }
                 Copy { text: window.tr("Deine Dateien. Dein Speicher."); font.pixelSize: 12; Layout.bottomMargin: 12 }
                 Repeater {
-                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
-                        {name:window.tr("Automatischer Sync"),key:"background",icon:"refresh"},{name:window.tr("Online-Laufwerk"),key:"ondemand",icon:"cloud"},{name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
+                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Shared by me"),key:"/shared-by-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
+                        {name:window.tr("Automatischer Sync"),key:"background",icon:"refresh"},{name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
                     delegate: ColumnLayout {
                         id: navigationEntry
                         required property var modelData
                         required property int index
                         Layout.fillWidth: true; spacing: 4
                         Copy {
-                            visible: navigationEntry.index===0 || navigationEntry.index===5 || navigationEntry.index===8
-                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===5 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
+                            visible: navigationEntry.index===0 || navigationEntry.index===6 || navigationEntry.index===8
+                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===6 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
                             font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
                             Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
                         }
@@ -183,7 +211,7 @@ ApplicationWindow {
                         objectName: "nav-"+modelData.key
                         Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
-                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photos_page",[0])) : controller.show_page(modelData.key))
+                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photo_library",[{action:"index",album:""}])) : controller.show_page(modelData.key))
                         Accessible.name: text
                         contentItem: RowLayout {
                             spacing: 12
@@ -195,7 +223,15 @@ ApplicationWindow {
                     }
                 }
                 Item { Layout.fillHeight: true }
-                Action { text: window.tr("Bei Proton anmelden"); command: "login"; Layout.fillWidth: true }
+                Action { text: window.tr("Bei Proton anmelden"); command: "login"; visible: !s.authenticated; Layout.fillWidth: true }
+                ColumnLayout {
+                    visible: Boolean(s.authenticated); Layout.fillWidth: true
+                    Copy { text: window.tr("Account storage"); font.bold: true }
+                    ProgressBar { Layout.fillWidth: true; from: 0; to: 100; value: s.storage ? Math.min(100,s.storage.percent) : 0; visible: Boolean(s.storage) }
+                    Copy { text: s.storage ? s.storage.usedText+" "+window.tr("used")+" · "+Math.round(s.storage.percent)+"%" : window.tr("Storage information unavailable"); font.pixelSize: 12 }
+                    Copy { text: s.storage ? s.storage.freeText+" "+window.tr("free") : ""; visible: Boolean(s.storage); font.pixelSize: 12 }
+                    Button { text: window.tr("Refresh storage"); flat: true; enabled: !s.busy; onClicked: controller.send("account_storage",[]) }
+                }
                 Action { text: window.tr("Proton Drive im Web ↗"); command: "web"; Layout.fillWidth: true }
                 Copy { text: window.tr("Unabhängige Open-Source-App\n")+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
             }
@@ -370,7 +406,7 @@ ApplicationWindow {
                 }
             }
             Flow { Layout.fillWidth: true; spacing: 8
-                Repeater { model: ["Download","Umbenennen","Verschieben","Freigabe","Papierkorb","Wiederherstellen"]
+                Repeater { model: ["Download","Keep on device","Free up space","Umbenennen","Verschieben","Freigabe","Papierkorb","Wiederherstellen"]
                     delegate: Action { required property string modelData; text: window.tr(modelData); command: modelData; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
                 }
             }
@@ -380,36 +416,9 @@ ApplicationWindow {
     }
     Component {
         id: photosPage
-        ColumnLayout {
-            objectName: "page-photos"; spacing: 12
-            RowLayout {
-                Button { text: window.tr("Previous"); enabled: !s.busy && s.photoOffset>0; onClicked: controller.send("photos_page",[Math.max(0,s.photoOffset-48)]) }
-                Button { text: window.tr("Next"); enabled: !s.busy && s.photosMore; onClicked: controller.send("photos_page",[s.photoOffset+48]) }
-                Button { text: window.tr("Aktualisieren"); enabled: !s.busy; onClicked: controller.send("photos_page",[s.photoOffset]) }
-                Copy { text: window.tr("Photos are ordered by the cloud timeline.") }
-            }
-            GridView {
-                objectName: "photoGrid"; Layout.fillWidth: true; Layout.fillHeight: true
-                clip: true; model: s.photos || []; cellWidth: width/Math.max(1,Math.floor(width/200)); cellHeight: 230
-                ScrollBar.vertical: ScrollBar {}
-                delegate: Item {
-                    id: photo; required property var modelData; required property int index
-                    width: GridView.view.cellWidth; height: GridView.view.cellHeight
-                    ColumnLayout {
-                        anchors.fill: parent; anchors.margins: 8; spacing: 6
-                        Rectangle {
-                            Layout.fillWidth: true; Layout.preferredHeight: 140; color: window.theme.fileTile; radius: 10; clip: true
-                            DriveIcon { anchors.centerIn: parent; symbol: "photo"; ink: window.theme.fileInk; visible: preview.status!==Image.Ready }
-                            Image { id: preview; objectName: "photoPreview-"+photo.index; anchors.fill: parent; source: photo.modelData.thumbnail || ""; sourceSize.width: 400; sourceSize.height: 280; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false }
-                        }
-                        Label { text: photo.modelData.name; textFormat: Text.PlainText; color: window.theme.text; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                        Button { text: window.tr("Download"); enabled: !s.busy && photo.modelData.safe; onClicked: controller.send("photo_download",[photo.index]) }
-                    }
-                }
-                Label { anchors.centerIn: parent; visible: !s.busy && (s.photos || []).length===0; text: window.tr("No photos on this page."); color: window.muted }
-            }
-        }
+        PhotoLibraryPanel { host: window; controller: window.appController; viewState: s }
     }
+
     Dialog {
         id: historyDialog; objectName: "historyDialog"
         visible: Boolean(s.history && s.history.visible)
@@ -445,6 +454,17 @@ ApplicationWindow {
         id: backgroundPage
         PageScroll {
             objectName: "page-background"
+            Card {
+                Heading { text: window.tr("Your sync folder") }
+                Copy { text: window.f("mount_label").value }
+                Copy { text: window.f("mount_status").value }
+                Copy { text: window.tr("Files appear as online placeholders. Use Keep on device in the file menu to keep selected files or folders available offline.") }
+                Flow { Layout.fillWidth: true; spacing: 8
+                    Action { text: window.tr("Set up sync folder"); onClicked: controller.send("setup_open",[]); primary: true }
+                    Action { text: window.tr("Sync settings / online drive only"); onClicked: controller.show_page("ondemand") }
+                    Action { text: window.tr("Refresh sync status"); command: "mountStatus" }
+                }
+            }
             Card {
                 Heading { text: window.tr("Sync overview") }
                 Copy { text: window.f("background_status").value }
@@ -654,7 +674,7 @@ ApplicationWindow {
             window.request=value
             if (value.kind==="folder") folderPicker.open()
             else if (value.kind==="files") { filePicker.fileMode=value.multiple ? FileDialog.OpenFiles : FileDialog.OpenFile; filePicker.open() }
-            else { promptInput.text=value.initial || ""; modal.open(); cancelDialog.forceActiveFocus() }
+            else { promptInput.text=value.initial || ""; shareEmail.text=""; shareRole.currentIndex=0; modal.open(); cancelDialog.forceActiveFocus() }
         }
     }
     FolderDialog {
@@ -679,8 +699,16 @@ ApplicationWindow {
             Copy { text: window.request.description || ""; color: window.theme.secondaryText }
             TextField { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: window.theme.text }
             TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: window.theme.accentText }
+            RowLayout {
+                visible: window.request.kind==="share"
+                TextField { id: shareEmail; Layout.fillWidth: true; placeholderText: window.tr("Email address"); inputMethodHints: Qt.ImhEmailCharactersOnly; maximumLength: 254 }
+                ComboBox { id: shareRole; model: [window.tr("Viewer"),window.tr("Editor")] }
+            }
             Flow {
                 Layout.fillWidth: true; spacing: 8
+                Action { text: window.tr("Invite by email"); enabled: shareEmail.text.trim().length>0; visible: window.request.kind==="share"
+                    onClicked: { let token=window.request.token; let value={action:"invite",email:shareEmail.text,role:shareRole.currentIndex===0?"viewer":"editor"}; modal.close(); controller.answer_dialog(token,true,value) }
+                }
                 Action { id: cancelDialog; objectName: "dialogCancel"; text: window.tr("Abbrechen / Schließen"); enabled: true
                     onClicked: modal.reject()
                 }

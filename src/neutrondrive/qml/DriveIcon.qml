@@ -31,7 +31,11 @@ Canvas {
         else if(symbol==="activity") { line([2,12,6,12,9,5,14,20,18,12,22,12]); }
         else if(symbol==="settings") { for(let y=6;y<22;y+=6)line([3,y,21,y]); circle(8,6,2); circle(16,12,2); circle(10,18,2); }
         else if(symbol==="search") { circle(10,10,6); line([15,15,21,21]); }
-        else if(symbol==="brand") { line([3,18,3,6,8,6,16,18,21,18,21,6]); }
+        else if(symbol==="brand") {
+            c.save();c.translate(12,12);c.rotate(-Math.PI/5);c.scale(1,.43);circle(0,0,10);c.restore();
+            c.save();c.translate(12,12);c.rotate(Math.PI*.3);c.scale(1,.43);circle(0,0,10);c.restore();
+            c.beginPath();c.arc(12,12,3,0,Math.PI*2);c.fill();
+        }
         else { line([6,3,14,3,19,8,19,21,6,21,6,3]); line([14,3,14,8,19,8]); line([9,13,16,13]); line([9,17,14,17]); }
     }
 }

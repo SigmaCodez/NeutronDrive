@@ -66,8 +66,13 @@ def main():
     version_patch = BRIDGE / 'version-branding.patch'
     run(['git', '-C', source, 'apply', '--check', version_patch])
     run(['git', '-C', source, 'apply', version_patch])
+    for name in ['cli/src/init.ts', 'cli/src/cli/interface.ts']:
+        (source / name).write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:' + name]))
+    account_patch = BRIDGE / 'account-status.patch'
+    run(['git', '-C', source, 'apply', '--check', account_patch])
+    run(['git', '-C', source, 'apply', account_patch])
     dirty = subprocess.check_output(['git', '-C', str(source), 'diff', '--name-only'], text=True).splitlines()
-    if dirty != ['cli/bun.lock', 'cli/src/cli/version.ts']:
+    if dirty != ['cli/bun.lock', 'cli/src/cli/interface.ts', 'cli/src/cli/version.ts', 'cli/src/init.ts']:
         parser.error('Source cache has unexpected tracked modifications: ' + ', '.join(dirty))
     for name in ('eventProtocol.ts', 'eventCommands.ts', 'neutrondrive-drive.ts',
                  'eventProtocol.test.ts', 'versionBranding.test.ts', 'computerCommands.ts', 'computerCommands.test.ts', 'libraryCommands.ts', 'libraryCommands.test.ts'):
@@ -109,6 +114,7 @@ def main():
     provenance = {**lock, 'target': args.target, 'sha512': sha512,
                   'builder_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'source_lock_sha256': hashlib.sha256((BRIDGE / 'source-lock.json').read_bytes()).hexdigest(),
+                  'account_patch_sha256': hashlib.sha256(account_patch.read_bytes()).hexdigest(),
                   'version_patch_sha256': hashlib.sha256(version_patch.read_bytes()).hexdigest(),
                   'public_registry_lock_sha256': hashlib.sha256(public_lock).hexdigest(),
                   'registry_rewrite': 'https://pkg.protontech.ch/npm/npm-public/ -> https://registry.npmjs.org/',

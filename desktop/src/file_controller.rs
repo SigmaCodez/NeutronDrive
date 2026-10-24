@@ -159,7 +159,14 @@ impl qobject::NativeFiles {
         else {
             return false;
         };
-        self.as_mut().rust_mut().model = Some(Files::new(locale, &executable.to_string(), demo));
+        let mut model = Files::new(locale, &executable.to_string(), demo);
+        let store = crate::preferences::Store::interface();
+        model.state["setupNeeded"] = json!(!demo && store.read("setup", "") != "complete");
+        model.state["setupFolder"] = json!(std::env::var_os("HOME")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default()
+            .join("ProtonDrive"));
+        self.as_mut().rust_mut().model = Some(model);
         self.as_mut().rust_mut().executable = executable.to_string();
         self.as_mut().rust_mut().demo = demo;
         self.publish();
@@ -322,6 +329,10 @@ impl qobject::NativeFiles {
                 };
                 if demo {demo_operation(&work.operation)} else if work.target == Target::Background {
                     crate::background::run(&executable,&work.operation,&mut callback)
+                } else if work.target == Target::Mount && matches!(work.operation["action"].as_str(),Some("pin_remote"|"evict_remote")) {
+                    crate::setup::availability(&executable,&work.operation,&mut callback)
+                } else if work.target == Target::Mount && work.operation["action"] == "setup" {
+                    crate::setup::run(&executable,&work.operation,&mut callback)
                 } else if work.target == Target::Mount {
                     runtime::call(crate::headless::desktop_request(&executable,work.operation)?,&mut callback)
                 } else if work.target == Target::Autostart {
@@ -393,6 +404,22 @@ fn demo_operation(operation: &Value) -> Result<Value, Failure> {
         "version" => Ok(json!(
             "Demo-Modus · keine Verbindung und keine Übertragungen"
         )),
+        "account_storage" => Ok(json!({"total":10737418240_u64,"used":3221225472_u64})),
+        "photo_library" => match operation["request"]["action"].as_str().unwrap_or("") {
+            "index" => {
+                Ok(json!({"items":[{"uid":"demo-photo-one"},{"uid":"demo-photo-two"}],"total":2}))
+            }
+            "details" => Ok(json!({"photos":[
+                {"uid":"demo-photo-one","name":"Sample image 1.jpg","safe":true,"location":{"latitude":46.6,"longitude":8.2},"thumbnail":format!("data:image/jpeg;base64,{}",include_str!("../data/demo-photo.base64").trim())},
+                {"uid":"demo-photo-two","name":"Sample image 2.jpg","safe":true,"thumbnail":""}]})),
+            "albums" => Ok(
+                json!({"albums":[{"uid":"demo-album","name":"Mountain memories","safe":true,"count":2}]}),
+            ),
+            _ => Err(Failure {
+                message: "Demo changes are disabled".into(),
+                cancelled: false,
+            }),
+        },
         "photos" => Ok(json!({"offset":operation["offset"],"more":false,"photos":[
             {"uid":"demo-photo-one","name":"Sample image 1.jpg","safe":true,"thumbnail":format!("data:image/jpeg;base64,{}",include_str!("../data/demo-photo.base64").trim())},
             {"uid":"demo-photo-two","name":"Sample image 2.jpg","safe":true,"thumbnail":""}]})),

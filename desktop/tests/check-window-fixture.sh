@@ -7,6 +7,9 @@ trap 'rm -rf -- "$root"' EXIT
 cat > "$root/sdk" <<'SDK'
 #!/bin/sh
 case "$1 $2" in
+ 'account storage')
+    printf '%s\n' '{"total":1000000,"used":250000,"free":750000}'
+    ;;
  'filesystem list')
     if [ "$5" != /my-files ]; then printf '[]\n'; exit 0; fi
     printf '%s\n' '[{"uid":"folder","name":{"ok":true,"value":"Dokumente"},"type":"folder"},{"uid":"file","name":{"ok":true,"value":"Notizen.md"},"type":"file"}]'

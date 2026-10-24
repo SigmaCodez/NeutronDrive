@@ -258,7 +258,29 @@ fn execute(
                 }
                 "--unmount" => json!({"action":"unmount"}),
                 "--pin" | "--evict" => {
-                    json!({"action":options.mode.trim_start_matches("--"),"path":options.target})
+                    let target = Path::new(&options.target);
+                    let relative = if target.is_absolute() {
+                        let status = call(desktop_request(cli, json!({"action":"status"}))?)?;
+                        if status["mounted"] != true {
+                            return Err(failure("The sync folder is not active"));
+                        }
+                        let root = status["mountpoint"]
+                            .as_str()
+                            .ok_or_else(|| failure("Sync folder unavailable"))?;
+                        let path = target.strip_prefix(root).map_err(|_| {
+                            failure("The selected file is outside the active sync folder")
+                        })?;
+                        if path
+                            .components()
+                            .any(|c| !matches!(c, std::path::Component::Normal(_)))
+                        {
+                            return Err(failure("Invalid sync path"));
+                        }
+                        path.to_string_lossy().into_owned()
+                    } else {
+                        options.target.clone()
+                    };
+                    json!({"action":options.mode.trim_start_matches("--"),"path":relative})
                 }
                 "--service-status" => json!({"action":"status"}),
                 _ => return Err(failure("Unknown native command")),
