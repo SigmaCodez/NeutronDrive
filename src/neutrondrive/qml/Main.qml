@@ -177,11 +177,8 @@ ApplicationWindow {
         anchors.fill: parent; spacing: 0
         Rectangle {
             Layout.preferredWidth: 238; Layout.fillHeight: true; color: window.theme.sidebar
-            ScrollView {
-                id: sidebarScroll
-                anchors.fill: parent; anchors.margins: 18; clip: true; contentWidth: availableWidth
             ColumnLayout {
-                width: sidebarScroll.availableWidth; height: Math.max(implicitHeight,sidebarScroll.availableHeight); spacing: 8
+                anchors.fill: parent; anchors.margins: 18; spacing: 8
                 RowLayout {
                     Layout.topMargin: 10; spacing: 10
                     Rectangle { width: 34; height: 34; radius: 10; color: window.theme.accent
@@ -190,6 +187,12 @@ ApplicationWindow {
                     Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: window.theme.text }
                 }
                 Copy { text: window.tr("Deine Dateien. Dein Speicher."); font.pixelSize: 12; Layout.bottomMargin: 12 }
+                ScrollView {
+                    id: sidebarScroll
+                    Layout.fillWidth: true; Layout.fillHeight: true
+                    clip: true; contentWidth: availableWidth
+                    ColumnLayout {
+                        width: sidebarScroll.availableWidth; spacing: 4
                 Repeater {
                     model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Shared by me"),key:"/shared-by-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
                         {name:window.tr("Automatischer Sync"),key:"background",icon:"refresh"},{name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
@@ -202,14 +205,14 @@ ApplicationWindow {
                             visible: navigationEntry.index===0 || navigationEntry.index===6 || navigationEntry.index===8
                             text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===6 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
                             font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
-                            Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
+                            Layout.topMargin: navigationEntry.index===0 ? 0 : 8; Layout.leftMargin: 12; Layout.bottomMargin: 4
                         }
                         Button {
                         id: nav
                         property var modelData: navigationEntry.modelData
                         property bool selected: modelData.key.charAt(0)==="/" ? s.page==="files" && ("/"+s.path.split("/")[1])===modelData.key : s.page===modelData.key
                         objectName: "nav-"+modelData.key
-                        Layout.fillWidth: true; implicitHeight: 42
+                        Layout.fillWidth: true; implicitHeight: 36
                         text: modelData.name
                         onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photo_library",[{action:"index",album:""}])) : controller.show_page(modelData.key))
                         Accessible.name: text
@@ -222,20 +225,28 @@ ApplicationWindow {
                         }
                     }
                 }
-                Item { Layout.fillHeight: true }
+                    }
+                }
                 Action { text: window.tr("Bei Proton anmelden"); command: "login"; visible: !s.authenticated; Layout.fillWidth: true }
                 ColumnLayout {
                     visible: Boolean(s.authenticated); Layout.fillWidth: true
-                    Copy { text: window.tr("Account storage"); font.bold: true }
-                    ProgressBar { Layout.fillWidth: true; from: 0; to: 100; value: s.storage ? Math.min(100,s.storage.percent) : 0; visible: Boolean(s.storage) }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Copy { text: window.tr("Account storage"); font.bold: true }
+                        ToolButton { text: "↻"; font.pixelSize: 20; implicitWidth: 30; implicitHeight: 30; enabled: !s.busy; onClicked: controller.send("account_storage",[]); Accessible.name: window.tr("Refresh storage"); ToolTip.visible: hovered; ToolTip.text: window.tr("Refresh storage") }
+                    }
+                    ProgressBar {
+                        id: storageProgress
+                        Layout.fillWidth: true; from: 0; to: 100; value: s.storage ? Math.min(100,s.storage.percent) : 0; visible: Boolean(s.storage)
+                        background: Rectangle { implicitHeight: 6; radius: 3; color: window.theme.border }
+                        contentItem: Item { implicitHeight: 6; Rectangle { width: storageProgress.visualPosition*parent.width; height: parent.height; radius: 3; color: window.theme.accent } }
+                    }
                     Copy { text: s.storage ? s.storage.usedText+" "+window.tr("used")+" · "+Math.round(s.storage.percent)+"%" : window.tr("Storage information unavailable"); font.pixelSize: 12 }
                     Copy { text: s.storage ? s.storage.freeText+" "+window.tr("free") : ""; visible: Boolean(s.storage); font.pixelSize: 12 }
-                    Button { text: window.tr("Refresh storage"); flat: true; enabled: !s.busy; onClicked: controller.send("account_storage",[]) }
                 }
                 Action { text: window.tr("Proton Drive im Web ↗"); command: "web"; Layout.fillWidth: true }
                 Copy { text: window.tr("Unabhängige Open-Source-App\n")+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
             }
-        }
         }
         ColumnLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; Layout.margins: 28; spacing: 16

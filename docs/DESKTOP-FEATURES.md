@@ -64,6 +64,10 @@ computer-backup jobs remain available, and overlapping eager-sync/FUSE roots are
 rejected. The advanced online-drive mode is available from sync settings and
 retains its reboot restore behavior.
 
+A pinned parent folder applies to its descendants. Individual exclusions inside
+a pinned folder are not supported: a later refresh can pin a released child again.
+For selective offline content, release the parent and pin only the desired items.
+
 The app's context menu offers availability actions. Native packages also contain
 a [Dolphin service menu](https://develop.kde.org/docs/apps/dolphin/service-menus/)
 for one selected file/folder. Absolute local paths must belong to the currently
