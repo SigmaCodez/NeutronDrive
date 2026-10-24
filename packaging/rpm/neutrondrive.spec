@@ -1,5 +1,5 @@
 Name:           neutrondrive
-Version:        0.6.0~alpha9
+Version:        0.6.0~alpha10
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive (alpha)
 License:        MIT
@@ -82,7 +82,7 @@ cp -a usr %{buildroot}/
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
 
 %changelog
-* Sat Oct 24 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha9-1
+* Sat Oct 24 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha10-1
 - Guided placeholder sync, recursive offline folders, Photos albums and sharing.
 
 * Sat Oct 24 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha8-1
