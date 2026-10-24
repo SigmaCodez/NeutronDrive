@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
-**Status: 0.6.0 alpha 6.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 7.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -12,11 +12,14 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
-![NeutronDrive's native Qt interface with explicitly labelled demo data](docs/demo.png)
+![Current alpha7 interface in English with isolated sample files](docs/demo.png)
 
-[Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
+Actual alpha7 GUI, captured in English using isolated synthetic data; no live account or personal files.
+[Preview build and capture details](docs/GUI-PREVIEWS.json).
 
-The development application now runs in Rust, including the Qt controller,
+[Current dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting or your manual preference.
+
+The application runs in Rust, including the Qt controller,
 background synchronization, transfers, recoverable trash, online-drive/FUSE
 services, preferences and updates. Qt Quick/QML and the pinned Proton SDK remain.
 Python is used for build and regression tools, not the application runtime.
@@ -24,16 +27,15 @@ The old Python UI modules have been removed; compatibility adapters are retained
 only under `tests/core_contract` for native-core regression tests. Native tests
 pass on x86-64 and ARM64; current-source DEB, RPM, Flatpak, Snap, AppImage and
 Arch package checks and authorized live sync/FUSE/trash tests have passed.
-Published alpha6 packages are unchanged; this is the unreleased source migration.
+Alpha7 packages include the completed native runtime migration.
 See [migration status and evidence](docs/RUST-MIGRATION.md).
 
 ## Language
 
 The interface automatically uses your operating system's language at startup.
-In the development version, Settings → Appearance also offers a manual language
+Settings → Appearance also offers a manual language
 selection and Light/Dark/System appearance. These choices persist across starts;
 appearance changes immediately, while language changes require an app restart.
-Release alpha6 still uses automatic selection only.
 Restart NeutronDrive after changing your system language when using System setting. Unsupported languages
 fall back to English; no translation service or model is contacted at runtime.
 
@@ -69,8 +71,8 @@ See [localization details](docs/LOCALIZATION.md).
 - Built DEB, Fedora/openSUSE RPM, Flatpak, Snap, AppImage and Arch packages with
   a checksum-pinned bundled backend; ARM64 DEB is included alongside x86_64 packages.
 
-The bundled **NeutronDrive bridge 0.2.0-alpha1** is built from a pinned public
-Proton SDK/CLI commit with a small, published Drive-event extension. It identifies
+The bundled **NeutronDrive SDK bridge** is built from a pinned public
+Proton SDK/CLI commit with published Drive-event and computer-backup extensions. It identifies
 itself as `external-drive-neutrondrive`; Proton's SDK handles cryptography and
 service requests. Source patches, dependency integrity and build provenance are
 provided. No Windows/macOS reverse engineering was necessary. [Sources and compatibility](docs/UPSTREAM.md).
@@ -84,16 +86,14 @@ packages are not official Proton packages, Flathub listings or Snap Store releas
 
 | Format | Intended systems | Notes |
 | --- | --- | --- |
-| DEB | Ubuntu 22.04+, Debian 12+, Mint, Pop!_OS | Python 3.10–3.14, bundled Qt 6, libsecret, FUSE 3; ARM64 requires GLIBC 2.39 |
+| DEB | Ubuntu 22.04+, Debian 12+, Mint, Pop!_OS | Native Rust, bundled Qt 6, libsecret, FUSE 3; ARM64 requires GLIBC 2.39 |
 | RPM | Current Fedora, openSUSE | Distribution-specific dependency names |
 | Flatpak | Flatpak-enabled distributions, including Arch/Manjaro and immutable desktops | GNOME 50; online drive additionally needs the native helper |
 | Snap | snapd-enabled distributions | Connect `password-manager-service`; online drive needs native package |
-| AppImage | x86_64 GLIBC desktops, Ubuntu 22.04+/Debian 12+ | Bundled Python/Qt; persistent private runtime cache; native helper for online drive |
+| AppImage | x86_64 GLIBC desktops, Ubuntu 22.04+/Debian 12+ | Bundled Rust/Qt; persistent private runtime cache; native helper for online drive |
 | Arch package / AUR recipe | Arch Linux, Manjaro | `neutrondrive-bin` PKGBUILD; AUR publication pending account setup |
 
-This table describes the published alpha6 packages. Development package staging
-now uses the Rust frontend and excludes Python/PySide; replacement release
-artifacts have not yet been published.
+Application packages use the Rust frontend and contain no Python/PySide runtime.
 
 Native x86_64 retains Ubuntu 22.04+/Debian 12+ coverage. The official ARM64 Qt
 wheels require GLIBC 2.39: use Ubuntu 24.04+, Debian 13+ or an equivalent runtime
@@ -108,21 +108,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha6-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha7-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha6-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha7-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha6-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha7-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a6-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a7-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha6_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha7_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -130,8 +130,8 @@ Additional formats:
 
 ```sh
 # Portable x86_64 AppImage
-chmod +x NeutronDrive-0.6.0-alpha6-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha6-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha7-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha7-x86_64.AppImage
 
 # Arch/Manjaro: review the PKGBUILD, then build as a regular user
 # Requires base-devel and git.
@@ -143,7 +143,7 @@ makepkg -si
 [AppImage runtime/cache details](packaging/appimage/README.md) ·
 [Arch installation and AUR publication status](packaging/aur/README.md).
 The AUR recipe is available on GitHub; it is not yet listed on aur.archlinux.org.
-AppImage and Arch release downloads have a separate `PORTABLE_SHA256SUMS` file.
+All release downloads are covered by `SHA256SUMS`.
 
 Launch **NeutronDrive** from your application menu. Unlock the desktop keyring,
 select **Sign in to Proton** (or its translation in your system language) and finish in the browser. The CLI opens the
@@ -250,7 +250,7 @@ headless control. No tray icon is provided. Deletions follow the same verified
 trash policy described above. Renames are not tracked as moves; ambiguous
 moves are retained as conflicts.
 
-![Background sync configuration, explicitly labeled demo mode](docs/background-demo.png)
+![Current English automatic sync and computer backup interface, isolated sample profile](docs/background-demo.png)
 
 ## Deletions, trash and recovery
 
@@ -318,7 +318,7 @@ files; connecting extra interfaces does not remove this limitation.
 FUSE mounts cannot be used as automatic sync roots, and overlapping jobs or
 mounts are rejected.
 
-![Online drive configuration, explicitly labeled demo mode](docs/ondemand-demo.png)
+![Current English online drive interface, isolated sample profile](docs/ondemand-demo.png)
 
 ## Known limits
 
@@ -359,18 +359,23 @@ Cloud-event routing and bounded pending-event queue decisions now run in Rust.
 The host retains locks, guarded I/O and durable acknowledgement. No extra C layer
 is introduced without a demonstrated benefit.
 
-## Update checks (development version)
+## Update checks
 
 Settings → Updates can check GitHub daily or on demand, with a prerelease
 channel option. Native DEB installations also support verified downloads and
 installation after system authorization. Other formats show the release page
 and use their normal package/update workflow. See [update behavior and limits](docs/UPDATES.md).
 
-## Computer backup (development version)
+## Computer backup
 
 Automatic sync now includes a Computer backup card that registers a Linux
 computer through the official SDK and synchronizes selected folders under
 Proton Drive's Computers section. It requires the new source-built SDK bridge
-and Rust core; it is not in the published alpha6 packages. See
+and Rust core, included in alpha7 packages. See
 [setup and safety behavior](docs/COMPUTER-BACKUP.md) and the
 [Windows feature comparison](docs/WINDOWS-PARITY.md) for remaining gaps.
+
+## Release maintenance
+
+Every release updates the English GitHub documentation and captures new English
+previews from that release’s actual GUI. See the [release checklist](docs/RELEASING.md).

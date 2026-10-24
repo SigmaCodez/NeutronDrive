@@ -1,13 +1,13 @@
 # Arch Linux / Manjaro package
 
-`neutrondrive-bin` repackages the official alpha6 NeutronDrive DEBs with fixed SHA256
+`neutrondrive-bin` repackages the alpha7 NeutronDrive DEBs with fixed SHA256
 checksums, preserving the bundled Qt runtime, Rust core, bridge, language catalogs
 and native D-Bus/systemd files. Host dependencies are resolved by pacman. It does
 not run account, autostart or synchronization commands during installation.
 
 The recipe declares x86_64 and aarch64. Native ARM64 requires GLIBC 2.39; the Arch
-CI installation/runtime test currently covers x86_64 only. Python 3.10–3.14 is
-required; the upper bound prevents installing against an untested Python ABI.
+CI installation/runtime test currently covers x86_64 only. The installed
+application uses Rust/Qt and has no Python runtime dependency.
 
 ## Install from this repository
 
@@ -34,6 +34,6 @@ commit and push. Do not include binary packages or downloaded source files.
 Regenerate metadata with `makepkg --printsrcinfo > .SRCINFO` after each recipe edit.
 
 The dedicated CI job builds as an unprivileged user in Arch Linux, installs the
-package with pacman, checks Python/Qt/Rust, opens all supported locales, and saves
+package with pacman, checks the native Rust/Qt runtime, opens all supported locales, and saves
 the generated `.SRCINFO` alongside the binary. `namcap` provides additional package
 linting; binary-bundled Qt can produce dependency suggestions which need review.

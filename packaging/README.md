@@ -15,8 +15,8 @@ Build the backend (Bun 1.4.2 and network access required):
 python3 scripts/build-backend --help
 ```
 
-The published dependency release is `bridge-v0.2.0-alpha1`; application packages
-are in `v0.6.0-alpha6`. Source builds are inspectable; bit-for-bit reproducibility
+The current SDK bridge and application packages are published together in
+`v0.6.0-alpha7`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -56,18 +56,14 @@ build/test tool. Rust owns D-Bus/portal integration; the SDK uses Secret Service
 Flatpak and Snap retain their existing GNOME base runtimes for those adapters,
 while displaying a Qt interface. No executable download occurs at app startup.
 
-## Rust core
+## Rust application runtime
 
-Install the pinned Rust 1.98.0 toolchain for native source builds, then run
-`python3 scripts/build-rust-core`. Cargo uses the committed lockfile and vendored
-sources with `--locked --offline`. End users need no Rust compiler.
-
-For container/sandbox builds, set `NEUTRONDRIVE_CORE_BUILD` to a directory with
-`libneutrondrive_core.so` and `core-build.json` from a matching source build.
-Staging verifies architecture, ABI, source hashes, binary hash and the recorded
-GLIBC requirement. CI builds the shared x86_64 payload on Ubuntu 22.04; ARM64
-DEB builds natively. The core requires at most GLIBC 2.35. Rust dependency and
-standard-library notices, Cargo.lock and build provenance accompany every package.
+The native Rust executable includes the core; no separate core shared library or
+Python runtime is installed. Use the pinned Rust 1.98.0 toolchain and the native
+build instructions below. Cargo uses committed lockfiles and vendored sources.
+Set `NEUTRONDRIVE_NATIVE_BUILD` to the verified native frontend build directory.
+Staging checks architecture, source hashes, binary hash and the recorded GLIBC
+requirement. Rust dependency notices and build provenance accompany each package.
 
 ## Build dependencies
 
@@ -108,14 +104,13 @@ Install `flatpak`, `flatpak-builder`, and configure the Flathub user remote:
 ```sh
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 python3 scripts/build-flatpak --install-deps
-flatpak install --user dist/neutrondrive-0.6.0a6-x86_64.flatpak
+flatpak install --user dist/neutrondrive-0.6.0a7-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 ```
 
 The manifest uses GNOME Platform/SDK 50 (GTK/Python/libsecret), packages the CLI
 offline from checksum-verified architecture-specific sources and never strips its
-appended Bun payload. The bundled `xdg-open` adapter uses Gio and the desktop
-portal to open the browser. A working portal backend for your desktop is required.
+appended Bun payload. The Rust browser adapter uses the desktop portal to open the browser. A working portal backend for your desktop is required.
 
 For machines without enough space for the SDK, an equivalent payload can also be
 assembled with just Python and Flatpak:
@@ -126,8 +121,8 @@ python3 scripts/build-flatpak-bundle --backend /path/to/proton-drive
 
 This uses Flatpak's `build-finish`, `build-export` and `build-bundle` commands.
 It reads permissions and the runtime identity from the same manifest, installs
-the same Python sources, and verifies the same backend checksum. No native code
-is compiled in either packaging route. The GNOME 50 runtime is still required
+the same prebuilt Rust frontend, and verifies frontend and backend provenance.
+No native code is compiled in either packaging route. The GNOME 50 runtime is still required
 when installing/running the resulting application.
 
 Home-directory access permits transfers and manually started folder backups. Access to
@@ -151,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha6_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha7_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -204,7 +199,7 @@ sync remain available. Use the native package for on-demand files.
 Kernel tests in CI exercise native FUSE; they are not proof of every installed
 Snap/Flatpak portal flow.
 
-## Additional alpha6 formats
+## AppImage and Arch formats
 
 The [AppImage recipe](appimage/README.md) builds a portable x86_64 package from a
 current provenance-verified native DEB on Ubuntu 22.04. It bundles the Rust/Qt
@@ -260,6 +255,6 @@ makepkg --syncdeps
 
 This recipe has no Python runtime dependencies and verifies the original DEB's
 frontend and SDK provenance before creating its local source/checksum entries.
-The published `packaging/aur/neutrondrive-bin` recipe still pins the existing
-alpha6 release and retains its dependencies until a replacement release exists.
+The published `packaging/aur/neutrondrive-bin` recipe pins the alpha7 native
+DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.

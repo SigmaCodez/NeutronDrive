@@ -1,5 +1,5 @@
 Name:           neutrondrive
-Version:        0.6.0~alpha6
+Version:        0.6.0~alpha7
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive (alpha)
 License:        MIT
@@ -68,5 +68,8 @@ cp -a usr %{buildroot}/
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
 
 %changelog
+* Sat Oct 24 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha7-1
+- Complete native Rust application runtime with retained Qt Quick UI and Proton SDK.
+
 * Tue Oct 20 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha6-1
 - Background sync, on-demand FUSE files and source-built SDK event bridge.

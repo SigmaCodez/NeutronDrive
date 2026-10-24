@@ -1,4 +1,4 @@
-# Computer folder synchronization (development)
+# Computer folder synchronization
 
 The new **Automatic sync → Computer backup** card registers a Linux device
 through the pinned official Proton SDK and adds selected local folders under
@@ -27,18 +27,15 @@ blocked when the SDK cannot prove all trashed children; individual-file trash
 propagation is supported. Computer events use their own SDK scopes and durable
 cursor files, refreshed as job configuration changes.
 
-## Development runtime
+## Runtime and packages
 
-This feature requires both the new Rust core and the new SDK bridge from this
-source tree. The previously published alpha6 bridge does not have the computer
-registration commands. Build with `scripts/build-rust-core` on the supported
-Ubuntu 22.04 baseline and `scripts/build-backend` with pinned Bun 1.4.2, then run
-with `--cli /absolute/path/to/the/new/proton-drive`. The package builders accept
-an explicit `--backend` whose adjacent provenance matches the current source.
-Published-release pins still refer to alpha6's old bridge and must be updated as
-part of a future release. Current package builders use the source-built bridge
-and verify its provenance; they do not silently substitute that old bridge.
-No new release or user-machine installation is implied here.
+Alpha7 packages include the native Rust frontend and current SDK bridge with
+computer registration commands. The old alpha6 bridge does not contain these
+commands. Source builds use `scripts/build-native-qt` and `scripts/build-backend`;
+see the packaging guide for the pinned toolchain and baseline instructions.
+Package staging verifies the SDK's source/binary provenance and retains the
+report alongside the native frontend report. Release SDK assets and their
+reports are pinned in `packaging/backend-lock.json`.
 
 The current portable x86-64 Rust frontend is built on Ubuntu 22.04 and has a
 verified maximum GLIBC requirement of 2.34. ARM64 uses the Ubuntu 24.04 baseline
