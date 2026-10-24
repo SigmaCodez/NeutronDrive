@@ -607,5 +607,7 @@
   "Computersicherung einrichten": "Set up computer backup",
   "Sichere ausgewählte Ordner unter Computer in Proton Drive. Die Ordner werden automatisch in beide Richtungen abgeglichen.": "Back up selected folders under Computers in Proton Drive. Folders synchronize automatically in both directions.",
   "Ordner zur Computersicherung hinzufügen": "Add folder to computer backup",
-  "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.": "The selected folder will sync under Computers in Proton Drive. Changes apply in both directions; confirmed deletions propagate to trash. This is not a system image. Existing cloud folders will not be merged automatically."
+  "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.": "The selected folder will sync under Computers in Proton Drive. Changes apply in both directions; confirmed deletions propagate to trash. This is not a system image. Existing cloud folders will not be merged automatically.",
+  "Listenansicht": "Seznam",
+  "Kachelansicht": "Mřížka"
 }

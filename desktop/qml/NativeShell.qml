@@ -127,9 +127,13 @@ Item {
         return null;
     }
     onDialogRequested: function(value){lastDialog=value}
+    property int captureFrames: 0
     function capture(name,next){
-        stage=-1;
         if(fixture || Qt.application.arguments.length<4 || !Qt.application.arguments[3]){stage=next;return}
+        // Allow the 100 ms theme transition and layout to settle before capture.
+        if(captureFrames++<3)return;
+        captureFrames=0;
+        stage=-1;
         if(!files.snapshotWindow("mainWindow",Qt.application.arguments[3]+"/"+name)){console.error("Window capture failed");stop();Qt.exit(1);return}
         stage=next;
     }
@@ -157,9 +161,13 @@ Item {
                     controller.show_page("background");controller.stage=2;
                 }else if(controller.stage===2){
                     if(!(controller.childNamed(controller.view.contentItem,"page-background").contentHeight>0))throw new Error("Background page cannot scroll");
+                    controller.capture("light-background.png",2001);
+                }else if(controller.stage===2001){
                     controller.show_page("ondemand");controller.stage=3;
                 }else if(controller.stage===3){
                     if(!(controller.childNamed(controller.view.contentItem,"page-ondemand").contentHeight>0))throw new Error("Online page cannot scroll");
+                    controller.capture("light-ondemand.png",3001);
+                }else if(controller.stage===3001){
                     controller.show_page("local-trash");controller.stage=4;
                 }else if(controller.stage===4){controller.show_page("activity");controller.stage=5;
                 }else if(controller.stage===5){controller.show_page("files");controller.stage=15;
@@ -193,7 +201,43 @@ Item {
                 }else if(controller.stage===20){
                     if(controller.state.path==="/my-files")throw new Error("Double-click did not open folder");
                     console.log("NATIVE_KEYBOARD_AND_MOUSE_OK");
-                    controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=21;
+                    controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=201;
+                }else if(controller.stage===201){
+                    controller.select_row(0,false);
+                    controller.childNamed(controller.view.contentItem,"gridViewButton").clicked();controller.stage=202;
+                }else if(controller.stage===202){
+                    controller.checkedList=controller.childNamed(controller.view.contentItem,"fileGrid");
+                    if(!controller.checkedList || !controller.checkedList.visible || JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Grid switch lost selection");
+                    controller.checkedList.forceActiveFocus();
+                    files.windowKey(Qt.Key_Right,false);controller.stage=203;
+                }else if(controller.stage===203){
+                    if(JSON.stringify(controller.state.selection)!=="[1]")throw new Error("Grid arrow navigation failed");
+                    files.windowKey(Qt.Key_A,true);controller.stage=204;
+                }else if(controller.stage===204){
+                    if(controller.state.selection.length!==controller.fileEntries.length)throw new Error("Grid select-all failed");
+                    controller.checkedFolder=controller.fileEntries.findIndex(entry=>entry.isFolder);
+                    controller.checkedRow=controller.childNamed(controller.checkedList,"fileTile-"+controller.checkedFolder);
+                    if(!controller.checkedRow)throw new Error("Grid folder delegate missing");
+                    let point=controller.checkedRow.mapToItem(controller.view.contentItem,40,40);
+                    files.windowClick(point.x,point.y,false);controller.stage=205;
+                }else if(controller.stage===205){
+                    if(JSON.stringify(controller.state.selection)!==JSON.stringify([controller.checkedFolder]))throw new Error("Grid mouse selection failed");
+                    controller.capture("light-grid.png",206);
+                }else if(controller.stage===206){
+                    controller.setAppearancePreference("dark");controller.stage=2061;
+                }else if(controller.stage===2061){
+                    controller.stage=20611;
+                }else if(controller.stage===20611){
+                    controller.capture("dark-grid.png",2062);
+                }else if(controller.stage===2062){
+                    controller.setAppearancePreference("light");
+                    let point=controller.checkedRow.mapToItem(controller.view.contentItem,40,40);
+                    files.windowClick(point.x,point.y,true);controller.stage=207;
+                }else if(controller.stage===207){
+                    if(controller.state.path==="/my-files")throw new Error("Grid double-click did not open folder");
+                    controller.navigate(controller.translate("Meine Dateien"),"/my-files");
+                    controller.childNamed(controller.view.contentItem,"listViewButton").clicked();
+                    console.log("NATIVE_GRID_KEYBOARD_AND_MOUSE_OK");controller.stage=21;
                 }else if(controller.stage===21){
                     if(controller.fixture){
                         controller.select_row(0,false);controller.action("Umbenennen");controller.stage=22;

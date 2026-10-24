@@ -607,5 +607,7 @@
   "Computersicherung einrichten": "Computersicherung einrichten",
   "Sichere ausgewählte Ordner unter Computer in Proton Drive. Die Ordner werden automatisch in beide Richtungen abgeglichen.": "Sichere ausgewählte Ordner unter Computer in Proton Drive. Die Ordner werden automatisch in beide Richtungen abgeglichen.",
   "Ordner zur Computersicherung hinzufügen": "Ordner zur Computersicherung hinzufügen",
-  "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.": "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt."
+  "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.": "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.",
+  "Listenansicht": "Listenansicht",
+  "Kachelansicht": "Kachelansicht"
 }

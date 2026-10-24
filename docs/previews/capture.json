@@ -1,0 +1,20 @@
+{
+  "status": "Unreleased development preview based on alpha7",
+  "captured_at": "2026-10-24T08:20:07.115054+00:00",
+  "binary_sha256": "c2109e91d6043bf13d4abc281e3fd974b2601846cc56331e7442d66aa1991b5f",
+  "language": "en",
+  "environment": "Native Rust/Qt debug build; offscreen software rendering; isolated settings and synthetic built-in demo files. Direct window captures, not mockups.",
+  "images": {
+    "background-light.png": "ffb081506d0f583b98d973b0a5d28c9874f166126431ff5d0a5d57d3673b4f5b",
+    "files-grid-dark.png": "fa5da914db6787fb6d87c0a3b8879a9b191dc5c484d39934a4a1a187140835e8",
+    "files-grid-light.png": "367d29cc9658ab31e50498010f0f73ed05b87054c4660cf037869835ea442743",
+    "files-list-light.png": "9a3d71b25f33d91a4b0062ea9f3ddbac771d674f32fef8f5cb6ac2b2e5a4c8fd",
+    "online-drive-light.png": "55d42770127a0d2760989a37f5c186b043d8521b9a77ea658613e5ffa1c6176a"
+  },
+  "validation": [
+    "54 Rust frontend unit tests passed",
+    "Native list/grid keyboard, select-all, mouse and double-click folder navigation passed",
+    "25 UI locales and unsupported-locale English fallback passed",
+    "Light and dark captures visually reviewed"
+  ]
+}

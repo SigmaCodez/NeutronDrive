@@ -395,12 +395,12 @@ fn demo_operation(operation: &Value) -> Result<Value, Failure> {
         )),
         "list" if operation["path"] != "/my-files" => Ok(json!([])),
         "list" => Ok(json!([
-            {"uid":"demo-docs","name":"Dokumente","type":"folder","path":"/my-files/Dokumente","safe":true},
-            {"uid":"demo-photos","name":"Fotografie","type":"folder","path":"/my-files/Fotografie","safe":true},
-            {"uid":"demo-project","name":"Projekte","type":"folder","path":"/my-files/Projekte","safe":true},
-            {"uid":"demo-one","name":"Projektübersicht.pdf","type":"file","size":2483200,"modified":"2026-10-20T12:00:00Z","path":"/my-files/Projektübersicht.pdf","safe":true},
-            {"uid":"demo-two","name":"Bergsee.jpg","type":"file","size":8514432,"modified":"2026-10-18T09:30:00Z","path":"/my-files/Bergsee.jpg","safe":true},
-            {"uid":"demo-three","name":"Notizen.md","type":"file","size":4096,"modified":"2026-10-17T15:45:00Z","path":"/my-files/Notizen.md","safe":true}
+            {"uid":"demo-docs","name":"Documents","type":"folder","path":"/my-files/Documents","safe":true},
+            {"uid":"demo-photos","name":"Photography","type":"folder","path":"/my-files/Photography","safe":true},
+            {"uid":"demo-project","name":"Projects","type":"folder","path":"/my-files/Projects","safe":true},
+            {"uid":"demo-one","name":"Project overview.pdf","type":"file","size":2483200,"modified":"2026-10-20T12:00:00Z","path":"/my-files/Project overview.pdf","safe":true},
+            {"uid":"demo-two","name":"Mountain lake.jpg","type":"file","size":8514432,"modified":"2026-10-18T09:30:00Z","path":"/my-files/Mountain lake.jpg","safe":true},
+            {"uid":"demo-three","name":"Notes.md","type":"file","size":4096,"modified":"2026-10-17T15:45:00Z","path":"/my-files/Notes.md","safe":true}
         ])),
         _ => Err(Failure {
             message:

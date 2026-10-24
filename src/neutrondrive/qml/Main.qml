@@ -72,6 +72,7 @@ ApplicationWindow {
     palette.base: window.theme.canvas; palette.button: window.theme.canvas
     palette.window: window.theme.canvas; palette.highlightedText: window.theme.onAccent
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
+    property bool gridView: false
     property var s: controller.state
     property color muted: window.theme.muted
     property var titles: ({"files":s.fields.files_title.value,"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
@@ -109,6 +110,13 @@ ApplicationWindow {
             border.color: actionButton.primary || actionButton.activeFocus ? window.theme.accent : window.theme.border
             Behavior on color { ColorAnimation { duration: 100 } }
         }
+    }
+    component ViewToggle: Button {
+        id: viewToggle
+        checkable: true; implicitHeight: 40; padding: 12
+        Accessible.name: text
+        contentItem: Text { text: viewToggle.text; font: viewToggle.font; color: viewToggle.checked ? window.theme.accentText : window.theme.secondaryText; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+        background: Rectangle { radius: 8; color: viewToggle.checked ? window.theme.selected : viewToggle.hovered ? window.theme.navHover : "transparent"; border.color: viewToggle.activeFocus ? window.theme.accent : "transparent" }
     }
     component Input: TextField {
         id: input
@@ -202,8 +210,8 @@ ApplicationWindow {
                     Copy { text: s.page==="files" ? window.tr("Dateien & Ordner") : window.tr("NeutronDrive für Linux"); font.pixelSize: 12 }
                     Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
-                Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
-                    Label { id: modeLabel; anchors.centerIn: parent; text: s.demo ? "Demo" : "Proton SDK"; color: window.theme.accentText; font.pixelSize: 12 }
+                Rectangle { visible: s.demo; implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
+                    Label { id: modeLabel; anchors.centerIn: parent; text: "Demo"; color: window.theme.accentText; font.pixelSize: 12 }
                 }
             }
             Rectangle {
@@ -233,6 +241,18 @@ ApplicationWindow {
                 Input { field: "search"; placeholderText: window.tr("In diesem Ordner suchen …"); objectName: "searchInput"; leftPadding: 42
                     DriveIcon { x: 13; anchors.verticalCenter: parent.verticalCenter; symbol: "search"; ink: window.muted; width: 18; height: 18 }
                 }
+                ViewToggle {
+                    objectName: "listViewButton"
+                    text: window.tr("Listenansicht"); checkable: true; checked: !window.gridView
+                    Accessible.name: text
+                    onClicked: window.gridView = false
+                }
+                ViewToggle {
+                    objectName: "gridViewButton"
+                    text: window.tr("Kachelansicht"); checkable: true; checked: window.gridView
+                    Accessible.name: text
+                    onClicked: window.gridView = true
+                }
             }
             Flow {
                 Layout.fillWidth: true; spacing: 8
@@ -249,13 +269,14 @@ ApplicationWindow {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 12; spacing: 4
                     RowLayout {
+                        visible: !window.gridView
                         Layout.fillWidth: true; Layout.margins: 10
                         Copy { text: window.tr("Name"); font.pixelSize: 12 }
                         Label { text: window.tr("Größe"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
                         Label { text: window.tr("Geändert"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
                     }
                     ListView {
-                        id: fileList; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true
+                        id: fileList; objectName: "fileList"; visible: !window.gridView; Layout.fillWidth: true; Layout.fillHeight: true
                         clip: true; model: controller.fileEntries; spacing: 4;
                         activeFocusOnTab: true; currentIndex: s.focusIndex; keyNavigationEnabled: false
                         Keys.onPressed: function(event) {
@@ -296,6 +317,55 @@ ApplicationWindow {
                             }
                         }
                         Label { anchors.centerIn: parent; visible: fileList.count===0; text: window.f("empty_label").value; color: window.muted }
+                    }
+                    GridView {
+                        id: fileGrid; objectName: "fileGrid"
+                        visible: window.gridView
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        clip: true; model: controller.fileEntries
+                        cellWidth: width / Math.max(1, Math.floor(width / 148)); cellHeight: 144
+                        currentIndex: s.focusIndex; keyNavigationEnabled: false; activeFocusOnTab: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar {}
+                        Keys.onPressed: function(event) {
+                            if (s.busy) return;
+                            if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
+                            else if ([Qt.Key_Left,Qt.Key_Right,Qt.Key_Up,Qt.Key_Down].indexOf(event.key)>=0) {
+                                let columns=Math.max(1,Math.floor(width/cellWidth));
+                                let delta=event.key===Qt.Key_Left ? -1 : event.key===Qt.Key_Right ? 1 : event.key===Qt.Key_Up ? -columns : columns;
+                                controller.move_selection(delta,Boolean(event.modifiers & Qt.ShiftModifier)); event.accepted=true;
+                            }
+                            else if (event.key===Qt.Key_Return || event.key===Qt.Key_Enter) { controller.row_activated(s.focusIndex); event.accepted=true }
+                            else if (event.key===Qt.Key_Space) { controller.select_row(s.focusIndex,true); event.accepted=true }
+                        }
+                        delegate: Item {
+                            id: tile
+                            required property var modelData; required property int index
+                            objectName: "fileTile-"+index
+                            width: fileGrid.cellWidth; height: fileGrid.cellHeight
+                            Accessible.role: Accessible.ListItem; Accessible.name: modelData.name
+                            Accessible.selected: s.selection.indexOf(index)>=0
+                            Rectangle {
+                                anchors.fill: parent; anchors.margins: 4; radius: 10
+                                color: s.selection.indexOf(tile.index)>=0 ? window.theme.rowSelected : tileMouse.containsMouse ? window.theme.rowHover : "transparent"
+                                border.color: fileGrid.activeFocus && tile.index===s.focusIndex ? window.theme.accent : "transparent"
+                                ColumnLayout {
+                                    anchors.fill: parent; anchors.margins: 10; spacing: 6
+                                    DriveIcon { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.minimumHeight: 48; Layout.maximumHeight: 48; symbol: tile.modelData.isFolder ? "folderTile" : "file"; ink: tile.modelData.isFolder ? window.theme.accent : window.theme.fileInk }
+                                    Label { text: tile.modelData.name; textFormat: Text.PlainText; color: window.theme.text; Layout.fillWidth: true; Layout.preferredHeight: 36; Layout.minimumHeight: 36; Layout.maximumHeight: 36; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignTop; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+                                    Label { text: tile.modelData.safe ? tile.modelData.size : window.tr("Nicht eindeutig · gesperrt"); textFormat: Text.PlainText; color: window.muted; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; font.pixelSize: 11 }
+                                }
+                                MouseArea {
+                                    id: tileMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
+                                    onClicked: function(mouse) { fileGrid.forceActiveFocus(); controller.select_row(tile.index,Boolean(mouse.modifiers & (Qt.ControlModifier|Qt.ShiftModifier))) }
+                                    onDoubleClicked: controller.row_activated(tile.index)
+                                }
+                                ToolTip.visible: tileMouse.containsMouse
+                                ToolTip.delay: 700
+                                ToolTip.text: tile.modelData.name
+                            }
+                        }
+                        Label { anchors.centerIn: parent; visible: fileGrid.count===0; text: window.f("empty_label").value; color: window.muted }
                     }
                 }
             }

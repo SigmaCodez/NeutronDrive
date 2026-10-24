@@ -12,6 +12,32 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
+## Interface development preview
+
+The development branch adds a responsive grid view alongside the detailed file
+list, inspired by the file-browser layout of
+[narrrl/proton-drive-linux](https://github.com/narrrl/proton-drive-linux).
+Use **List view / Grid view** above the files. Selection is shared between both
+views; arrow keys, Ctrl+A, Ctrl-click and double-click folder navigation work in
+both. The view choice lasts for the current application session. Grid tiles use
+file/folder icons, not photo thumbnails.
+
+![Current development grid view in English](docs/previews/files-grid-light.png)
+
+[Dark grid](docs/previews/files-grid-dark.png) ·
+[Detailed list](docs/previews/files-list-light.png) ·
+[Automatic sync](docs/previews/background-light.png) ·
+[Online drive](docs/previews/online-drive-light.png) ·
+[Capture details](docs/previews/capture.json)
+
+These are actual development GUI captures with English synthetic demo files.
+This change is not included in the published alpha7 packages. Rust, Qt Quick/QML
+and the official Proton SDK are retained. Photos, version history and a tray
+workflow remain separate feature work; this is not a claim of reference-project
+or Windows feature parity.
+
+## Published alpha7 interface
+
 ![Current alpha7 interface in English with isolated sample files](docs/demo.png)
 
 Actual alpha7 GUI, captured in English using isolated synthetic data; no live account or personal files.
