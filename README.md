@@ -40,6 +40,22 @@ file version history with guarded restore requests. See [desktop feature details
 and limits](docs/DESKTOP-FEATURES.md). This is not a claim of complete reference-project
 or Windows feature parity.
 
+## Alpha9 candidate
+
+The next prerelease adds a first-run assistant for an empty `~/ProtonDrive`
+folder, metadata-first FUSE placeholders, automatic service startup and
+per-file/folder **Keep on this device** controls. Existing files are never
+hidden or moved by setup. Photos gain continuous scrolling, a total count,
+album management and location links to OpenStreetMap. The sidebar shows account
+storage usage after sign-in; outgoing shares and email invitations are available
+from the file interface. A new neutron-inspired icon keeps the app distinct from
+the official Proton client.
+
+These changes are being validated in [PR #8](https://github.com/SigmaCodez/NeutronDrive/pull/8).
+The screenshots and installation commands below still describe the published
+alpha8 release until new packages and fresh English captures are verified.
+See [feature details and package restrictions](docs/DESKTOP-FEATURES.md).
+
 ## Published alpha8 interface
 
 ![Current alpha8 interface in English with isolated sample files](docs/demo.png)
@@ -353,9 +369,11 @@ mounts are rejected.
 
 ## Known limits
 
-- No multi-account UI or automatic updater.
-- No integrated Photos timeline/albums, Proton Docs/Sheets export, historical
-  revision browser, member invitations or advanced link settings.
+- No multi-account UI or Proton Docs/Sheets export. Updates still require the
+  installation permissions of the selected package format.
+- Alpha8 includes Photos browsing and version history. Album management and
+  member invitations are alpha9 candidate features; advanced link settings and
+  an embedded photo map remain unavailable.
 - Native Proton documents cannot be downloaded as regular files by this CLI.
   Transfer summaries report skipped items; sync reports unsupported files.
 - Duplicate names in trash cannot be resolved by the CLI's name-only restore

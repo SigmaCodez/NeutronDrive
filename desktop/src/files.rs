@@ -661,6 +661,11 @@ impl Files {
                             return vec![];
                         }
                         self.render_mount(&value);
+                        self.mount_local = self.state["setupFolder"].as_str().map(str::to_string);
+                        self.field("mount_label", self.state["setupFolder"].clone());
+                        self.field("mount_remote", json!("/my-files"));
+                        self.field("mount_writable", json!(true));
+                        self.field("mount_offline", json!(false));
                         let mut store = crate::preferences::Store::interface();
                         if !store.save("setup", "complete", "") {
                             self.message("Could not save setup completion", true);

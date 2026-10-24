@@ -52,4 +52,5 @@ mapfile -t nd_objects < <(find "$nd_root/state/neutrondrive/ondemand-service" -p
 kill -TERM "$nd_pid"
 wait "$nd_pid"
 nd_pid=
+[[ ! -e "$nd_root/config/autostart/io.github.SigmaCodez.NeutronDrive.desktop" ]]
 echo NATIVE_MOUNT_CONTROLLER_CLEANUP_OK
