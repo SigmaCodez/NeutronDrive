@@ -29,6 +29,7 @@ for code in sorted(path.stem for path in catalogs.glob('*.json')) + ['ja-JP']:
         assert result.returncode == 0, (code, result.returncode, output)
         assert 'NATIVE_WINDOW_LANGUAGE_OK '+selected in output, (code, output)
         assert 'NATIVE_KEYBOARD_AND_MOUSE_OK' in output, (code, output)
+        assert 'NATIVE_PHOTOS_AND_HISTORY_OK' in output, (code, output)
         assert 'NATIVE_GRID_KEYBOARD_AND_MOUSE_OK' in output, (code, output)
         assert 'NATIVE_MAIN_WINDOW_OK' in output, (code, output)
 print('NATIVE_MAIN_WINDOW_ALL_LANGUAGES_AND_ENGLISH_FALLBACK_OK')

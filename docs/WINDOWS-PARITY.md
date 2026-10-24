@@ -16,10 +16,12 @@ This is a tracked comparison, not a claim of complete parity.
 | Online-only files and keep-offline/evict | Linux FUSE implementation; requires native helper, strict Snap limitations remain |
 | File-manager overlays/context menus | No complete Nautilus/Dolphin integration comparable to Explorer |
 | Shared with me | Browsing/transfers exist; dedicated automatic shared-folder synchronization is not complete |
-| Version history and restore UI | Not implemented in the desktop interface |
+| Version history and restore UI | Development: lists historical revisions and requests restoration after confirmation and stale-baseline checks; server application is eventually consistent |
 | Proton Docs/Sheets desktop integration | Not complete |
 | Multiple account switching workflow | Not complete; pinned jobs reject account changes |
 | Bandwidth limits/exclusions | No full Windows-equivalent settings workflow |
+| Tray and sync overview | Development: native Qt StatusNotifier/XEmbed integration, live job counts, service start/stop and window activation; host tray availability required |
+| Photos | Development: cloud timeline pages, thumbnails and original downloads; albums, maps and photo import are not implemented |
 | Updates | Checks and DEB download/install path; other formats use package manager/release page |
 | Language/theme | OS default and manual override; newer feature strings still fall back to English in some locales |
 

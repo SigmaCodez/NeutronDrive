@@ -21,6 +21,7 @@ Canvas {
             c.globalAlpha=1; c.beginPath(); c.rect(2,9,20,12); c.fill();
         }
         else if(symbol==="folder") { line([3,7,3,19,21,19,21,7,12,7,10,4,3,4,3,7]); }
+        else if(symbol==="photo") { c.strokeRect(3,4,18,16); circle(8,9,2); line([3,18,10,12,14,16,18,11,21,15]); }
         else if(symbol==="computer") { c.strokeRect(3,4,18,12); line([8,21,16,21]); line([12,16,12,21]); }
         else if(symbol==="trash") { line([4,6,20,6]); line([6,6,7,21,17,21,18,6]); line([9,6,9,3,15,3,15,6]); line([10,10,10,17]); line([14,10,14,17]); }
         else if(symbol==="sync") { line([4,8,18,8,15,5]); line([20,16,6,16,9,19]); }

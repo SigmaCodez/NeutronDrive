@@ -1,4 +1,5 @@
 import QtQuick
+import Qt.labs.platform as Platform
 import NeutronDrive.Native
 // Thin QML adapter: the existing view calls Rust controllers through these names.
 Item {
@@ -6,6 +7,29 @@ Item {
     property var view: null
     property bool initialized: false
     property bool allowClose: false
+    property bool explicitQuit: false
+    property bool trayAvailable: false
+    function reveal(page) {
+        if(page)show_page(page);
+        view.show();view.raise();view.requestActivate();
+    }
+    Platform.SystemTrayIcon {
+        id: tray
+        visible: controller.initialized && !controller.smoke && !controller.launch.demo
+        icon.source: "qrc:/neutrondrive/ui/tray.svg"
+        tooltip: "NeutronDrive · " + (controller.state.fields ? controller.state.fields.background_status.value : "")
+        onActivated: controller.reveal("")
+        menu: Platform.Menu {
+            Platform.MenuItem { text: controller.translate("NeutronDrive öffnen"); onTriggered: controller.reveal("") }
+            Platform.MenuItem { text: controller.translate("Automatischer Sync"); onTriggered: controller.reveal("background") }
+            Platform.MenuItem { text: controller.translate("Online-Laufwerk"); onTriggered: controller.reveal("ondemand") }
+            Platform.MenuSeparator {}
+            Platform.MenuItem { text: controller.translate("Sync-Dienst starten"); enabled: !controller.state.busy && !controller.state.backgroundRunning; onTriggered: controller.action("start") }
+            Platform.MenuItem { text: controller.translate("Sync-Dienst stoppen"); enabled: !controller.state.busy && Boolean(controller.state.backgroundRunning); onTriggered: controller.action("stop") }
+            Platform.MenuSeparator {}
+            Platform.MenuItem { text: controller.translate(controller.launch.flatpak ? "Fenster schließen" : "Fenster und Tray beenden"); onTriggered: { controller.explicitQuit=true;controller.view.close();controller.explicitQuit=false; } }
+        }
+    }
     NativeStartup {id: startup}
     readonly property var launch: JSON.parse(startup.configJson)
     property string catalog: launch.catalog || ""
@@ -66,7 +90,7 @@ Item {
         }
     }
     function send(method,args){files.dispatch(method,JSON.stringify(args))}
-    function translate(source){return preferences.translate(source)}
+    function translate(source){let activeLanguage=preferences.language;let ready=initialized;return preferences.translate(source)}
     function edit(name,value){send("edit",[name,value])}
     function show_page(page){send("show_page",[page])}
     function navigate(title,path){send("navigate",[title,path])}
@@ -79,7 +103,7 @@ Item {
     function restore_entry(index){send("restore_entry",[index])}
     function action(name){send("action",[name])}
     function answer_dialog(token,accepted,value){send("answer_dialog",[token,accepted,value])}
-    function request_close(){if(smoke)console.log("NATIVE_WINDOW_CLOSE_REQUEST",allowClose);if(allowClose)return true;send("request_close",[updateAdapter.state.installing===true]);return false}
+    function request_close(){if(smoke)console.log("NATIVE_WINDOW_CLOSE_REQUEST",allowClose);if(allowClose)return true;send("request_close",[updateAdapter.state.installing===true,!smoke && !launch.demo && trayAvailable && !explicitQuit]);return false}
     function setLanguagePreference(value){if(!preferences.setLanguagePreference(value))files.notify(preferences.error,true)}
     function setAppearancePreference(value){if(preferences.setAppearancePreference(value))appearanceObject.setMode(preferences.appearance);else files.notify(preferences.error,true)}
     function stop(){if(!updater.shutdown())return false;files.shutdown();appearanceObject.shutdown();startup.shutdown();return true}
@@ -105,7 +129,7 @@ Item {
         }catch(error){console.error(error);stop();Qt.exit(1)}
     })
     Timer {interval:100;running:controller.initialized;repeat:true;onTriggered:{if(startup.activationPending()){controller.view.show();controller.view.raise();controller.view.requestActivate()}}}
-    Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:controller.send("poll_services",[])}
+    Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:{let available=startup.trayAvailable();if(controller.trayAvailable && !available && controller.view && !controller.view.visible)controller.reveal("");controller.trayAvailable=available;controller.send("poll_services",[])}}
     Timer {id:initialUpdate;interval:10000;running:controller.initialized;onTriggered:updater.tick()}
     Timer {id:updateTimer;interval:3600000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
     // Isolated end-to-end checks of the actual existing Main.qml, without an account.
@@ -237,7 +261,25 @@ Item {
                     if(controller.state.path==="/my-files")throw new Error("Grid double-click did not open folder");
                     controller.navigate(controller.translate("Meine Dateien"),"/my-files");
                     controller.childNamed(controller.view.contentItem,"listViewButton").clicked();
-                    console.log("NATIVE_GRID_KEYBOARD_AND_MOUSE_OK");controller.stage=21;
+                    console.log("NATIVE_GRID_KEYBOARD_AND_MOUSE_OK");controller.stage=208;
+                }else if(controller.stage===208){
+                    if(controller.fixture){controller.stage=21;return;}
+                    controller.show_page("photos");controller.send("photos_page",[0]);controller.stage=209;
+                }else if(controller.stage===209){
+                    if(controller.state.photos.length!==2 || !controller.childNamed(controller.view.contentItem,"photoGrid"))throw new Error("Photo timeline failed");
+                    let preview=controller.childNamed(controller.view.contentItem,"photoPreview-0");
+                    if(!preview || preview.status!==Image.Ready)return;
+                    controller.capture("light-photos.png",210);
+                }else if(controller.stage===210){
+                    controller.show_page("files");
+                    let index=controller.fileEntries.findIndex(entry=>!entry.isFolder);
+                    controller.select_row(index,false);controller.action("Versions");controller.stage=211;
+                }else if(controller.stage===211){
+                    if(!controller.state.history.visible || controller.state.history.revisions.length!==2)throw new Error("Version history failed");
+                    controller.capture("light-history.png",212);
+                }else if(controller.stage===212){
+                    controller.send("history_close",[]);
+                    console.log("NATIVE_PHOTOS_AND_HISTORY_OK");controller.stage=21;
                 }else if(controller.stage===21){
                     if(controller.fixture){
                         controller.select_row(0,false);controller.action("Umbenennen");controller.stage=22;

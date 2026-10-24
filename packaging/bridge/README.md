@@ -13,6 +13,17 @@ this bridge with an official CLI release would remove event support. It applies
 to direct commands and the interactive CLI. The source-built binary identifies as
 `external-drive-neutrondrive@0.2.0-alpha`.
 
+## Photos and version history
+
+`libraryCommands.ts` adds `photo page OFFSET` (48 photos per page, bounded JPEG
+thumbnails), `versions list PATH` and `versions restore PATH REVISION EXPECTED`.
+The restore command verifies file identity, membership of the historical revision,
+and the current revision again immediately before calling the public SDK. The
+SDK has no atomic compare-and-swap restore operation; a concurrent edit can still
+race the final server request. The response says only that restoration was
+accepted, not that it is already visible on the server. No permanent revision
+deletion command is exposed by NeutronDrive.
+
 ## Build
 
 Run from the repository root with the exact Bun version in `source-lock.json`:

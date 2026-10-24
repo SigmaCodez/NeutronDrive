@@ -75,7 +75,7 @@ ApplicationWindow {
     property bool gridView: false
     property var s: controller.state
     property color muted: window.theme.muted
-    property var titles: ({"files":s.fields.files_title.value,"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
+    property var titles: ({"files":s.fields.files_title.value,"photos":window.tr("Photos"),"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
     function tr(source) { return controller.translate(source) }
     locale: Qt.locale(controller.language)
     function f(name) { return s.fields[name] }
@@ -163,7 +163,7 @@ ApplicationWindow {
                 }
                 Copy { text: window.tr("Deine Dateien. Dein Speicher."); font.pixelSize: 12; Layout.bottomMargin: 12 }
                 Repeater {
-                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
+                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
                         {name:window.tr("Automatischer Sync"),key:"background",icon:"refresh"},{name:window.tr("Online-Laufwerk"),key:"ondemand",icon:"cloud"},{name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
                     delegate: ColumnLayout {
                         id: navigationEntry
@@ -171,8 +171,8 @@ ApplicationWindow {
                         required property int index
                         Layout.fillWidth: true; spacing: 4
                         Copy {
-                            visible: navigationEntry.index===0 || navigationEntry.index===4 || navigationEntry.index===7
-                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===4 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
+                            visible: navigationEntry.index===0 || navigationEntry.index===5 || navigationEntry.index===8
+                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===5 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
                             font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
                             Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
                         }
@@ -183,7 +183,7 @@ ApplicationWindow {
                         objectName: "nav-"+modelData.key
                         Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
-                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : controller.show_page(modelData.key)
+                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photos_page",[0])) : controller.show_page(modelData.key))
                         Accessible.name: text
                         contentItem: RowLayout {
                             spacing: 12
@@ -221,7 +221,7 @@ ApplicationWindow {
             }
             Action { visible: window.f("login_button").visible; text: window.tr("Anmeldung im Browser öffnen"); command: "openLogin" }
             Loader { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
-                sourceComponent: s.page==="files" ? filesPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
+                sourceComponent: s.page==="files" ? filesPage : s.page==="photos" ? photosPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -374,7 +374,65 @@ ApplicationWindow {
                     delegate: Action { required property string modelData; text: window.tr(modelData); command: modelData; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
                 }
             }
+            Action { text: window.tr("Version history"); command: "Versions"; enabled: s.actions.Versions.enabled; visible: s.actions.Versions.visible }
             Copy { text: window.f("count_label").value; font.pixelSize: 12 }
+        }
+    }
+    Component {
+        id: photosPage
+        ColumnLayout {
+            objectName: "page-photos"; spacing: 12
+            RowLayout {
+                Button { text: window.tr("Previous"); enabled: !s.busy && s.photoOffset>0; onClicked: controller.send("photos_page",[Math.max(0,s.photoOffset-48)]) }
+                Button { text: window.tr("Next"); enabled: !s.busy && s.photosMore; onClicked: controller.send("photos_page",[s.photoOffset+48]) }
+                Button { text: window.tr("Aktualisieren"); enabled: !s.busy; onClicked: controller.send("photos_page",[s.photoOffset]) }
+                Copy { text: window.tr("Photos are ordered by the cloud timeline.") }
+            }
+            GridView {
+                objectName: "photoGrid"; Layout.fillWidth: true; Layout.fillHeight: true
+                clip: true; model: s.photos || []; cellWidth: width/Math.max(1,Math.floor(width/200)); cellHeight: 230
+                ScrollBar.vertical: ScrollBar {}
+                delegate: Item {
+                    id: photo; required property var modelData; required property int index
+                    width: GridView.view.cellWidth; height: GridView.view.cellHeight
+                    ColumnLayout {
+                        anchors.fill: parent; anchors.margins: 8; spacing: 6
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.preferredHeight: 140; color: window.theme.fileTile; radius: 10; clip: true
+                            DriveIcon { anchors.centerIn: parent; symbol: "photo"; ink: window.theme.fileInk; visible: preview.status!==Image.Ready }
+                            Image { id: preview; objectName: "photoPreview-"+photo.index; anchors.fill: parent; source: photo.modelData.thumbnail || ""; sourceSize.width: 400; sourceSize.height: 280; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false }
+                        }
+                        Label { text: photo.modelData.name; textFormat: Text.PlainText; color: window.theme.text; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                        Button { text: window.tr("Download"); enabled: !s.busy && photo.modelData.safe; onClicked: controller.send("photo_download",[photo.index]) }
+                    }
+                }
+                Label { anchors.centerIn: parent; visible: !s.busy && (s.photos || []).length===0; text: window.tr("No photos on this page."); color: window.muted }
+            }
+        }
+    }
+    Dialog {
+        id: historyDialog; objectName: "historyDialog"
+        visible: Boolean(s.history && s.history.visible)
+        title: window.tr("Version history"); modal: true
+        anchors.centerIn: parent; width: Math.min(680,window.width-60); height: Math.min(500,window.height-80)
+        standardButtons: Dialog.Close
+        padding: 20
+        background: Rectangle { radius: 14; color: window.theme.canvas; border.color: window.theme.dialogBorder }
+        header: Label { text: window.tr("Version history"); color: window.theme.text; font.pixelSize: 20; font.bold: true; padding: 20 }
+        onRejected: controller.send("history_close",[])
+        contentItem: ListView {
+            clip: true; model: s.history ? s.history.revisions : []; spacing: 10
+            ScrollBar.vertical: ScrollBar {}
+            delegate: RowLayout {
+                required property var modelData; required property int index
+                width: ListView.view.width; spacing: 12
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Label { text: modelData.created ? new Date(modelData.created).toLocaleString(window.locale,"dd MMM yyyy · HH:mm") : "—"; textFormat: Text.PlainText; color: window.theme.text }
+                    Label { text: modelData.size===undefined ? "—" : Number(modelData.size).toLocaleString(window.locale,"f",0)+" B"; color: window.muted }
+                }
+                Button { text: modelData.state==="active" ? window.tr("Current version") : window.tr("Wiederherstellen"); enabled: !s.busy && modelData.state==="superseded"; onClicked: {controller.send("version_restore",[index]);controller.send("history_close",[]);} }
+            }
         }
     }
     component PageScroll: ScrollView {
@@ -387,6 +445,22 @@ ApplicationWindow {
         id: backgroundPage
         PageScroll {
             objectName: "page-background"
+            Card {
+                Heading { text: window.tr("Sync overview") }
+                Copy { text: window.f("background_status").value }
+                GridLayout {
+                    Layout.fillWidth: true; columns: width<650 ? 2 : 4; columnSpacing: 24; rowSpacing: 12
+                    Repeater {
+                        model: [{key:"total",label:window.tr("Folders")},{key:"syncing",label:window.tr("Syncing")},{key:"paused",label:window.tr("Pausiert")},{key:"attention",label:window.tr("Needs attention")}]
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.minimumWidth: 120
+                            Label { text: s.syncSummary ? s.syncSummary[modelData.key] : "—"; font.pixelSize: 26; font.bold: true; color: window.theme.accentText }
+                            Copy { text: modelData.label }
+                        }
+                    }
+                }
+            }
             Copy { text: window.tr("Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters.") }
             Card {
                 Heading { text: window.tr("Computersicherung") }

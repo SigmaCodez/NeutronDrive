@@ -12,6 +12,9 @@ pub enum Done {
     None,
     Share(Value),
     RemovedLink,
+    Versions(String),
+    VersionRestored,
+    Photos,
     Version,
     LoggedOut,
     Background,
@@ -39,6 +42,14 @@ pub struct Work {
 }
 #[derive(Clone, Debug)]
 enum Answer {
+    DownloadPhoto {
+        uid: String,
+    },
+    RestoreVersion {
+        path: String,
+        revision: String,
+        expected: String,
+    },
     Close,
     Upload {
         parent: String,
@@ -185,6 +196,10 @@ impl Files {
         };
         this.state["fields"]["background_add_button"]["enabled"] = (!demo).into();
         this.state["fields"]["mount_button"]["enabled"] = (!demo && !this.snap).into();
+        this.state["photos"] = json!([]);
+        this.state["photoOffset"] = json!(0);
+        this.state["photosMore"] = json!(false);
+        this.state["history"] = json!({"visible":false,"revisions":[]});
         this.update_actions();
         this
     }
@@ -236,6 +251,7 @@ impl Files {
                 && !(trash && ["Download", "Freigabe"].contains(&name));
             self.state["actions"][name] = json!({"value":"","enabled":allowed,"visible":(name == "Wiederherstellen") == trash});
         }
+        self.state["actions"]["Versions"] = json!({"enabled":safe && !trash && selected.len()==1 && selected[0]["type"]=="file", "visible":!trash});
         let writable = self.path().starts_with("/my-files") || self.path().matches('/').count() > 1;
         for key in ["upload_button", "folder_upload_button", "mkdir_button"] {
             self.state["fields"][key]["enabled"] = (writable && !trash && !self.busy()).into();
@@ -344,11 +360,12 @@ impl Files {
         self.next_work
     }
     pub fn background_polled(&mut self, generation: u64, value: &Value) {
-        if self.next_work == generation && self.state["page"] == "background" {
+        if self.next_work == generation {
             self.render_background(value);
         }
     }
     fn render_background(&mut self, value: &Value) {
+        self.state["backgroundRunning"] = json!(value["running"] == true);
         let error = value["error"]
             .as_str()
             .filter(|v| !v.is_empty())
@@ -364,6 +381,11 @@ impl Files {
             status.push_str(&self.locale.diagnostic(error));
         }
         self.field("background_status", status.into());
+        let jobs = value["jobs"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+        self.state["syncSummary"] = json!({"total":jobs.len(),
+            "syncing":jobs.iter().filter(|j|j["state"]=="syncing").count(),
+            "paused":jobs.iter().filter(|j|j["paused"]==true || j["state"]=="paused").count(),
+            "attention":jobs.iter().filter(|j|matches!(j["state"].as_str(),Some("conflict"|"conflicts"|"blocked"|"error"|"offline"))).count()});
         self.state["jobs"]=json!(value["jobs"].as_array().into_iter().flatten().map(|job|{
             let state=text(job,"state");
             let label=match state {"idle"=>"Aktuell","syncing"=>"Wird synchronisiert","paused"=>"Pausiert","conflicts"|"conflict"=>"Konflikt","blocked"=>"Blockiert","offline"=>"Offline","error"=>"Failed","stopped"=>"Dienst ist gestoppt",""|"waiting"=>"Waiting",other=>other};
@@ -619,6 +641,56 @@ impl Files {
                         self.render_background(&value);
                         vec![]
                     }
+                    Done::Versions(path) => {
+                        if value["revisions"].is_array() && value["active"].is_string() {
+                            self.state["history"] = json!({"visible":true,"path":path,"active":value["active"],"revisions":value["revisions"]});
+                        } else {
+                            self.message("Invalid version history response", true);
+                        }
+                        vec![]
+                    }
+                    Done::VersionRestored => {
+                        if value["accepted"] != true {
+                            self.message("Invalid version restoration response", true);
+                            return vec![];
+                        }
+                        self.state["history"]["visible"] = json!(false);
+                        self.message(
+                            "Version restoration requested. Refresh to check the server result.",
+                            false,
+                        );
+                        self.refresh()
+                    }
+                    Done::Photos => {
+                        if value["photos"].is_array()
+                            && value["offset"].is_u64()
+                            && value["more"].is_boolean()
+                        {
+                            let photos = value["photos"].as_array().unwrap();
+                            if photos.len() > 48 {
+                                self.message("Invalid photo page size", true);
+                                return vec![];
+                            }
+                            self.state["photos"] = json!(photos
+                                .iter()
+                                .cloned()
+                                .map(|mut photo| {
+                                    let thumbnail = photo["thumbnail"].as_str().unwrap_or("");
+                                    if !thumbnail.starts_with("data:image/jpeg;base64,")
+                                        || thumbnail.len() > 710000
+                                    {
+                                        photo["thumbnail"] = json!("");
+                                    }
+                                    photo
+                                })
+                                .collect::<Vec<_>>());
+                            self.state["photoOffset"] = value["offset"].clone();
+                            self.state["photosMore"] = value["more"].clone();
+                        } else {
+                            self.message("Invalid photo page response", true);
+                        }
+                        vec![]
+                    }
                     Done::Loaded => {
                         if let Some(nodes) = value.as_array() {
                             self.nodes = nodes.clone();
@@ -714,6 +786,11 @@ impl Files {
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
             Answer::ActivateBackground{local,remote,computer}=>self.submit_background(if computer {"Computersicherung einrichten"} else {"Hintergrund-Sync aktivieren"},json!({"action":if computer {"computer"} else {"add"},"local":local,"remote":remote})),
+            Answer::DownloadPhoto { uid } => {
+                let Some(destination)=Self::local_paths(value).into_iter().next() else { return vec![]; };
+                self.submit("Download",json!({"action":"download_photo","uid":uid,"destination":destination}),Done::None)
+            }
+            Answer::RestoreVersion { path, revision, expected } => self.submit("Version history",json!({"action":"restore_version","path":path,"revision":revision,"expected":expected}),Done::VersionRestored),
             Answer::Logout => self.submit("Abmelden", json!({"action":"logout"}), Done::LoggedOut),
             Answer::Upload { parent } => {
                 let paths = Self::local_paths(value);
@@ -812,6 +889,9 @@ impl Files {
                 if self.busy() {
                     return self.dialog("confirm","Laufenden Vorgang abbrechen?","Bereits übertragene Dateien bleiben erhalten. Die App wartet auf das Ende des Backends.",json!({}),Answer::Close);
                 }
+                if args[1] == true {
+                    return vec![Effect::Hide];
+                }
                 if self.flatpak && self.state["demo"] != true {
                     return self.submit_target(
                         "Hintergrund-Sync",
@@ -861,6 +941,7 @@ impl Files {
             "show_page"
                 if [
                     "files",
+                    "photos",
                     "background",
                     "ondemand",
                     "local-trash",
@@ -877,16 +958,52 @@ impl Files {
                     return self.dispatch("poll_services", &json!([]));
                 }
             }
-            "poll_services"
-                if !self.busy()
-                    && self.state["demo"] != true
-                    && ["background", "ondemand"].contains(&text(&self.state, "page")) =>
-            {
-                return vec![Effect::PollService(if self.state["page"] == "background" {
-                    Target::Background
-                } else {
+            "poll_services" if !self.busy() && self.state["demo"] != true => {
+                return vec![Effect::PollService(if self.state["page"] == "ondemand" {
                     Target::Mount
+                } else {
+                    Target::Background
                 })]
+            }
+            "photos_page" if !self.busy() => {
+                let Some(offset) = args[0].as_u64() else {
+                    return vec![];
+                };
+                return self.submit(
+                    "Photos",
+                    json!({"action":"photos","offset":offset}),
+                    Done::Photos,
+                );
+            }
+            "photo_download" if !self.busy() => {
+                let photo = args[0]
+                    .as_u64()
+                    .and_then(|index| self.state["photos"].get(index as usize))
+                    .cloned();
+                if let Some(photo) = photo.filter(|p| p["safe"] == true) {
+                    return self.dialog(
+                        "folder",
+                        "Download-Zielordner wählen",
+                        "",
+                        json!({"multiple":false}),
+                        Answer::DownloadPhoto {
+                            uid: text(&photo, "uid").into(),
+                        },
+                    );
+                }
+            }
+            "history_close" => {
+                self.state["history"]["visible"] = json!(false);
+            }
+            "version_restore" if !self.busy() => {
+                let history = self.state["history"].clone();
+                if let Some(entry) = args[0]
+                    .as_u64()
+                    .and_then(|index| history["revisions"].get(index as usize))
+                    .filter(|entry| entry["state"] == "superseded")
+                {
+                    return self.dialog("confirm","Restore this version?","The selected historical version will become the current file. Concurrent cloud edits require reloading the history.",json!({}),Answer::RestoreVersion{path:text(&history,"path").into(),revision:text(entry,"uid").into(),expected:text(&history,"active").into()});
+                }
             }
             "job_action"
                 if ["pause", "resume", "sync", "remove"]
@@ -1005,6 +1122,7 @@ impl Files {
             "project" => vec![Effect::OpenUrl("https://github.com/SigmaCodez/NeutronDrive".into())],
             "web" => vec![Effect::OpenUrl("https://drive.proton.me".into())],
             "refresh" => self.refresh(),
+            "Versions" if nodes.len()==1 => self.submit("Version history",json!({"action":"versions","path":paths[0]}),Done::Versions(paths[0].clone())),
             "version" => self.submit("Backend prüfen", json!({"action":"version"}), Done::Version),
             "upload" | "uploadFolder"
                 if self.state["fields"]["upload_button"]["enabled"] == true =>
@@ -1400,7 +1518,9 @@ mod tests {
         let generation = m.service_generation();
         m.dispatch("show_page", &json!(["settings"]));
         m.background_polled(generation, &json!({"running":false}));
-        assert_eq!(m.state["fields"]["background_status"], current);
+        // Tray state remains live even while another page is displayed.
+        assert_eq!(m.state["backgroundRunning"], false);
+        assert_ne!(m.state["fields"]["background_status"], current);
     }
     #[test]
     fn demo_never_creates_background_work() {
@@ -1497,5 +1617,64 @@ mod tests {
         let refresh = work(m.complete(restore.id, Ok(json!({"status":"restored"}))));
         assert_eq!(refresh.target, Target::Trash);
         assert_eq!(refresh.operation, json!({"action":"list"}));
+    }
+    #[test]
+    fn tray_close_hides_only_when_available_and_does_not_end_session() {
+        let mut m = model();
+        let effects = m.dispatch("request_close", &json!([false, true]));
+        assert!(matches!(effects.as_slice(), [Effect::Hide]));
+        assert!(!m.closing);
+        assert!(matches!(
+            m.dispatch("request_close", &json!([false, false]))
+                .as_slice(),
+            [Effect::Close]
+        ));
+    }
+
+    #[test]
+    fn photo_download_captures_identity_and_rejects_remote_destination() {
+        let mut m = model();
+        m.state["photos"] = json!([{"uid":"first","safe":true}]);
+        let d = dialog(m.dispatch("photo_download", &json!([0])));
+        m.state["photos"] = json!([{"uid":"second","safe":true}]);
+        let w = work(m.dispatch(
+            "answer_dialog",
+            &json!([d["token"], true, ["file:///tmp/photo%20destination"]]),
+        ));
+        assert_eq!(
+            w.operation,
+            json!({"action":"download_photo","uid":"first","destination":"/tmp/photo destination"})
+        );
+        m.complete(w.id, Ok(json!({})));
+        let d = dialog(m.dispatch("photo_download", &json!([0])));
+        assert!(m
+            .dispatch(
+                "answer_dialog",
+                &json!([d["token"], true, ["https://example.org/path"]])
+            )
+            .is_empty());
+    }
+    #[test]
+    fn restore_dialog_captures_file_revision_and_baseline() {
+        let mut m = model();
+        m.state["history"] = json!({"visible":true,"path":"/my-files/one","active":"current","revisions":[{"uid":"old","state":"superseded"},{"uid":"current","state":"active"}]});
+        assert!(m.dispatch("version_restore", &json!([1])).is_empty());
+        let d = dialog(m.dispatch("version_restore", &json!([0])));
+        m.state["history"] = json!({"path":"/my-files/two","active":"other"});
+        let w = work(m.dispatch("answer_dialog", &json!([d["token"], true, ""])));
+        assert_eq!(
+            w.operation,
+            json!({"action":"restore_version","path":"/my-files/one","revision":"old","expected":"current"})
+        );
+    }
+    #[test]
+    fn background_summary_tracks_attention_without_switching_page() {
+        let mut m = model();
+        m.background_polled(m.next_work,&json!({"running":true,"jobs":[{"state":"syncing"},{"state":"paused","paused":true},{"state":"conflict"},{"state":"offline"}]}));
+        assert_eq!(
+            m.state["syncSummary"],
+            json!({"total":4,"syncing":1,"paused":1,"attention":2})
+        );
+        assert_eq!(m.state["backgroundRunning"], true);
     }
 }

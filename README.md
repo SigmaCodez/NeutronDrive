@@ -28,12 +28,16 @@ file/folder icons, not photo thumbnails.
 [Detailed list](docs/previews/files-list-light.png) ·
 [Automatic sync](docs/previews/background-light.png) ·
 [Online drive](docs/previews/online-drive-light.png) ·
+[Photos](docs/previews/photos-light.png) ·
+[Version history](docs/previews/history-light.png) ·
 [Capture details](docs/previews/capture.json)
 
 These are actual development GUI captures with English synthetic demo files.
 This change is not included in the published alpha7 packages. Rust, Qt Quick/QML
-and the official Proton SDK are retained. Photos, version history and a tray
-workflow remain separate feature work; this is not a claim of reference-project
+and the official Proton SDK are retained. The development branch also adds a native tray with sync-service controls, a
+live sync overview, paginated cloud Photos with thumbnails and downloads, and
+file version history with guarded restore requests. See [desktop feature details
+and limits](docs/DESKTOP-FEATURES.md). This is not a claim of complete reference-project
 or Windows feature parity.
 
 ## Published alpha7 interface
@@ -69,8 +73,9 @@ The 25 supported variants are English, German, French, Dutch, Spanish,
 Latin American Spanish, Italian, Polish, Portuguese, Brazilian Portuguese,
 Russian, Turkish, Catalan, Czech, Danish, Hungarian, Indonesian, Norwegian Bokmål,
 Romanian, Slovak, Swedish, Greek, Belarusian, Simplified Chinese and Traditional Chinese.
-These match the upstream Windows client's language list. All catalogs are complete;
-initial machine-assisted translations still need full native-speaker review.
+These match the upstream Windows client's language list. Established controls have complete catalogs; newly added desktop-feature labels
+currently fall back to English outside English/German. Initial machine-assisted
+translations still need full native-speaker review.
 See [localization details](docs/LOCALIZATION.md).
 
 ## Features

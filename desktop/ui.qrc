@@ -1,4 +1,5 @@
 <RCC><qresource prefix="/neutrondrive/ui">
 <file alias="Main.qml">../src/neutrondrive/qml/Main.qml</file>
 <file alias="DriveIcon.qml">../src/neutrondrive/qml/DriveIcon.qml</file>
+<file alias="tray.svg">../data/io.github.SigmaCodez.NeutronDrive.svg</file>
 </qresource></RCC>

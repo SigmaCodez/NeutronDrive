@@ -5,6 +5,9 @@
 #include <QTranslator>
 #include <QLibraryInfo>
 #include <QGuiApplication>
+#include <QApplication>
+#include <QSystemTrayIcon>
+#include <vector>
 #include <QClipboard>
 #include <QQuickWindow>
 #include <QKeyEvent>
@@ -24,6 +27,18 @@ Q_GUI_EXPORT void qt_handleMouseEvent(QWindow *, const QPointF &, const QPointF 
                                       QEvent::Type, Qt::KeyboardModifiers, int);
 QT_END_NAMESPACE
 namespace ndqt {
+inline bool systemTrayAvailable() { return QSystemTrayIcon::isSystemTrayAvailable(); }
+inline std::unique_ptr<QGuiApplication> widgetsApplication(const QStringList &arguments) {
+    static std::vector<QByteArray> storage;
+    static std::vector<char *> argv;
+    static int argc;
+    for (const auto &arg : arguments) storage.push_back(arg.toLocal8Bit());
+    for (auto &arg : storage) argv.push_back(arg.data());
+    argc = static_cast<int>(argv.size());
+    argv.push_back(nullptr);
+    return std::make_unique<QApplication>(argc, argv.data());
+}
+
 inline std::unique_ptr<QTranslator> newTranslator() { return std::make_unique<QTranslator>(); }
 inline bool loadTranslation(QTranslator &translator, const QString &language, const QString &domain) {
     return translator.load(QLocale(language), domain, "_", QLibraryInfo::path(QLibraryInfo::TranslationsPath));

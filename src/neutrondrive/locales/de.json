@@ -609,5 +609,20 @@
   "Ordner zur Computersicherung hinzufügen": "Ordner zur Computersicherung hinzufügen",
   "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.": "Der gewählte Ordner wird unter Computer in Proton Drive synchronisiert. Änderungen gelten in beide Richtungen; bestätigte Löschungen werden in den Papierkorb weitergegeben. Dies ist kein Systemabbild. Bestehende Cloud-Ordner werden nicht automatisch zusammengeführt.",
   "Listenansicht": "Listenansicht",
-  "Kachelansicht": "Kachelansicht"
+  "Kachelansicht": "Kachelansicht",
+  "NeutronDrive öffnen": "NeutronDrive öffnen",
+  "Sync-Dienst starten": "Sync-Dienst starten",
+  "Sync-Dienst stoppen": "Sync-Dienst stoppen",
+  "Fenster und Tray beenden": "Fenster und Tray beenden",
+  "Photos": "Fotos",
+  "Previous": "Zurück",
+  "Next": "Weiter",
+  "Version history": "Versionsverlauf",
+  "Photos are ordered by the cloud timeline.": "Fotos sind nach der Cloud-Zeitleiste sortiert.",
+  "No photos on this page.": "Keine Fotos auf dieser Seite.",
+  "Sync overview": "Sync-Übersicht",
+  "Folders": "Ordner",
+  "Syncing": "Wird synchronisiert",
+  "Needs attention": "Handlungsbedarf",
+  "Restore this version?": "Diese Version wiederherstellen?"
 }

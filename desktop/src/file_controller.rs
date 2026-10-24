@@ -393,6 +393,12 @@ fn demo_operation(operation: &Value) -> Result<Value, Failure> {
         "version" => Ok(json!(
             "Demo-Modus · keine Verbindung und keine Übertragungen"
         )),
+        "photos" => Ok(json!({"offset":operation["offset"],"more":false,"photos":[
+            {"uid":"demo-photo-one","name":"Sample image 1.jpg","safe":true,"thumbnail":format!("data:image/jpeg;base64,{}",include_str!("../data/demo-photo.base64").trim())},
+            {"uid":"demo-photo-two","name":"Sample image 2.jpg","safe":true,"thumbnail":""}]})),
+        "versions" => Ok(json!({"active":"demo-current","revisions":[
+            {"uid":"demo-current","state":"active","created":"2026-10-24T08:00:00Z","size":4096},
+            {"uid":"demo-old","state":"superseded","created":"2026-10-23T08:00:00Z","size":2048}]})),
         "list" if operation["path"] != "/my-files" => Ok(json!([])),
         "list" => Ok(json!([
             {"uid":"demo-docs","name":"Documents","type":"folder","path":"/my-files/Documents","safe":true},
