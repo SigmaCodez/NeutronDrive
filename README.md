@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
-**Status: 0.6.0 alpha 8.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 9.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -14,7 +14,7 @@ interface and icon are original; no Windows/macOS application code is copied.
 
 ## File views and desktop features
 
-Alpha8 adds a responsive grid view alongside the detailed file
+The interface provides a responsive grid view alongside the detailed file
 list, inspired by the file-browser layout of
 [narrrl/proton-drive-linux](https://github.com/narrrl/proton-drive-linux).
 Use **List view / Grid view** above the files. Selection is shared between both
@@ -22,45 +22,36 @@ views; arrow keys, Ctrl+A, Ctrl-click and double-click folder navigation work in
 both. The view choice lasts for the current application session. Grid tiles use
 file/folder icons, not photo thumbnails.
 
-![Current alpha8 grid view in English](docs/previews/files-grid-light.png)
+![Current alpha9 grid view in English](docs/previews/files-grid-light.png)
 
 [Dark grid](docs/previews/files-grid-dark.png) ·
 [Detailed list](docs/previews/files-list-light.png) ·
 [Automatic sync](docs/previews/background-light.png) ·
 [Online drive](docs/previews/online-drive-light.png) ·
 [Photos](docs/previews/photos-light.png) ·
+[Albums](docs/previews/albums-light.png) ·
 [Version history](docs/previews/history-light.png) ·
 [Capture details](docs/previews/capture.json)
 
 These are actual release GUI captures with English synthetic demo files.
-These features are included in the alpha8 packages. Rust, Qt Quick/QML
-and the official Proton SDK are retained. Alpha8 also adds a native tray with sync-service controls, a
-live sync overview, paginated cloud Photos with thumbnails and downloads, and
-file version history with guarded restore requests. See [desktop feature details
-and limits](docs/DESKTOP-FEATURES.md). This is not a claim of complete reference-project
-or Windows feature parity.
+Alpha9 adds a first-run assistant for an empty `~/ProtonDrive` folder,
+metadata-first FUSE placeholders, service startup on login and individual
+**Keep on device** actions. Photos supports continuous scrolling, a total count,
+album management and location links to OpenStreetMap. The signed-in sidebar
+shows used/free account storage and a percentage bar. Outgoing shares and
+confirmed email invitations complement existing public links. The interface
+uses an original neutron-inspired icon.
 
-## Alpha9 candidate
+Rust, Qt Quick/QML and the official Proton SDK are retained. The native tray,
+sync overview, computer backup and guarded version history remain available.
+See [desktop feature details and limits](docs/DESKTOP-FEATURES.md). This is not a
+claim of complete Windows/macOS parity; package restrictions remain explicit.
 
-The next prerelease adds a first-run assistant for an empty `~/ProtonDrive`
-folder, metadata-first FUSE placeholders, automatic service startup and
-per-file/folder **Keep on this device** controls. Existing files are never
-hidden or moved by setup. Photos gain continuous scrolling, a total count,
-album management and location links to OpenStreetMap. The sidebar shows account
-storage usage after sign-in; outgoing shares and email invitations are available
-from the file interface. A new neutron-inspired icon keeps the app distinct from
-the official Proton client.
+## Published alpha9 interface
 
-These changes are being validated in [PR #8](https://github.com/SigmaCodez/NeutronDrive/pull/8).
-The screenshots and installation commands below still describe the published
-alpha8 release until new packages and fresh English captures are verified.
-See [feature details and package restrictions](docs/DESKTOP-FEATURES.md).
+![Current alpha9 interface in English with isolated sample files](docs/demo.png)
 
-## Published alpha8 interface
-
-![Current alpha8 interface in English with isolated sample files](docs/demo.png)
-
-Actual alpha8 GUI, captured in English using isolated synthetic data; no live account or personal files.
+Actual alpha9 GUI, captured in English using isolated synthetic data; no live account or personal files.
 [Preview build and capture details](docs/GUI-PREVIEWS.json).
 
 [Current dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting or your manual preference.
@@ -73,7 +64,7 @@ The old Python UI modules have been removed; compatibility adapters are retained
 only under `tests/core_contract` for native-core regression tests. Native tests
 pass on x86-64 and ARM64; current-source DEB, RPM, Flatpak, Snap, AppImage and
 Arch package checks and authorized live sync/FUSE/trash tests have passed.
-Alpha8 packages include the completed native runtime migration.
+The packages retain the completed native runtime migration.
 See [migration status and evidence](docs/RUST-MIGRATION.md).
 
 ## Language
@@ -155,21 +146,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha8-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha9-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha8-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha9-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha8-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha9-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a8-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a9-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha8_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha9_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -177,8 +168,8 @@ Additional formats:
 
 ```sh
 # Portable x86_64 AppImage
-chmod +x NeutronDrive-0.6.0-alpha8-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha8-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha9-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha9-x86_64.AppImage
 
 # Arch/Manjaro: review the PKGBUILD, then build as a regular user
 # Requires base-devel and git.
@@ -362,8 +353,8 @@ The strict Snap supports browsing, transfers and background folder sync. Its
 confinement does not provide the required unprivileged FUSE mount helper, so the
 online drive is explicitly unavailable there. Use the native DEB/RPM for online
 files; connecting extra interfaces does not remove this limitation.
-FUSE mounts cannot be used as automatic sync roots, and overlapping jobs or
-mounts are rejected.
+Eager folder-sync jobs cannot target FUSE mounts. The guided sync folder uses
+the on-demand service directly; overlapping jobs or mounts are rejected.
 
 ![Current English online drive interface, isolated sample profile](docs/ondemand-demo.png)
 
@@ -371,9 +362,9 @@ mounts are rejected.
 
 - No multi-account UI or Proton Docs/Sheets export. Updates still require the
   installation permissions of the selected package format.
-- Alpha8 includes Photos browsing and version history. Album management and
-  member invitations are alpha9 candidate features; advanced link settings and
-  an embedded photo map remain unavailable.
+- Advanced link settings, an embedded photo map and Nautilus status overlays
+  remain unavailable. New strings use English fallback where translations are
+  still pending review.
 - Native Proton documents cannot be downloaded as regular files by this CLI.
   Transfer summaries report skipped items; sync reports unsupported files.
 - Duplicate names in trash cannot be resolved by the CLI's name-only restore
@@ -420,7 +411,7 @@ and use their normal package/update workflow. See [update behavior and limits](d
 Automatic sync now includes a Computer backup card that registers a Linux
 computer through the official SDK and synchronizes selected folders under
 Proton Drive's Computers section. It requires the new source-built SDK bridge
-and Rust core, included in alpha8 packages. See
+and Rust core, included in alpha9 packages. See
 [setup and safety behavior](docs/COMPUTER-BACKUP.md) and the
 [Windows feature comparison](docs/WINDOWS-PARITY.md) for remaining gaps.
 

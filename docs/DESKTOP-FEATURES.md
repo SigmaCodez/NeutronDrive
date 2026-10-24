@@ -1,8 +1,8 @@
-# Desktop features: alpha8 and the alpha9 candidate
+# Desktop features: alpha9
 
-Alpha8 includes these features in both the native frontend and SDK bridge.
-Upgrade the complete application package; the older alpha7 bridge does not
-contain the new photo-page and revision commands.
+Alpha9 includes these features in both the native frontend and SDK bridge.
+Upgrade the complete application package; older bridges do not contain all
+photo-library, album and account-storage commands.
 
 ## Files and sync
 
@@ -28,7 +28,7 @@ access to `org.kde.StatusNotifierWatcher`; no unrestricted session-bus permissio
 was added. Package validation is recorded in the release TEST_RESULTS.json. This does not
 certify tray support in every desktop/environment combination.
 
-## Photos and albums (alpha9 candidate)
+## Photos and albums (alpha9)
 
 Photos inventories the timeline once and displays the total count. Scrolling
 loads metadata and JPEG previews in batches of up to 48. At most 96 thumbnail
@@ -48,7 +48,7 @@ inference. No map request occurs until the user chooses that action. Photos
 without GPS data do not receive an invented location. Photo uploads, favorite
 editing, RAW grouping and import remain outside this change.
 
-## Guided placeholder sync (alpha9 candidate)
+## Guided placeholder sync (alpha9)
 
 The first-run assistant defaults to `~/ProtonDrive`. Choose an empty real folder,
 sign in, then finish. Setup starts the existing native FUSE service and enables
@@ -75,7 +75,7 @@ active mount. GNOME/Nautilus context extensions and file-manager status overlays
 are not included. Flatpak needs the native host helper; strict Snap does not
 support FUSE placeholders. Those limitations are not hidden by the assistant.
 
-## Sharing and account storage (alpha9 candidate)
+## Sharing and account storage (alpha9)
 
 The sidebar includes **Shared by me** as well as **Shared with me**. The sharing
 dialog retains public links and adds email invitations with Viewer or Editor
@@ -98,7 +98,22 @@ that server application can be delayed. The UI therefore reports a restoration
 request and asks the user to refresh, rather than claiming a verified final state.
 No permanent deletion of old versions is offered.
 
-## Validation
+## Alpha9 validation
+
+The [successful release build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40138612701)
+tested both native architectures and all eight installation packages. Local
+checks passed 63 frontend unit tests, 172 core unit tests, 347 retained regression
+tests without skips, 22 SDK bridge tests, TypeScript checking and Rust Clippy.
+The actual Qt interface passed all 25 locales plus English fallback, and the
+setup assistant passed a real writable FUSE/autostart integration test.
+
+Authorized live checks covered account storage, photo inventory, outgoing shares,
+synthetic album creation/renaming/deletion and real-kernel FUSE online/offline
+reads, editing/uploads, create/rename/trash and cache eviction. No invitation
+email was sent. See [the validation record](VALIDATION.md) and the alpha9 release
+BUILD_INFO.json and TEST_RESULTS.json for the exact scope and remaining limits.
+
+## Historical alpha8 validation
 
 - Rust frontend: 58 tests, including captured restore targets, photo destination
   validation, tray close behavior and background status updates on other pages.
