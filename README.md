@@ -12,6 +12,24 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
+> **In development after alpha9:** a themed two-step setup assistant, cleaner photo
+> selection and a zoomable preview, plus native file-manager menu extensions.
+> See [desktop refinements](docs/DESKTOP-FEATURES.md#gallery-and-desktop-refinements-development-after-alpha9)
+> and [file-manager support](docs/FILE-MANAGER-INTEGRATION.md). These changes are not
+> included in the alpha9 downloads yet.
+
+## Next-build previews
+
+Captured from the actual development UI in English with synthetic demo data.
+
+![Photo selection in the development build](docs/previews/development/light-photos-selection.png)
+
+[Clean photo grid](docs/previews/development/light-photos.png) ·
+[Image preview](docs/previews/development/light-photo-viewer.png) ·
+[Albums](docs/previews/development/light-albums.png) ·
+[Sign-in step](docs/previews/development/setup-sign-in-light.png) ·
+[Folder step (dark)](docs/previews/development/setup-folder-dark.png)
+
 ## File views and desktop features
 
 The interface provides a responsive grid view alongside the detailed file

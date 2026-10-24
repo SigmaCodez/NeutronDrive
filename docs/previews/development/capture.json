@@ -1,0 +1,17 @@
+{
+  "status": "Development after alpha9; not a released package",
+  "captured_at": "2026-10-24T23:39:31.235720+00:00",
+  "binary_sha256": "3d9038cb0e37e1f06be96cfb1a541d4f35ed86dadfee76623fc5b15ba3744966",
+  "language": "en",
+  "data": "Synthetic demo photos and account storage; simulated setup states with /home/alex/ProtonDrive; no account or personal files",
+  "images": {
+    "setup-sign-in-light.png": "e0508aefb925f0aa3a6383ceb6c6a0d4d3e4747d2fd623e2c91c6ab821cb3cf5",
+    "setup-sign-in-dark.png": "9ea95bf5826bed7bd756fb04dbde49e42d30c3e4fcc45e24b6a092734d86148c",
+    "setup-folder-light.png": "6ba4076581524f005e29a0e5fda39718e9d92fa57cbd9f9828ed284ee07022e8",
+    "setup-folder-dark.png": "21128b1d4db2b121900b5bb3d9195162f182fa08a0b4e2934c7824f35c781ab4",
+    "light-photos.png": "351b3ce0a9b37e6300aed591f40d70ef2d109735a23bb23736cbea43dd112342",
+    "light-photos-selection.png": "7b3589450cddb5c4118583eaeda030275a65ff28dd58bfd4a97526e776d8e64b",
+    "light-photo-viewer.png": "0d828d79e420a30f128e892d75e79dddb8146ce19ffbaf321423dadf08f683c4",
+    "light-albums.png": "c3f3d77b5160f2f09dd3c41c5bf6170bd3316c7e2697dfd5834d3a5d9dd81ac3"
+  }
+}

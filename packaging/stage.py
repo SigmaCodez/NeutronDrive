@@ -76,6 +76,19 @@ def stage(destination, prefix, arch, binary, portal_browser=False, host_services
         shutil.copyfile(binary.with_name(binary.name + ".provenance.json"),
                         base / "share/doc/neutrondrive/backend-build.provenance.json")
     if prefix == "usr" and host_services:
+        # Host extensions are deliberately not injected from sandboxed packages.
+        # Distribution families use different extension lookup libdirs.
+        multiarch = "x86_64-linux-gnu" if arch in ("amd64", "x86_64") else "aarch64-linux-gnu"
+        for libdir in ("lib", "lib64", "lib/" + multiarch):
+            for extension in ("nautilus/extensions-3.0", "nautilus/extensions-4", "nemo/extensions-3.0", "caja/extensions-2.0", "thunarx-3"):
+                target = base / libdir / extension / "libneutrondrive.so"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                library = "libneutrondrive_nautilus3.so" if extension == "nautilus/extensions-3.0" else "libneutrondrive_file_manager.so"
+                target.symlink_to(os.path.relpath(app / "bin" / library, target.parent))
+        for mode in ("pin", "evict", "share"):
+            target = base / "share/file-manager/actions" / ("neutrondrive-" + mode + ".desktop")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / "data/file-manager" / target.name, target)
         for name, relative in [
             ("io.github.SigmaCodez.NeutronDrive.Service.service", "share/dbus-1/services/io.github.SigmaCodez.NeutronDrive.Service.service"),
             ("neutrondrive-background.service", "lib/systemd/user/neutrondrive-background.service"),

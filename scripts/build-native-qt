@@ -40,6 +40,12 @@ if args.vendor_cache:
     import json
     command += ['--config', 'source.vendored-sources.directory='+json.dumps(str(args.vendor_cache.resolve()))]
 subprocess.run(command, cwd=ROOT / 'desktop', env=env, check=True)
+subprocess.run(command, cwd=ROOT / 'file-manager', env=env, check=True)
+plugin_dir = args.target_dir.resolve() / 'release'
+shutil.copyfile(plugin_dir/'libneutrondrive_file_manager.so', plugin_dir/'libneutrondrive-modern.so')
+subprocess.run(command + ['--features', 'nautilus3', '--lib'], cwd=ROOT / 'file-manager', env=env, check=True)
+shutil.copyfile(plugin_dir/'libneutrondrive_file_manager.so', plugin_dir/'libneutrondrive_nautilus3.so')
+shutil.copyfile(plugin_dir/'libneutrondrive-modern.so', plugin_dir/'libneutrondrive_file_manager.so')
 if native.sources() != source_before:
     raise SystemExit('Sources changed during the build; refusing to publish inconsistent provenance')
 binary = args.target_dir.resolve() / 'release' / native.BINARY

@@ -63,6 +63,19 @@ cp -a usr %{buildroot}/
 /usr/lib/neutrondrive/
 %license /usr/share/licenses/neutrondrive/
 %doc /usr/share/doc/neutrondrive/
+/usr/lib/nautilus/
+/usr/lib/nemo/
+/usr/lib/caja/
+/usr/lib/thunarx-3/
+/usr/lib64/nautilus/
+/usr/lib64/nemo/
+/usr/lib64/caja/
+/usr/lib64/thunarx-3/
+/usr/lib/*-linux-gnu/nautilus/
+/usr/lib/*-linux-gnu/nemo/
+/usr/lib/*-linux-gnu/caja/
+/usr/lib/*-linux-gnu/thunarx-3/
+/usr/share/file-manager/actions/neutrondrive-*.desktop
 /usr/share/kio/servicemenus/neutrondrive.desktop
 /usr/share/applications/io.github.SigmaCodez.NeutronDrive.desktop
 /usr/share/metainfo/io.github.SigmaCodez.NeutronDrive.metainfo.xml

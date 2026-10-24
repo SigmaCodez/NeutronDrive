@@ -13,6 +13,8 @@ from native_ui_support import check
 class NativeUiTests(unittest.TestCase):
     def test_actual_window_pages_themes_selection_and_double_click(self):
         output = check('--check-window')
+        self.assertIn('NATIVE_SETUP_STEPS_AND_THEMES_OK', output)
+        self.assertIn('NATIVE_PHOTO_SELECTION_AND_VIEWER_OK', output)
         self.assertIn('NATIVE_KEYBOARD_AND_MOUSE_OK', output)
         self.assertIn('NATIVE_MAIN_WINDOW_OK', output)
 

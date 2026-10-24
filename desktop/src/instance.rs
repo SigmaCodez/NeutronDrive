@@ -2,7 +2,10 @@
 use crate::{platform::qt, runtime::Failure};
 use cxx_qt_lib::QString;
 use std::{
+    cell::RefCell,
+    collections::VecDeque,
     fs, io,
+    io::{Read, Write},
     os::unix::{
         fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt},
         net::{UnixListener, UnixStream},
@@ -19,6 +22,8 @@ fn failure(message: &str) -> Failure {
 pub struct Instance {
     // Release socket before lock so a successor never loses its socket to our cleanup.
     listener: UnixListener,
+    incoming: RefCell<Vec<(UnixStream, Vec<u8>, Instant)>>,
+    requests: RefCell<VecDeque<serde_json::Value>>,
     path: PathBuf,
     identity: (u64, u64),
     _lock: cxx::UniquePtr<qt::QLockFile>,
@@ -90,7 +95,17 @@ fn connect(path: &Path) -> io::Result<UnixStream> {
 }
 impl Instance {
     /// None means an existing window was contacted successfully.
+    #[cfg(test)]
     pub fn claim(directory: &Path) -> Result<Option<Self>, Failure> {
+        Self::claim_request(directory, None)
+    }
+    pub fn claim_request(
+        directory: &Path,
+        request: Option<serde_json::Value>,
+    ) -> Result<Option<Self>, Failure> {
+        if let Some(ref value) = request {
+            crate::file_manager::validate(value)?;
+        }
         private_directory(directory)?;
         let path = directory.join("window.sock");
         let lockpath = directory.join("window.lock");
@@ -102,7 +117,18 @@ impl Instance {
         if !qt::claim_lock(lock.pin_mut()) {
             let started = Instant::now();
             loop {
-                if connect(&path).is_ok() {
+                if let Ok(mut stream) = connect(&path) {
+                    if let Some(ref value) = request {
+                        stream
+                            .set_nonblocking(false)
+                            .map_err(|_| failure("Window connection failed"))?;
+                        stream
+                            .set_write_timeout(Some(Duration::from_millis(300)))
+                            .map_err(|_| failure("Window connection failed"))?;
+                        stream
+                            .write_all(value.to_string().as_bytes())
+                            .map_err(|_| failure("Could not forward file-manager action"))?;
+                    }
                     return Ok(None);
                 }
                 if started.elapsed() >= Duration::from_millis(1500) {
@@ -128,6 +154,8 @@ impl Instance {
             fs::symlink_metadata(&path).map_err(|_| failure("Could not inspect window socket"))?;
         let owned = Self {
             listener,
+            incoming: RefCell::new(Vec::new()),
+            requests: RefCell::new(request.into_iter().collect()),
             path,
             identity: (info.dev(), info.ino()),
             _lock: lock,
@@ -145,11 +173,51 @@ impl Instance {
         let mut activate = false;
         for _ in 0..16 {
             match self.listener.accept() {
-                Ok((_stream, _)) => activate = true,
+                Ok((stream, _)) => {
+                    activate = true;
+                    if self.incoming.borrow().len() < 32 && stream.set_nonblocking(true).is_ok() {
+                        self.incoming
+                            .borrow_mut()
+                            .push((stream, Vec::new(), Instant::now()));
+                    }
+                }
                 Err(_) => break,
             }
         }
+        self.incoming
+            .borrow_mut()
+            .retain_mut(|(stream, data, started)| {
+                if started.elapsed() > Duration::from_secs(2) {
+                    return false;
+                }
+                let mut buffer = [0u8; 4096];
+                loop {
+                    match stream.read(&mut buffer) {
+                        Ok(0) => {
+                            if !data.is_empty() && self.requests.borrow().len() < 32 {
+                                if let Ok(value) = serde_json::from_slice(data) {
+                                    if crate::file_manager::validate(&value).is_ok() {
+                                        self.requests.borrow_mut().push_back(value);
+                                    }
+                                }
+                            }
+                            return false;
+                        }
+                        Ok(n) => {
+                            data.extend_from_slice(&buffer[..n]);
+                            if data.len() > 65536 {
+                                return false;
+                            }
+                        }
+                        Err(e) if e.kind() == io::ErrorKind::WouldBlock => return true,
+                        Err(_) => return false,
+                    }
+                }
+            });
         activate
+    }
+    pub fn next_request(&self) -> Option<serde_json::Value> {
+        self.requests.borrow_mut().pop_front()
     }
 }
 impl Drop for Instance {
@@ -176,6 +244,32 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    fn forwards_literal_file_actions_and_rejects_invalid_messages() {
+        let tmp = Temp::new("file-action");
+        let owner = Instance::claim(&tmp.0).unwrap().unwrap();
+        let request =
+            serde_json::json!({"action":"share","paths":["/tmp/ProtonDrive/a '$();.txt"]});
+        assert!(Instance::claim_request(&tmp.0, Some(request.clone()))
+            .unwrap()
+            .is_none());
+        assert!(owner.pending());
+        assert_eq!(owner.next_request(), Some(request));
+        assert!(owner.next_request().is_none());
+        assert!(Instance::claim_request(
+            &tmp.0,
+            Some(serde_json::json!({"action":"delete","paths":["/tmp/x"]}))
+        )
+        .is_err());
+        let mut partial = connect(&owner.path).unwrap();
+        partial.write_all(b"{").unwrap();
+        let start = Instant::now();
+        owner.pending();
+        assert!(start.elapsed() < Duration::from_millis(100));
+        drop(partial);
+        owner.pending();
+        assert!(owner.next_request().is_none());
     }
     #[test]
     fn activates_existing_owner_and_releases_for_successor() {
