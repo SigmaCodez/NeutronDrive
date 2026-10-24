@@ -1,8 +1,8 @@
-# Desktop feature development
+# Desktop features in alpha8
 
-These changes are unreleased and are not present in alpha7 installations. Build
-both the native frontend and the SDK bridge from this checkout; the alpha7 bridge
-does not contain the new photo-page and revision commands.
+Alpha8 includes these features in both the native frontend and SDK bridge.
+Upgrade the complete application package; the older alpha7 bridge does not
+contain the new photo-page and revision commands.
 
 ## Files and sync
 
@@ -25,8 +25,8 @@ background-process rules and labels the menu action “Close window”. GNOME ne
 a working StatusNotifier/AppIndicator host for a tray; a plain GNOME session may
 not provide one. A tray is never required to access the app. Flatpak grants only
 access to `org.kde.StatusNotifierWatcher`; no unrestricted session-bus permission
-was added. Snap and every desktop/environment combination have not been retested
-as installed packages for these development changes.
+was added. Package validation is recorded in the release TEST_RESULTS.json. This does not
+certify tray support in every desktop/environment combination.
 
 ## Photos
 
@@ -70,5 +70,5 @@ No permanent deletion of old versions is offered.
   historical content restored and downloaded byte-for-byte; synthetic test folder
   moved to the cloud trash. No existing user file was modified.
 
-Full new release-package and installed-distribution validation remains a release
-step; the previous alpha7 package results do not certify these changes.
+See the alpha8 release BUILD_INFO.json and TEST_RESULTS.json for the exact
+build commit, GitHub test run and installed-package validation.

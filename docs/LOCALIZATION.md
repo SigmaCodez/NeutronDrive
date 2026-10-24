@@ -67,7 +67,7 @@ negations and data-preservation warnings.
 
 ## Maintaining catalogs
 
-Add new UI messages through `tr()` in Python or `window.tr()` in QML. Keep action
+Add new UI messages through the Rust localization helpers or `window.tr()` in QML. Keep action
 IDs and user-controlled values outside translations. Use named placeholders
 `{p0}`, `{p1}`, etc. and interpolate only after translation. Every locale must
 contain exactly the English catalog's keys and preserve its placeholder set,
@@ -79,7 +79,16 @@ catalog checks. Enable `NEUTRONDRIVE_UI_TESTS=1` with the bundled Qt runtime for
 26-locale window test (25 supported plus unsupported Japanese). Existing German
 UI assertions pin their locale rather than relying on the build runner's locale.
 
-## Validation on 2026-10-21
+## Alpha8 validation
+
+All 25 catalogs contain the same 627 keys with matching placeholders.
+New desktop-feature text uses explicit English fallbacks where a translation is
+not yet available; matching key counts do not imply complete linguistic review.
+The release CI checks native CLI/window behavior for all 25 languages and an
+unsupported Japanese locale, together with the nine localization regression tests.
+The actual application runtime is Rust/Qt; Python is used only for test tooling.
+
+## Historical alpha6 validation on 2026-10-21
 
 All 340 local tests passed with no skips, including real FUSE and isolated D-Bus,
 Qt UI tests, locale resolution, 25 complete catalogs, named-placeholder integrity,
