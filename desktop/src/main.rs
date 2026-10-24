@@ -64,7 +64,11 @@ fn main() {
         eprintln!("{}", cli_text::CliText::system().diagnostic("No graphical session is available. Start NeutronDrive in a Wayland or X11 session."));
         std::process::exit(1);
     }
-    let mut application = QGuiApplication::new();
+    let mut arguments = cxx_qt_lib::QStringList::default();
+    for arg in std::env::args() {
+        arguments.append(QString::from(arg));
+    }
+    let mut application = platform::qt::widgets_application(&arguments);
     QGuiApplication::set_desktop_file_name(&QString::from("io.github.SigmaCodez.NeutronDrive"));
     let mut engine = QQmlApplicationEngine::new();
     let failed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

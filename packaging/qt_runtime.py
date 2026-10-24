@@ -42,8 +42,8 @@ def fetch(architecture=None):
 
 
 MODULES = {"Core", "Gui", "Widgets", "Network", "DBus", "OpenGL", "OpenGLWidgets", "Svg", "SvgWidgets", "Xml", "Test", "WaylandClient", "WlShellIntegration", "XcbQpa"}
-MODULES |= {"LabsFolderListModel","Qml", "QmlMeta", "QmlCore", "QmlModels", "QmlWorkerScript", "QmlNetwork", "Quick", "QuickControls2", "QuickControls2Impl", "QuickControls2Basic", "QuickControls2BasicStyleImpl", "QuickControls2Fusion", "QuickControls2FusionStyleImpl", "QuickTemplates2", "QuickLayouts", "QuickDialogs2", "QuickDialogs2QuickImpl", "QuickDialogs2Utils", "QuickShapes"}
-QML_DIRS = {"Qt/labs/folderlistmodel","QtQml", "QtQml/Models", "QtQml/WorkerScript", "QtQuick", "QtQuick/Window", "QtQuick/Layouts", "QtQuick/Templates", "QtQuick/Controls", "QtQuick/Controls/Basic", "QtQuick/Controls/Basic/impl", "QtQuick/Controls/Fusion", "QtQuick/Controls/Fusion/impl", "QtQuick/Controls/impl", "QtQuick/Dialogs", "QtQuick/Dialogs/quickimpl", "QtQuick/Dialogs/quickimpl/qml", "QtQuick/Shapes"}
+MODULES |= {"LabsPlatform","LabsFolderListModel","Qml", "QmlMeta", "QmlCore", "QmlModels", "QmlWorkerScript", "QmlNetwork", "Quick", "QuickControls2", "QuickControls2Impl", "QuickControls2Basic", "QuickControls2BasicStyleImpl", "QuickControls2Fusion", "QuickControls2FusionStyleImpl", "QuickTemplates2", "QuickLayouts", "QuickDialogs2", "QuickDialogs2QuickImpl", "QuickDialogs2Utils", "QuickShapes"}
+QML_DIRS = {"Qt/labs/platform","Qt/labs/folderlistmodel","QtQml", "QtQml/Models", "QtQml/WorkerScript", "QtQuick", "QtQuick/Window", "QtQuick/Layouts", "QtQuick/Templates", "QtQuick/Controls", "QtQuick/Controls/Basic", "QtQuick/Controls/Basic/impl", "QtQuick/Controls/Fusion", "QtQuick/Controls/Fusion/impl", "QtQuick/Controls/impl", "QtQuick/Dialogs", "QtQuick/Dialogs/quickimpl", "QtQuick/Dialogs/quickimpl/qml", "QtQuick/Shapes"}
 PLUGIN_GROUPS = {"iconengines", "imageformats", "networkinformation", "platforminputcontexts", "platformthemes", "tls", "wayland-decoration-client", "wayland-graphics-integration-client", "wayland-shell-integration", "xcbglintegrations"}
 
 

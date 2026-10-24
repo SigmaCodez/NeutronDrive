@@ -341,7 +341,7 @@ fn join(parent: &str, leaf: &str) -> Result<String> {
     ))
 }
 
-fn uid(value: &str) -> bool {
+pub(crate) fn uid(value: &str) -> bool {
     let parts: Vec<_> = value.split('~').collect();
     parts.len() == 2
         && parts.iter().all(|part| {

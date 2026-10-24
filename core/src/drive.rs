@@ -16,6 +16,21 @@ pub enum Operation {
     ComputerInfo {
         uid: String,
     },
+    Versions {
+        path: String,
+    },
+    RestoreVersion {
+        path: String,
+        revision: String,
+        expected: String,
+    },
+    Photos {
+        offset: u64,
+    },
+    DownloadPhoto {
+        uid: String,
+        destination: String,
+    },
     Version,
     Login,
     Logout,
@@ -148,6 +163,44 @@ where
                 return Err("Invalid computer identity".into());
             }
             command(&["computers", "info", "--json", "--", &uid])
+        }
+        Operation::Versions { path } => {
+            backend::remote(&path)?;
+            command(&["versions", "list", "--json", "--", &path])
+        }
+        Operation::RestoreVersion {
+            path,
+            revision,
+            expected,
+        } => {
+            backend::remote(&path)?;
+            for value in [&revision, &expected] {
+                if value.is_empty() || value.len() > 1024 || value.chars().any(char::is_control) {
+                    return Err("Invalid revision identity".into());
+                }
+            }
+            command(&[
+                "versions", "restore", "--json", "--", &path, &revision, &expected,
+            ])
+        }
+        Operation::Photos { offset } => {
+            command(&["photo", "page", "--json", "--", &offset.to_string()])
+        }
+        Operation::DownloadPhoto { uid, destination } => {
+            if !backend::uid(&uid) {
+                return Err("Invalid photo identity".into());
+            }
+            let destination = backend::local_path(&destination, true)?;
+            command(&[
+                "photo",
+                "download",
+                "--json",
+                "--conflict-strategy",
+                "rename",
+                "--",
+                &format!("/photos/{uid}"),
+                destination.to_str().ok_or("Unsupported local path")?,
+            ])
         }
         Operation::Version => {
             timeout = 30.;

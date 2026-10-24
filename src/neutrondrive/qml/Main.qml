@@ -72,9 +72,10 @@ ApplicationWindow {
     palette.base: window.theme.canvas; palette.button: window.theme.canvas
     palette.window: window.theme.canvas; palette.highlightedText: window.theme.onAccent
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
+    property bool gridView: false
     property var s: controller.state
     property color muted: window.theme.muted
-    property var titles: ({"files":s.fields.files_title.value,"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
+    property var titles: ({"files":s.fields.files_title.value,"photos":window.tr("Photos"),"background":window.tr("Automatischer Sync"),"ondemand":window.tr("Online-Laufwerk"),"local-trash":window.tr("Lokaler Papierkorb"),"activity":window.tr("Aktivität"),"settings":window.tr("Einstellungen")})
     function tr(source) { return controller.translate(source) }
     locale: Qt.locale(controller.language)
     function f(name) { return s.fields[name] }
@@ -109,6 +110,13 @@ ApplicationWindow {
             border.color: actionButton.primary || actionButton.activeFocus ? window.theme.accent : window.theme.border
             Behavior on color { ColorAnimation { duration: 100 } }
         }
+    }
+    component ViewToggle: Button {
+        id: viewToggle
+        checkable: true; implicitHeight: 40; padding: 12
+        Accessible.name: text
+        contentItem: Text { text: viewToggle.text; font: viewToggle.font; color: viewToggle.checked ? window.theme.accentText : window.theme.secondaryText; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+        background: Rectangle { radius: 8; color: viewToggle.checked ? window.theme.selected : viewToggle.hovered ? window.theme.navHover : "transparent"; border.color: viewToggle.activeFocus ? window.theme.accent : "transparent" }
     }
     component Input: TextField {
         id: input
@@ -155,7 +163,7 @@ ApplicationWindow {
                 }
                 Copy { text: window.tr("Deine Dateien. Dein Speicher."); font.pixelSize: 12; Layout.bottomMargin: 12 }
                 Repeater {
-                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
+                    model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
                         {name:window.tr("Automatischer Sync"),key:"background",icon:"refresh"},{name:window.tr("Online-Laufwerk"),key:"ondemand",icon:"cloud"},{name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
                     delegate: ColumnLayout {
                         id: navigationEntry
@@ -163,8 +171,8 @@ ApplicationWindow {
                         required property int index
                         Layout.fillWidth: true; spacing: 4
                         Copy {
-                            visible: navigationEntry.index===0 || navigationEntry.index===4 || navigationEntry.index===7
-                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===4 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
+                            visible: navigationEntry.index===0 || navigationEntry.index===5 || navigationEntry.index===8
+                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===5 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
                             font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
                             Layout.topMargin: navigationEntry.index===0 ? 0 : 12; Layout.leftMargin: 12; Layout.bottomMargin: 4
                         }
@@ -175,7 +183,7 @@ ApplicationWindow {
                         objectName: "nav-"+modelData.key
                         Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
-                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : controller.show_page(modelData.key)
+                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photos_page",[0])) : controller.show_page(modelData.key))
                         Accessible.name: text
                         contentItem: RowLayout {
                             spacing: 12
@@ -202,8 +210,8 @@ ApplicationWindow {
                     Copy { text: s.page==="files" ? window.tr("Dateien & Ordner") : window.tr("NeutronDrive für Linux"); font.pixelSize: 12 }
                     Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
-                Rectangle { implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
-                    Label { id: modeLabel; anchors.centerIn: parent; text: s.demo ? "Demo" : "Proton SDK"; color: window.theme.accentText; font.pixelSize: 12 }
+                Rectangle { visible: s.demo; implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
+                    Label { id: modeLabel; anchors.centerIn: parent; text: "Demo"; color: window.theme.accentText; font.pixelSize: 12 }
                 }
             }
             Rectangle {
@@ -213,7 +221,7 @@ ApplicationWindow {
             }
             Action { visible: window.f("login_button").visible; text: window.tr("Anmeldung im Browser öffnen"); command: "openLogin" }
             Loader { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
-                sourceComponent: s.page==="files" ? filesPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
+                sourceComponent: s.page==="files" ? filesPage : s.page==="photos" ? photosPage : s.page==="background" ? backgroundPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -233,6 +241,18 @@ ApplicationWindow {
                 Input { field: "search"; placeholderText: window.tr("In diesem Ordner suchen …"); objectName: "searchInput"; leftPadding: 42
                     DriveIcon { x: 13; anchors.verticalCenter: parent.verticalCenter; symbol: "search"; ink: window.muted; width: 18; height: 18 }
                 }
+                ViewToggle {
+                    objectName: "listViewButton"
+                    text: window.tr("Listenansicht"); checkable: true; checked: !window.gridView
+                    Accessible.name: text
+                    onClicked: window.gridView = false
+                }
+                ViewToggle {
+                    objectName: "gridViewButton"
+                    text: window.tr("Kachelansicht"); checkable: true; checked: window.gridView
+                    Accessible.name: text
+                    onClicked: window.gridView = true
+                }
             }
             Flow {
                 Layout.fillWidth: true; spacing: 8
@@ -249,13 +269,14 @@ ApplicationWindow {
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 12; spacing: 4
                     RowLayout {
+                        visible: !window.gridView
                         Layout.fillWidth: true; Layout.margins: 10
                         Copy { text: window.tr("Name"); font.pixelSize: 12 }
                         Label { text: window.tr("Größe"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
                         Label { text: window.tr("Geändert"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
                     }
                     ListView {
-                        id: fileList; objectName: "fileList"; Layout.fillWidth: true; Layout.fillHeight: true
+                        id: fileList; objectName: "fileList"; visible: !window.gridView; Layout.fillWidth: true; Layout.fillHeight: true
                         clip: true; model: controller.fileEntries; spacing: 4;
                         activeFocusOnTab: true; currentIndex: s.focusIndex; keyNavigationEnabled: false
                         Keys.onPressed: function(event) {
@@ -297,6 +318,55 @@ ApplicationWindow {
                         }
                         Label { anchors.centerIn: parent; visible: fileList.count===0; text: window.f("empty_label").value; color: window.muted }
                     }
+                    GridView {
+                        id: fileGrid; objectName: "fileGrid"
+                        visible: window.gridView
+                        Layout.fillWidth: true; Layout.fillHeight: true
+                        clip: true; model: controller.fileEntries
+                        cellWidth: width / Math.max(1, Math.floor(width / 148)); cellHeight: 144
+                        currentIndex: s.focusIndex; keyNavigationEnabled: false; activeFocusOnTab: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        ScrollBar.vertical: ScrollBar {}
+                        Keys.onPressed: function(event) {
+                            if (s.busy) return;
+                            if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
+                            else if ([Qt.Key_Left,Qt.Key_Right,Qt.Key_Up,Qt.Key_Down].indexOf(event.key)>=0) {
+                                let columns=Math.max(1,Math.floor(width/cellWidth));
+                                let delta=event.key===Qt.Key_Left ? -1 : event.key===Qt.Key_Right ? 1 : event.key===Qt.Key_Up ? -columns : columns;
+                                controller.move_selection(delta,Boolean(event.modifiers & Qt.ShiftModifier)); event.accepted=true;
+                            }
+                            else if (event.key===Qt.Key_Return || event.key===Qt.Key_Enter) { controller.row_activated(s.focusIndex); event.accepted=true }
+                            else if (event.key===Qt.Key_Space) { controller.select_row(s.focusIndex,true); event.accepted=true }
+                        }
+                        delegate: Item {
+                            id: tile
+                            required property var modelData; required property int index
+                            objectName: "fileTile-"+index
+                            width: fileGrid.cellWidth; height: fileGrid.cellHeight
+                            Accessible.role: Accessible.ListItem; Accessible.name: modelData.name
+                            Accessible.selected: s.selection.indexOf(index)>=0
+                            Rectangle {
+                                anchors.fill: parent; anchors.margins: 4; radius: 10
+                                color: s.selection.indexOf(tile.index)>=0 ? window.theme.rowSelected : tileMouse.containsMouse ? window.theme.rowHover : "transparent"
+                                border.color: fileGrid.activeFocus && tile.index===s.focusIndex ? window.theme.accent : "transparent"
+                                ColumnLayout {
+                                    anchors.fill: parent; anchors.margins: 10; spacing: 6
+                                    DriveIcon { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 48; Layout.preferredHeight: 48; Layout.minimumHeight: 48; Layout.maximumHeight: 48; symbol: tile.modelData.isFolder ? "folderTile" : "file"; ink: tile.modelData.isFolder ? window.theme.accent : window.theme.fileInk }
+                                    Label { text: tile.modelData.name; textFormat: Text.PlainText; color: window.theme.text; Layout.fillWidth: true; Layout.preferredHeight: 36; Layout.minimumHeight: 36; Layout.maximumHeight: 36; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignTop; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight }
+                                    Label { text: tile.modelData.safe ? tile.modelData.size : window.tr("Nicht eindeutig · gesperrt"); textFormat: Text.PlainText; color: window.muted; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; font.pixelSize: 11 }
+                                }
+                                MouseArea {
+                                    id: tileMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
+                                    onClicked: function(mouse) { fileGrid.forceActiveFocus(); controller.select_row(tile.index,Boolean(mouse.modifiers & (Qt.ControlModifier|Qt.ShiftModifier))) }
+                                    onDoubleClicked: controller.row_activated(tile.index)
+                                }
+                                ToolTip.visible: tileMouse.containsMouse
+                                ToolTip.delay: 700
+                                ToolTip.text: tile.modelData.name
+                            }
+                        }
+                        Label { anchors.centerIn: parent; visible: fileGrid.count===0; text: window.f("empty_label").value; color: window.muted }
+                    }
                 }
             }
             Flow { Layout.fillWidth: true; spacing: 8
@@ -304,7 +374,65 @@ ApplicationWindow {
                     delegate: Action { required property string modelData; text: window.tr(modelData); command: modelData; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
                 }
             }
+            Action { text: window.tr("Version history"); command: "Versions"; enabled: s.actions.Versions.enabled; visible: s.actions.Versions.visible }
             Copy { text: window.f("count_label").value; font.pixelSize: 12 }
+        }
+    }
+    Component {
+        id: photosPage
+        ColumnLayout {
+            objectName: "page-photos"; spacing: 12
+            RowLayout {
+                Button { text: window.tr("Previous"); enabled: !s.busy && s.photoOffset>0; onClicked: controller.send("photos_page",[Math.max(0,s.photoOffset-48)]) }
+                Button { text: window.tr("Next"); enabled: !s.busy && s.photosMore; onClicked: controller.send("photos_page",[s.photoOffset+48]) }
+                Button { text: window.tr("Aktualisieren"); enabled: !s.busy; onClicked: controller.send("photos_page",[s.photoOffset]) }
+                Copy { text: window.tr("Photos are ordered by the cloud timeline.") }
+            }
+            GridView {
+                objectName: "photoGrid"; Layout.fillWidth: true; Layout.fillHeight: true
+                clip: true; model: s.photos || []; cellWidth: width/Math.max(1,Math.floor(width/200)); cellHeight: 230
+                ScrollBar.vertical: ScrollBar {}
+                delegate: Item {
+                    id: photo; required property var modelData; required property int index
+                    width: GridView.view.cellWidth; height: GridView.view.cellHeight
+                    ColumnLayout {
+                        anchors.fill: parent; anchors.margins: 8; spacing: 6
+                        Rectangle {
+                            Layout.fillWidth: true; Layout.preferredHeight: 140; color: window.theme.fileTile; radius: 10; clip: true
+                            DriveIcon { anchors.centerIn: parent; symbol: "photo"; ink: window.theme.fileInk; visible: preview.status!==Image.Ready }
+                            Image { id: preview; objectName: "photoPreview-"+photo.index; anchors.fill: parent; source: photo.modelData.thumbnail || ""; sourceSize.width: 400; sourceSize.height: 280; fillMode: Image.PreserveAspectFit; asynchronous: true; cache: false }
+                        }
+                        Label { text: photo.modelData.name; textFormat: Text.PlainText; color: window.theme.text; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                        Button { text: window.tr("Download"); enabled: !s.busy && photo.modelData.safe; onClicked: controller.send("photo_download",[photo.index]) }
+                    }
+                }
+                Label { anchors.centerIn: parent; visible: !s.busy && (s.photos || []).length===0; text: window.tr("No photos on this page."); color: window.muted }
+            }
+        }
+    }
+    Dialog {
+        id: historyDialog; objectName: "historyDialog"
+        visible: Boolean(s.history && s.history.visible)
+        title: window.tr("Version history"); modal: true
+        anchors.centerIn: parent; width: Math.min(680,window.width-60); height: Math.min(500,window.height-80)
+        standardButtons: Dialog.Close
+        padding: 20
+        background: Rectangle { radius: 14; color: window.theme.canvas; border.color: window.theme.dialogBorder }
+        header: Label { text: window.tr("Version history"); color: window.theme.text; font.pixelSize: 20; font.bold: true; padding: 20 }
+        onRejected: controller.send("history_close",[])
+        contentItem: ListView {
+            clip: true; model: s.history ? s.history.revisions : []; spacing: 10
+            ScrollBar.vertical: ScrollBar {}
+            delegate: RowLayout {
+                required property var modelData; required property int index
+                width: ListView.view.width; spacing: 12
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    Label { text: modelData.created ? new Date(modelData.created).toLocaleString(window.locale,"dd MMM yyyy · HH:mm") : "—"; textFormat: Text.PlainText; color: window.theme.text }
+                    Label { text: modelData.size===undefined ? "—" : Number(modelData.size).toLocaleString(window.locale,"f",0)+" B"; color: window.muted }
+                }
+                Button { text: modelData.state==="active" ? window.tr("Current version") : window.tr("Wiederherstellen"); enabled: !s.busy && modelData.state==="superseded"; onClicked: {controller.send("version_restore",[index]);controller.send("history_close",[]);} }
+            }
         }
     }
     component PageScroll: ScrollView {
@@ -317,6 +445,22 @@ ApplicationWindow {
         id: backgroundPage
         PageScroll {
             objectName: "page-background"
+            Card {
+                Heading { text: window.tr("Sync overview") }
+                Copy { text: window.f("background_status").value }
+                GridLayout {
+                    Layout.fillWidth: true; columns: width<650 ? 2 : 4; columnSpacing: 24; rowSpacing: 12
+                    Repeater {
+                        model: [{key:"total",label:window.tr("Folders")},{key:"syncing",label:window.tr("Syncing")},{key:"paused",label:window.tr("Pausiert")},{key:"attention",label:window.tr("Needs attention")}]
+                        delegate: ColumnLayout {
+                            required property var modelData
+                            Layout.fillWidth: true; Layout.preferredWidth: 1; Layout.minimumWidth: 120
+                            Label { text: s.syncSummary ? s.syncSummary[modelData.key] : "—"; font.pixelSize: 26; font.bold: true; color: window.theme.accentText }
+                            Copy { text: modelData.label }
+                        }
+                    }
+                }
+            }
             Copy { text: window.tr("Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters.") }
             Card {
                 Heading { text: window.tr("Computersicherung") }

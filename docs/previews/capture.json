@@ -1,0 +1,26 @@
+{
+  "status": "Unreleased development preview based on alpha7",
+  "captured_at": "2026-10-24T08:59:14.623279+00:00",
+  "binary_sha256": "10d5d780fed741740dfeb12ed1fd45ef1ca94ce86892881e1a8ca6066bb915e0",
+  "language": "en",
+  "environment": "Native Rust/Qt debug build; offscreen software rendering; isolated settings and synthetic built-in demo files. Direct window captures, not mockups.",
+  "images": {
+    "background-light.png": "e5f9237e6191e30e7875acda19bef227c960783b650f51ea225e5020fbc9135e",
+    "files-grid-dark.png": "f3f1d7170ee35513b4ee1305903d482dfcbe16b282ddf2ffdcffa9979b90cc0a",
+    "files-grid-light.png": "0fc8b809ba719d3a14f89aa7f7de9717de61e427060cb93bb8489d73743dcb04",
+    "files-list-light.png": "aaab017aaae54f360a984692ca5fa22c33c1989301da9028bca536e6088f02bf",
+    "history-light.png": "e2e42d5998770f979ac8856fb769d2e62592a380f0bdd505c787ffe2c8396d63",
+    "online-drive-light.png": "a8a8f40b9a0494a65cc0873a53944af79c1ba3088951ee658d3d3d1760a5a67e",
+    "photos-light.png": "667b9cd2c6c1208c800687dad40e0fb68905d176433e7b2224f223d035bbf53e"
+  },
+  "validation": [
+    "58 Rust frontend tests passed",
+    "168 Rust core tests passed",
+    "16 SDK bridge tests and TypeScript typecheck passed",
+    "Native files, grid, Photos JPEG decoding and version-history GUI checks passed",
+    "Native tray registration, icon, translated menu and activation passed on an isolated X11/D-Bus host",
+    "Authorized synthetic live version restoration verified byte-for-byte; test folder moved to cloud trash",
+    "14 packaging regression tests passed",
+    "All 25 UI languages and unsupported-locale English fallback passed with Photos and history checks"
+  ]
+}

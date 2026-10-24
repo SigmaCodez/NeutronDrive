@@ -6,11 +6,13 @@ import { CommandEventsPoll, CommandEventsWatch } from './eventCommands';
 
 import { CommandComputerCreate, CommandComputerInfo } from './computerCommands';
 
+import { CommandVersions, CommandRestoreVersion, CommandPhotoPage } from './libraryCommands';
+
 declare const APP_VERSION: string;
 declare const SDK_VERSION: string | undefined;
 
 const eventMode = Bun.argv[2] === 'events';
-await run([...COMMANDS, ...applyDefaultCliOptions([new CommandEventsPoll(), new CommandEventsWatch(), new CommandComputerCreate(), new CommandComputerInfo()])], {
+await run([...COMMANDS, ...applyDefaultCliOptions([new CommandEventsPoll(), new CommandEventsWatch(), new CommandComputerCreate(), new CommandComputerInfo(), new CommandVersions(), new CommandRestoreVersion(), new CommandPhotoPage()])], {
     appVersion: APP_VERSION,
     sdkVersion: SDK_VERSION,
     clientUidPrefix: 'neutrondrive',

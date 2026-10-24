@@ -20,5 +20,6 @@ fn main() {
     .file("src/update_controller.rs")
     .qt_module("Gui")
     .qt_module("Quick")
+    .qt_module("Widgets")
     .build();
 }
