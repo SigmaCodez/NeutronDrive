@@ -888,7 +888,15 @@ impl Mount {
                     })
                     .collect();
                 for inode in roots {
-                    self.sync_pin_tree(inode, host)?;
+                    match self.sync_pin_tree(inode, host) {
+                        Ok(()) => {}
+                        Err(Error::Backend(error)) if !error.cancelled => {
+                            // Invalidation must still succeed while disconnected;
+                            // verified snapshots remain available for read-only opens.
+                            self.error = "Cloud unavailable; pinned refresh is pending. Verified files remain readable.".into();
+                        }
+                        Err(error) => return Err(error),
+                    }
                 }
                 Value::Null
             }
