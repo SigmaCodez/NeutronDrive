@@ -27,6 +27,7 @@ def sources():
     files = [ROOT / name for name in (
         'desktop/Cargo.toml', 'desktop/Cargo.lock', 'desktop/build.rs', 'desktop/ui.qrc',
         'core/Cargo.toml', 'core/Cargo.lock', 'packaging/qt-lock.json',
+        'data/io.github.SigmaCodez.NeutronDrive.svg',
     )]
     for relative, pattern in [('desktop/src', '*.rs'), ('desktop/include', '*.h'),
                               ('desktop/qml', '*.qml'), ('desktop/data', '*'),

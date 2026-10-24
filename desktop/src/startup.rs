@@ -86,7 +86,7 @@ pub fn configure(args: &[String], check: bool) -> Result<(), Failure> {
         && std::ffi::CString::new(sdk.as_bytes())
             .is_ok_and(|path| unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 });
     CONFIG
-        .set(json!({"demo":demo,"catalog":catalog,"executable":sdk,"available":available,"payload":payload}))
+        .set(json!({"demo":demo,"catalog":catalog,"executable":sdk,"available":available,"payload":payload,"flatpak":std::env::var_os("FLATPAK_ID").is_some()}))
         .map_err(|_| failure("Application already configured"))
 }
 #[cxx_qt::bridge]
@@ -101,6 +101,9 @@ pub mod qobject {
         #[qproperty(QString, config_json, READ, CONSTANT, cxx_name = "configJson")]
         #[qproperty(QString, error, READ, NOTIFY)]
         type NativeStartup = super::Startup;
+        #[qinvokable]
+        #[cxx_name = "trayAvailable"]
+        fn tray_available(self: &NativeStartup) -> bool;
         #[qinvokable]
         fn claim(self: Pin<&mut NativeStartup>) -> i32;
         #[qinvokable]
@@ -130,6 +133,9 @@ impl Default for Startup {
     }
 }
 impl qobject::NativeStartup {
+    fn tray_available(&self) -> bool {
+        crate::platform::qt::system_tray_available()
+    }
     fn install_translations(mut self: Pin<&mut Self>, language: &QString) {
         use crate::platform::qt;
         if !self.rust().translators.is_empty() {

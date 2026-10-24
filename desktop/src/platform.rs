@@ -7,12 +7,17 @@ pub mod qt {
         include!("cxx-qt-lib/qstringlist.h");
         type QStringList = cxx_qt_lib::QStringList;
         include!("neutrondrive-qt/include/platform.h");
+        type QGuiApplication = cxx_qt_lib::QGuiApplication;
         type QSettings;
         type QLockFile;
         type QTranslator;
     }
     #[namespace = "ndqt"]
     unsafe extern "C++" {
+        #[rust_name = "system_tray_available"]
+        fn systemTrayAvailable() -> bool;
+        #[rust_name = "widgets_application"]
+        fn widgetsApplication(arguments: &QStringList) -> UniquePtr<QGuiApplication>;
         #[rust_name = "new_translator"]
         fn newTranslator() -> UniquePtr<QTranslator>;
         #[rust_name = "load_translation"]

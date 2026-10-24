@@ -12,6 +12,7 @@
     "--device=dri",
     "--filesystem=home",
     "--talk-name=org.freedesktop.secrets",
+    "--talk-name=org.kde.StatusNotifierWatcher",
     "--talk-name=io.github.SigmaCodez.NeutronDrive.Service",
     "--env=GTK_USE_PORTAL=1"
   ],

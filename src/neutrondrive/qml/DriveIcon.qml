@@ -16,7 +16,12 @@ Canvas {
         c.strokeStyle=ink; c.fillStyle=ink; c.lineWidth=1.7; c.lineCap="round"; c.lineJoin="round"
         function line(points) { c.beginPath(); c.moveTo(points[0],points[1]); for(let i=2;i<points.length;i+=2)c.lineTo(points[i],points[i+1]); c.stroke() }
         function circle(x,y,r) { c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.stroke() }
-        if(symbol==="folder") { line([3,7,3,19,21,19,21,7,12,7,10,4,3,4,3,7]); }
+        if(symbol==="folderTile") {
+            c.globalAlpha=0.65; c.beginPath(); c.moveTo(2,5); c.lineTo(9,5); c.lineTo(12,8); c.lineTo(22,8); c.lineTo(22,20); c.lineTo(2,20); c.closePath(); c.fill();
+            c.globalAlpha=1; c.beginPath(); c.rect(2,9,20,12); c.fill();
+        }
+        else if(symbol==="folder") { line([3,7,3,19,21,19,21,7,12,7,10,4,3,4,3,7]); }
+        else if(symbol==="photo") { c.strokeRect(3,4,18,16); circle(8,9,2); line([3,18,10,12,14,16,18,11,21,15]); }
         else if(symbol==="computer") { c.strokeRect(3,4,18,12); line([8,21,16,21]); line([12,16,12,21]); }
         else if(symbol==="trash") { line([4,6,20,6]); line([6,6,7,21,17,21,18,6]); line([9,6,9,3,15,3,15,6]); line([10,10,10,17]); line([14,10,14,17]); }
         else if(symbol==="sync") { line([4,8,18,8,15,5]); line([20,16,6,16,9,19]); }

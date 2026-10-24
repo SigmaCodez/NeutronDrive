@@ -53,8 +53,8 @@ Item {
                     send("select_row", [0, false]);
                     require(state.selection.length === 1, "selection state notification");
                     require(fileNotifications === savedNotifications, "stable file delegate model");
-                    send("edit", ["search", "NOTIZEN"]);
-                    require(entries.length === 1 && entries[0].name === "Notizen.md", "filter and file notification");
+                    send("edit", ["search", "NOTES"]);
+                    require(entries.length === 1 && entries[0].name === "Notes.md", "filter and file notification");
                     send("select_row", [0, false]);
                     send("action", ["Umbenennen"]);
                     require(lastDialog.kind === "prompt", "native dialog signal");
@@ -63,7 +63,7 @@ Item {
                     stage = 2;
                 } else if (stage === 2 && !state.busy) {
                     require(state.noticeError, "demo mutation reports failure");
-                    require(entries[0].name === "Notizen.md", "failed mutation retains files");
+                    require(entries[0].name === "Notes.md", "failed mutation retains files");
                     files.shutdown(); files.shutdown();
                     require(!files.workerRunning(), "joined file worker");
                     const before = files.stateJson;
