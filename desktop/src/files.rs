@@ -7,6 +7,8 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Done {
+    AccountStorage,
+    Setup,
     Loaded,
     Refresh,
     None,
@@ -15,6 +17,7 @@ pub enum Done {
     Versions(String),
     VersionRestored,
     Photos,
+    PhotoLibrary(Value),
     Version,
     LoggedOut,
     Background,
@@ -42,6 +45,12 @@ pub struct Work {
 }
 #[derive(Clone, Debug)]
 enum Answer {
+    Invite {
+        path: String,
+        email: String,
+        role: String,
+    },
+    PhotoLibrary(Value),
     DownloadPhoto {
         uid: String,
     },
@@ -103,6 +112,7 @@ pub struct Files {
     pub files_revision: u64,
     nodes: Vec<Value>,
     visible: Vec<Value>,
+    photo_index: Vec<String>,
     selection: BTreeSet<usize>,
     crumbs: Vec<(String, String)>,
     pending: Option<(u64, Answer)>,
@@ -181,6 +191,7 @@ impl Files {
             files_revision: 0,
             nodes: vec![],
             visible: vec![],
+            photo_index: vec![],
             selection: BTreeSet::new(),
             crumbs: vec![(title, "/my-files".into())],
             pending: None,
@@ -199,6 +210,14 @@ impl Files {
         this.state["photos"] = json!([]);
         this.state["photoOffset"] = json!(0);
         this.state["photosMore"] = json!(false);
+        this.state["authenticated"] = json!(false);
+        this.state["storage"] = Value::Null;
+        this.state["setupNeeded"] = json!(false);
+        this.state["setupFolder"] = json!("");
+        this.state["photoTotal"] = Value::Null;
+        this.state["photoAlbum"] = json!("");
+        this.state["photoAlbums"] = json!([]);
+        this.state["photoSelection"] = json!([]);
         this.state["history"] = json!({"visible":false,"revisions":[]});
         this.update_actions();
         this
@@ -250,6 +269,10 @@ impl Files {
                     || selected.len() == 1)
                 && !(trash && ["Download", "Freigabe"].contains(&name));
             self.state["actions"][name] = json!({"value":"","enabled":allowed,"visible":(name == "Wiederherstellen") == trash});
+        }
+        for name in ["Keep on device", "Free up space"] {
+            self.state["actions"][name] =
+                json!({"enabled":safe && !trash && selected.len()==1,"visible":!trash});
         }
         self.state["actions"]["Versions"] = json!({"enabled":safe && !trash && selected.len()==1 && selected[0]["type"]=="file", "visible":!trash});
         let writable = self.path().starts_with("/my-files") || self.path().matches('/').count() > 1;
@@ -624,6 +647,37 @@ impl Files {
                     self.message(&summary, false);
                 }
                 match work.done {
+                    Done::AccountStorage => {
+                        if let (Some(total), Some(used)) =
+                            (value["total"].as_u64(), value["used"].as_u64())
+                        {
+                            self.state["storage"] = json!({"total":total,"used":used,"free":total.saturating_sub(used),"percent":if total>0 {100.0*used as f64/total as f64}else{0.0},"usedText":self.locale.size_text(Some(used)),"freeText":self.locale.size_text(Some(total.saturating_sub(used)))});
+                        }
+                        vec![]
+                    }
+                    Done::Setup => {
+                        if value["mounted"] != true {
+                            self.message("Setup did not start the sync service", true);
+                            return vec![];
+                        }
+                        self.render_mount(&value);
+                        self.mount_local = self.state["setupFolder"].as_str().map(str::to_string);
+                        self.field("mount_label", self.state["setupFolder"].clone());
+                        self.field("mount_remote", json!("/my-files"));
+                        self.field("mount_writable", json!(true));
+                        self.field("mount_offline", json!(false));
+                        let mut store = crate::preferences::Store::interface();
+                        if !store.save("setup", "complete", "") {
+                            self.message("Could not save setup completion", true);
+                            return vec![];
+                        }
+                        self.state["setupNeeded"] = json!(false);
+                        self.message(
+                            "Sync is running. Files download when opened or kept on this device.",
+                            false,
+                        );
+                        vec![]
+                    }
                     Done::Mount => {
                         self.render_mount(&value);
                         self.message(&self.tr("Laufwerksaktion abgeschlossen."), false);
@@ -661,6 +715,7 @@ impl Files {
                         );
                         self.refresh()
                     }
+                    Done::PhotoLibrary(request) => self.photo_result(&request, value),
                     Done::Photos => {
                         if value["photos"].is_array()
                             && value["offset"].is_u64()
@@ -693,6 +748,7 @@ impl Files {
                     }
                     Done::Loaded => {
                         if let Some(nodes) = value.as_array() {
+                            self.state["authenticated"] = json!(true);
                             self.nodes = nodes.clone();
                             self.nodes.sort_by_cached_key(|n| {
                                 (n["type"] != "folder", folded(text(n, "name")))
@@ -714,6 +770,8 @@ impl Files {
                         vec![]
                     }
                     Done::LoggedOut => {
+                        self.state["authenticated"] = json!(false);
+                        self.state["storage"] = Value::Null;
                         self.nodes.clear();
                         self.render();
                         self.message(&self.tr("Von Proton abgemeldet."), false);
@@ -781,12 +839,21 @@ impl Files {
             return vec![];
         }
         let string = value.as_str().unwrap_or("");
+        let response = value.clone();
         match answer {
+            Answer::Invite { path, email, role } => self.submit("Share by email",json!({"action":"invite","path":path,"email":email,"role":role}),Done::None),
             Answer::Close => {self.closing=true;self.field("status_label",json!(self.tr("Vorgang wird beendet …")));if self.busy(){vec![Effect::Cancel]}else{vec![Effect::Close]}},
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
             Answer::ActivateBackground{local,remote,computer}=>self.submit_background(if computer {"Computersicherung einrichten"} else {"Hintergrund-Sync aktivieren"},json!({"action":if computer {"computer"} else {"add"},"local":local,"remote":remote})),
-            Answer::DownloadPhoto { uid } => {
+            Answer::PhotoLibrary(request) => {
+                    let mut request = request;
+                    if matches!(request["action"].as_str(), Some("create" | "rename")) {
+                        request["name"] = json!(value);
+                    }
+                    self.photo_submit(request)
+                }
+                Answer::DownloadPhoto { uid } => {
                 let Some(destination)=Self::local_paths(value).into_iter().next() else { return vec![]; };
                 self.submit("Download",json!({"action":"download_photo","uid":uid,"destination":destination}),Done::None)
             }
@@ -832,6 +899,12 @@ impl Files {
                 Done::RemovedLink,
             ),
             Answer::Share { node, value } => {
+                if response["action"] == "invite" {
+                    let email=text(&response,"email").trim().to_string();
+                    let role=text(&response,"role").to_string();
+                    if email.is_empty() || !["viewer","editor"].contains(&role.as_str()) { self.message("Enter an email address and choose a role",true); return vec![]; }
+                    return self.dialog("confirm","Send sharing invitation?",&format!("{}: {} ({})",self.tr("Recipient"),email,role),json!({}),Answer::Invite {path:text(&node,"path").into(),email,role});
+                }
                 let url = text(&value["urlAccess"], "url");
                 match string {
                     "copy" if !url.is_empty() => {
@@ -964,6 +1037,42 @@ impl Files {
                 } else {
                     Target::Background
                 })]
+            }
+            "account_storage" if !self.busy() && self.state["authenticated"] == true => {
+                return self.submit(
+                    "Account storage",
+                    json!({"action":"account_storage"}),
+                    Done::AccountStorage,
+                );
+            }
+            "setup_folder_url" if !self.busy() => {
+                if let Some(path) = Self::local_paths(&json!([args[0]])).into_iter().next() {
+                    self.state["setupFolder"] = json!(path);
+                }
+            }
+            "setup_folder" if !self.busy() => {
+                self.state["setupFolder"] = args[0].clone();
+            }
+            "setup_finish" if !self.busy() => {
+                if self.snap || self.state["demo"] == true {
+                    self.message("Online placeholders require the native package or a configured Flatpak host helper.",true);
+                    return vec![];
+                }
+                return self.submit_target(
+                    "Set up sync",
+                    json!({"action":"setup","mountpoint":self.state["setupFolder"]}),
+                    Done::Setup,
+                    Target::Mount,
+                );
+            }
+            "setup_open" if !self.busy() => {
+                self.state["setupNeeded"] = json!(true);
+            }
+            "setup_later" => {
+                self.state["setupNeeded"] = json!(false);
+            }
+            "photo_library" if !self.busy() => {
+                return self.photo_action(&args[0]);
             }
             "photos_page" if !self.busy() => {
                 let Some(offset) = args[0].as_u64() else {
@@ -1104,6 +1213,7 @@ impl Files {
                 let Some(local)=self.mount_local.clone() else{self.message(&self.tr("Bitte zuerst einen leeren Einhängeordner auswählen."),true);return vec![];};
                 self.mount_action(json!({"action":"mount","mountpoint":local,"remote_root":self.state["fields"]["mount_remote"]["value"],"writable":self.state["fields"]["mount_writable"]["value"],"offline":self.state["fields"]["mount_offline"]["value"]}))
             },
+            "mountStatus"=>self.mount_action(json!({"action":"status"})),
             "unmount"=>self.mount_action(json!({"action":"unmount"})),
             "refreshMount"=>self.mount_action(json!({"action":"refresh"})),
             "helperLogin"=>self.mount_action(json!({"action":"login"})),
@@ -1194,6 +1304,7 @@ impl Files {
                 json!({"action":"restore","paths":paths}),
                 Done::Refresh,
             ),
+            "Keep on device" | "Free up space" if nodes.len()==1 => self.mount_action(json!({"action":if name=="Keep on device" {"pin_remote"}else{"evict_remote"},"path":paths[0]})),
             "Freigabe" if nodes.len() == 1 => self.submit(
                 "Freigabestatus laden",
                 json!({"action":"sharing","path":paths[0]}),
@@ -1288,6 +1399,25 @@ mod tests {
         let w = work(m.refresh());
         m.complete(w.id, Ok(nodes()));
         m
+    }
+    #[test]
+    fn sharing_invitation_uses_captured_node_and_requires_confirmation() {
+        let mut m = loaded();
+        m.select(0, false);
+        let original = m.paths()[0].clone();
+        let request = work(m.action("Freigabe"));
+        let share = dialog(m.complete(request.id, Ok(json!({}))));
+        let confirm = dialog(m.answer(
+            share["token"].as_u64().unwrap(),
+            true,
+            &json!({"action":"invite","email":"test@example.invalid","role":"viewer"}),
+        ));
+        m.select(2, false);
+        let request = work(m.answer(confirm["token"].as_u64().unwrap(), true, &json!("")));
+        assert_eq!(
+            request.operation,
+            json!({"action":"invite","path":original,"email":"test@example.invalid","role":"viewer"})
+        );
     }
     #[test]
     fn sorting_search_and_selection_preserve_independent_file_model() {
@@ -1678,3 +1808,6 @@ mod tests {
         assert_eq!(m.state["backgroundRunning"], true);
     }
 }
+
+#[path = "photo_library.rs"]
+mod photo_library;

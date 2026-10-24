@@ -314,7 +314,7 @@ pub fn remote(path: &str) -> Result<&str> {
     }
     if !matches!(
         path.split('/').nth(1),
-        Some("my-files" | "trash" | "shared-with-me" | "devices")
+        Some("my-files" | "trash" | "shared-with-me" | "shared-by-me" | "devices")
     ) {
         return Err("Dieser Cloud-Bereich wird noch nicht unterstützt.".into());
     }

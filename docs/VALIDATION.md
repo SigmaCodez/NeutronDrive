@@ -1,4 +1,33 @@
-# Validation record — 0.6.0 alpha8
+# Validation record
+
+## Published 0.6.0 alpha9
+
+Package source commit: `69b16e9dd4bacc96113eb14f001812d260563c50`.
+All required jobs passed in the [release build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40138612701).
+Feature changes are tracked in [PR #8](https://github.com/SigmaCodez/NeutronDrive/pull/8).
+Local validation has passed 172 Rust core unit tests and 347 retained regression
+tests without skips, including real kernel FUSE, isolated D-Bus and all 25 UI
+languages plus the unsupported-locale English fallback. The SDK bridge passed
+22 tests and TypeScript checking. Native frontend unit tests and the actual Qt
+window/service checks also passed. The expanded first-run setup integration
+test passed with an actual writable FUSE mount, persisted setup completion,
+autostart creation and cleanup. It waits for startup requests to settle before
+unmounting; immediate unmount attempts can report a busy mount. Package
+CI passed for both native architectures and all eight installation packages.
+See release `BUILD_INFO.json`, `TEST_RESULTS.json`, provenance reports and
+`SHA256SUMS`. English previews were captured from the unmodified release DEB
+with isolated synthetic data; [capture metadata](GUI-PREVIEWS.json) records hashes.
+
+Authorized live tests used a separate test account. Read-only quota, Photos and
+outgoing-share requests passed. A synthetic empty album was created, renamed,
+verified and removed. A synthetic cloud folder passed real FUSE placeholder
+stat without hydration, verified download, pinned offline access, edit/upload,
+editor replacement, create/rename/trash and cache eviction. The synthetic test
+folder was subsequently moved to cloud trash. No invitation email was sent.
+These checks do not certify every Linux distribution, every album operation
+against a live account, or absence of all defects.
+
+## Published 0.6.0 alpha8
 
 Package source commit: `360e4713f31967cff337e2e9a9d02b5fa6d1e0cc`.
 All required jobs passed in the [full release build](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40094128233).
@@ -18,8 +47,8 @@ certify every Linux distribution or establish absence of all bugs.
 
 The application runtime is Rust with Qt Quick/QML and the official Proton SDK.
 No Python/PySide application runtime is shipped. Python remains in build and
-regression tools. [Fresh English GUI previews](GUI-PREVIEWS.json) come from the
-unmodified release executable with isolated synthetic demo data.
+regression tools. The [alpha8 preview record](https://github.com/SigmaCodez/NeutronDrive/blob/v0.6.0-alpha8/docs/GUI-PREVIEWS.json)
+documents captures from that release executable with isolated synthetic data.
 
 [Desktop feature validation](DESKTOP-FEATURES.md) records the separate authorized
 live test of the Photos timeline and synthetic version restoration. Existing

@@ -3,6 +3,7 @@ import NeutronDrive.Native
 Item {
     id: test
     property int stage: 0
+    property int settleTicks: 0
     property var dialog: ({})
     property var state: JSON.parse(controller.stateJson)
     NativeFiles { id: controller }
@@ -24,7 +25,7 @@ Item {
         onTriggered:{
             try {
                 if(state.busy || stage===0)return;
-                require(!state.noticeError,"mount action failed: "+state.fields.notice_label.value);
+                require(!state.noticeError,"mount action failed at stage "+stage+": "+state.fields.notice_label.value);
                 if(stage===1){
                     require(state.fields.mount_status.value.indexOf(Qt.application.arguments[4])>=0,"mounted path in status");
                     send("edit",["cache_path","data"]);send("action",["pin"]);stage=2;
@@ -39,7 +40,18 @@ Item {
                 }else if(stage===8){
                     require(state.trash.length===0,"native empty trash listing");
                     require(state.fields.local_trash_empty.visible,"empty trash message");
+                    send("setup_folder",[Qt.application.arguments[4]]);send("setup_finish",[]);stage=10;
+                }else if(stage===10){
+                    require(!state.setupNeeded,"setup completion persisted only after mount and autostart");
+                    require(state.fields.mount_writable.value && !state.fields.mount_offline.value,"wizard settings match actual mount");
+                    stage=13;
+                }else if(stage===13){
+                    // Let the newly writable kernel mount finish its startup requests.
+                    if(++settleTicks>=25){send("action",["unmount"]);stage=11;}
+                }else if(stage===11){send("action",["noAutostart"]);stage=12;
+                }else if(stage===12){
                     controller.shutdown();require(!controller.workerRunning(),"mount/status/trash workers joined");
+                    console.log("NATIVE_GUIDED_SETUP_OK");
                     console.log("NATIVE_MOUNT_TRASH_OK");finish(0);
                 }
             }catch(error){console.error(error);finish(1)}

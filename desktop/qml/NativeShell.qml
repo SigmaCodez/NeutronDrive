@@ -117,6 +117,7 @@ Item {
             if(!files.configure(catalog,preferences.language,launch.executable,launch.demo))throw new Error("Native files initialization failed");
             if(!updater.configure(catalog,preferences.language,launch.payload,launch.demo || fixture))throw new Error("Native updater initialization failed");
             appearanceObject.setMode(preferences.appearance);
+            if(smoke)send("setup_later",[]);
             let component=Qt.createComponent("qrc:/neutrondrive/ui/Main.qml");
             if(component.status!==Component.Ready)throw new Error(component.errorString());
             // A Window parented to this non-visual root Item would wait for a
@@ -264,13 +265,19 @@ Item {
                     console.log("NATIVE_GRID_KEYBOARD_AND_MOUSE_OK");controller.stage=208;
                 }else if(controller.stage===208){
                     if(controller.fixture){controller.stage=21;return;}
-                    controller.show_page("photos");controller.send("photos_page",[0]);controller.stage=209;
+                    controller.show_page("photos");controller.send("photo_library",[{action:"index",album:""}]);controller.stage=209;
                 }else if(controller.stage===209){
                     if(controller.state.photos.length!==2 || !controller.childNamed(controller.view.contentItem,"photoGrid"))throw new Error("Photo timeline failed");
                     let preview=controller.childNamed(controller.view.contentItem,"photoPreview-0");
                     if(!preview || preview.status!==Image.Ready)return;
                     controller.capture("light-photos.png",210);
                 }else if(controller.stage===210){
+                    controller.childNamed(controller.view.contentItem,"photoAlbumsButton").clicked();controller.stage=2101;
+                }else if(controller.stage===2101){
+                    let albums=controller.childNamed(controller.view.contentItem,"photoAlbumsGrid");
+                    if(!albums || !albums.visible || albums.count!==1)throw new Error("Album browser failed");
+                    controller.capture("light-albums.png",2102);
+                }else if(controller.stage===2102){
                     controller.show_page("files");
                     let index=controller.fileEntries.findIndex(entry=>!entry.isFolder);
                     controller.select_row(index,false);controller.action("Versions");controller.stage=211;

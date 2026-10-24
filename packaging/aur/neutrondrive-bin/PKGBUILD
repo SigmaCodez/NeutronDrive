@@ -1,6 +1,6 @@
 # Maintainer: SigmaCodez <maintainers@users.noreply.github.com>
 pkgname=neutrondrive-bin
-pkgver=0.6.0alpha8
+pkgver=0.6.0alpha9
 pkgrel=1
 pkgdesc='Independent Rust/Qt Quick client for Proton Drive with automatic sync (alpha)'
 arch=('x86_64' 'aarch64')
@@ -15,11 +15,11 @@ optdepends=('gnome-keyring: Secret Service provider (or another compatible keyri
 provides=("neutrondrive=$pkgver")
 conflicts=('neutrondrive')
 options=('!strip' '!debug')
-_release=0.6.0-alpha8
+_release=0.6.0-alpha9
 source_x86_64=("$url/releases/download/v$_release/neutrondrive_${_release}-1_amd64.deb")
 source_aarch64=("$url/releases/download/v$_release/neutrondrive_${_release}-1_arm64.deb")
-sha256sums_x86_64=('26bda7e2e10afa67a1f68963a9d957f92754fb4781d2d278ef6680442a23fc37')
-sha256sums_aarch64=('034813bb1f7cd60b8a3c123719a56f2eaf679f5baf0a3ee1f9c387c577f43168')
+sha256sums_x86_64=('7a7df620fdea1b98d59b7c40d0e3073703c65841edb66ff5888a467dbb0de29a')
+sha256sums_aarch64=('ff1f3a106b15e77d00d0a77f20e89f787becdc99810d606ee4c9b4ffaa6f5a27')
 noextract=("neutrondrive_${_release}-1_amd64.deb" "neutrondrive_${_release}-1_arm64.deb")
 
 package() {

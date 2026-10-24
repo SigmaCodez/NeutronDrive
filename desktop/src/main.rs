@@ -14,6 +14,7 @@ pub mod localization;
 pub mod platform;
 mod preferences;
 pub mod runtime;
+mod setup;
 mod startup;
 mod update_controller;
 mod update_installer;

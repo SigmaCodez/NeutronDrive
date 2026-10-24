@@ -24,6 +24,9 @@ pub enum Operation {
         revision: String,
         expected: String,
     },
+    PhotoLibrary {
+        request: Value,
+    },
     Photos {
         offset: u64,
     },
@@ -31,6 +34,7 @@ pub enum Operation {
         uid: String,
         destination: String,
     },
+    AccountStorage,
     Version,
     Login,
     Logout,
@@ -69,6 +73,11 @@ pub enum Operation {
         destination: String,
         file_strategy: String,
         folder_strategy: String,
+    },
+    Invite {
+        path: String,
+        email: String,
+        role: String,
     },
     Sharing {
         path: String,
@@ -183,6 +192,28 @@ where
                 "versions", "restore", "--json", "--", &path, &revision, &expected,
             ])
         }
+        Operation::PhotoLibrary { request } => {
+            if !request.is_object() || request.to_string().len() > 64 * 1024 {
+                return Err("Invalid photo library request".into());
+            }
+            if !matches!(
+                request["action"].as_str(),
+                Some(
+                    "index"
+                        | "details"
+                        | "albums"
+                        | "create"
+                        | "rename"
+                        | "cover"
+                        | "delete"
+                        | "add"
+                        | "remove"
+                )
+            ) {
+                return Err("Unsupported photo library action".into());
+            }
+            command(&["photo", "library", "--json", "--", &request.to_string()])
+        }
         Operation::Photos { offset } => {
             command(&["photo", "page", "--json", "--", &offset.to_string()])
         }
@@ -202,6 +233,7 @@ where
                 destination.to_str().ok_or("Unsupported local path")?,
             ])
         }
+        Operation::AccountStorage => command(&["account", "storage", "--json"]),
         Operation::Version => {
             timeout = 30.;
             parse = false;
@@ -355,6 +387,21 @@ where
             );
             args
         }
+        Operation::Invite { path, email, role } => {
+            backend::remote(&path)?;
+            if email.len() > 254
+                || email.starts_with('-')
+                || email.chars().any(|c| c.is_whitespace() || c.is_control())
+                || email.split('@').count() != 2
+                || email.split('@').any(str::is_empty)
+                || !["viewer", "editor"].contains(&role.as_str())
+            {
+                return Err("Invalid sharing recipient or role".into());
+            }
+            command(&[
+                "sharing", "invite", "--json", "--user", &email, "--role", &role, "--", &path,
+            ])
+        }
         Operation::Sharing { path } => {
             backend::remote(&path)?;
             parse = false;
@@ -424,6 +471,52 @@ mod tests {
             ))
             .is_err());
         }
+    }
+    #[test]
+    fn invitations_validate_roles_and_preserve_literal_email_arguments() {
+        for (email, role) in [
+            ("bad address@example.org", "viewer"),
+            ("x@example.org", "admin"),
+            ("--option@example.org", "viewer"),
+            ("x@@example.org", "viewer"),
+        ] {
+            assert!(execute(
+                Operation::Invite {
+                    path: "/my-files/a".into(),
+                    email: email.into(),
+                    role: role.into()
+                },
+                &mut |_| 0,
+                &mut |_, _, _, _, _| panic!("invalid invitation reached transport")
+            )
+            .is_err());
+        }
+        execute(
+            Operation::Invite {
+                path: "/shared-by-me/uid".into(),
+                email: "person+test@example.org".into(),
+                role: "viewer".into(),
+            },
+            &mut |_| 0,
+            &mut |args, _, _, _, _| {
+                assert_eq!(
+                    args,
+                    command(&[
+                        "sharing",
+                        "invite",
+                        "--json",
+                        "--user",
+                        "person+test@example.org",
+                        "--role",
+                        "viewer",
+                        "--",
+                        "/shared-by-me/uid"
+                    ])
+                );
+                Ok(json!({}))
+            },
+        )
+        .unwrap();
     }
     #[test]
     fn cancellation_stops_before_transport() {

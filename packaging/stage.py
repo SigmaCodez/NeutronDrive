@@ -59,6 +59,7 @@ def stage(destination, prefix, arch, binary, portal_browser=False, host_services
     (base / "bin/neutrondrive").write_text((ROOT / "packaging/native-launcher").read_text())
     (base / "bin/neutrondrive").chmod(0o755)
     for src, relative in [
+        (ROOT / "data/file-manager/neutrondrive.desktop", "share/kio/servicemenus/neutrondrive.desktop"),
         (ROOT / "data" / f"{APP_ID}.desktop", f"share/applications/{APP_ID}.desktop"),
         (ROOT / "data" / f"{APP_ID}.metainfo.xml", f"share/metainfo/{APP_ID}.metainfo.xml"),
         (ROOT / "data" / f"{APP_ID}.svg", f"share/icons/hicolor/scalable/apps/{APP_ID}.svg"),
