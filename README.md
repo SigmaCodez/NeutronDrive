@@ -12,9 +12,12 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
-![NeutronDrive's native Qt interface with explicitly labelled demo data](docs/demo.png)
+![Current alpha7 interface in English with isolated sample files](docs/demo.png)
 
-[Dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting.
+Actual alpha7 GUI, captured in English using isolated synthetic data; no live account or personal files.
+[Preview build and capture details](docs/GUI-PREVIEWS.json).
+
+[Current dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting or your manual preference.
 
 The application runs in Rust, including the Qt controller,
 background synchronization, transfers, recoverable trash, online-drive/FUSE
@@ -247,7 +250,7 @@ headless control. No tray icon is provided. Deletions follow the same verified
 trash policy described above. Renames are not tracked as moves; ambiguous
 moves are retained as conflicts.
 
-![Background sync configuration, explicitly labeled demo mode](docs/background-demo.png)
+![Current English automatic sync and computer backup interface, isolated sample profile](docs/background-demo.png)
 
 ## Deletions, trash and recovery
 
@@ -315,7 +318,7 @@ files; connecting extra interfaces does not remove this limitation.
 FUSE mounts cannot be used as automatic sync roots, and overlapping jobs or
 mounts are rejected.
 
-![Online drive configuration, explicitly labeled demo mode](docs/ondemand-demo.png)
+![Current English online drive interface, isolated sample profile](docs/ondemand-demo.png)
 
 ## Known limits
 
@@ -371,3 +374,8 @@ Proton Drive's Computers section. It requires the new source-built SDK bridge
 and Rust core, included in alpha7 packages. See
 [setup and safety behavior](docs/COMPUTER-BACKUP.md) and the
 [Windows feature comparison](docs/WINDOWS-PARITY.md) for remaining gaps.
+
+## Release maintenance
+
+Every release updates the English GitHub documentation and captures new English
+previews from that release’s actual GUI. See the [release checklist](docs/RELEASING.md).
