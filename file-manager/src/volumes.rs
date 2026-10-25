@@ -66,7 +66,7 @@ unsafe extern "C" fn poll(_: Ptr) -> c_int {
     });
     1
 }
-pub unsafe fn start(provider: Ptr) {
+pub unsafe fn start(_provider: Ptr) {
     if TIMER.load(Ordering::Relaxed) != 0 {
         return;
     }
@@ -81,17 +81,19 @@ pub unsafe fn start(provider: Ptr) {
             unref: symbol("g_object_unref")?,
             free_list: symbol("g_list_free")?,
         };
-        let reference: unsafe extern "C" fn(Ptr) -> Ptr = symbol("g_object_ref")?;
         let add: unsafe extern "C" fn(
             c_int,
             c_uint,
             unsafe extern "C" fn(Ptr) -> c_int,
             Ptr,
-            unsafe extern "C" fn(Ptr),
+            Option<unsafe extern "C" fn(Ptr)>,
         ) -> c_uint = symbol("g_timeout_add_seconds_full")?;
         VOLUME.set(api).ok()?;
         poll(ptr::null_mut());
-        let id = add(0, 2, poll, reference(provider), VOLUME.get()?.unref);
+        // The host owns providers. Keeping one alive until module shutdown can
+        // run its weak notifications after the host has freed its provider list.
+        // This module-scoped timer has no provider data and is removed on shutdown.
+        let id = add(0, 2, poll, ptr::null_mut(), None);
         TIMER.store(id, Ordering::Relaxed);
         Some(())
     };
