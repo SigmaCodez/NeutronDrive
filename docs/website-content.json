@@ -3,7 +3,7 @@
   "release": "v0.1.0-beta1",
   "locales": {
     "en": {
-      "description": "The independent open-source client brings your cloud to where you work.",
+      "description": "An unofficial, open-source Linux desktop client for Proton Drive, developed independently of Proton AG.",
       "features": [
         [
           "Background sync",
@@ -25,7 +25,7 @@
       "faq": [
         [
           "Is NeutronDrive an official Proton client?",
-          "No. NeutronDrive is an independent open-source project and is not supported by Proton AG. You need a Proton account with access to Proton Drive."
+          "No. NeutronDrive is an unofficial, open-source Proton Drive client, developed independently of Proton AG and not officially supported by Proton. You need a Proton account with access to Proton Drive."
         ],
         [
           "Is NeutronDrive free?",
@@ -58,8 +58,8 @@
       ],
       "trust": [
         [
-          "Independent. And open.",
-          "A community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
+          "Unofficial. And open source.",
+          "An unofficial Proton Drive client developed as an independent community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
         ],
         [
           "Beta means still in development.",
@@ -100,7 +100,7 @@
       "releaseNotes": "What is new in beta 0.1?\nImport photos and videos from an extracted Google Takeout export after reviewing the preview. Computer backup now has clearer setup for two-way folder sync; it is not a system-image backup. The DEB/RPM updater coordinates app and service restarts. An optional Ko-fi link lets you support development. Takeout album reconstruction and automatic import resume are not included.\n\nHow do I move from an older version to beta 0.1?\nThe public version series restarts at 0.1.0-beta1. Install the beta package manually once: older clients may not offer the numerically lower version. DEB, RPM and Arch use epoch 1 so package managers recognise the upgrade. Preferences, account storage and sync data are retained. Keep an independent backup; future beta updates use the usual updater.\n\nWhat are the beta limitations?\nAmong other limits, there is no multi-account interface, no Proton Docs/Sheets export and no complete advanced-link settings. Whole-folder deletion propagation remains blocked. Concurrent changes can cause conflicts; keep an independent backup.\n\nKeep an independent backup. Not all features of the Windows and macOS clients are available. Packages are currently unsigned."
     },
     "de": {
-      "description": "Der unabhängige Open-Source-Client bringt deine Cloud dorthin, wo du arbeitest.",
+      "description": "Ein inoffizieller Open-Source-Desktop-Client für Proton Drive unter Linux, unabhängig von Proton AG entwickelt.",
       "features": [
         [
           "Synchronisiert im Hintergrund",
@@ -122,7 +122,7 @@
       "faq": [
         [
           "Ist NeutronDrive ein offizieller Proton-Client?",
-          "Nein. NeutronDrive ist ein unabhängiges Open-Source-Projekt und wird nicht von Proton AG unterstützt. Du benötigst ein Proton-Konto mit Zugriff auf Proton Drive."
+          "Nein. NeutronDrive ist ein inoffizieller Open-Source-Client für Proton Drive, unabhängig von Proton AG entwickelt und ohne offiziellen Support von Proton. Du benötigst ein Proton-Konto mit Zugriff auf Proton Drive."
         ],
         [
           "Ist NeutronDrive kostenlos?",
@@ -155,8 +155,8 @@
       ],
       "trust": [
         [
-          "Unabhängig. Und offen.",
-          "Ein Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
+          "Inoffiziell. Und Open Source.",
+          "Ein inoffizieller Proton-Drive-Client, entwickelt als unabhängiges Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
         ],
         [
           "Beta heißt: noch in Entwicklung.",
@@ -197,7 +197,7 @@
       "releaseNotes": "Was ist neu in Beta 0.1?\nImportiere Fotos und Videos aus einem entpackten Google-Takeout-Export nach Prüfung der Vorschau. Das Computer-Backup bietet eine klarere Einrichtung für den bidirektionalen Ordnerabgleich; es ist kein Systemabbild-Backup. Der DEB/RPM-Updater koordiniert den Neustart von App und Diensten. Über einen optionalen Ko-fi-Link kannst du die Entwicklung unterstützen. Die Wiederherstellung von Takeout-Alben und eine automatische Import-Fortsetzung sind nicht enthalten.\n\nWie wechsle ich von einer älteren Version zu Beta 0.1?\nDie öffentliche Versionsreihe beginnt neu bei 0.1.0-beta1. Installiere das Beta-Paket einmal manuell: Ältere Clients bieten die numerisch niedrigere Version möglicherweise nicht an. DEB, RPM und Arch verwenden Epoch 1, damit Paketmanager das Upgrade erkennen. Einstellungen, Kontospeicher und Sync-Daten bleiben erhalten. Behalte ein unabhängiges Backup; spätere Beta-Updates erfolgen über den gewohnten Updater.\n\nWelche Grenzen hat die Beta-Version?\nUnter anderem gibt es keine Mehrkonten-Oberfläche, keinen Export von Proton Docs/Sheets und keine vollständigen erweiterten Link-Einstellungen. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können Konflikte verursachen; halte deshalb ein unabhängiges Backup bereit.\n\nBehalte ein unabhängiges Backup. Nicht alle Funktionen der Windows- und macOS-Clients sind verfügbar. Pakete sind derzeit nicht signiert."
     },
     "fr": {
-      "description": "Le client open source indépendant rapproche votre cloud de votre espace de travail.",
+      "description": "Un client de bureau Linux non officiel et open source pour Proton Drive, développé indépendamment de Proton AG.",
       "features": [
         [
           "Synchronisation en arrière-plan",
@@ -219,7 +219,7 @@
       "faq": [
         [
           "NeutronDrive est-il un client officiel de Proton ?",
-          "Non. NeutronDrive est un projet open source indépendant, sans assistance de Proton AG. Un compte Proton avec accès à Proton Drive est nécessaire."
+          "Non. NeutronDrive est un client non officiel et open source de Proton Drive, développé indépendamment de Proton AG et sans assistance officielle de Proton. Un compte Proton avec accès à Proton Drive est nécessaire."
         ],
         [
           "NeutronDrive est-il gratuit ?",
@@ -252,8 +252,8 @@
       ],
       "trust": [
         [
-          "Indépendant et ouvert.",
-          "Un projet communautaire sous licence MIT. Sans affiliation, recommandation ni assistance officielle de Proton AG."
+          "Non officiel. Et open source.",
+          "Un client non officiel de Proton Drive, développé comme projet communautaire indépendant sous licence MIT. Ni affilié à Proton AG, ni recommandé ou officiellement pris en charge par Proton AG."
         ],
         [
           "Bêta signifie : en développement.",
@@ -294,7 +294,7 @@
       "releaseNotes": "Quelles nouveautés apporte la bêta 0.1 ?\nImportez des photos et vidéos depuis un export Google Takeout extrait, après vérification de l’aperçu. La sauvegarde du PC propose une configuration plus claire pour la synchronisation bidirectionnelle des dossiers ; ce n’est pas une sauvegarde d’image système. Le programme de mise à jour DEB/RPM coordonne le redémarrage de l’application et des services. Un lien Ko-fi facultatif permet de soutenir le développement. La reconstruction des albums Takeout et la reprise automatique de l’import ne sont pas incluses.\n\nComment passer d’une ancienne version à la bêta 0.1 ?\nLa série publique recommence à 0.1.0-beta1. Installez une fois le paquet bêta manuellement : les anciens clients peuvent ne pas proposer une version numériquement inférieure. DEB, RPM et Arch utilisent l’epoch 1 pour que les gestionnaires de paquets reconnaissent la mise à niveau. Les préférences, le stockage du compte et les données de synchronisation sont conservés. Gardez une sauvegarde indépendante ; les futures mises à jour bêta utiliseront le mécanisme habituel.\n\nQuelles sont les limites de la version bêta ?\nIl n’y a notamment pas d’interface multicomptes, d’export de Proton Docs/Sheets ni de réglages avancés complets des liens. La propagation de la suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante.\n\nConservez une sauvegarde indépendante. Toutes les fonctions des clients Windows et macOS ne sont pas disponibles. Les paquets ne sont pas encore signés."
     },
     "es": {
-      "description": "El cliente independiente de código abierto lleva tu nube al lugar donde trabajas.",
+      "description": "Un cliente de escritorio Linux no oficial y de código abierto para Proton Drive, desarrollado de forma independiente de Proton AG.",
       "features": [
         [
           "Sincronización en segundo plano",
@@ -316,7 +316,7 @@
       "faq": [
         [
           "¿Es NeutronDrive un cliente oficial de Proton?",
-          "No. NeutronDrive es un proyecto independiente de código abierto y no recibe soporte de Proton AG. Necesitas una cuenta de Proton con acceso a Proton Drive."
+          "No. NeutronDrive es un cliente no oficial y de código abierto de Proton Drive, desarrollado de forma independiente de Proton AG y sin soporte oficial de Proton. Necesitas una cuenta de Proton con acceso a Proton Drive."
         ],
         [
           "¿Es gratuito NeutronDrive?",
@@ -349,8 +349,8 @@
       ],
       "trust": [
         [
-          "Independiente y abierto.",
-          "Un proyecto comunitario con licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
+          "No oficial. Y de código abierto.",
+          "Un cliente no oficial de Proton Drive, desarrollado como proyecto comunitario independiente bajo licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
         ],
         [
           "Beta significa: en desarrollo.",
@@ -391,7 +391,7 @@
       "releaseNotes": "¿Qué novedades incluye la beta 0.1?\nImporta fotos y vídeos desde una exportación de Google Takeout extraída, tras revisar la vista previa. La copia del equipo ofrece una configuración más clara para sincronizar carpetas en ambas direcciones; no es una copia de imagen del sistema. El actualizador DEB/RPM coordina el reinicio de la aplicación y los servicios. Un enlace opcional a Ko-fi permite apoyar el desarrollo. No se incluyen la reconstrucción de álbumes de Takeout ni la reanudación automática de importaciones.\n\n¿Cómo paso de una versión anterior a la beta 0.1?\nLa serie pública vuelve a empezar en 0.1.0-beta1. Instala el paquete beta manualmente una vez: los clientes antiguos pueden no ofrecer una versión numéricamente inferior. DEB, RPM y Arch usan epoch 1 para que los gestores de paquetes reconozcan la actualización. Se conservan las preferencias, el almacenamiento de la cuenta y los datos de sincronización. Mantén una copia independiente; las futuras actualizaciones beta usarán el actualizador habitual.\n\n¿Cuáles son las limitaciones de la versión beta?\nEntre otras, no hay interfaz multicuenta, exportación de Proton Docs/Sheets ni ajustes avanzados completos de enlaces. La propagación del borrado de carpetas completas sigue bloqueada. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente.\n\nConserva una copia de seguridad independiente. No están disponibles todas las funciones de los clientes de Windows y macOS. Los paquetes aún no están firmados."
     },
     "it": {
-      "description": "Il client indipendente open source porta il tuo cloud dove lavori.",
+      "description": "Un client desktop Linux non ufficiale e open source per Proton Drive, sviluppato indipendentemente da Proton AG.",
       "features": [
         [
           "Sincronizzazione in background",
@@ -413,7 +413,7 @@
       "faq": [
         [
           "NeutronDrive è un client ufficiale di Proton?",
-          "No. NeutronDrive è un progetto open source indipendente, non supportato da Proton AG. Serve un account Proton con accesso a Proton Drive."
+          "No. NeutronDrive è un client non ufficiale e open source di Proton Drive, sviluppato indipendentemente da Proton AG e senza supporto ufficiale di Proton. Serve un account Proton con accesso a Proton Drive."
         ],
         [
           "NeutronDrive è gratuito?",
@@ -446,8 +446,8 @@
       ],
       "trust": [
         [
-          "Indipendente e aperto.",
-          "Un progetto della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
+          "Non ufficiale. E open source.",
+          "Un client non ufficiale di Proton Drive, sviluppato come progetto indipendente della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
         ],
         [
           "Beta significa: in sviluppo.",
