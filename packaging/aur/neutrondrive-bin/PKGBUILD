@@ -18,8 +18,8 @@ options=('!strip' '!debug')
 _release=0.6.0-alpha16
 source_x86_64=("$url/releases/download/v$_release/neutrondrive_${_release}-1_amd64.deb")
 source_aarch64=("$url/releases/download/v$_release/neutrondrive_${_release}-1_arm64.deb")
-sha256sums_x86_64=('d8abd5930cff8b9841f590ea594f177fec4fcac9428323c1bc9298c8313812f2')
-sha256sums_aarch64=('78867657e5e0be5871824a0a729de1a1c99de2a505a7b9cd1a7a35667b362c7f')
+sha256sums_x86_64=('ec5f743ae57759c562a2bd47478bda1c29cc430e99c68249ba521877eaaccd55')
+sha256sums_aarch64=('37208bc05069c5ea9ee1af02e6f5418bba6dcf689718bf9f1a9b163c7a20a5aa')
 noextract=("neutrondrive_${_release}-1_amd64.deb" "neutrondrive_${_release}-1_arm64.deb")
 
 package() {

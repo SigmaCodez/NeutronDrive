@@ -54,6 +54,7 @@ account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 [Photo viewer](docs/previews/development/light-photo-viewer.png) ·
 [Albums](docs/previews/albums-light.png) ·
 [Sync settings](docs/previews/background-light.png) ·
+[Computer setup](docs/previews/computers-light.png) ·
 [Computer backup](docs/previews/computer-backup-light.png) ·
 [Sharing window](docs/previews/sharing-light.png) ·
 [Online drive](docs/previews/online-drive-light.png) ·
@@ -79,6 +80,8 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
   overlays, image viewer, albums and location links to OpenStreetMap. Incremental
   tiles preserve scroll position, retain nearby previews and load pages ahead;
   thumbnails are cached across sessions; first-time previews still depend on the network.
+- **Import Google Photos:** review an extracted Takeout export and upload photos/videos
+  with matching date/location metadata. [Import guide and limits](docs/TAKEOUT-IMPORT.md).
 - **Manage your account:** the lower-left user menu opens Settings, the Proton
   subscription dashboard, Proton Drive online and guarded sign-out.
 - **Share:** view incoming/outgoing shares, create public links and send confirmed

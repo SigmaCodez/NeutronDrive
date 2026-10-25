@@ -1,5 +1,35 @@
 # Validation record
 
+## Alpha16 release validation (2026-10-25)
+
+The complete [source and Linux package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40232633624)
+passed for source commit `32cd2d5bf33a0cfa048328334d5d8ed31c73023c`.
+It covers x86_64 and ARM64 native Rust/Qt/SDK builds, DEB installation on both
+architectures, Fedora/openSUSE RPM installation, strict Snap, Flatpak runtime,
+AppImage startup and Arch installation. Both RPM tests verify the distribution
+marker used by the new updater.
+
+Local checks additionally passed: 186 core unit tests, 18 existing integration
+tests, real private D-Bus/daemon process replacement tests, 83 desktop unit tests,
+Clippy/fmt, 23 SDK bridge tests and TypeScript checking, 348 retained regressions
+(18 environment-dependent skips), and actual Qt windows in all 25 languages plus
+English fallback. The synthetic Takeout upload tests check original video bytes,
+capture time, GPS, duplicates and account/source-hash guards. No real-account
+Takeout import or local privileged RPM upgrade was performed.
+
+The downloaded amd64 release DEB passed the isolated no-Python staged runtime
+check. Fresh English light/dark captures were made directly with its unmodified
+executable and bundled Qt; [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records the package,
+binary and image hashes. The initial sandboxed local launch could not create its
+activation socket; rerunning the same test with local IPC access passed.
+
+Release metadata pins these exact original CI package/SDK bytes. A separate
+metadata verification run validates unchanged native/SDK source provenance and
+repeats package assembly/runtime checks; its rebuilt package bytes do not replace
+the checksum-pinned originals. The release's `BUILD_INFO.json` and `TEST_RESULTS.json`
+identify both runs and the final release commit.
+
+
 
 ## Post-alpha15 Takeout and UI validation (2026-10-25)
 

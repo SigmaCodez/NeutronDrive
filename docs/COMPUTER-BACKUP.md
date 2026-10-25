@@ -1,6 +1,8 @@
 # Computer folder synchronization
 
-The **Computers → Computer backup** page registers a Linux device
+Open **Computers → Configure computer backup** in the **Back up this computer**
+card. The separate **Saved computers** list browses existing cloud devices.
+The configuration page registers a Linux device
 through the pinned official Proton SDK and adds selected local folders under
 **Computers** in Proton Drive. Device registration and all encryption use the
 SDK; no private API or reimplemented cryptography is involved.
