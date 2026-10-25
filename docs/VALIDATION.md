@@ -1,12 +1,43 @@
 # Validation record
 
-## Current status: alpha11 release and alpha12 development
+## Alpha13 release validation
 
-The latest published release is [alpha11](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha11).
+[Full source, SDK and Linux package CI](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40206351901)
+uses source commit `7902b20611f8738caa7cd6b0de716bedb8055c41`. The native jobs
+run 176 core unit tests, 71 desktop tests, 348 retained regressions, 22 SDK tests,
+TypeScript checking and actual GUI/service checks on x86_64 and ARM64.
+
+
+The initial full build caught four new account-menu keys missing from 23
+non-English/German catalogs. All 25 catalogs were completed; the dedicated
+localization regression tests then passed. The final full CI run, package
+provenance and actual release GUI captures are recorded in the release
+`BUILD_INFO.json`, `TEST_RESULTS.json` and [GUI-PREVIEWS.json](GUI-PREVIEWS.json).
+No live cloud mutation or live-photo network benchmark is claimed.
+
+## Local development checks for alpha13 (2026-10-25)
+
+Local validation passed 71 desktop Rust tests, Clippy for all targets with warnings
+denied, the native application build, and nine SDK library-command tests (23
+expectations). The Qt smoke test passed in an isolated offscreen session,
+including selection, photo viewer, account-menu settings navigation, themes,
+keyboard/mouse input and tray behavior.
+
+A synthetic photo model grew from 2,000 to 2,048 entries while preserving the
+visible delegate and scroll position. This checks incremental rendering, not
+real-account network throughput or a full thumbnail-decoding benchmark. The
+dark account menu was also visually inspected from an application-generated
+capture with synthetic identity. No live logout or subscription change was
+performed. These local checks preceded packaging and do not describe the older alpha12
+local1 package below. The release checks are recorded separately.
+
+## Historical alpha11 release and alpha12 local development
+
+The preceding published release was [alpha11](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha11).
 Its release assets include BUILD_INFO.json, TEST_RESULTS.json, provenance and
 SHA256SUMS. The records below describe their stated versions, not every later build.
 
-Alpha12 is development work in [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11).
+Alpha12 development work was tracked in [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11).
 The initial alpha12 [full CI run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40193814097)
 passed both native architectures and all Linux package jobs. A subsequent live
 Nautilus shutdown test found a provider-lifetime bug; its correction adds a

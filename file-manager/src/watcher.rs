@@ -43,7 +43,35 @@ pub fn run(parent: u32) -> Result<(), String> {
         })
         .unwrap_or_default();
     let mut retry = Instant::now();
+    let mut icon_root = None;
+    let mut icon_attempt = Instant::now() - Duration::from_secs(300);
     while unsafe { libc::kill(parent as i32, 0) } == 0 {
+        let current_root = paths::configured_root();
+        if current_root != icon_root || icon_attempt.elapsed() >= Duration::from_secs(300) {
+            icon_root = current_root;
+            icon_attempt = Instant::now();
+            let mut child = Command::new(&executable)
+                .arg("--apply-root-icon")
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            let start = Instant::now();
+            loop {
+                match child.try_wait() {
+                    Ok(Some(_)) => break,
+                    Ok(None) if start.elapsed() < Duration::from_secs(2) => {
+                        std::thread::sleep(Duration::from_millis(20))
+                    }
+                    _ => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        break;
+                    }
+                }
+            }
+        }
         let now = availability::all_available();
         let reset = retry.elapsed() > Duration::from_secs(300);
         let changed: Vec<_> = if reset {

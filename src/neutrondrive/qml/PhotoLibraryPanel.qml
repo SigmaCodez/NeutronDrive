@@ -7,6 +7,24 @@ ColumnLayout {
     required property var host
     required property var controller
     required property var viewState
+    readonly property var photos: controller.photoEntries || []
+    ListModel { id: photoModel; dynamicRoles: true }
+    function updatePhotos() {
+        if(!photoModel)return;
+        let items=photos;
+        // Keep delegates and scroll position alive across status updates and pages.
+        for(let i=0;i<Math.min(photoModel.count,items.length);i++) {
+            if(photoModel.get(i).entry.uid!==items[i].uid) { photoModel.clear(); break; }
+        }
+        while(photoModel.count>items.length)photoModel.remove(photoModel.count-1);
+        for(let i=0;i<items.length;i++) {
+            if(i>=photoModel.count) { photoModel.append({entry:items[i]}); continue; }
+            let old=photoModel.get(i).entry, next=items[i];
+            if(old.thumbnail!==next.thumbnail || old.previewLoaded!==next.previewLoaded || old.name!==next.name || old.safe!==next.safe || old.modified!==next.modified || JSON.stringify(old.location)!==JSON.stringify(next.location))photoModel.setProperty(i,"entry",next);
+        }
+    }
+    onPhotosChanged: updatePhotos()
+    Component.onCompleted: updatePhotos()
     property bool albumsVisible: false
     property var selected: []
     property bool selectionMode: false
@@ -16,7 +34,7 @@ ColumnLayout {
     property int previewAttempt: -1
     property int moreAttempt: -1
     property int viewerAttempt: -1
-    readonly property var currentPhoto: viewerIndex >= 0 ? (viewState.photos || [])[viewerIndex] || ({}) : ({})
+    readonly property var currentPhoto: viewerIndex >= 0 ? photos[viewerIndex] || ({}) : ({})
     function showPhoto(index) {
         viewerIndex=index; viewerAttempt=-1; previewZoom=1; viewer.open();
     }
@@ -39,10 +57,11 @@ ColumnLayout {
     function request(value) { controller.send("photo_library", [value]); }
     function openAlbum(uid) {
         leaveSelection(); viewer.close(); viewerIndex=-1; previewAttempt=-1; moreAttempt=-1; savedScroll=0; albumsVisible=false;
+        grid.contentY=0;
         request({action:"index",album:uid});
     }
     function toggle(index) {
-        if(!selectionMode || !(viewState.photos || [])[index]?.safe)return;
+        if(!selectionMode || !photos[index]?.safe)return;
         let items=selected.slice(); let at=items.indexOf(index);
         if(at>=0)items.splice(at,1);else if(items.length<48)items.push(index);
         selected=items;
@@ -94,7 +113,7 @@ ColumnLayout {
         Layout.fillWidth: true; spacing: 8
         visible: !panel.albumsVisible && panel.selectionMode
         Label { text: host.tr("Selected")+": "+panel.selected.length+" / 48"; color: host.theme.text }
-        PhotoButton { text: host.tr("Select up to 48"); enabled: !panel.viewState.busy; onClicked: panel.selected=(panel.viewState.photos || []).map((p,i)=>p.safe ? i : -1).filter(i=>i>=0).slice(0,48) }
+        PhotoButton { text: host.tr("Select up to 48"); enabled: !panel.viewState.busy; onClicked: panel.selected=panel.photos.map((p,i)=>p.safe ? i : -1).filter(i=>i>=0).slice(0,48) }
         PhotoButton { text: host.tr("Clear selection"); enabled: panel.selected.length>0; onClicked: panel.selected=[] }
         ComboBox {
             id: albumChoice; width: 200; implicitHeight: 36
@@ -129,8 +148,8 @@ ColumnLayout {
                     Layout.fillWidth: true; Layout.fillHeight: true; radius: 10; color: host.theme.selected; clip: true
                     Image {
                         id: albumCover; anchors.fill: parent
-                        source: (panel.viewState.photos || []).find(p=>p.uid===albumTile.modelData.cover)?.thumbnail || ""
-                        fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+                        source: panel.photos.find(p=>p.uid===albumTile.modelData.cover)?.thumbnail || ""
+                        fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true
                     }
                     DriveIcon { anchors.centerIn: parent; symbol: "photo"; ink: host.theme.accentText; visible: albumCover.status!==Image.Ready }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; enabled: !panel.viewState.busy && albumTile.modelData.safe; onClicked: panel.openAlbum(albumTile.modelData.uid) }
@@ -157,19 +176,15 @@ ColumnLayout {
         id: grid
         objectName: "photoGrid"; visible: !panel.albumsVisible
         Layout.fillWidth: true; Layout.fillHeight: true
-        clip: true; model: panel.viewState.photos || []; cellWidth: width/Math.max(1,Math.floor(width/panel.tileSize)); cellHeight: cellWidth
-        cacheBuffer: 250
+        clip: true; model: photoModel; reuseItems: true; cellWidth: width/Math.max(1,Math.floor(width/panel.tileSize)); cellHeight: cellWidth
+        cacheBuffer: grid.height
         activeFocusOnTab: true; keyNavigationEnabled: true
         Keys.onReturnPressed: if(currentIndex>=0)panel.showPhoto(currentIndex)
         Keys.onSpacePressed: if(panel.selectionMode && currentIndex>=0)panel.toggle(currentIndex)
         ScrollBar.vertical: ScrollBar {}
-        onContentYChanged: if(!panel.restoring) { panel.savedScroll=Math.max(0,contentY); panel.previewAttempt=-1; panel.moreAttempt=-1; loadTimer.restart(); }
-        onModelChanged: {
-            panel.restoring=true;
-            Qt.callLater(function() { grid.contentY=Math.min(panel.savedScroll,Math.max(0,grid.contentHeight-grid.height)); panel.restoring=false; });
-        }
+        onContentYChanged: if(!panel.restoring) { panel.savedScroll=Math.max(0,contentY); panel.previewAttempt=-1; panel.moreAttempt=-1; }
         delegate: Item {
-            id: photo; required property var modelData; required property int index
+            id: photo; required property var entry; required property int index
             width: grid.cellWidth; height: grid.cellHeight
             Rectangle {
                 anchors.fill: parent; anchors.margins: 4
@@ -178,8 +193,8 @@ ColumnLayout {
                 Image {
                     id: preview; objectName: "photoPreview-"+photo.index
                     anchors.fill: parent; anchors.margins: panel.selected.indexOf(photo.index)>=0 ? 4 : 0
-                    source: photo.modelData.thumbnail || ""; sourceSize.width: 600; sourceSize.height: 600
-                    fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: false
+                    source: photo.entry.thumbnail || ""; sourceSize.width: 600; sourceSize.height: 600
+                    fillMode: Image.PreserveAspectCrop; asynchronous: true; cache: true
                 }
                 MouseArea {
                     id: photoMouse; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -196,9 +211,9 @@ ColumnLayout {
                 CheckBox {
                     id: photoCheck; objectName: "photoCheck-"+photo.index
                     anchors { top: parent.top; left: parent.left; margins: 10 }
-                    visible: panel.selectionMode; enabled: photo.modelData.safe
+                    visible: panel.selectionMode; enabled: photo.entry.safe
                     checked: panel.selected.indexOf(photo.index)>=0
-                    Accessible.name: host.tr("Select photo")+": "+photo.modelData.name
+                    Accessible.name: host.tr("Select photo")+": "+photo.entry.name
                     width: 30; height: 30; padding: 0
                     indicator: Rectangle {
                         width: 26; height: 26; radius: 7
@@ -209,13 +224,13 @@ ColumnLayout {
                     onClicked: panel.toggle(photo.index)
                 }
                 ToolTip.visible: photoMouse.containsMouse && !panel.selectionMode
-                ToolTip.text: photo.modelData.name + (photo.modelData.modified ? "\n"+panel.dateText(photo.modelData.modified) : "")
+                ToolTip.text: photo.entry.name + (photo.entry.modified ? "\n"+panel.dateText(photo.entry.modified) : "")
                 ToolTip.delay: 600
             }
             Menu {
                 id: photoMenu
-                MenuItem { text: host.tr("Download"); enabled: !panel.viewState.busy && photo.modelData.safe; onTriggered: controller.send("photo_download",[photo.index]) }
-                MenuItem { text: host.tr("Show location on OpenStreetMap"); enabled: Boolean(photo.modelData.location); onTriggered: panel.request({action:"map",index:photo.index}) }
+                MenuItem { text: host.tr("Download"); enabled: !panel.viewState.busy && photo.entry.safe; onTriggered: controller.send("photo_download",[photo.index]) }
+                MenuItem { text: host.tr("Show location on OpenStreetMap"); enabled: Boolean(photo.entry.location); onTriggered: panel.request({action:"map",index:photo.index}) }
                 MenuItem { text: host.tr("Add to album"); enabled: !panel.viewState.busy; onTriggered: { panel.selectionMode=true; panel.selected=[photo.index]; panel.request({action:"albums"}); } }
             }
         }
@@ -232,7 +247,7 @@ ColumnLayout {
         contentItem: ColumnLayout {
             spacing: 14; focus: true
             Keys.onLeftPressed: if(panel.viewerIndex>0)panel.showPhoto(panel.viewerIndex-1)
-            Keys.onRightPressed: if(panel.viewerIndex<(panel.viewState.photos || []).length-1)panel.showPhoto(panel.viewerIndex+1)
+            Keys.onRightPressed: if(panel.viewerIndex<panel.photos.length-1)panel.showPhoto(panel.viewerIndex+1)
             RowLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -256,8 +271,8 @@ ColumnLayout {
             }
             RowLayout {
                 PhotoButton { text: "‹"; Accessible.name: host.tr("Previous"); enabled: panel.viewerIndex>0 && !panel.viewState.busy; onClicked: panel.showPhoto(panel.viewerIndex-1) }
-                Label { text: (panel.viewerIndex+1)+" / "+(panel.viewState.photos || []).length; color: host.theme.text }
-                PhotoButton { text: "›"; Accessible.name: host.tr("Next"); enabled: panel.viewerIndex<(panel.viewState.photos || []).length-1 && !panel.viewState.busy; onClicked: panel.showPhoto(panel.viewerIndex+1) }
+                Label { text: (panel.viewerIndex+1)+" / "+panel.photos.length; color: host.theme.text }
+                PhotoButton { text: "›"; Accessible.name: host.tr("Next"); enabled: panel.viewerIndex<panel.photos.length-1 && !panel.viewState.busy; onClicked: panel.showPhoto(panel.viewerIndex+1) }
                 Item { Layout.fillWidth: true }
                 Label { text: host.tr("Preview"); color: host.theme.muted }
                 PhotoButton { text: "−"; Accessible.name: host.tr("Zoom out"); enabled: panel.previewZoom>1; onClicked: panel.previewZoom=Math.max(1,panel.previewZoom-0.5) }
@@ -274,12 +289,12 @@ ColumnLayout {
         }
     }
     Timer {
-        id: loadTimer; interval: 300; repeat: true; running: panel.visible && !panel.albumsVisible && !viewer.visible
+        id: loadTimer; interval: 120; repeat: true; running: panel.visible && !panel.albumsVisible && !viewer.visible
         onTriggered: {
             if(panel.viewState.busy || panel.albumsVisible || panel.restoring || viewer.visible)return;
             let first=Math.max(0,Math.floor(grid.contentY/grid.cellHeight)*Math.max(1,Math.floor(grid.width/panel.tileSize)));
-            if(first<grid.count && !panel.viewState.photos[first].previewLoaded && panel.previewAttempt!==first) { panel.previewAttempt=first; panel.request({action:"previews",start:first}); return; }
-            if(panel.viewState.photosMore && panel.moreAttempt!==grid.count && grid.contentY+grid.height>=grid.contentHeight-grid.cellHeight) { panel.moreAttempt=grid.count; panel.request({action:"more"}); }
+            if(first<grid.count && !panel.photos[first].previewLoaded && panel.previewAttempt!==first) { panel.previewAttempt=first; panel.request({action:"previews",start:first}); return; }
+            if(panel.viewState.photosMore && panel.moreAttempt!==grid.count && grid.contentY+grid.height>=grid.contentHeight-grid.height*2) { panel.moreAttempt=grid.count; panel.request({action:"more"}); }
         }
     }
 }

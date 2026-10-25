@@ -1,6 +1,12 @@
 //! Visibility predicate for desktop-entry based file-manager actions.
 fn main() {
     let mode: Vec<String> = std::env::args().skip(1).collect();
+    if mode.as_slice() == ["--apply-root-icon"] {
+        let result = neutrondrive_file_manager::paths::configured_root()
+            .ok_or_else(|| "No configured root".to_string())
+            .and_then(|root| neutrondrive_file_manager::root_icon::apply(&root));
+        std::process::exit(if result.is_ok() { 0 } else { 1 });
+    }
     if let [flag, parent] = mode.as_slice() {
         if flag == "--watch-emblems" {
             let result = parent

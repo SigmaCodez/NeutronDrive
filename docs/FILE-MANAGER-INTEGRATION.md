@@ -114,7 +114,7 @@ listed desktop/distribution have not been tested.
 
 ## Alpha12 development: content probes and favorite icons
 
-These changes are under development in [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11); they are not part of the published alpha11 packages.
+These corrections are included in alpha13, together with the photo-scrolling and account-menu changes in [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11).
 
 GLib may open files with `O_NOATIME` to guess their content type while listing a
 folder. Previously this optional operation could wait behind cloud requests,

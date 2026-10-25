@@ -33,6 +33,12 @@ print(json.dumps(value))
    while not (r/'waiting').exists():
     assert time.monotonic()<deadline,'Background prefetch did not reach the slow child'
     time.sleep(.02)
+   probe_started=time.monotonic()
+   probe=subprocess.run(['/usr/bin/gio','info','-a','standard::content-type',str(mount/'data')],capture_output=True,text=True,timeout=2,check=True)
+   probe_elapsed=time.monotonic()-probe_started
+   assert probe_elapsed<1,probe_elapsed
+   assert not (r/'downloaded').exists(),'File-type probing downloaded content'
+   print(f'GIO_CONTENT_TYPE_DURING_SDK_STALL_OK {probe_elapsed:.3f}s')
    started=time.monotonic()
    assert sorted(os.listdir(mount))==['data','sub']
    assert (mount/'data').stat().st_size==3
@@ -46,6 +52,15 @@ print(json.dumps(value))
    assert os.listdir(mount/'sub'/'deep')==['leaf']
    assert not (r/'downloaded').exists(),'Structure preload downloaded contents'
    bookmark=(config/'gtk-3.0/bookmarks').read_text();assert ' Proton Drive' in bookmark
+   # O_NOATIME remains valid for ordinary applications; normal GIO copies
+   # must still hydrate and return the full, verified file contents.
+   fd=os.open(mount/'data',os.O_RDONLY|os.O_NOATIME)
+   try:assert os.read(fd,10)==b'abc'
+   finally:os.close(fd)
+   copied=r/'copied'
+   subprocess.run(['/usr/bin/gio','copy',str(mount/'data'),str(copied)],check=True,timeout=10)
+   assert copied.read_bytes()==b'abc'
+   print('NORMAL_NOATIME_READ_AND_GIO_COPY_OK')
    print(f'CACHED_BROWSING_DURING_SDK_STALL_OK {elapsed:.3f}s; NESTED_METADATA_ONLY_PREFETCH_OK')
   finally:
    if stalled is not None and stalled.poll() is None:stalled.wait(timeout=15)

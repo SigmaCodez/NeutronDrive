@@ -8,21 +8,21 @@
   "sdk_version": "0.22.2+8a44654aece1",
   "architectures": {
     "x86_64": {
-      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha11/proton-drive-linux-x64",
-      "sha512": "2d1a87834a9511dffccccb855a86802a2f0f4d2f0f3827fe5ad30c1581e45f812e60d883f8c956bc647308cc2656b297a2b5d4aaa3d60ad82e59e16a015e18f0",
-      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha11/proton-drive-linux-x64.provenance.json",
+      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha13/proton-drive-linux-x64",
+      "sha512": "44739c8df26e6364f2edc55448339f13035f97c4cc14feed79172b8c92a6f9bbacff3fa3d820266649fea78b121aee5b01cd294a2faff875422e1680a2aace1e",
+      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha13/proton-drive-linux-x64.provenance.json",
       "target": "bun-linux-x64-baseline",
       "debian": "amd64",
       "rpm": "x86_64"
     },
     "aarch64": {
-      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha11/proton-drive-linux-arm64",
-      "sha512": "dcb994bdfea3038e90e3ae63b50c9f1a0e9c7f14371b54597a639758afe44876d60c1a7ce18a068dc21b96780683c32081315d687af349035933363130d53115",
-      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha11/proton-drive-linux-arm64.provenance.json",
+      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha13/proton-drive-linux-arm64",
+      "sha512": "547a781dccb93ab7cff12359f7744615a89ad77e323fca4683415a5552c0c0c040759a38f7e95ceaff8ceae4c8994f67157e5e23e1998df10dbc87ad3e8fd067",
+      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.6.0-alpha13/proton-drive-linux-arm64.provenance.json",
       "target": "bun-linux-arm64",
       "debian": "arm64",
       "rpm": "aarch64"
     }
   },
-  "application_release": "v0.6.0-alpha11"
+  "application_release": "v0.6.0-alpha13"
 }

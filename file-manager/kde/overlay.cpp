@@ -27,9 +27,14 @@ class NeutronDriveOverlay final : public KOverlayIconPlugin {
             auto index = places->index(row, 0);
             if (places->url(index) != url) continue;
             if (places->isDevice(index)) { if (!places->isHidden(index)) places->setPlaceHidden(index, true); }
-            else { exists = true; }
+            else {
+                exists = true;
+                if (places->text(index) == QStringLiteral("Proton Drive") &&
+                    index.data(KFilePlacesModel::IconNameRole).toString() != QStringLiteral("io.github.SigmaCodez.NeutronDrive"))
+                    places->editPlace(index, places->text(index), url, QStringLiteral("io.github.SigmaCodez.NeutronDrive"));
+            }
         }
-        if (!exists) places->addPlace(QStringLiteral("Proton Drive"), url, QStringLiteral("folder-cloud"));
+        if (!exists) places->addPlace(QStringLiteral("Proton Drive"), url, QStringLiteral("io.github.SigmaCodez.NeutronDrive"));
     }
 public:
     NeutronDriveOverlay() {

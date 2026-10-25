@@ -43,7 +43,7 @@ unsafe extern "C" fn tick(_: Ptr) -> c_int {
     });
     1
 }
-unsafe extern "C" fn update(provider: Ptr, file: Ptr, _closure: Ptr, _handle: *mut Ptr) -> c_int {
+unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *mut Ptr) -> c_int {
     std::panic::catch_unwind(|| {
         let (Some(api), Some(info)) = (API.get(), INFO.get()) else {
             return 0;
@@ -91,11 +91,12 @@ unsafe extern "C" fn update(provider: Ptr, file: Ptr, _closure: Ptr, _handle: *m
                     c_uint,
                     unsafe extern "C" fn(Ptr) -> c_int,
                     Ptr,
-                    unsafe extern "C" fn(Ptr),
+                    Option<unsafe extern "C" fn(Ptr)>,
                 ) -> c_uint,
             >("g_timeout_add_seconds_full")
             {
-                let id = add(0, 2, tick, (info.reference)(provider), info.unreference);
+                // Do not extend host provider lifetime into module teardown.
+                let id = add(0, 2, tick, ptr::null_mut(), None);
                 TIMER.store(id, Ordering::Relaxed);
             }
         }

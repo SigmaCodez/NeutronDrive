@@ -39,6 +39,7 @@ impl Files {
                     .iter()
                     .skip(start)
                     .take(48)
+                    .filter(|p| p["previewLoaded"] != true)
                     .map(|p| p["uid"].clone())
                     .collect();
                 if ids.is_empty() {
@@ -145,6 +146,7 @@ impl Files {
                 self.photo_index = ids;
                 self.state["photoTotal"] = json!(self.photo_index.len());
                 self.state["photos"] = json!([]);
+                self.photos_revision += 1;
                 self.state["photoOffset"] = json!(0);
                 self.state["photoAlbum"] = request["album"].clone();
                 self.state["photoSelection"] = json!([]);
@@ -166,17 +168,20 @@ impl Files {
                     }
                     let mut current = self.state["photos"].as_array().cloned().unwrap_or_default();
                     for (index, old) in current.iter_mut().enumerate() {
-                        if index < start as usize || index >= start as usize + 48 {
+                        if index < (start as usize).saturating_sub(48)
+                            || index >= start as usize + 96
+                        {
                             old["thumbnail"] = json!("");
                             old["previewLoaded"] = json!(false);
                         } else if let Some(p) = photos.iter().find(|p| p["uid"] == old["uid"]) {
                             old["thumbnail"] = checked_thumbnail(p);
                             old["previewLoaded"] = json!(true);
-                        } else {
+                        } else if ids.contains(&old["uid"]) {
                             old["previewLoaded"] = json!(true);
                         }
                     }
                     self.state["photos"] = json!(current);
+                    self.photos_revision += 1;
                     return vec![];
                 }
                 let start = request["start"].as_u64().unwrap_or(u64::MAX);
@@ -205,6 +210,7 @@ impl Files {
                     photo["previewLoaded"] = json!(false);
                 }
                 self.state["photos"] = json!(current);
+                self.photos_revision += 1;
                 let next = start + ids.len() as u64;
                 self.state["photoOffset"] = json!(next);
                 self.state["photosMore"] = json!((next as usize) < self.photo_index.len());
@@ -322,5 +328,25 @@ mod tests {
             json!({"photos":[{"uid":"expected"}]}),
         );
         assert_eq!(m.state["photos"], json!([{"uid":"keep"}]));
+    }
+    #[test]
+    fn preview_requests_only_missing_images_and_keeps_nearby_cache() {
+        let mut m = model();
+        m.state["photos"] = json!((0..200).map(|i| json!({"uid":format!("p{i}"),"previewLoaded":i!=55,"thumbnail":"data:image/jpeg;base64,/9g="})).collect::<Vec<_>>());
+        let effects = m.photo_action(&json!({"action":"previews","start":48}));
+        let Effect::Work(work) = &effects[0] else {
+            panic!("preview work")
+        };
+        assert_eq!(work.operation["request"]["ids"], json!(["p55"]));
+        let revision = m.photos_revision;
+        m.photo_result(
+            &json!({"action":"details","previewStart":48,"ids":["p55"]}),
+            json!({"photos":[{"uid":"p55","thumbnail":"data:image/jpeg;base64,/9g="}]}),
+        );
+        assert_eq!(m.photos_revision, revision + 1);
+        assert_eq!(m.state["photos"][0]["previewLoaded"], true);
+        assert_eq!(m.state["photos"][55]["previewLoaded"], true);
+        assert_eq!(m.state["photos"][143]["previewLoaded"], true);
+        assert_eq!(m.state["photos"][144]["previewLoaded"], false);
     }
 }
