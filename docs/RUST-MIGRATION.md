@@ -1,5 +1,13 @@
 # Rust migration — implementation status
 
+The application runtime migration is complete; this document also retains historical
+checkpoints. Qt/QML, the Proton SDK and build/test tools are deliberate dependencies,
+not unfinished Python runtime components. GitHub's former HTML majority came from
+`packaging/licenses/rust/COPYRIGHT-library.html`, a third-party Rust license notice.
+It is preserved and classified as documentation in `.gitattributes`. Rewriting
+legal text or relabeling test tools as Rust would not improve the application.
+
+
 The remaining first-party Python application runtime has been replaced by Rust.
 The source launcher and current package builders execute the native Rust Qt
 controller and services. Qt Quick/QML and the pinned Proton SDK remain, as
