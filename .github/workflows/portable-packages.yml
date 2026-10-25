@@ -67,6 +67,19 @@ jobs:
       - name: Build and install with makepkg/pacman
         run: |
           su builder -c 'cd /home/builder/package && makepkg --syncdeps --noconfirm && makepkg --printsrcinfo > .SRCINFO'
+          # Keep epoch 1 inside .PKGINFO, but remove ':' from the download name:
+          # GitHub artifacts reject colons for cross-platform extraction.
+          python - <<'PYNAME'
+          from pathlib import Path
+          import re
+          for package in Path('/home/builder/package').glob('*.pkg.tar.zst'):
+              name = re.sub(r'^(neutrondrive-bin-)\d+:', r'\1', package.name)
+              assert ':' not in name
+              if name != package.name:
+                  destination = package.with_name(name)
+                  assert not destination.exists()
+                  package.rename(destination)
+          PYNAME
           pacman -U --noconfirm /home/builder/package/*.pkg.tar.zst
           nd_installed=$(pacman -Q neutrondrive-bin | cut -d ' ' -f 2)
           test "$(vercmp "$nd_installed" '0.6.0alpha15-1')" -gt 0
