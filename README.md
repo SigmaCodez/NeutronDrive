@@ -21,7 +21,7 @@ and the [per-file-manager support matrix](docs/FILE-MANAGER-INTEGRATION.md).
 
 ## Photos and setup previews
 
-Actual alpha10 release UI, captured in English with isolated synthetic data.
+Actual alpha11 release UI, captured in English with isolated synthetic data.
 
 ![Photo selection](docs/previews/development/light-photos-selection.png)
 
@@ -41,7 +41,7 @@ views; arrow keys, Ctrl+A, Ctrl-click and double-click folder navigation work in
 both. The view choice lasts for the current application session. Grid tiles use
 file/folder icons, not photo thumbnails.
 
-![Current alpha10 grid view in English](docs/previews/files-grid-light.png)
+![Current alpha11 grid view in English](docs/previews/files-grid-light.png)
 
 [Dark grid](docs/previews/files-grid-dark.png) ·
 [Detailed list](docs/previews/files-list-light.png) ·
@@ -66,11 +66,11 @@ sync overview, computer backup and guarded version history remain available.
 See [desktop feature details and limits](docs/DESKTOP-FEATURES.md). This is not a
 claim of complete Windows/macOS parity; package restrictions remain explicit.
 
-## Published alpha10 interface
+## Published alpha11 interface
 
-![Current alpha10 interface in English with isolated sample files](docs/demo.png)
+![Current alpha11 interface in English with isolated sample files](docs/demo.png)
 
-Actual alpha10 GUI, captured in English using isolated synthetic data; no live account or personal files.
+Actual alpha11 GUI, captured in English using isolated synthetic data; no live account or personal files.
 [Preview build and capture details](docs/GUI-PREVIEWS.json).
 
 [Current dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting or your manual preference.

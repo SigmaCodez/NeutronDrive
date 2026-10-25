@@ -156,9 +156,9 @@ full desktop GUI testing remains pending. This does not certify every distro
 or establish absence of all bugs. See release BUILD_INFO.json, TEST_RESULTS.json,
 SHA256SUMS and native/SDK provenance for exact artifacts and test jobs.
 
-## Unreleased file-manager/cache/tray work — 2026-10-25
+## 0.6.0 alpha11 file-manager/cache/tray validation — 2026-10-25
 
-Local development validation, separate from the published alpha10 release:
+Local feature validation for alpha11 (isolated synthetic fixtures):
 
 - Rust core: 176 unit tests, 18 runtime/service integration tests; Clippy passes.
 - Rust/Qt frontend: 69 unit tests and Clippy pass. Isolated actual-window checks
@@ -181,12 +181,11 @@ Local development validation, separate from the published alpha10 release:
   metadata prefetch completes without downloading file contents.
 - Foreground mounts, desktop services, guided setup, mount cleanup, application
   activation/crash recovery, AppImage cache and native loader checks pass.
-- All 13 native packaging/provenance tests pass. Native host packages stage the
+- All 14 package-version and native packaging/provenance tests pass. Native host packages stage the
   emblem and KDE addon source; the addon is compiled against the host KDE ABI.
 
-These are development tests, not a new release or local installation. A full PC
-restart with these new binaries, every file-manager GUI and every distribution
-has not been tested. See [the support matrix](FILE-MANAGER-INTEGRATION.md) for
+A full PC restart with these new binaries, every file-manager GUI and every
+distribution has not been tested. See [the support matrix](FILE-MANAGER-INTEGRATION.md) for
 optional dependencies and the remaining PCManFM duplicate-volume limitation.
 
 The 25 GUI languages and unsupported-locale English fallback passed their actual
@@ -194,3 +193,16 @@ window/input checks. Tests using the local network-hosted Qt runtime intermitten
 the normal 25-second process deadline; the successful local rerun allowed 60
 seconds for process startup with identical UI assertions and local catalog copies.
 The repository's normal CI deadline was not relaxed.
+
+Both AMD64 and ARM64 native build/test jobs passed in
+[run 40186253319](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40186253319),
+including the real isolated tray and GVfs checks. Both DEBs passed installation
+checks in that run; these exact DEBs are retained for the AUR hashes and release
+previews. The first RPM assembly reported missing file-list entries for the new
+emblem and Dolphin sources; the package manifest was corrected. Final package
+checks and asset origins are recorded in the release's `BUILD_INFO.json` and
+`TEST_RESULTS.json`. No new live cloud mutation test was performed.
+
+All published previews were freshly captured from the alpha11 AMD64 DEB
+executable in an isolated English profile and visually inspected.
+[GUI-PREVIEWS.json](GUI-PREVIEWS.json) records binary and image hashes.

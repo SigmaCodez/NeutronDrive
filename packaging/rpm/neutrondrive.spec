@@ -80,6 +80,8 @@ cp -a usr %{buildroot}/
 /usr/share/applications/io.github.SigmaCodez.NeutronDrive.desktop
 /usr/share/metainfo/io.github.SigmaCodez.NeutronDrive.metainfo.xml
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
+/usr/share/icons/hicolor/scalable/emblems/neutrondrive-available.svg
+/usr/share/neutrondrive/integrations/dolphin/
 
 %changelog
 * Sun Oct 25 2026 SigmaCodez <maintainers@users.noreply.github.com> - 0.6.0~alpha11-1
