@@ -34,6 +34,18 @@ pub fn version(value: &str) -> Result<Vec<u64>, String> {
     }
     Err("Unsupported version".into())
 }
+// The public beta line deliberately restarts at 0.1.0. Keep the retired
+// alpha tags in an earlier release era without changing the public version
+// parser or its prerelease-stage indices. New/future versions retain normal
+// numeric ordering; only the known historical alpha series is retired.
+fn release_order(key: Vec<u64>) -> (u8, Vec<u64>) {
+    let retired = key[0] == 0
+        && key[2] == 0
+        && key[3] == 0
+        && (((1..=5).contains(&key[1]) && key[4] == 1)
+            || (key[1] == 6 && (1..=16).contains(&key[4])));
+    (u8::from(!retired), key)
+}
 pub fn choose(
     releases: serde_json::Value,
     current: &str,
@@ -43,7 +55,7 @@ pub fn choose(
 ) -> Result<serde_json::Value, String> {
     use serde_json::{json, Value};
     const REPO: &str = "https://github.com/SigmaCodez/NeutronDrive";
-    let mut best = version(current)?;
+    let mut best = release_order(version(current)?);
     let mut selected = Value::Null;
     for item in releases.as_array().ok_or("Invalid release response")? {
         if !item.is_object() || item["draft"] == true || !item["published_at"].is_string() {
@@ -55,7 +67,9 @@ pub fn choose(
         let Ok(key) = version(tag) else {
             continue;
         };
-        if key <= best || (!preview && (item["prerelease"] == true || key[3] < 3)) {
+        let prerelease = item["prerelease"] == true || key[3] < 3;
+        let key = release_order(key);
+        if key <= best || (!preview && prerelease) {
             continue;
         }
         let url = format!("{REPO}/releases/tag/{tag}");
@@ -121,6 +135,67 @@ pub fn choose(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn beta_reset_never_offers_retired_alphas_as_upgrades() {
+        use serde_json::json;
+        let release = |tag: &str| {
+            json!({
+                "tag_name":tag,
+                "html_url":format!("https://github.com/SigmaCodez/NeutronDrive/releases/tag/{tag}"),
+                "published_at":"2026-10-25", "prerelease":true, "assets":[]
+            })
+        };
+        let old = release("v0.6.0-alpha15");
+        let beta = release("v0.1.0-beta1");
+        assert_eq!(
+            choose(
+                json!([old.clone(), beta.clone()]),
+                "0.6.0-alpha.15",
+                true,
+                "other",
+                "x86_64"
+            )
+            .unwrap()["tag"],
+            "v0.1.0-beta1"
+        );
+        assert!(choose(
+            json!([old.clone(), beta.clone()]),
+            "0.1.0-beta.1",
+            true,
+            "other",
+            "x86_64"
+        )
+        .unwrap()
+        .is_null());
+        assert!(choose(
+            json!([beta.clone()]),
+            "0.6.0-alpha.15",
+            false,
+            "other",
+            "x86_64"
+        )
+        .unwrap()
+        .is_null());
+        assert_eq!(
+            choose(
+                json!([old, beta, release("v0.1.0-beta2")]),
+                "0.1.0-beta.1",
+                true,
+                "other",
+                "x86_64"
+            )
+            .unwrap()["tag"],
+            "v0.1.0-beta2"
+        );
+        assert!(
+            release_order(version("0.2.0-beta1").unwrap())
+                > release_order(version("0.1.0").unwrap())
+        );
+        assert!(
+            release_order(version("0.1.0").unwrap())
+                > release_order(version("0.1.0-beta99").unwrap())
+        );
+    }
     #[test]
     fn rpm_selection_keeps_distribution_architecture_and_digest() {
         use serde_json::json;

@@ -169,6 +169,9 @@ jobs:
           python3 scripts/build-deb --arch '${{ matrix.architecture }}' --backend build/backend/proton-drive
           dpkg-deb --info dist/*.deb
           sudo apt-get install -y ./dist/*.deb
+          # Beta 0.1 resets the public version; epoch 1 must upgrade alpha 0.6.
+          nd_installed=$(dpkg-query -W -f='${Version}' neutrondrive)
+          dpkg --compare-versions "$nd_installed" gt '0.6.0~alpha15-1'
           python3 desktop/tests/check-staged-runtime.py /usr
           neutrondrive --help
           neutrondrive --diagnose
@@ -215,6 +218,7 @@ jobs:
           rpm -qpi dist/*.rpm
           ${{ matrix.install_package }}
           test "$(cat /usr/lib/neutrondrive/package-format)" = "rpm-${{ matrix.distribution }}"
+          test "$(rpm -q --queryformat '%{EPOCHNUM}' neutrondrive)" = 1
           python3 desktop/tests/check-staged-runtime.py /usr
           neutrondrive --diagnose
       - uses: actions/upload-artifact@v4

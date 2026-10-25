@@ -1,6 +1,9 @@
 # Validation record
 
-## Alpha16 release validation (2026-10-25)
+## Pre-beta alpha16 candidate validation (2026-10-25)
+
+This candidate was superseded before publication by the requested 0.1 beta release.
+The evidence below describes that earlier candidate, not the final beta binaries.
 
 The complete [source and Linux package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40232633624)
 passed for source commit `32cd2d5bf33a0cfa048328334d5d8ed31c73023c`.

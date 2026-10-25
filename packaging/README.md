@@ -258,3 +258,14 @@ frontend and SDK provenance before creating its local source/checksum entries.
 The published `packaging/aur/neutrondrive-bin` recipe pins the alpha15 native
 DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.
+
+## Beta 0.1 version reset
+
+The public release line restarts at `0.1.0-beta1` (Rust `0.1.0-beta.1`). Keep
+**epoch 1** in all subsequent DEB, RPM and Arch package metadata: it makes the
+numerically lower beta a normal upgrade from the retired 0.6 alpha packages.
+Do not include the epoch in release asset filenames. Flatpak and Snap use their
+normal bundle/revision replacement mechanisms; AppImages are replaced manually.
+Existing 0.6 alpha update checkers need one manual beta installation. The beta
+updater excludes the known retired alpha versions from its newer-release ordering.
+Historical Git tags remain, but old GitHub release downloads are retired.

@@ -1,11 +1,11 @@
 # Desktop features
 
-The latest published package is alpha16. The sections below identify when features
+The latest published package is beta 0.1. The sections below identify when features
 were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
 
-## Alpha16: Takeout, Computer and donations
+## Beta 0.1: Takeout, Computer and donations
 
 **Photos → Google Takeout import** accepts an extracted Google Photos export.
 Download every archive part from Google Takeout and extract/merge them into one
@@ -47,9 +47,9 @@ An optional **Support on Ko-fi** button sits at the bottom of the sidebar. It op
 loaded inside the application. New fixed UI strings are included in all 25
 catalogs; German was reviewed manually and other new translations are machine drafts.
 
-These features require alpha16 or newer, including its updated SDK bridge.
+These features require beta 0.1 or newer, including its updated SDK bridge.
 
-## Alpha16: update restart
+## Beta 0.1: update restart
 
 The built-in DEB/RPM updater now coordinates the application, synchronization daemon,
 online-file service and its emblem helper. It refuses an active sync and uses a
@@ -64,7 +64,7 @@ restores the previous services and keeps the UI open. If service restoration
 fails after installation, **Restart app and services** retries the restart without
 installing the package again. New actions are blocked during this handoff.
 
-These changes are included starting with alpha16. They apply to updates
+These changes are included starting with beta 0.1. They apply to updates
 initiated by the built-in DEB/RPM updater once this implementation is installed;
 external package-manager upgrades and other package formats retain their existing
 update flow. Native Fedora RPMs use DNF5 or DNF; openSUSE RPMs use Zypper. The

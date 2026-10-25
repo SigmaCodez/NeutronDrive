@@ -1,6 +1,6 @@
 # Import Google Photos from Takeout
 
-NeutronDrive alpha16 can upload photos and videos from an **extracted Google
+NeutronDrive beta 0.1 can upload photos and videos from an **extracted Google
 Takeout export** into Proton Photos. It keeps original media bytes unchanged and
 uses matching Google JSON sidecars for capture time and location when available.
 
