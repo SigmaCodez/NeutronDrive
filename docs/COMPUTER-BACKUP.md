@@ -1,6 +1,6 @@
 # Computer folder synchronization
 
-The new **Automatic sync → Computer backup** card registers a Linux device
+The **Computers → Computer backup** page registers a Linux device
 through the pinned official Proton SDK and adds selected local folders under
 **Computers** in Proton Drive. Device registration and all encryption use the
 SDK; no private API or reimplemented cryptography is involved.
@@ -42,5 +42,5 @@ verified maximum GLIBC requirement of 2.34. ARM64 uses the Ubuntu 24.04 baseline
 and the pinned Qt runtime requires GLIBC 2.39. Both architectures have passed
 native CI tests; host-built artifacts still require provenance and ABI checks
 before packaging.
-The new setup labels currently have German/English text; other locales fall back
-to English for these labels.
+The interface provides 25 language catalogs, with English fallback for unavailable
+translations. Initial machine-assisted translations still need native-speaker review.
