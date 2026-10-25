@@ -27,6 +27,7 @@ pub mod qobject {
         #[qml_element]
         #[qproperty(QString, state_json, READ, NOTIFY, cxx_name = "stateJson")]
         #[qproperty(QString, files_json, READ, NOTIFY, cxx_name = "filesJson")]
+        #[qproperty(QString, photos_json, READ, NOTIFY, cxx_name = "photosJson")]
         type NativeFiles = super::Controller;
         #[qsignal]
         #[cxx_name = "dialogRequested"]
@@ -74,6 +75,7 @@ pub mod qobject {
 pub struct Controller {
     state_json: QString,
     files_json: QString,
+    photos_json: QString,
     model: Option<Files>,
     executable: String,
     demo: bool,
@@ -84,12 +86,14 @@ pub struct Controller {
     status_cancel: Arc<AtomicBool>,
     cancel: Arc<AtomicBool>,
     files_revision: u64,
+    photos_revision: u64,
 }
 impl Default for Controller {
     fn default() -> Self {
         Self {
             state_json: QString::from("{}"),
             files_json: QString::from("[]"),
+            photos_json: QString::from("[]"),
             model: None,
             executable: String::new(),
             demo: false,
@@ -100,6 +104,7 @@ impl Default for Controller {
             status_cancel: Arc::new(AtomicBool::new(false)),
             cancel: Arc::new(AtomicBool::new(false)),
             files_revision: 0,
+            photos_revision: 0,
         }
     }
 }
@@ -176,9 +181,31 @@ impl qobject::NativeFiles {
         let Some(model) = self.rust().model.as_ref() else {
             return;
         };
-        let state = QString::from(model.state.to_string());
+        // Photo payloads can contain tens of MB of base64 thumbnails. Never copy
+        // or serialize them for unrelated service/status changes.
+        let state = QString::from(
+            Value::Object(
+                model
+                    .state
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .filter(|(key, _)| key.as_str() != "photos")
+                    .map(|(key, value)| (key.clone(), value.clone()))
+                    .collect(),
+            )
+            .to_string(),
+        );
+        let photos_revision = model.photos_revision;
+        let photos = (self.rust().photos_revision != photos_revision)
+            .then(|| QString::from(model.state["photos"].to_string()));
         let revision = model.files_revision;
         let entries = QString::from(model.entries.to_string());
+        if let Some(photos) = photos {
+            self.as_mut().rust_mut().photos_revision = photos_revision;
+            self.as_mut().rust_mut().photos_json = photos;
+            self.as_mut().photos_json_changed();
+        }
         if self.rust().state_json != state {
             self.as_mut().rust_mut().state_json = state;
             self.as_mut().state_json_changed();
@@ -406,7 +433,9 @@ fn demo_operation(operation: &Value) -> Result<Value, Failure> {
         "version" => Ok(json!(
             "Demo-Modus · keine Verbindung und keine Übertragungen"
         )),
-        "account_storage" => Ok(json!({"total":10737418240_u64,"used":3221225472_u64})),
+        "account_storage" => Ok(
+            json!({"total":10737418240_u64,"used":3221225472_u64,"account":{"name":"Alex Morgan","email":"alex@example.invalid"}}),
+        ),
         "photo_library" => match operation["request"]["action"].as_str().unwrap_or("") {
             "index" => {
                 Ok(json!({"items":[{"uid":"demo-photo-one"},{"uid":"demo-photo-two"}],"total":2}))

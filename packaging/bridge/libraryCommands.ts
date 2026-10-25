@@ -146,15 +146,17 @@ export class CommandPhotoLibrary implements Command {
     }
 }
 
-/** Read only quota fields through the upstream authenticated API client. */
+/** Expose quota and explicitly selected display identity, never keys or tokens. */
 export class CommandAccountStorage implements Command {
     group = 'account'; name = 'storage';
     async action({ apiClient }: ActionArgs) {
         if (!apiClient) throw new Error('Account API is unavailable');
-        const response = await apiClient.authenticatedRequest.get(`${apiClient.baseUrlWithProtocol}/core/v4/users`).json<{ User?: { MaxSpace?: number; UsedSpace?: number } }>();
+        const response = await apiClient.authenticatedRequest.get(`${apiClient.baseUrlWithProtocol}/core/v4/users`).json<{ User?: { MaxSpace?: number; UsedSpace?: number; Name?: string; DisplayName?: string; Email?: string } }>();
         const total = response.User?.MaxSpace;
         const used = response.User?.UsedSpace;
         if (!Number.isSafeInteger(total) || !Number.isSafeInteger(used) || total! < 0 || used! < 0) throw new Error('Invalid account storage response');
-        console.log(JSON.stringify({ total, used, free: Math.max(0, total! - used!) }));
+        const label = (value: unknown) => typeof value === 'string' && value.length <= 320 && !/[\x00-\x1f\x7f]/.test(value) ? value.trim() : '';
+        const account = { name: label(response.User?.DisplayName) || label(response.User?.Name) || label(response.User?.Email), email: label(response.User?.Email) };
+        console.log(JSON.stringify({ total, used, free: Math.max(0, total! - used!), account }));
     }
 }

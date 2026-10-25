@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-core"
-version = "0.6.0-alpha.12"
+version = "0.6.0-alpha.13"
 dependencies = [
  "fuser",
  "futures-core",
@@ -667,7 +667,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-qt"
-version = "0.6.0-alpha.12"
+version = "0.6.0-alpha.13"
 dependencies = [
  "cxx",
  "cxx-qt",

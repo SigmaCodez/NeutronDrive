@@ -112,6 +112,7 @@ pub struct Files {
     pub state: Value,
     pub entries: Value,
     pub files_revision: u64,
+    pub photos_revision: u64,
     nodes: Vec<Value>,
     visible: Vec<Value>,
     photo_index: Vec<String>,
@@ -194,6 +195,7 @@ impl Files {
             nodes: vec![],
             visible: vec![],
             photo_index: vec![],
+            photos_revision: 1,
             selection: BTreeSet::new(),
             crumbs: vec![(title, "/my-files".into())],
             pending: None,
@@ -213,6 +215,7 @@ impl Files {
         this.state["photoOffset"] = json!(0);
         this.state["photosMore"] = json!(false);
         this.state["authenticated"] = json!(false);
+        this.state["account"] = Value::Null;
         this.state["storage"] = Value::Null;
         this.state["setupNeeded"] = json!(false);
         this.state["setupFolder"] = json!("");
@@ -653,6 +656,19 @@ impl Files {
                         if let (Some(total), Some(used)) =
                             (value["total"].as_u64(), value["used"].as_u64())
                         {
+                            let clean = |key: &str| {
+                                value["account"][key]
+                                    .as_str()
+                                    .filter(|s| {
+                                        !s.is_empty()
+                                            && s.len() <= 320
+                                            && !s.chars().any(char::is_control)
+                                    })
+                                    .unwrap_or("")
+                                    .to_string()
+                            };
+                            self.state["account"] =
+                                json!({"name":clean("name"),"email":clean("email")});
                             self.state["storage"] = json!({"total":total,"used":used,"free":total.saturating_sub(used),"percent":if total>0 {100.0*used as f64/total as f64}else{0.0},"usedText":self.locale.size_text(Some(used)),"freeText":self.locale.size_text(Some(total.saturating_sub(used)))});
                         }
                         vec![]
@@ -741,6 +757,7 @@ impl Files {
                                     photo
                                 })
                                 .collect::<Vec<_>>());
+                            self.photos_revision += 1;
                             self.state["photoOffset"] = value["offset"].clone();
                             self.state["photosMore"] = value["more"].clone();
                         } else {
@@ -786,6 +803,12 @@ impl Files {
                     Done::LoggedOut => {
                         self.state["authenticated"] = json!(false);
                         self.state["storage"] = Value::Null;
+                        self.state["account"] = Value::Null;
+                        self.state["photos"] = json!([]);
+                        self.state["photoAlbums"] = json!([]);
+                        self.state["photoTotal"] = Value::Null;
+                        self.photo_index.clear();
+                        self.photos_revision += 1;
                         self.nodes.clear();
                         self.render();
                         self.message(&self.tr("Von Proton abgemeldet."), false);
@@ -1259,6 +1282,7 @@ impl Files {
             "cli" => vec![Effect::OpenUrl("https://proton.me/download/drive/cli/index.html".into())],
             "project" => vec![Effect::OpenUrl("https://github.com/SigmaCodez/NeutronDrive".into())],
             "web" => vec![Effect::OpenUrl("https://drive.proton.me".into())],
+            "subscription" => vec![Effect::OpenUrl("https://account.proton.me/drive/dashboard".into())],
             "refresh" => self.refresh(),
             "Versions" if nodes.len()==1 => self.submit("Version history",json!({"action":"versions","path":paths[0]}),Done::Versions(paths[0].clone())),
             "version" => self.submit("Backend prüfen", json!({"action":"version"}), Done::Version),
@@ -1599,6 +1623,29 @@ mod tests {
         assert_eq!(w.operation["action"], "remove_link");
         assert_eq!(w.operation["path"], "/my-files/Straße.txt");
     }
+    #[test]
+    fn account_identity_is_bounded_and_logout_clears_personal_views() {
+        let mut m = model();
+        m.state["authenticated"] = json!(true);
+        let request = work(m.dispatch("account_storage", &json!([])));
+        m.complete(
+            request.id,
+            Ok(json!({"total":100,"used":25,"account":{"name":"Alex","email":"bad\nvalue"}})),
+        );
+        assert_eq!(m.state["account"], json!({"name":"Alex","email":""}));
+        assert_eq!(m.state["storage"]["percent"], 25.0);
+        let effects = m.dispatch("action", &json!(["subscription"]));
+        assert!(
+            matches!(&effects[0], Effect::OpenUrl(url) if url=="https://account.proton.me/drive/dashboard")
+        );
+        m.state["photos"] = json!([{"uid":"private"}]);
+        let d = dialog(m.dispatch("action", &json!(["logout"])));
+        let request = work(m.dispatch("answer_dialog", &json!([d["token"], true, ""])));
+        m.complete(request.id, Ok(Value::Null));
+        assert!(m.state["account"].is_null());
+        assert_eq!(m.state["photos"], json!([]));
+    }
+
     #[test]
     fn login_events_are_operation_scoped_and_logout_requires_confirmation() {
         let mut m = loaded();

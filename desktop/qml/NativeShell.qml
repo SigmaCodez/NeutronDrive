@@ -35,7 +35,8 @@ Item {
     property string catalog: launch.catalog || ""
     property bool fixture: Qt.application.arguments[1] === "--check-window-fixture"
     property bool smoke: Qt.application.arguments[1] === "--check-window" || fixture
-    readonly property var state: JSON.parse(files.stateJson)
+    readonly property var photoEntries: JSON.parse(files.photosJson)
+    readonly property var state: Object.assign(JSON.parse(files.stateJson), {photos: photoEntries})
     readonly property var fileEntries: JSON.parse(files.filesJson)
     readonly property var appearance: appearanceObject
     readonly property var updates: updateAdapter
@@ -164,6 +165,11 @@ Item {
         return null;
     }
     onDialogRequested: function(value){lastDialog=value}
+    property var photoBench: null
+    property var photoBenchDelegate: null
+    property real photoBenchScroll: 0
+    property real photoBenchStarted: 0
+    QtObject { id: photoBenchController; property var photoEntries: []; property string language: "en"; function send(method,args){} }
     property int captureFrames: 0
     function capture(name,next){
         if(fixture || Qt.application.arguments.length<4 || !Qt.application.arguments[3]){stage=next;return}
@@ -227,6 +233,13 @@ Item {
                 }else if(controller.stage===0){
                     if(!controller.view.visible)throw new Error("Main window is not visible");
                     if(controller.fileEntries.length===0)throw new Error("Demo files missing");
+                    if(!controller.fixture && (!controller.state.account || !controller.state.account.name)){controller.send("account_storage",[]);return;}
+                    let account=controller.childNamed(controller.view.contentItem,"accountMenuButton");
+                    if(!account || !account.visible || account.popup.count!==5)throw new Error("Account menu missing");
+                    if(!controller.fixture && account.accountName!=="Alex Morgan")throw new Error("Account identity not shown");
+                    account.popup.itemAt(0).triggered();
+                    if(controller.state.page!=="settings")throw new Error("Account settings navigation failed");
+                    console.log("NATIVE_ACCOUNT_MENU_OK");
                     if(Qt.application.arguments.length>5){
                         if(controller.language!==Qt.application.arguments[4])throw new Error("Unexpected system language: "+controller.language);
                         if(controller.view.titles.files!==Qt.application.arguments[5])throw new Error("Main window title translation mismatch");
@@ -310,7 +323,12 @@ Item {
                 }else if(controller.stage===2061){
                     controller.stage=20611;
                 }else if(controller.stage===20611){
-                    controller.capture("dark-grid.png",2062);
+                    controller.capture("dark-grid.png",20612);
+                }else if(controller.stage===20612){
+                    controller.childNamed(controller.view.contentItem,"accountMenuButton").popup.open();controller.stage=20613;
+                }else if(controller.stage===20613){controller.capture("dark-account-menu.png",20614);
+                }else if(controller.stage===20614){
+                    controller.childNamed(controller.view.contentItem,"accountMenuButton").popup.close();controller.stage=2062;
                 }else if(controller.stage===2062){
                     controller.setAppearancePreference("light");
                     let point=controller.checkedRow.mapToItem(controller.view.contentItem,40,40);
@@ -357,6 +375,32 @@ Item {
                     if(!albums || !albums.visible || albums.count!==1)throw new Error("Album browser failed");
                     controller.capture("light-albums.png",2102);
                 }else if(controller.stage===2102){
+                    let items=[];
+                    for(let i=0;i<2000;i++)items.push({uid:"bench-"+i,name:"Sample "+i,safe:true,thumbnail:"",previewLoaded:true});
+                    photoBenchController.photoEntries=items;
+                    let component=Qt.createComponent("qrc:/neutrondrive/ui/PhotoLibraryPanel.qml");
+                    if(component.status!==Component.Ready)throw new Error(component.errorString());
+                    controller.photoBench=component.createObject(controller.view.contentItem,{host:controller.view,controller:photoBenchController,viewState:{busy:true,photosMore:false,photoTotal:2000},x:250,y:70,width:900,height:650});
+                    if(!controller.photoBench)throw new Error(component.errorString());
+                    controller.stage=21020;
+                }else if(controller.stage===21020){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    if(grid.count!==2000)throw new Error("Large photo model missing");
+                    grid.positionViewAtIndex(1000,GridView.Beginning);controller.stage=21021;
+                }else if(controller.stage===21021){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    controller.photoBenchDelegate=controller.childNamed(grid,"photoPreview-1000");
+                    if(!controller.photoBenchDelegate)throw new Error("Scrolled photo delegate missing");
+                    controller.photoBenchScroll=grid.contentY;
+                    let items=photoBenchController.photoEntries.slice();items[1000]=Object.assign({},items[1000],{name:"Updated sample"});
+                    for(let i=2000;i<2048;i++)items.push({uid:"bench-"+i,name:"Sample "+i,safe:true,thumbnail:"",previewLoaded:true});
+                    controller.photoBenchStarted=Date.now();photoBenchController.photoEntries=items;
+                    controller.photoBench.viewState={busy:false,photosMore:false,photoTotal:2048};controller.stage=21022;
+                }else if(controller.stage===21022){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    if(grid.count!==2048 || grid.contentY!==controller.photoBenchScroll || controller.childNamed(grid,"photoPreview-1000")!==controller.photoBenchDelegate)throw new Error("Photo append/status update recreated delegates or moved scroll position");
+                    console.log("NATIVE_PHOTO_INCREMENTAL_MODEL_OK",Date.now()-controller.photoBenchStarted);
+                    controller.photoBench.destroy();controller.photoBench=null;
                     controller.show_page("files");
                     let index=controller.fileEntries.findIndex(entry=>!entry.isFolder);
                     controller.select_row(index,false);controller.action("Versions");controller.stage=211;

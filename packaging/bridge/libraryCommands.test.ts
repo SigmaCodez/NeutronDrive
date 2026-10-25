@@ -66,15 +66,15 @@ test('partial album changes do not report success', async () => {
 });
 
 import { CommandAccountStorage } from './libraryCommands';
-test('quota emits only validated storage fields, including over-quota accounts', async () => {
+test('account exposes only quota and sanitized display identity, never keys', async () => {
     const log=spyOn(console,'log').mockImplementation(()=>{});
     try {
-        let user:any={MaxSpace:10,UsedSpace:12,Email:'private@example.invalid',Keys:['private']};
+        let user:any={MaxSpace:10,UsedSpace:12,Name:'alex',DisplayName:'Alex Morgan',Email:'alex@example.invalid',Keys:['private'],AccessToken:'secret'};
         const context={apiClient:{baseUrlWithProtocol:'https://example.invalid',authenticatedRequest:{get:(url:string)=>{
             expect(url).toBe('https://example.invalid/core/v4/users');return {json:async()=>({User:user})};
         }}}} as any;
         await new CommandAccountStorage().action(context);
-        expect(JSON.parse(log.mock.calls[0][0])).toEqual({total:10,used:12,free:0});
+        expect(JSON.parse(log.mock.calls[0][0])).toEqual({total:10,used:12,free:0,account:{name:'Alex Morgan',email:'alex@example.invalid'}});
         user={MaxSpace:-1,UsedSpace:0};
         await expect(new CommandAccountStorage().action(context)).rejects.toThrow('Invalid account');
         expect(log.mock.calls.length).toBe(1);

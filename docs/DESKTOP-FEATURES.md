@@ -8,6 +8,14 @@ photo-library, album and account-storage commands.
 
 ## Files and sync
 
+### Account menu (unreleased)
+
+The lower-left account button displays the signed-in user's display name and,
+when available, email address. Its themed menu opens Settings, the Proton
+subscription dashboard, Proton Drive online, or the existing guarded sign-out
+flow. This requires the updated SDK bridge as well as the desktop executable.
+Only display identity and quota fields are exposed to the UI, never user keys.
+
 List/grid switching shares selection and actions. The view choice lasts for the
 window session. The automatic-sync page shows current totals for folders,
 active transfers, paused jobs and jobs requiring attention. Detailed job rows
@@ -33,8 +41,12 @@ certify tray support in every desktop/environment combination.
 ## Photos and albums (alpha9)
 
 Photos inventories the timeline once and displays the total count. Scrolling
-loads metadata and JPEG previews in batches of up to 48. At most 96 thumbnail
-payloads remain in memory; older previews reload when revisited. Originals are
+loads metadata and JPEG previews in batches of up to 48. The unreleased scrolling
+update preserves grid delegates and scroll position, separates thumbnail updates
+from service/status updates, and requests the next page before reaching the end.
+Page loading retains up to 96 thumbnail payloads; preview refresh retains a
+nearby window of up to 144 entries. Qt also caches decoded images. Older previews
+can reload when revisited. Originals are
 not downloaded by browsing. Missing previews remain downloadable by photo ID.
 Refresh rebuilds the inventory; cloud changes during browsing are not a frozen
 snapshot. The current limits are 500,000 timeline entries and 10,000 albums.

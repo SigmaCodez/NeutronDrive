@@ -1,5 +1,21 @@
 # Validation record
 
+## Unreleased photo scrolling and account-menu changes (2026-10-25)
+
+Local validation passed 71 desktop Rust tests, Clippy for all targets with warnings
+denied, the native application build, and nine SDK library-command tests (23
+expectations). The Qt smoke test passed in an isolated offscreen session,
+including selection, photo viewer, account-menu settings navigation, themes,
+keyboard/mouse input and tray behavior.
+
+A synthetic photo model grew from 2,000 to 2,048 entries while preserving the
+visible delegate and scroll position. This checks incremental rendering, not
+real-account network throughput or a full thumbnail-decoding benchmark. The
+dark account menu was also visually inspected from an application-generated
+capture with synthetic identity. No live logout or subscription change was
+performed. These changes have not yet been packaged or installed; their results
+do not describe the installed alpha12 local1 package below.
+
 ## Current status: alpha11 release and alpha12 development
 
 The latest published release is [alpha11](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha11).

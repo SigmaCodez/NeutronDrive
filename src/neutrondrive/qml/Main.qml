@@ -74,7 +74,7 @@ ApplicationWindow {
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
     readonly property bool dialogOpen: modal.visible || folderPicker.visible || filePicker.visible || setupWizard.visible
     property bool gridView: false
-    Timer { interval: 60000; repeat: true; running: Boolean(s.authenticated); triggeredOnStart: true; onTriggered: if(!s.busy)controller.send("account_storage",[]) }
+    Timer { interval: s.storage ? 60000 : 5000; repeat: true; running: Boolean(s.authenticated); triggeredOnStart: true; onTriggered: if(!s.busy)controller.send("account_storage",[]) }
     property var appController: controller
     property var s: controller.state
     property color muted: window.theme.muted
@@ -318,7 +318,42 @@ ApplicationWindow {
                     Copy { text: s.storage ? s.storage.usedText+" "+window.tr("used")+" · "+Math.round(s.storage.percent)+"%" : window.tr("Storage information unavailable"); font.pixelSize: 12 }
                     Copy { text: s.storage ? s.storage.freeText+" "+window.tr("free") : ""; visible: Boolean(s.storage); font.pixelSize: 12 }
                 }
-                Action { text: window.tr("Proton Drive im Web ↗"); command: "web"; Layout.fillWidth: true }
+                Button {
+                    id: accountButton; objectName: "accountMenuButton"
+                    property alias popup: accountMenu
+                    visible: Boolean(s.authenticated); Layout.fillWidth: true; implicitHeight: 58; padding: 10
+                    readonly property string accountName: (s.account && (s.account.name || s.account.email)) || window.tr("Signed in")
+                    Accessible.name: window.tr("Account menu")+": "+accountName
+                    onClicked: accountMenu.open()
+                    background: Rectangle { radius: 10; color: accountButton.hovered || accountMenu.opened ? window.theme.navHover : "transparent"; border.color: accountButton.activeFocus ? window.theme.accent : window.theme.border }
+                    contentItem: RowLayout {
+                        spacing: 9
+                        Rectangle {
+                            Layout.preferredWidth: 32; Layout.preferredHeight: 32; radius: 16; color: window.theme.selected
+                            Label { anchors.centerIn: parent; text: accountButton.accountName.slice(0,1).toUpperCase(); textFormat: Text.PlainText; font.bold: true; color: window.theme.accentText }
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            Label { objectName: "accountDisplayName"; text: accountButton.accountName; textFormat: Text.PlainText; elide: Text.ElideRight; color: window.theme.text; font.bold: true; Layout.fillWidth: true }
+                            Label { text: (s.account && s.account.email) || window.tr("Signed in"); textFormat: Text.PlainText; elide: Text.ElideRight; color: window.theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
+                        }
+                        Label { text: "⌃"; color: window.theme.muted }
+                    }
+                    Menu {
+                        id: accountMenu; objectName: "accountMenu"; y: -height-8; width: 240; padding: 6
+                        background: Rectangle { radius: 12; color: window.theme.canvas; border.color: window.theme.border }
+                        component AccountItem: MenuItem {
+                            id: item; implicitHeight: 40
+                            contentItem: Text { text: item.text; textFormat: Text.PlainText; color: item.enabled ? window.theme.text : window.theme.disabledText; font: item.font; verticalAlignment: Text.AlignVCenter; leftPadding: 10 }
+                            background: Rectangle { radius: 7; color: item.highlighted ? window.theme.selected : "transparent" }
+                        }
+                        AccountItem { objectName: "accountSettings"; text: window.tr("Einstellungen"); onTriggered: controller.show_page("settings") }
+                        AccountItem { objectName: "accountSubscription"; text: window.tr("Subscription"); onTriggered: controller.action("subscription") }
+                        AccountItem { objectName: "accountDriveOnline"; text: window.tr("Proton Drive online"); onTriggered: controller.action("web") }
+                        MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: window.theme.border } }
+                        AccountItem { objectName: "accountSignOut"; text: window.tr("Abmelden"); enabled: !s.busy; onTriggered: controller.action("logout") }
+                    }
+                }
                 Copy { text: window.tr("Unabhängige Open-Source-App\n")+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
             }
         }
