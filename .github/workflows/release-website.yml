@@ -1,0 +1,67 @@
+name: Publish release website content
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing published release tag to rebuild website content for'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release-website-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  website:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      ND_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      # Trusted workflow tooling from the default branch; content and fixtures
+      # below are pinned separately to the exact published release commit.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Validate the requested published release and download its package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch(r"v[0-9][A-Za-z0-9._-]+",os.environ["ND_TAG"])'
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$ND_TAG" > "$RUNNER_TEMP/release.json"
+          python3 -c 'import json,os; r=json.load(open(os.environ["RUNNER_TEMP"]+"/release.json")); assert not r["draft"] and r["published_at"]'
+          gh release download "$ND_TAG" --repo "$GITHUB_REPOSITORY" --pattern '*amd64.deb' --pattern SHA256SUMS --dir "$RUNNER_TEMP/package"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ND_TAG }}
+          path: release-source
+          persist-credentials: false
+      - name: Install capture runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dbus-daemon libgl1 libegl1 libopengl0 libxkbcommon0 libfontconfig1 libdbus-1-3 libsm6 libice6 libsecret-1-0
+      - name: Test the content publisher
+        run: python3 -m unittest discover -s website/tests -p 'test_*.py'
+      - name: Generate five-language manifest and capture the actual release GUI
+        run: |
+          nd_packages=("$RUNNER_TEMP"/package/*amd64.deb)
+          test "${#nd_packages[@]}" = 1
+          nd_commit=$(git -C release-source rev-parse HEAD)
+          python3 scripts/build-website-release.py --tag "$ND_TAG" --commit "$nd_commit" --source "$GITHUB_WORKSPACE/release-source" --deb "${nd_packages[0]}" --checksums "$RUNNER_TEMP/package/SHA256SUMS" --output "$RUNNER_TEMP/website/neutrondrive-website.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: website-release-content
+          path: ${{ runner.temp }}/website/neutrondrive-website.json
+          if-no-files-found: error
+      - name: Attach the complete manifest to this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$ND_TAG" "$RUNNER_TEMP/website/neutrondrive-website.json" --repo "$GITHUB_REPOSITORY" --clobber

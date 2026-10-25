@@ -1,0 +1,27 @@
+name: Website release manifest checks
+on:
+  push:
+    paths: ['docs/website-content.json', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
+  pull_request:
+    paths: ['docs/website-content.json', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
+permissions:
+  contents: read
+jobs:
+  manifest:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Test publisher and consumer contracts
+        run: python3 -m unittest discover -s website/tests -p 'test_*.py'
+      - name: Require complete release copy in all five languages
+        run: |
+          python3 - <<'PY'
+          import importlib.util, json
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('publisher', 'scripts/build-website-release.py')
+          module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+          path = Path('docs/website-content.json')
+          module.reviewed_text(path, json.loads(path.read_text())['release'])
+          PY

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://neutrondrive.sigmacodez.dev/sitemap.xml

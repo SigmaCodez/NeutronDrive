@@ -41,3 +41,39 @@ Document development captures separately from published versions, and keep
 installation examples tied to downloadable release assets. GitHub language
 statistics exclude third-party license documentation and vendored dependencies
 through `.gitattributes`; maintained build/test code remains visible.
+
+## Automatic homepage release bundle
+
+The `Publish release website content` workflow runs on every published GitHub
+release (stable or prerelease). It can also be rerun with `workflow_dispatch`
+and the existing release tag, or called as a reusable workflow with `tag`.
+If a different Actions workflow publishes releases using GITHUB_TOKEN, it must
+call this reusable workflow explicitly: GitHub does not start another workflow
+from that token’s release event. It checks out the exact release source, verifies
+its published amd64 DEB against SHA256SUMS, checks the executable version, and
+captures the actual packaged Qt interface in isolated English profiles using
+synthetic data. No installed user profile or live Proton account is used.
+
+Before tagging, update `docs/website-content.json` for the exact new release tag.
+All five locales (en, de, fr, es, it) must contain description, features, FAQ,
+trust notes, gallery captions and releaseNotes. These are maintained translations,
+not machine-invented release claims. The fast `Website release manifest checks`
+workflow checks completeness on pushes and pull requests. A stale release tag,
+missing translation, mismatched package checksum/version, missing PNG or failed
+GUI check prevents publication of the homepage bundle.
+
+The generated `neutrondrive-website.json` release asset includes all text, five
+base64 PNGs, PNG hashes, package/executable hashes, exact source commit, language
+and capture time. It is also retained as a workflow artifact. One asset avoids
+partial text/image updates. It is generated after the package release, so a
+failed website job does not delete or unpublish packages. Correct the source
+before tagging a new release, or rerun transient capture failures for the same tag.
+Immutable GitHub releases must have this asset attached before locking the release;
+post-publication asset uploads require an editable release.
+
+The server polls every 15 minutes and prefers this bundle over docs in the tag.
+It validates the commit, all languages and screenshot hashes before switching its
+live snapshot. Until the bundle is available, original release notes update via
+the existing fallback and previous screenshots retain their original version.
+Changing a release tag or replacing its package just to fix website text is not
+part of this workflow.

@@ -8,7 +8,7 @@
 [![Platform: Linux](https://img.shields.io/badge/platform-Linux-0078d4)](#install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-An independent, open-source **Linux desktop client for Proton Drive**. Browse your
+An unofficial, open-source **Linux desktop client for Proton Drive**. Browse your
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
@@ -262,3 +262,9 @@ Cargo builds, Qt preparation, runtime paths and verification.
 NeutronDrive is [MIT licensed](LICENSE). Bundled dependencies keep their own
 licenses and notices. Public screenshots use synthetic data and are refreshed
 from the actual GUI; development previews are labeled separately from releases.
+
+## Project homepage
+
+The promotional website is configured for [neutrondrive.sigmacodez.dev](https://neutrondrive.sigmacodez.dev).
+Its Next.js/React source and deployment documentation are in [website/](website/README.md).
+Run `./deploy.sh` to deploy the website to the configured Docker server.
