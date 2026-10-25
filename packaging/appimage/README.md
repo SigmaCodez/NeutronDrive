@@ -16,14 +16,14 @@ No musl/Alpine or 32-bit support is claimed. ARM64 users can use the native pack
 ## Run
 
 ```sh
-chmod +x NeutronDrive-0.6.0-alpha15-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha15-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha16-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha16-x86_64.AppImage
 ```
 
 If the system cannot mount AppImages, extract and run without FUSE:
 
 ```sh
-./NeutronDrive-0.6.0-alpha15-x86_64.AppImage --appimage-extract
+./NeutronDrive-0.6.0-alpha16-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 ```
 
@@ -46,7 +46,7 @@ The application is not sandboxed by AppImage.
 
 ## Sources and notices
 
-The application, bridge and pinned Qt source archives are provided by the alpha15
+The application, bridge and pinned Qt source archives are provided by the alpha16
 release. Ubuntu copyright notices and exact binary/source package versions are
 included in `usr/share/doc/ubuntu-runtime` and
 `usr/share/doc/neutrondrive/ubuntu-runtime-packages.tsv`. This manifest records the full Ubuntu build environment; not every listed package

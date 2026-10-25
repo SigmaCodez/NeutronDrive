@@ -49,6 +49,7 @@ mod sync_plan;
 mod sync_proof;
 mod sync_remote;
 mod sync_state;
+mod takeout;
 mod trash_journal;
 mod trash_location;
 mod trash_move;

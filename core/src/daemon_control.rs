@@ -9,6 +9,7 @@ type Result<T> = std::result::Result<T, Failure>;
 pub enum Action {
     Status,
     Stop,
+    StopIdle,
     Reload,
     Pause,
     Resume,
@@ -86,6 +87,20 @@ pub fn reload(host: &mut impl Services) -> Result<()> {
 pub fn command(action: Action, job_id: Option<String>, host: &mut impl Services) -> Result<Value> {
     match action {
         Action::Status => return call(host, "status", json!({})),
+        Action::StopIdle => {
+            // Shared::command holds the same state lock used to select a job.
+            let snapshot = call(host, "snapshot", json!({}))?;
+            if snapshot["current"]
+                .as_str()
+                .is_some_and(|id| !id.is_empty())
+            {
+                return Err(
+                    "Synchronization is active; finish it before installing an update.".into(),
+                );
+            }
+            call(host, "stop", json!({}))?;
+            call(host, "notify", json!({}))?;
+        }
         Action::Stop => {
             call(host, "stop", json!({}))?;
             call(host, "cancel", json!({}))?;
@@ -203,6 +218,16 @@ mod tests {
             calls: vec![],
             watch_error: false,
         }
+    }
+    #[test]
+    fn idle_stop_is_atomic_and_never_cancels_an_active_job() {
+        let mut active = host();
+        assert!(command(Action::StopIdle, None, &mut active).is_err());
+        assert!(!has(&active, "stop") && !has(&active, "cancel"));
+        active.current = Value::Null;
+        command(Action::StopIdle, None, &mut active).unwrap();
+        assert!(has(&active, "stop") && has(&active, "notify"));
+        assert!(!has(&active, "cancel"));
     }
     fn has(host: &Host, action: &str) -> bool {
         host.calls.iter().any(|c| c["action"] == action)

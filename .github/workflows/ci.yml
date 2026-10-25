@@ -214,6 +214,7 @@ jobs:
           python3 scripts/build-rpm --backend build/backend/proton-drive
           rpm -qpi dist/*.rpm
           ${{ matrix.install_package }}
+          test "$(cat /usr/lib/neutrondrive/package-format)" = "rpm-${{ matrix.distribution }}"
           python3 desktop/tests/check-staged-runtime.py /usr
           neutrondrive --diagnose
       - uses: actions/upload-artifact@v4

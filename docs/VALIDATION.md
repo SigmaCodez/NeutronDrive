@@ -1,6 +1,79 @@
 # Validation record
 
 
+## Post-alpha15 Takeout and UI validation (2026-10-25)
+
+Development changes, not included in published alpha15 packages:
+
+- Rust core: 186 unit tests and 18 existing integration tests passed; desktop:
+  83 tests passed. Formatting and Clippy with warnings denied passed.
+- The Takeout fixture covers media recognition, JSON date matching, duplicate
+  content, skipped symlinks, unchanged source bytes, changed-file refusal,
+  cancellation and partial failure counts. The UI model requires a separate
+  confirmation after scanning and opens Ko-fi only as an external URL.
+- All 23 SDK-bridge contract tests and TypeScript checking passed. The new test
+  streams a synthetic video to a mocked SDK uploader, checks exact original bytes,
+  capture time and location, skips an existing duplicate, and refuses a changed
+  account or hash. No photo was uploaded to a live account.
+- The actual Qt window suite passed with explicit checks for the Takeout entry,
+  Computer setup card and Ko-fi footer. Current Photos, Computer overview and
+  backup-configuration captures were visually inspected.
+- All 348 retained regressions passed (18 environment-specific skips), followed
+  by actual-window checks for all 25 languages and unsupported-locale English fallback.
+- New UI strings were added to all 25 catalogs. German was manually reviewed;
+  other new strings were machine-translated from public fixed UI text only.
+
+No real Google export or live-account bulk import has been tested. Source media
+and sidecars were synthetic; archive extraction and album reconstruction are not
+implemented. Updated bridge packaging is required to use the import.
+
+## Post-alpha15 RPM updater validation (2026-10-25)
+
+Development changes, not included in the published alpha15 binaries:
+
+- Rust core: 184 unit tests and 18 existing integration tests passed; desktop:
+  82 tests passed. Formatting and Clippy with warnings denied passed.
+- RPM selection tests cover Fedora/openSUSE and both recognized architectures,
+  invalid digests, unknown formats and missing architecture matches. Download
+  tests verify the RPM suffix, SHA-256 revalidation and corrupt-download cleanup.
+- Installer tests cover DNF5/DNF/Zypper selection without crossing distribution
+  families. The actual metadata reader and cancellation path passed against a
+  synthetic RPM built with RPM 6.0.1 extracted into a temporary directory.
+  The fixture was never installed. No global signature-check override is used.
+- RPM spec expansion produced the expected Fedora and openSUSE package markers;
+  the RPM CI jobs now verify the installed marker against their build matrix.
+- The isolated real-service replacement test passed again with the new binary.
+- Qt updater and actual offscreen window checks passed, followed by all 348
+  retained regressions (18 environment-specific tests skipped).
+
+No privileged RPM transaction or full Fedora/openSUSE installation was performed
+on this Ubuntu machine. GitHub CI has not run for these unpublished changes.
+
+## Post-alpha15 update restart validation (2026-10-25)
+
+Development changes, not included in the published alpha15 binaries:
+
+- Rust core: 181 unit tests and 18 existing integration tests passed. Desktop:
+  79 tests passed, including a real child-process `exec` handoff with literal
+  executable and SDK paths containing spaces.
+- The new private-session service integration test passed with the newly built
+  executable: the sync daemon PID and online-file service D-Bus owner both
+  changed after shutdown/restoration. Stopping an absent service did not activate
+  it. No credentials or mounted cloud filesystem were used.
+- Update transaction tests cover active-sync refusal, failed stops, cancelled or
+  failed installation recovery, preserving stopped services, and retrying failed
+  restoration without reinstalling the package.
+- Formatting and Clippy with warnings denied passed for both Rust crates.
+- The Qt updater, full offscreen window/input suite and separate sharing fixture
+  passed. All 25 languages and the unsupported-locale English fallback passed
+  their actual-window checks. All 348 retained regression tests completed (18 environment-specific
+  tests skipped). The first local invocation omitted the test import path for a
+  subprocess; the complete suite passed after correcting the test environment.
+
+No real package-manager transaction, live-account update, PC restart or external
+package-manager update was performed. The new automatic handoff applies to the
+built-in DEB updater. File-manager processes are not forcibly restarted.
+
 ## Alpha15 release validation
 
 The [full source and package workflow](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40219851199)

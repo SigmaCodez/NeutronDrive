@@ -191,6 +191,13 @@ impl Core {
                 }
                 self.status(host)
             }
+            "prepare_update" => {
+                // A normal unmount refuses open files. Never force/lazy-unmount,
+                // and retain the saved mount configuration for the new process.
+                call(host, "manager_unmount", json!({}))?;
+                self.stop_events(host)?;
+                Ok(json!({"prepared":true}))
+            }
             "unmount" => {
                 call(host, "manager_unmount", json!({}))?;
                 let mut config = self.configuration()?;
@@ -389,6 +396,31 @@ mod tests {
                 _ => Ok(Value::Null),
             }
         }
+    }
+    #[test]
+    fn update_unmount_preserves_configuration_and_refuses_open_files() {
+        let tmp = Temp::new();
+        let core = tmp.core();
+        let mut host = Host {
+            busy_unmount: true,
+            ..Host::default()
+        };
+        assert!(core
+            .request(json!({"action":"prepare_update"}), &mut host)
+            .is_err());
+        assert_eq!(host.calls, ["manager_unmount", "reset_cancel"]);
+        host.calls.clear();
+        host.busy_unmount = false;
+        assert_eq!(
+            core.request(json!({"action":"prepare_update"}), &mut host)
+                .unwrap()["prepared"],
+            true
+        );
+        assert!(!host
+            .calls
+            .iter()
+            .any(|s| s == "save" || s == "manager_abort"));
+        assert!(host.calls.iter().any(|s| s == "events_stop"));
     }
     #[test]
     fn busy_unmount_preserves_watcher_and_clears_operation() {

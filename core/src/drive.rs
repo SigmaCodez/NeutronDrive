@@ -10,6 +10,15 @@ type Result<T> = std::result::Result<T, Failure>;
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Operation {
+    TakeoutScan {
+        root: String,
+    },
+    TakeoutImport {
+        plan: crate::takeout::Plan,
+    },
+    PhotoImport {
+        request: Value,
+    },
     ComputerCreate {
         name: String,
     },
@@ -130,6 +139,21 @@ pub fn run(
     operation: Operation,
     callback: &mut impl FnMut(Value) -> i32,
 ) -> Result<Value> {
+    let operation = match operation {
+        Operation::TakeoutScan { root } => {
+            return crate::takeout::scan(std::path::Path::new(&root), callback)
+        }
+        Operation::TakeoutImport { plan } => {
+            return crate::takeout::import(plan, callback, |request, cb| {
+                run_uncached(
+                    executable.clone(),
+                    Operation::PhotoImport { request },
+                    &mut |v| cb(v),
+                )
+            })
+        }
+        other => other,
+    };
     if let Operation::PhotoLibrary { request } = &operation {
         if request["action"] == "details" {
             return crate::photo_cache::details(
@@ -215,6 +239,21 @@ where
             }
             command(&[
                 "versions", "restore", "--json", "--", &path, &revision, &expected,
+            ])
+        }
+        Operation::TakeoutScan { .. } | Operation::TakeoutImport { .. } => {
+            return Err("Invalid Takeout transport".into())
+        }
+        Operation::PhotoImport { request } => {
+            if !request.is_object() || request.to_string().len() > 65536 {
+                return Err("Invalid photo import request".into());
+            }
+            command(&[
+                "photo",
+                "import-single",
+                "--json",
+                "--",
+                &request.to_string(),
             ])
         }
         Operation::PhotoLibrary { request } => {

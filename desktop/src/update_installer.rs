@@ -9,9 +9,46 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub fn install(path: &Path, callback: &mut impl FnMut(Value) -> i32) -> Result<(), Failure> {
-    let package = package_name(path, callback)?;
-    checked_install(&package, || {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Installer {
+    Apt,
+    Dnf,
+    Dnf5,
+    Zypper,
+}
+impl Installer {
+    fn select(format: &str, exists: impl Fn(&str) -> bool) -> Result<Self, Failure> {
+        match format {
+            "deb" if exists("/usr/bin/apt-get") => Ok(Self::Apt),
+            "rpm-fedora" if exists("/usr/bin/dnf5") => Ok(Self::Dnf5),
+            "rpm-fedora" if exists("/usr/bin/dnf") => Ok(Self::Dnf),
+            "rpm-opensuse" if exists("/usr/bin/zypper") => Ok(Self::Zypper),
+            _ => Err(failure(
+                "No supported package manager for this installation",
+            )),
+        }
+    }
+    fn arguments(self) -> &'static [&'static str] {
+        match self {
+            Self::Apt => &["/usr/bin/apt-get", "install", "--no-remove", "-y"],
+            Self::Dnf => &["/usr/bin/dnf", "install", "--assumeyes", "--"],
+            Self::Dnf5 => &["/usr/bin/dnf5", "install", "--assumeyes", "--"],
+            // Only the checksum-verified local release RPM may be unsigned.
+            // Repository signature verification remains enabled.
+            Self::Zypper => &[
+                "/usr/bin/zypper",
+                "--non-interactive",
+                "install",
+                "--allow-unsigned-rpm",
+                "--",
+            ],
+        }
+    }
+    pub fn install(
+        self,
+        path: &Path,
+        callback: &mut impl FnMut(Value) -> i32,
+    ) -> Result<(), Failure> {
         if callback(json!({"kind":"poll"})) != 0 {
             return Err(Failure {
                 message: "Installation cancelled".into(),
@@ -19,7 +56,7 @@ pub fn install(path: &Path, callback: &mut impl FnMut(Value) -> i32) -> Result<(
             });
         }
         let status = Command::new("/usr/bin/pkexec")
-            .args(["/usr/bin/apt-get", "install", "--no-remove", "-y"])
+            .args(self.arguments())
             .arg(path)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -30,7 +67,40 @@ pub fn install(path: &Path, callback: &mut impl FnMut(Value) -> i32) -> Result<(
             return Err(failure("Update installation failed or was cancelled"));
         }
         Ok(())
-    })
+    }
+}
+pub fn prepare(path: &Path, callback: &mut impl FnMut(Value) -> i32) -> Result<Installer, Failure> {
+    let app = std::env::current_exe().map_err(|_| failure("Application path unavailable"))?;
+    let payload = app
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(|| failure("Application directory unavailable"))?
+        .join("neutrondrive");
+    let format = crate::updates::call(
+        json!({"action":"install_format", "payload":payload}),
+        callback,
+    )?;
+    let installer = Installer::select(format.as_str().unwrap_or("other"), |name| {
+        Path::new(name).is_file()
+    })?;
+    if !Path::new("/usr/bin/pkexec").is_file() {
+        return Err(failure(
+            "Administrator authentication is unavailable (pkexec)",
+        ));
+    }
+    let extension = if installer == Installer::Apt {
+        "deb"
+    } else {
+        "rpm"
+    };
+    if !path.is_absolute() || path.extension().and_then(|s| s.to_str()) != Some(extension) {
+        return Err(failure(
+            "Update package format does not match this installation",
+        ));
+    }
+    let package = package_name(path, callback)?;
+    checked_install(&package, || Ok(()))?;
+    Ok(installer)
 }
 fn checked_install(
     package: &str,
@@ -42,10 +112,29 @@ fn checked_install(
     install()
 }
 fn package_name(path: &Path, callback: &mut impl FnMut(Value) -> i32) -> Result<String, Failure> {
-    let mut child = Command::new("/usr/bin/dpkg-deb")
-        .arg("-f")
-        .arg(path)
-        .arg("Package")
+    read_package_name(
+        inspection_command(path, Path::new("/usr/bin/rpm")),
+        callback,
+    )
+}
+fn inspection_command(path: &Path, rpm: &Path) -> Command {
+    if path.extension().and_then(|s| s.to_str()) == Some("rpm") {
+        let mut command = Command::new(rpm);
+        command
+            .args(["-qp", "--queryformat", "%{NAME}", "--"])
+            .arg(path);
+        command
+    } else {
+        let mut command = Command::new("/usr/bin/dpkg-deb");
+        command.arg("-f").arg(path).arg("Package");
+        command
+    }
+}
+fn read_package_name(
+    mut command: Command,
+    callback: &mut impl FnMut(Value) -> i32,
+) -> Result<String, Failure> {
+    let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -110,6 +199,44 @@ fn package_name(path: &Path, callback: &mut impl FnMut(Value) -> i32) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reads_real_rpm_metadata_when_fixture_is_provided() {
+        let Ok(package) = std::env::var("NEUTRONDRIVE_TEST_RPM_PACKAGE") else {
+            return;
+        };
+        let rpm = std::env::var("NEUTRONDRIVE_TEST_RPM_TOOL").unwrap_or("/usr/bin/rpm".into());
+        let make = || inspection_command(Path::new(&package), Path::new(&rpm));
+        assert_eq!(
+            read_package_name(make(), &mut |_| 0).unwrap().trim(),
+            "neutrondrive"
+        );
+        assert!(read_package_name(make(), &mut |_| 1).unwrap_err().cancelled);
+    }
+    #[test]
+    fn rpm_manager_selection_never_crosses_distributions() {
+        assert_eq!(
+            Installer::select("rpm-fedora", |_| true).unwrap(),
+            Installer::Dnf5
+        );
+        assert_eq!(
+            Installer::select("rpm-fedora", |p| p == "/usr/bin/dnf").unwrap(),
+            Installer::Dnf
+        );
+        assert_eq!(
+            Installer::select("rpm-opensuse", |_| true).unwrap(),
+            Installer::Zypper
+        );
+        assert!(Installer::select("rpm-fedora", |p| p == "/usr/bin/zypper").is_err());
+        assert!(Installer::select("rpm-opensuse", |p| p == "/usr/bin/dnf").is_err());
+        assert!(Installer::select("other", |_| true).is_err());
+        for installer in [Installer::Dnf, Installer::Dnf5, Installer::Zypper] {
+            let args = installer.arguments();
+            assert_eq!(args.last(), Some(&"--"));
+            assert!(!args.contains(&"--nogpgcheck"));
+            assert!(!args.contains(&"--no-gpg-checks"));
+            assert!(!args.contains(&"--allowerasing"));
+        }
+    }
     #[test]
     fn reads_synthetic_deb_metadata_and_cancels_inspection() {
         let root =

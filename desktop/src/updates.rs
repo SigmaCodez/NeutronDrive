@@ -1,5 +1,8 @@
 //! Update state and owned download lifetime. UI policy remains independent of Qt workers.
-use crate::runtime::{self, Failure};
+use crate::{
+    runtime::{self, Failure},
+    update_restart::Plan,
+};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -46,12 +49,14 @@ pub enum Task {
     Check { preview: bool, format: String },
     Download(Value),
     Install { release: Value, path: PathBuf },
+    Restart(Plan),
 }
 #[derive(Debug)]
 pub enum Outcome {
     Checked(Value),
     Downloaded(Download),
-    Installed,
+    Installed(Plan),
+    Restarted(Plan),
 }
 pub struct Model {
     pub automatic: bool,
@@ -62,6 +67,7 @@ pub struct Model {
     pub release: Value,
     pub download: Option<Download>,
     pub active: Option<Task>,
+    pub restart: Option<Plan>,
     pub status: String,
     pub demo: bool,
     pub closed: bool,
@@ -85,6 +91,7 @@ impl Model {
             release: Value::Null,
             download: None,
             active: None,
+            restart: None,
             status: "Noch nicht nach Updates gesucht.".into(),
             demo,
             closed: false,
@@ -101,6 +108,7 @@ impl Model {
             && !self.demo
             && self.automatic
             && self.active.is_none()
+            && self.restart.is_none()
             && !(0.0..86400.0).contains(&elapsed)
     }
     pub fn option(&mut self, name: &str, value: bool) {
@@ -120,7 +128,14 @@ impl Model {
         if self.closed || self.demo || self.active.is_some() {
             return None;
         }
+        if self.restart.is_some() && action != "restart" {
+            return None;
+        }
         let (task, status) = match action {
+            "restart" if self.restart.is_some() && !owner_busy => (
+                Task::Restart(self.restart.as_ref().unwrap().clone()),
+                "Update installiert. App und Dienste werden neu gestartet …",
+            ),
             "check" => {
                 self.download = None;
                 self.release = Value::Null;
@@ -137,7 +152,10 @@ impl Model {
                 Task::Download(self.release.clone()),
                 "Update wird heruntergeladen und geprüft …",
             ),
-            "install" if self.download.is_some() && self.format == "deb" => {
+            "install"
+                if self.download.is_some()
+                    && matches!(self.format.as_str(), "deb" | "rpm-fedora" | "rpm-opensuse") =>
+            {
                 if owner_busy {
                     self.status =
                         "Bitte den laufenden Vorgang abschließen und erneut versuchen.".into();
@@ -169,7 +187,9 @@ impl Model {
                 return self.auto_download && self.downloadable();
             },
             (Some(Task::Download(_)),Ok(Outcome::Downloaded(download))) => {self.download=Some(download);self.status="Update geprüft und zur Installation bereit.".into();},
-            (Some(Task::Install{..}),Ok(Outcome::Installed)) => {self.download=None;self.release=Value::Null;self.status="Update installiert. Bitte die App nach Abschluss laufender Synchronisationen neu starten.".into();},
+            (Some(Task::Install{..}),Ok(Outcome::Installed(plan))) => {self.download=None;self.release=Value::Null;self.restart=Some(plan);self.status="Update installiert. App und Dienste werden neu gestartet …".into();},
+            (Some(Task::Restart(_)),Ok(Outcome::Restarted(_))) => {self.restart=None;self.status="Update installiert. App und Dienste werden neu gestartet …".into();},
+            (_,Err(error)) => self.status=error.message,
             _ => self.status="Update fehlgeschlagen. Bitte Verbindung und Berechtigungen prüfen und erneut versuchen.".into(),
         }
         false
@@ -185,6 +205,10 @@ pub fn execute(
     callback: &mut impl FnMut(Value) -> i32,
 ) -> Result<Outcome, Failure> {
     match task {
+        Task::Restart(plan) => {
+            crate::update_restart::restore_with_binary(plan)?;
+            Ok(Outcome::Restarted(plan.clone()))
+        }
         Task::Check{preview,format} => call(json!({"action":"check","current":env!("CARGO_PKG_VERSION"),"preview":preview,"format":format}),callback).map(Outcome::Checked),
         Task::Download(release) => {
             let path=call(json!({"action":"download","release":release,"destination":cache}),callback)?;
@@ -193,8 +217,7 @@ pub fn execute(
         },
         Task::Install{release,path} => {
             call(json!({"action":"verify","release":release,"path":path}),callback)?;
-            crate::update_installer::install(path, callback)?;
-            Ok(Outcome::Installed)
+            crate::update_restart::install(path, callback).map(Outcome::Installed)
         }
     }
 }
@@ -203,6 +226,20 @@ mod tests {
     use super::*;
     fn release() -> Value {
         json!({"tag":"v9.0.0","asset_url":"https://example.test/package"})
+    }
+    #[test]
+    fn rpm_updates_enter_the_shared_install_and_restart_flow() {
+        for format in ["rpm-fedora", "rpm-opensuse"] {
+            let mut m = Model::new(format.into(), false);
+            m.release = release();
+            m.download = Some(Download {
+                path: "/nonexistent/neutrondrive.rpm".into(),
+            });
+            assert!(matches!(
+                m.begin("install", false, 0.0),
+                Some(Task::Install { .. })
+            ));
+        }
     }
     #[test]
     fn preview_default_tracks_release_channel() {
@@ -272,10 +309,43 @@ mod tests {
         assert!(path.exists());
         assert!(m.download.is_some());
         m.begin("install", false, 0.0);
-        m.finish(Ok(Outcome::Installed));
+        m.finish(Ok(Outcome::Installed(Plan {
+            app: "/new/app".into(),
+            cli: String::new(),
+            sync: true,
+            drive: true,
+        })));
         assert!(!path.exists());
         assert!(m.release.is_null());
         assert!(!dir.exists());
+    }
+    #[test]
+    fn installed_update_retries_service_restart_without_reinstalling() {
+        let mut m = Model::new("deb".into(), false);
+        m.active = Some(Task::Install {
+            release: release(),
+            path: "/not-owned".into(),
+        });
+        let plan = Plan {
+            app: "/new/app".into(),
+            cli: String::new(),
+            sync: true,
+            drive: true,
+        };
+        m.finish(Ok(Outcome::Installed(plan.clone())));
+        assert!(!m.due(999999.0));
+        assert!(m.begin("check", false, 0.0).is_none());
+        assert!(m.begin("install", false, 0.0).is_none());
+        assert!(matches!(
+            m.begin("restart", false, 0.0),
+            Some(Task::Restart(_))
+        ));
+        m.finish(Err(failure("restore failed")));
+        assert_eq!(m.status, "restore failed");
+        assert_eq!(m.restart, Some(plan.clone()));
+        m.begin("restart", false, 0.0);
+        m.finish(Ok(Outcome::Restarted(plan)));
+        assert!(m.restart.is_none());
     }
     #[test]
     fn closing_or_discarding_a_late_result_cleans_only_its_owned_download() {

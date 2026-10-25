@@ -11,9 +11,9 @@ An independent, open-source **Linux desktop client for Proton Drive**. Browse yo
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Latest published version: [0.6.0 alpha15](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha15).**
-This update caches photo thumbnails between sessions, loads more photos as you scroll,
-opens sharing in a dedicated window, and simplifies sync and backup configuration.
+**Latest published version: [0.6.0 alpha16](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha16).**
+This update adds Google Takeout import, clearer computer backup setup, optional
+Ko-fi support and coordinated app/service restarts after DEB and RPM updates.
 This is alpha software; keep an independent backup. Complete Windows/macOS feature
 parity has not been reached.
 
@@ -21,9 +21,15 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. It uses Proton's open-source SDK for account access, encryption and
 service requests. The interface and icon are original.
 
+Import an extracted Google Takeout photo/video export with a review before upload,
+configure computer backup separately, and optionally support development on Ko-fi.
+The built-in DEB/RPM updater safely restarts the app and previously running services.
+See [feature details and limitations](docs/DESKTOP-FEATURES.md#alpha16-takeout-computer-and-donations)
+and [update restart behavior](docs/DESKTOP-FEATURES.md#alpha16-update-restart).
+
 ## Light and dark appearance
 
-Fresh captures of the **alpha15 release GUI**, in English, using isolated
+Fresh captures of the **alpha16 release GUI**, in English, using isolated
 synthetic demo data. These are actual application renders, not mockups or a live
 account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 
@@ -80,8 +86,9 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
   open that window directly.
 - **Keep working in the background:** close to tray, login autostart, availability
   emblems and a Proton Drive favorite on supported desktops.
-- **Check for updates:** daily or manual checks; native DEB packages support
-  verified download and installation after system authorization.
+- **Check for updates:** daily or manual checks; native DEB and supported Fedora/openSUSE RPM
+  packages support verified downloads, installation after system authorization,
+  and a guarded app/service restart.
 
 See [desktop features](docs/DESKTOP-FEATURES.md),
 [file-manager support](docs/FILE-MANAGER-INTEGRATION.md),
@@ -91,7 +98,7 @@ See [desktop features](docs/DESKTOP-FEATURES.md),
 ## Install
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **published alpha15 assets**, not development artifacts.
+The commands below use the **published alpha16 assets**, not development artifacts.
 Packages are community alpha builds, not official Proton packages or store listings.
 
 | Format | Intended systems | Important details |
@@ -105,29 +112,29 @@ Packages are community alpha builds, not official Proton packages or store listi
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_0.6.0-alpha15-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha16-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-0.6.0-alpha15-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha16-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-0.6.0-alpha15-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha16-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a15-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a16-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha15_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha16_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-0.6.0-alpha15-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha15-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha16-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha16-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-0.6.0alpha15-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-0.6.0alpha16-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes

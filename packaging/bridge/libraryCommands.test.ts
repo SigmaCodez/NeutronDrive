@@ -81,3 +81,33 @@ test('account exposes only quota and sanitized display identity, never keys', as
         expect(log.mock.calls.length).toBe(1);
     } finally {log.mockRestore();}
 });
+
+import { CommandPhotoImport } from './libraryCommands';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+test('Takeout uploads original media with date/location, skips duplicates and refuses changed accounts/content', async () => {
+    const dir=await mkdtemp(join(tmpdir(),'nd-photo-import-'));
+    // A small video fixture exercises the original-byte stream without image decoding.
+    const file=join(dir,'movie.mp4');const bytes=Buffer.from('synthetic-video');await writeFile(file,bytes);
+    const request={path:file,sha1:createHash('sha1').update(bytes).digest('hex'),captureTime:123,location:[47,8],expectedRoot:''};
+    let uploads=0;let duplicate=false;const messages:any[]=[];const output=console.log;
+    const ctx={args:[JSON.stringify(request)],logger:{debug(){},info(){},warn(){},error(){}},photosSdk:{
+        async getMyPhotosRootFolder(){return {uid:'photos-root'};},
+        async findPhotoDuplicates(){return duplicate?['existing']:[];},
+        async getFileUploader(name:string,metadata:any){
+            uploads++;expect(name).toBe('movie.mp4');expect(metadata.captureTime.toISOString()).toBe('1970-01-01T00:02:03.000Z');
+            expect(metadata.additionalMetadata.Location).toEqual({Latitude:47,Longitude:8});
+            return {async uploadFromStream(stream:ReadableStream){expect(Buffer.from(await new Response(stream).arrayBuffer())).toEqual(bytes);return {async completion(){}};}};
+        }
+    }} as any;
+    try {
+        console.log=(message:any)=>messages.push(JSON.parse(message));
+        await new CommandPhotoImport().action(ctx);expect(uploads).toBe(1);expect(messages[0].status).toBe('uploaded');
+        duplicate=true;await new CommandPhotoImport().action(ctx);expect(uploads).toBe(1);expect(messages[1].status).toBe('skipped');
+        ctx.args=[JSON.stringify({...request,expectedRoot:'different'})];await expect(new CommandPhotoImport().action(ctx)).rejects.toThrow('account changed');
+        ctx.args=[JSON.stringify({...request,sha1:'0'.repeat(40)})];await expect(new CommandPhotoImport().action(ctx)).rejects.toThrow('file changed');
+        expect(uploads).toBe(1);
+    } finally {console.log=output;await rm(dir,{recursive:true,force:true});}
+});

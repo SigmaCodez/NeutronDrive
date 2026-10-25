@@ -7,6 +7,8 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Done {
+    TakeoutScan,
+    TakeoutImport,
     FileManager,
     AccountStorage,
     Setup,
@@ -47,6 +49,8 @@ pub struct Work {
 }
 #[derive(Clone, Debug)]
 enum Answer {
+    TakeoutFolder,
+    TakeoutImport(Value),
     Invite {
         node: Value,
         value: Value,
@@ -735,6 +739,39 @@ impl Files {
                         );
                         self.refresh()
                     }
+                    Done::TakeoutScan => {
+                        let count = value["items"].as_array().map_or(0, Vec::len);
+                        if count == 0 {
+                            self.message("No supported photos or videos found.", true);
+                            return vec![];
+                        }
+                        let description=format!("{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n\n{}",self.tr("Media files"),count,self.tr("Videos"),value["videos"],self.tr("Duplicate files"),value["duplicates"],self.tr("Ignored files"),value["ignored"],self.tr("Metadata warnings"),value["warnings"],self.tr("Import into Proton Photos? Originals stay unchanged. Albums and comments are not imported. You can cancel and retry; completed uploads are kept."));
+                        self.dialog(
+                            "confirm",
+                            "Google Takeout import",
+                            &description,
+                            json!({}),
+                            Answer::TakeoutImport(value),
+                        )
+                    }
+                    Done::TakeoutImport => {
+                        let report = format!(
+                            "{}: {} · {}: {} · {}: {} · {}: {}",
+                            self.tr("Imported"),
+                            value["uploaded"],
+                            self.tr("Skipped"),
+                            value["skipped"],
+                            self.tr("Failed"),
+                            value["failed"],
+                            self.tr("Remaining"),
+                            value["remaining"]
+                        );
+                        self.message(
+                            &format!("{report}\n{}", value["error"].as_str().unwrap_or("")),
+                            value["failed"].as_u64().unwrap_or(0) > 0,
+                        );
+                        vec![]
+                    }
                     Done::PhotoLibrary(request) => self.photo_result(&request, value),
                     Done::Photos => {
                         if value["photos"].is_array()
@@ -887,6 +924,11 @@ impl Files {
         let response = value.clone();
         match answer {
             Answer::Invite { node, email, role, .. } => self.submit("Share by email",json!({"action":"invite","path":node["path"],"email":email,"role":role}),Done::ShareReload(node)),
+            Answer::TakeoutFolder => {
+                let Some(root)=Self::local_paths(value).into_iter().next() else { return vec![]; };
+                self.submit("Google Takeout import",json!({"action":"takeout_scan","root":root}),Done::TakeoutScan)
+            }
+            Answer::TakeoutImport(plan) => self.submit("Google Takeout import",json!({"action":"takeout_import","plan":plan}),Done::TakeoutImport),
             Answer::Close => {self.closing=true;self.field("status_label",json!(self.tr("Vorgang wird beendet …")));if self.busy(){vec![Effect::Cancel]}else{vec![Effect::Close]}},
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
@@ -1304,6 +1346,7 @@ impl Files {
             "cli" => vec![Effect::OpenUrl("https://proton.me/download/drive/cli/index.html".into())],
             "project" => vec![Effect::OpenUrl("https://github.com/SigmaCodez/NeutronDrive".into())],
             "web" => vec![Effect::OpenUrl("https://drive.proton.me".into())],
+            "donate" => vec![Effect::OpenUrl("https://ko-fi.com/D1D11J5U3D".into())],
             "subscription" => vec![Effect::OpenUrl("https://account.proton.me/drive/dashboard".into())],
             "refresh" => self.refresh(),
             "Versions" if nodes.len()==1 => self.submit("Version history",json!({"action":"versions","path":paths[0]}),Done::Versions(paths[0].clone())),
@@ -1439,6 +1482,26 @@ mod tests {
             Effect::Close
         ));
         assert!(m.closing);
+    }
+    #[test]
+    fn takeout_requires_review_before_upload_and_donation_is_external() {
+        let mut m = model();
+        m.state["authenticated"] = json!(true);
+        m.state["demo"] = json!(false);
+        let d = dialog(m.dispatch("photo_library", &json!([{"action":"takeout"}])));
+        assert_eq!(d["kind"], "folder");
+        let scan = work(m.dispatch(
+            "answer_dialog",
+            &json!([d["token"], true, ["file:///tmp/Takeout"]]),
+        ));
+        assert_eq!(scan.operation["action"], "takeout_scan");
+        let preview=dialog(m.complete(scan.id,Ok(json!({"root":"/tmp/Takeout","items":[{}],"videos":0,"duplicates":0,"ignored":0,"warnings":0}))));
+        assert_eq!(preview["kind"], "confirm");
+        assert!(m
+            .dispatch("answer_dialog", &json!([preview["token"], false, ""]))
+            .is_empty());
+        let effects = m.dispatch("action", &json!(["donate"]));
+        assert!(matches!(&effects[0],Effect::OpenUrl(url) if url=="https://ko-fi.com/D1D11J5U3D"));
     }
     fn model() -> Files {
         let locale = Localization::load(

@@ -338,6 +338,7 @@ ApplicationWindow {
                     }
                 }
                 Copy { text: window.tr("Unabhängige Open-Source-App\n")+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
+                Action { objectName: "donationButton"; text: "♡  "+window.tr("Support on Ko-fi"); command: "donate"; flat: true; font.pixelSize: 12; Layout.fillWidth: true; Accessible.description: window.tr("Opens Ko-fi in your browser. Donations are optional.") }
             }
         }
         ColumnLayout {
@@ -375,7 +376,13 @@ ApplicationWindow {
         id: filesPage
         ColumnLayout {
             objectName: "page-files"; spacing: 14
-            Action { objectName: "configureComputerBackup"; visible: s.path==="/devices"; text: window.tr("Computersicherung"); primary: true; onClicked: controller.show_page("computer-backup") }
+            Card {
+                visible: s.path==="/devices"
+                Heading { text: window.tr("Back up this computer") }
+                Copy { text: window.tr("Choose local folders to keep in Proton Drive. Manage this computer's backup separately from browsing files saved by your computers.") }
+                Action { objectName: "configureComputerBackup"; text: window.tr("Configure computer backup"); primary: true; onClicked: controller.show_page("computer-backup") }
+            }
+            Heading { visible: s.path==="/devices"; text: window.tr("Saved computers") }
             RowLayout {
                 Layout.fillWidth: true; spacing: 12
                 Input { field: "search"; placeholderText: window.tr("In diesem Ordner suchen …"); objectName: "searchInput"; leftPadding: 42
@@ -396,9 +403,9 @@ ApplicationWindow {
             }
             Flow {
                 Layout.fillWidth: true; spacing: 8
-                Action { text: window.tr("Dateien hochladen"); command: "upload"; field: "upload_button"; primary: true }
-                Action { text: window.tr("Ordner hochladen"); command: "uploadFolder"; field: "folder_upload_button" }
-                Action { text: window.tr("Neuer Ordner"); command: "mkdir"; field: "mkdir_button" }
+                Action { visible: s.path!=="/devices"; text: window.tr("Dateien hochladen"); command: "upload"; field: "upload_button"; primary: true }
+                Action { visible: s.path!=="/devices"; text: window.tr("Ordner hochladen"); command: "uploadFolder"; field: "folder_upload_button" }
+                Action { visible: s.path!=="/devices"; text: window.tr("Neuer Ordner"); command: "mkdir"; field: "mkdir_button" }
                 Action { text: window.tr("Aktualisieren"); command: "refresh"; field: "refresh_button" }
             }
             Flow { Layout.fillWidth: true; spacing: 4
@@ -621,7 +628,8 @@ ApplicationWindow {
             Action { text: window.tr("Computer"); onClicked: controller.navigate(window.tr("Computer"),"/devices") }
             Card {
                 Heading { text: window.tr("Computersicherung") }
-                Copy { text: window.tr("Sichere ausgewählte Ordner unter Computer in Proton Drive. Die Ordner werden automatisch in beide Richtungen abgeglichen.") }
+                Copy { text: window.tr("Choose folders from this computer. They appear under its name in Computer, separately from your ProtonDrive sync folder.") }
+                Copy { text: window.tr("This is two-way folder synchronization, not a system image. File changes and supported deletions can propagate in both directions. Keep a separate backup for recovery.") }
                 Copy { text: window.f("background_local_label").value }
                 Action { text: window.tr("Lokalen Ordner wählen"); command: "chooseBackground" }
                 Action { objectName: "computerBackupButton"; text: window.tr("Ordner zur Computersicherung hinzufügen"); command: "addComputerFolder"; field: "background_add_button"; primary: true }
@@ -771,7 +779,7 @@ ApplicationWindow {
                 }
                 Check {
                     text: window.tr("Updates automatisch herunterladen")
-                    visible: controller.updates.packageFormat === "deb"
+                    visible: ["deb", "rpm-fedora", "rpm-opensuse"].indexOf(controller.updates.packageFormat) >= 0
                     checked: controller.updates.autoDownload
                     enabled: !controller.updates.busy
                     onToggled: controller.updates.setOption("download", checked)
@@ -779,17 +787,18 @@ ApplicationWindow {
                 Copy { text: controller.updates.status }
                 Copy { text: window.tr("Die Prüfung kontaktiert GitHub. Es werden keine Konto- oder Dateidaten übertragen.") }
                 Copy {
-                    visible: controller.updates.packageFormat !== "deb"
+                    visible: ["deb", "rpm-fedora", "rpm-opensuse"].indexOf(controller.updates.packageFormat) < 0
                     text: window.tr("Dieses Installationsformat wird über den Paketmanager oder das Paket auf der Release-Seite aktualisiert.")
                 }
                 Flow {
                     Layout.fillWidth: true; spacing: 8
-                    Action { text: window.tr("Nach Updates suchen"); enabled: !controller.updates.busy && !s.demo; onClicked: controller.updates.checkNow() }
+                    Action { text: window.tr("Nach Updates suchen"); enabled: !controller.updates.state.restartPending && !controller.updates.busy && !s.demo; onClicked: controller.updates.checkNow() }
                     Action { text: window.tr("Update herunterladen"); visible: controller.updates.downloadable && !controller.updates.ready; enabled: !controller.updates.busy; onClicked: controller.updates.downloadUpdate() }
                     Action { text: window.tr("Update installieren"); visible: controller.updates.ready; enabled: !controller.updates.busy && !s.busy; onClicked: controller.updates.installUpdate() }
                     Action { text: window.tr("Release-Seite öffnen"); visible: controller.updates.available; onClicked: controller.updates.openRelease() }
                 }
-                Copy { visible: controller.updates.packageFormat === "deb"; text: window.tr("Die Installation benötigt eine Systembestätigung. Laufende Synchronisationen vor dem Neustart abschließen.") }
+                Action { text: window.tr("App und Dienste neu starten"); visible: controller.updates.state.restartPending === true; enabled: !controller.updates.busy && !s.busy; onClicked: controller.updates.restartUpdate() }
+                Copy { visible: ["deb", "rpm-fedora", "rpm-opensuse"].indexOf(controller.updates.packageFormat) >= 0; text: window.tr("Nach erfolgreicher Installation werden App und Dienste automatisch neu gestartet. Offene Dateien und laufende Synchronisationen vorher abschließen.") }
             }
             Card {
                 Heading { text: "NeutronDrive "+s.version }

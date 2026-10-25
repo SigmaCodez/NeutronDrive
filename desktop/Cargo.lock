@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-core"
-version = "0.6.0-alpha.15"
+version = "0.6.0-alpha.16"
 dependencies = [
  "fuser",
  "futures-core",
@@ -667,7 +667,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-qt"
-version = "0.6.0-alpha.15"
+version = "0.6.0-alpha.16"
 dependencies = [
  "cxx",
  "cxx-qt",
@@ -675,6 +675,7 @@ dependencies = [
  "cxx-qt-lib",
  "libc",
  "neutrondrive-core",
+ "serde",
  "serde_json",
 ]
 

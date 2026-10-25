@@ -63,16 +63,28 @@ pub fn choose(
             continue;
         }
         let mut result = json!({"tag":tag, "url":url, "asset_url":"", "digest":"", "size":0});
-        let arch = match machine {
-            "x86_64" => "amd64",
-            "aarch64" => "arm64",
-            _ => "",
+        let name = match (format, machine) {
+            ("deb", "x86_64" | "aarch64") => {
+                let arch = if machine == "x86_64" {
+                    "amd64"
+                } else {
+                    "arm64"
+                };
+                Some(format!(
+                    "neutrondrive_{}-1_{arch}.deb",
+                    tag.trim_start_matches('v')
+                ))
+            }
+            ("rpm-fedora" | "rpm-opensuse", "x86_64" | "aarch64") => {
+                let distro = format.strip_prefix("rpm-").unwrap();
+                Some(format!(
+                    "neutrondrive-{}-{distro}-{machine}.rpm",
+                    tag.trim_start_matches('v')
+                ))
+            }
+            _ => None,
         };
-        if format == "deb" && !arch.is_empty() {
-            let name = format!(
-                "neutrondrive_{}-1_{arch}.deb",
-                tag.strip_prefix('v').unwrap_or(tag)
-            );
+        if let Some(name) = name {
             let url = format!("{REPO}/releases/download/{tag}/{name}");
             if let Some(assets) = item["assets"].as_array() {
                 for asset in assets {
@@ -109,6 +121,52 @@ pub fn choose(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rpm_selection_keeps_distribution_architecture_and_digest() {
+        use serde_json::json;
+        let repo = "https://github.com/SigmaCodez/NeutronDrive";
+        let tag = "v0.6.0-alpha16";
+        let assets: Vec<_> = ["fedora", "opensuse"].into_iter().flat_map(|distro| {
+            ["x86_64", "aarch64"].into_iter().map(move |arch| {
+                let name = format!("neutrondrive-0.6.0-alpha16-{distro}-{arch}.rpm");
+                json!({"name":name,"browser_download_url":format!("{repo}/releases/download/{tag}/{name}"),"digest":format!("sha256:{}","a".repeat(64)),"size":7})
+            })
+        }).collect();
+        let releases = json!([{"tag_name":tag,"html_url":format!("{repo}/releases/tag/{tag}"),"published_at":"2026-10-25","prerelease":true,"assets":assets}]);
+        for distro in ["fedora", "opensuse"] {
+            for arch in ["x86_64", "aarch64"] {
+                let result = choose(
+                    releases.clone(),
+                    "0.6.0-alpha15",
+                    true,
+                    &format!("rpm-{distro}"),
+                    arch,
+                )
+                .unwrap();
+                assert!(result["asset_url"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with(&format!("-{distro}-{arch}.rpm")));
+                assert_eq!(result["digest"], "a".repeat(64));
+            }
+        }
+        for (format, arch) in [
+            ("rpm", "x86_64"),
+            ("rpm-fedora", "unknown"),
+            ("deb", "x86_64"),
+        ] {
+            assert_eq!(
+                choose(releases.clone(), "0.6.0-alpha15", true, format, arch).unwrap()["asset_url"],
+                ""
+            );
+        }
+        let mut bad = releases;
+        bad[0]["assets"][0]["digest"] = json!("bad");
+        assert_eq!(
+            choose(bad, "0.6.0-alpha15", true, "rpm-fedora", "x86_64").unwrap()["asset_url"],
+            ""
+        );
+    }
     #[test]
     fn ordering_and_invalid_versions() {
         assert!(version("v0.6.0-alpha10").unwrap() > version("0.6.0a9").unwrap());

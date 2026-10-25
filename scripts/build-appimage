@@ -132,10 +132,10 @@ def main():
         elif p.is_file():
             manifest[str(p.relative_to(APP))] = sha(p)
     (APP / 'runtime-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')
-    output = DIST / 'NeutronDrive-0.6.0-alpha15-x86_64.AppImage'
+    output = DIST / 'NeutronDrive-0.6.0-alpha16-x86_64.AppImage'
     run(tools['appimagetool'], '--runtime-file', runtime, APP, output, env=env)
     output.chmod(0o755)
-    info = dict(app_release='v0.6.0-alpha15', packaging_commit=run('git', 'rev-parse', 'HEAD', cwd=ROOT, capture_output=True, text=True).stdout.strip(),
+    info = dict(app_release='v0.6.0-alpha16', packaging_commit=run('git', 'rev-parse', 'HEAD', cwd=ROOT, capture_output=True, text=True).stdout.strip(),
                 tools=LOCK, native_deb_sha256=sha(deb), sha256=sha(output), payload_manifest_sha256=sha(APP / 'runtime-manifest.json'),
                 cache='Private content-addressed runtime under $XDG_CACHE_HOME/neutrondrive-appimage; needed for persistent background/autostart paths',
                 baseline='Ubuntu 22.04 x86_64; host Secret Service, browser, graphical drivers and optional native mount helper required')

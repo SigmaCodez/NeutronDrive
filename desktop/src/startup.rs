@@ -13,6 +13,13 @@ use std::{
     sync::OnceLock,
 };
 static CONFIG: OnceLock<Value> = OnceLock::new();
+pub fn backend_executable() -> String {
+    CONFIG
+        .get()
+        .and_then(|v| v["executable"].as_str())
+        .unwrap_or("")
+        .to_owned()
+}
 fn failure(message: &str) -> Failure {
     Failure {
         message: message.into(),

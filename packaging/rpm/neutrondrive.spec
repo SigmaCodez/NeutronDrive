@@ -1,5 +1,5 @@
 Name:           neutrondrive
-Version:        0.6.0~alpha15
+Version:        0.6.0~alpha16
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive (alpha)
 License:        MIT
@@ -55,6 +55,12 @@ NeutronDrive is a community project not affiliated with Proton AG.
 %install
 mkdir -p %{buildroot}
 cp -a usr %{buildroot}/
+# Persist the RPM build family; never select a different distribution's asset.
+%if 0%{?suse_version}
+printf 'rpm-opensuse\n' > %{buildroot}/usr/lib/neutrondrive/package-format
+%else
+printf 'rpm-fedora\n' > %{buildroot}/usr/lib/neutrondrive/package-format
+%endif
 
 %files
 /usr/bin/neutrondrive
