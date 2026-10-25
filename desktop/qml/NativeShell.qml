@@ -422,6 +422,8 @@ Item {
                     controller.photoBench.scrolling=false;controller.stage=21024;
                 }else if(controller.stage===21024){
                     if(controller.photoBench.pendingPhotos || controller.photoBench.appliedPhotos[1000].name!=="During flick" || controller.photoBench.selected[0]!==1000)throw new Error("Deferred photo result or selection lost");
+                    controller.photoBench.scrolling=true;photoBenchController.photoEntries=[];
+                    if(controller.photoBench.pendingPhotos || controller.childNamed(controller.photoBench,"photoGrid").count!==0)throw new Error("Photo inventory reset left stale tiles during scrolling");
                     console.log("NATIVE_PHOTO_DEFERRED_UPDATES_OK");
                     controller.photoBench.destroy();controller.photoBench=null;
                     controller.show_page("files");

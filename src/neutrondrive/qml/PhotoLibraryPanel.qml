@@ -15,11 +15,12 @@ ColumnLayout {
     ListModel { id: photoModel; dynamicRoles: true }
     function updatePhotos() {
         if(!photoModel)return;
-        // Avoid touching the scene graph during a flick. Apply the newest
-        // result once movement finishes, without losing selection or position.
-        if(scrolling && photoModel.count>0) { pendingPhotos=true; return; }
-        pendingPhotos=false;
         let items=photos;
+        // Defer updates within the same inventory, but clear a refreshed or
+        // replaced album immediately so old tiles cannot outlive its data.
+        let replaces=items.length<photoModel.count || (items.length>0 && appliedPhotos.length>0 && items[0].uid!==appliedPhotos[0].uid);
+        if(scrolling && photoModel.count>0 && !replaces) { pendingPhotos=true; return; }
+        pendingPhotos=false;
         // Keep delegates and scroll position alive across status updates and pages.
         for(let i=0;i<Math.min(photoModel.count,items.length);i++) {
             if(appliedPhotos[i].uid!==items[i].uid) { photoModel.clear(); break; }
@@ -293,7 +294,7 @@ ColumnLayout {
             if(panel.viewState.busy || panel.albumsVisible || panel.restoring || viewer.visible)return;
             let first=Math.max(0,Math.floor(grid.contentY/grid.cellHeight)*Math.max(1,Math.floor(grid.width/panel.tileSize)));
             let columns=Math.max(1,Math.floor(grid.width/panel.tileSize));
-            let end=Math.min(grid.count,first+columns*(Math.ceil(grid.height/grid.cellHeight)+2));
+            let end=Math.min(grid.count,panel.photos.length,first+columns*(Math.ceil(grid.height/grid.cellHeight)+2));
             let missing=-1;
             for(let i=first;i<end;i++)if(!panel.photos[i].previewLoaded){missing=i;break;}
             if(!panel.scrolling && missing>=0 && panel.previewAttempt!==missing) { panel.previewAttempt=missing; panel.request({action:"previews",start:missing}); return; }
