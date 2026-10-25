@@ -139,3 +139,35 @@ stalled, followed by ordinary `O_NOATIME` reads and `gio copy` content checks.
 `check-sidebar.py` uses real GTK4/GObject with synthetic sidebar rows to check
 scope, later windows, icon resets, configuration changes and shutdown restoration.
 This is an adapter test, not visual verification on every Nautilus version.
+
+
+### Favorite icons on other desktops
+
+| File manager | Neutron icon integration | Validation |
+| --- | --- | --- |
+| Nautilus 50 | Guarded GTK4 sidebar adapter | Real GTK4 with synthetic rows; local graphical check required after install |
+| Nemo 6.x | Guarded GTK3 `NemoShortcutsModel` adapter | Real GTK3 tree/filter model, resets, root changes and deleted rows |
+| Caja | GVfs `metadata::custom-icon` on the sync root | Isolated real GVfs metadata tests; visual session not tested |
+| Thunar (custom-folder-icon capable versions) | GVfs `metadata::thunar-custom-icon-name` | Isolated real GVfs metadata tests; visual session not tested |
+| Dolphin | Existing optional KIO addon now creates/updates its Proton Drive Places icon | Host KDE 6 addon integration test |
+| PCManFM / PCManFM-Qt | Standard icon retained | No custom favorite-icon adapter provided |
+
+The Nemo adapter validates the model name, column count and URI/icon column types
+before accessing the GTK model. It never accesses internal C struct layouts and
+restores saved icons when applicable. It is optional: changed/unsupported models
+are left untouched. Both sidebar adapters have bounded main-loop work.
+Caja/Thunar icon metadata is written by a separate helper with a two-second
+execution deadline. Existing user-chosen folder icons are preserved. Metadata is
+local to the desktop, not uploaded to Proton Drive. The installed SVG path is
+resolved from the helper's installation prefix.
+
+PCManFM-Qt reads bookmark icons from a `.directory` file inside the target folder;
+this integration deliberately does not create one in the synced cloud folder.
+There is no equivalent implementation for PCManFM's libfm bookmark icons here.
+No claim of visual testing across all desktop versions is made.
+
+Implementation references: [Nemo sidebar](https://github.com/linuxmint/nemo/blob/6.4.5/src/nemo-places-sidebar.c),
+[Caja bookmark](https://github.com/mate-desktop/caja/blob/master/libcaja-private/caja-bookmark.c),
+[Thunar folder metadata](https://github.com/xfce-mirror/thunar/blob/master/thunar/thunar-file.c),
+[PCManFM-Qt bookmarks](https://github.com/lxqt/libfm-qt/blob/master/src/bookmarks.cpp),
+[KDE Places model](https://api.kde.org/kfileplacesmodel.html).

@@ -1,7 +1,8 @@
 # Dolphin integration addon
 
 This thin KIO adapter supplies green availability overlays and a **Proton Drive**
-Places bookmark. It hides the matching device entry without changing other
+Places bookmark with the Neutron application icon. Existing Proton Drive entries
+created by the addon receive the updated icon without being duplicated. It hides the matching device entry without changing other
 volumes. Cache decisions and path validation remain in the Rust library.
 The existing Dolphin service menu supplies Keep on device, Free up space and Share.
 

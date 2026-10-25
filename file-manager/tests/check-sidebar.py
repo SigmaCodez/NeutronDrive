@@ -48,6 +48,8 @@ with tempfile.TemporaryDirectory(prefix='nd-sidebar-') as tmp:
     window.set_child(box)
     target, other, remote = (row(uri) for uri in ('file:///tmp/nd-sidebar-sync', 'file:///tmp/other', 'smb://server/tmp/nd-sidebar-sync'))
     for item in (target, other, remote): box.append(item)
+    remote_file = row("file://server/tmp/nd-sidebar-sync")
+    box.append(remote_file)
     module = SidebarTestModule()
     assert module.use()
     plugin.nautilus_module_initialize.argtypes = [ctypes.c_void_p]
@@ -63,6 +65,7 @@ with tempfile.TemporaryDirectory(prefix='nd-sidebar-') as tmp:
     wait_for(lambda: custom(target))
     assert other.props.start_icon.equal(original)
     assert remote.props.start_icon.equal(original)
+    assert remote_file.props.start_icon.equal(original)
     target.props.start_icon = original
     window2 = Gtk.Window()
     target2 = row('file:///tmp/nd-sidebar-sync')

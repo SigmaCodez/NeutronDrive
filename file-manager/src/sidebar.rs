@@ -17,8 +17,7 @@ struct Api {
     default_value: unsafe extern "C" fn(Ptr) -> Ptr,
     value_holds: unsafe extern "C" fn(Ptr, GType) -> c_int,
     icon_type: unsafe extern "C" fn() -> GType,
-    file: unsafe extern "C" fn(*const c_char) -> Ptr,
-    path: unsafe extern "C" fn(Ptr) -> *mut c_char,
+    filename: unsafe extern "C" fn(*const c_char, *mut *mut c_char, Ptr) -> *mut c_char,
     reference: unsafe extern "C" fn(Ptr) -> Ptr,
     unref: unsafe extern "C" fn(Ptr),
     free: unsafe extern "C" fn(Ptr),
@@ -45,8 +44,7 @@ unsafe fn load() -> Option<Api> {
         default_value: symbol("g_param_spec_get_default_value")?,
         value_holds: symbol("g_type_check_value_holds")?,
         icon_type: symbol("g_icon_get_type")?,
-        file: symbol("g_file_new_for_uri")?,
-        path: symbol("g_file_get_path")?,
+        filename: symbol("g_filename_from_uri")?,
         reference: symbol("g_object_ref")?,
         unref: symbol("g_object_unref")?,
         free: symbol("g_free")?,
@@ -75,13 +73,15 @@ unsafe fn target(api: &Api, row: Ptr, root: Option<&std::path::Path>) -> bool {
     if uri.is_null() {
         return false;
     }
-    let file = (api.file)(uri);
+    let mut hostname: *mut c_char = ptr::null_mut();
+    let path = (api.filename)(uri, &mut hostname, ptr::null_mut());
     (api.free)(uri.cast());
-    if file.is_null() {
-        return false;
+    let local = hostname.is_null() || CStr::from_ptr(hostname).to_bytes().is_empty();
+    if !hostname.is_null() {
+        (api.free)(hostname.cast());
     }
-    let path = (api.path)(file);
-    let same = !path.is_null()
+    let same = local
+        && !path.is_null()
         && CStr::from_ptr(path)
             .to_str()
             .ok()
@@ -89,7 +89,6 @@ unsafe fn target(api: &Api, row: Ptr, root: Option<&std::path::Path>) -> bool {
     if !path.is_null() {
         (api.free)(path.cast());
     }
-    (api.unref)(file);
     same
 }
 unsafe fn restore(api: &Api, saved: Saved) {

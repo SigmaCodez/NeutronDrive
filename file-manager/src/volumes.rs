@@ -62,6 +62,7 @@ unsafe extern "C" fn poll(_: Ptr) -> c_int {
         (api.free_list)(mounts);
         (api.unref)(monitor);
         sidebar::refresh();
+        sidebar_gtk3::refresh();
     });
     1
 }
@@ -99,6 +100,7 @@ pub unsafe fn start(provider: Ptr) {
 pub fn shutdown() {
     unsafe {
         sidebar::shutdown();
+        sidebar_gtk3::shutdown();
         let id = TIMER.swap(0, Ordering::Relaxed);
         if id != 0 {
             if let Some(remove) = symbol::<unsafe extern "C" fn(c_uint) -> c_int>("g_source_remove")

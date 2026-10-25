@@ -6,7 +6,9 @@ mod availability;
 mod emblems;
 pub mod gio_emblems;
 pub mod paths;
+pub mod root_icon;
 mod sidebar;
+mod sidebar_gtk3;
 mod volumes;
 pub mod watcher;
 use std::{
