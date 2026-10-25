@@ -1,6 +1,8 @@
-# Desktop features: alpha10
+# Desktop features
 
-Alpha9 includes these features in both the native frontend and SDK bridge.
+The latest published package is alpha11; alpha12 development work is tracked in
+[PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11). The sections below
+identify when features were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
 

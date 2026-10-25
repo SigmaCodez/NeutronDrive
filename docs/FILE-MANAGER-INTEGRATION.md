@@ -112,7 +112,9 @@ FUSE test with a deliberately stalled SDK. Full graphical sessions on every
 listed desktop/distribution have not been tested.
 
 
-## Alpha12: content probes and the Nautilus favorite icon
+## Alpha12 development: content probes and favorite icons
+
+These changes are under development in [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11); they are not part of the published alpha11 packages.
 
 GLib may open files with `O_NOATIME` to guess their content type while listing a
 folder. Previously this optional operation could wait behind cloud requests,
@@ -145,7 +147,7 @@ This is an adapter test, not visual verification on every Nautilus version.
 
 | File manager | Neutron icon integration | Validation |
 | --- | --- | --- |
-| Nautilus 50 | Guarded GTK4 sidebar adapter | Real GTK4 with synthetic rows; local graphical check required after install |
+| Nautilus 50 | Guarded GTK4 sidebar adapter | Real GTK4 with synthetic rows; user confirmed the icon in local Nautilus 50 |
 | Nemo 6.x | Guarded GTK3 `NemoShortcutsModel` adapter | Real GTK3 tree/filter model, resets, root changes and deleted rows |
 | Caja | GVfs `metadata::custom-icon` on the sync root | Isolated real GVfs metadata tests; visual session not tested |
 | Thunar (custom-folder-icon capable versions) | GVfs `metadata::thunar-custom-icon-name` | Isolated real GVfs metadata tests; visual session not tested |
@@ -171,3 +173,12 @@ Implementation references: [Nemo sidebar](https://github.com/linuxmint/nemo/blob
 [Thunar folder metadata](https://github.com/xfce-mirror/thunar/blob/master/thunar/thunar-file.c),
 [PCManFM-Qt bookmarks](https://github.com/lxqt/libfm-qt/blob/master/src/core/bookmarks.cpp),
 [KDE Places model](https://api.kde.org/kfileplacesmodel.html).
+
+### Provider shutdown correction
+
+A local alpha12 test found that retaining a provider object inside a timer could
+run its host weak notification too late during Nautilus shutdown. The follow-up
+removes those unnecessary references. The regression verifies provider
+finalization before module shutdown for Nautilus, Nemo, Caja and Thunar. Local
+shutdown passed after installation; see the [validation record](VALIDATION.md)
+for CI and live-browsing limitations.
