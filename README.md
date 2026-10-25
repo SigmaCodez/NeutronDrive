@@ -122,7 +122,7 @@ not offer this numerically lower version through their update checker; download
 and install the beta package once. DEB, RPM and Arch packages use **epoch 1**, so
 package managers correctly treat the beta as an upgrade. Preferences, account
 storage and sync data are retained. Future beta updates use the usual updater.
-The old GitHub release downloads are retired; their Git history/tags remain.
+The old GitHub releases and tags are retired; Git history remains. Only the current beta release tag is retained.
 
 ## Install
 
