@@ -13,6 +13,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = 'neutrondrive-qt'
 REPORT = 'native-build.json'
+FILE_MANAGER_ARTIFACTS = ('libneutrondrive_file_manager.so', 'libneutrondrive_nautilus3.so', 'neutrondrive-file-manager')
 
 
 def sha(path):
@@ -25,13 +26,13 @@ def arch(value=None):
 
 def sources():
     files = [ROOT / name for name in (
-        'desktop/Cargo.toml', 'desktop/Cargo.lock', 'desktop/build.rs', 'desktop/ui.qrc',
+        'file-manager/Cargo.toml', 'file-manager/Cargo.lock', 'desktop/Cargo.toml', 'desktop/Cargo.lock', 'desktop/build.rs', 'desktop/ui.qrc',
         'core/Cargo.toml', 'core/Cargo.lock', 'packaging/qt-lock.json',
         'data/io.github.SigmaCodez.NeutronDrive.svg',
     )]
     for relative, pattern in [('desktop/src', '*.rs'), ('desktop/include', '*.h'),
                               ('desktop/qml', '*.qml'), ('desktop/data', '*'),
-                              ('core/src', '*.rs'), ('src/neutrondrive/qml', '*.qml'),
+                              ('file-manager/src', '*.rs'), ('core/src', '*.rs'), ('src/neutrondrive/qml', '*.qml'),
                               ('src/neutrondrive/locales', '*.json')]:
         files.extend(p for p in (ROOT / relative).rglob(pattern) if p.is_file())
     return {str(p.relative_to(ROOT)): sha(p) for p in sorted(set(files))}
@@ -62,6 +63,20 @@ def inspect(binary, architecture):
     return dict(maximum_glibc=list(glibc), maximum_glibcxx=list(glibcxx), needed=needed, runpath=runpaths[0])
 
 
+def inspect_file_manager(binary, architecture):
+    with Path(binary).open('rb') as stream:
+        header = stream.read(20)
+    if len(header) != 20 or header[:6] != b'\x7fELF\x02\x01' or struct.unpack_from('<H', header, 18)[0] != {'x86_64':62, 'aarch64':183}[arch(architecture)]:
+        raise ValueError('File-manager ELF architecture mismatch')
+    versions = subprocess.check_output(['readelf', '--version-info', str(binary)], text=True)
+    maximum = max((tuple(map(int, v.split('.'))) for v in re.findall(r'GLIBC_([0-9]+(?:\.[0-9]+)+)', versions)), default=(0,0))
+    if 'GLIBC_ABI_' in versions or maximum > ((2,35) if arch(architecture) == 'x86_64' else (2,39)):
+        raise ValueError('File-manager library exceeds supported glibc baseline')
+    dynamic = subprocess.check_output(['readelf', '-d', str(binary)], text=True)
+    if re.search(r'\[(?:libQt|libpython|libpyside|libshiboken)', dynamic):
+        raise ValueError('File-manager extension must not load Qt or Python into the host')
+
+
 def verify(directory, architecture):
     directory = Path(directory)
     binary = directory / BINARY
@@ -71,6 +86,11 @@ def verify(directory, architecture):
             or report.get('source_sha256') != sources() or report.get('sha256') != sha(binary)
             or any(report.get(k) != v for k, v in actual.items())):
         raise ValueError('Native frontend provenance does not match the source tree and binary')
+    for name in FILE_MANAGER_ARTIFACTS:
+        plugin = directory / name
+        if report.get('file_manager_sha256', {}).get(name) != sha(plugin):
+            raise ValueError('File-manager artifact provenance mismatch')
+        inspect_file_manager(plugin, architecture)
     return binary
 
 
@@ -78,7 +98,10 @@ def record(binary, directory, architecture=None):
     """Publish only a verified baseline build; never overwrite an executable inode in place."""
     architecture = arch(architecture)
     inspected = inspect(binary, architecture)
-    report = dict(format=1, architecture=architecture, source_sha256=sources(), sha256=sha(binary), **inspected)
+    for name in FILE_MANAGER_ARTIFACTS:
+        inspect_file_manager(Path(binary).parent/name, architecture)
+    file_manager_sha256 = {name:sha(Path(binary).parent/name) for name in FILE_MANAGER_ARTIFACTS}
+    report = dict(file_manager_sha256=file_manager_sha256, format=1, architecture=architecture, source_sha256=sources(), sha256=sha(binary), **inspected)
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
@@ -89,6 +112,9 @@ def record(binary, directory, architecture=None):
         os.replace(temporary, directory / BINARY)
     finally:
         temporary.unlink(missing_ok=True)
+    for name in FILE_MANAGER_ARTIFACTS:
+        shutil.copyfile(Path(binary).parent/name, directory/name)
+        (directory/name).chmod(0o755)
     (directory / REPORT).write_text(json.dumps(report, indent=2, sort_keys=True) + '\n')
     verify(directory, architecture)
     return directory
@@ -108,7 +134,10 @@ def stage(app, base, architecture):
     docs = base / 'share/doc/neutrondrive'
     docs.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(directory / REPORT, docs / REPORT)
-    for folder in ('core', 'desktop'):
+    for name in FILE_MANAGER_ARTIFACTS:
+        shutil.copyfile(directory/name, destination.parent/name)
+        (destination.parent/name).chmod(0o755)
+    for folder in ('core', 'desktop', 'file-manager'):
         shutil.copyfile(ROOT / folder / 'Cargo.lock', docs / (folder + '-Cargo.lock'))
     licenses = base / 'share/licenses/neutrondrive/rust'
     shutil.copytree(ROOT / 'packaging/licenses/rust', licenses, dirs_exist_ok=True)

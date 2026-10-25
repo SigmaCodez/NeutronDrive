@@ -24,6 +24,16 @@ cargo "${nd_cargo[@]}" build --locked --offline
 cargo "${nd_cargo[@]}" test --locked --offline
 cargo clippy "${nd_cargo[@]}" --locked --offline --all-targets -- -D warnings
 cargo fmt -- --check
+(
+    cd "$nd_root/file-manager"
+    cargo "${nd_cargo[@]}" test --locked --offline
+    cargo clippy "${nd_cargo[@]}" --locked --offline --all-targets --all-features -- -D warnings
+    cargo fmt -- --check
+    cargo "${nd_cargo[@]}" build --locked --offline --features nautilus3 --lib
+    cp "$CARGO_TARGET_DIR/debug/libneutrondrive_file_manager.so" "$CARGO_TARGET_DIR/debug/libneutrondrive_nautilus3.so"
+    cargo "${nd_cargo[@]}" build --locked --offline
+)
+python3 "$nd_root/file-manager/tests/check-providers.py" "$CARGO_TARGET_DIR/debug/libneutrondrive_file_manager.so" "$CARGO_TARGET_DIR/debug/libneutrondrive_nautilus3.so"
 (cd "$nd_root/core" && NEUTRONDRIVE_DBUS_TEST=1 cargo "${nd_cargo[@]}" test --locked --offline --test desktop_bus -- --test-threads=1)
 python3 "$nd_root/desktop/tests/check-cli-localization.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \

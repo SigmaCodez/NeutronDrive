@@ -7,6 +7,7 @@ use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Done {
+    FileManager,
     AccountStorage,
     Setup,
     Loaded,
@@ -29,6 +30,7 @@ pub enum Done {
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Target {
+    FileManager,
     Drive,
     Background,
     Mount,
@@ -760,6 +762,18 @@ impl Files {
                         vec![]
                     }
                     Done::Refresh => self.refresh(),
+                    Done::FileManager => {
+                        if value["share"].is_object() {
+                            let node = value["share"].clone();
+                            self.submit(
+                                "Freigabestatus laden",
+                                json!({"action":"sharing","path":node["path"]}),
+                                Done::Share(node),
+                            )
+                        } else {
+                            vec![]
+                        }
+                    }
                     Done::Share(node) => self.share_dialog(node, value),
                     Done::RemovedLink => {
                         self.message(&self.tr("Freigabelink entfernt."), false);
@@ -1043,6 +1057,18 @@ impl Files {
                     "Account storage",
                     json!({"action":"account_storage"}),
                     Done::AccountStorage,
+                );
+            }
+            "file_manager" if !self.busy() && self.pending.is_none() => {
+                if let Err(error) = crate::file_manager::validate(&args[0]) {
+                    self.message(&error.message, true);
+                    return vec![];
+                }
+                return self.submit_target(
+                    "NeutronDrive",
+                    args[0].clone(),
+                    Done::FileManager,
+                    Target::FileManager,
                 );
             }
             "setup_folder_url" if !self.busy() => {

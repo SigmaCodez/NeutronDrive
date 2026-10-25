@@ -55,6 +55,16 @@ class NativePackagingTests(unittest.TestCase):
             self.assertTrue((destination / 'usr/bin/neutrondrive').read_text().startswith('#!/bin/sh'))
             self.assertTrue((destination / 'usr/lib/neutrondrive/neutrondrive/locales/en.json').is_file())
             self.assertEqual(list(destination.rglob('*.py')), [])
+            for libdir in ('lib', 'lib64', 'lib/x86_64-linux-gnu'):
+                for manager in ('nautilus/extensions-3.0','nautilus/extensions-4','nemo/extensions-3.0','caja/extensions-2.0','thunarx-3'):
+                    link=destination/'usr'/libdir/manager/'libneutrondrive.so'
+                    self.assertTrue(link.is_symlink())
+                    expected='libneutrondrive_nautilus3.so' if manager.endswith('extensions-3.0') and manager.startswith('nautilus') else 'libneutrondrive_file_manager.so'
+                    self.assertEqual(link.resolve(),destination/'usr/lib/neutrondrive/bin'/expected)
+            for mode in ('pin','evict','share'):
+                text=(destination/'usr/share/file-manager/actions'/('neutrondrive-'+mode+'.desktop')).read_text()
+                self.assertIn('Exec=/usr/bin/neutrondrive --file-action '+mode+' -- %f',text)
+                self.assertIn('ShowIfTrue=/usr/lib/neutrondrive/bin/neutrondrive-file-manager %f',text)
             # A release-pinned SDK must still retain its adjacent source report.
             provenance = backend.with_name('sdk.provenance.json')
             provenance.write_text('{"source": "fixture"}')
@@ -134,14 +144,24 @@ class NativePackagingTests(unittest.TestCase):
     def test_source_or_binary_tampering_invalidates_report(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);source=root/'input';source.write_bytes(b'fixture')
+            header=bytearray(20);header[:6]=b'\x7fELF\x02\x01';struct.pack_into('<H',header,18,62)
+            for name in native.FILE_MANAGER_ARTIFACTS:(root/name).write_bytes(header)
             facts=dict(maximum_glibc=[2,34],maximum_glibcxx=[3,4,30],needed=['libQt6Core.so.6'])
-            with patch.object(native,'inspect',return_value=facts),patch.object(native,'sources',return_value={'source':'hash'}):
+            with patch.object(native,'inspect',return_value=facts),patch.object(native,'inspect_file_manager'),patch.object(native,'sources',return_value={'source':'hash'}):
                 native.record(source,root/'output','x86_64');native.verify(root/'output','x86_64')
                 (root/'output'/native.BINARY).write_bytes(b'tampered')
                 with self.assertRaisesRegex(ValueError,'provenance'):native.verify(root/'output','x86_64')
                 (root/'output'/native.BINARY).write_bytes(b'fixture')
                 with patch.object(native,'sources',return_value={'source':'changed'}):
                     with self.assertRaisesRegex(ValueError,'provenance'):native.verify(root/'output','x86_64')
+    def test_file_manager_artifacts_reject_wrong_architecture_new_glibc_and_qt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            binary=Path(temporary)/'plugin';header=bytearray(20);header[:6]=b'\x7fELF\x02\x01';struct.pack_into('<H',header,18,62);binary.write_bytes(header)
+            with self.assertRaisesRegex(ValueError,'architecture'):native.inspect_file_manager(binary,'arm64')
+            with patch.object(native.subprocess,'check_output',return_value='GLIBC_2.38'):
+                with self.assertRaisesRegex(ValueError,'baseline'):native.inspect_file_manager(binary,'x86_64')
+            with patch.object(native.subprocess,'check_output',side_effect=['GLIBC_2.34','(NEEDED) [libQt6Core.so.6]']):
+                with self.assertRaisesRegex(ValueError,'Qt or Python'):native.inspect_file_manager(binary,'x86_64')
     def test_arm64_baseline_matches_the_pinned_qt_runtime_without_relaxing_x86(self):
         with tempfile.TemporaryDirectory() as temporary:
             binary=Path(temporary)/'arm';header=bytearray(20);header[:6]=b'\x7fELF\x02\x01';struct.pack_into('<H',header,18,183);binary.write_bytes(header)

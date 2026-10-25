@@ -1,6 +1,6 @@
 # Maintainer: SigmaCodez <maintainers@users.noreply.github.com>
 pkgname=neutrondrive-bin
-pkgver=0.6.0alpha9
+pkgver=0.6.0alpha10
 pkgrel=1
 pkgdesc='Independent Rust/Qt Quick client for Proton Drive with automatic sync (alpha)'
 arch=('x86_64' 'aarch64')
@@ -15,11 +15,11 @@ optdepends=('gnome-keyring: Secret Service provider (or another compatible keyri
 provides=("neutrondrive=$pkgver")
 conflicts=('neutrondrive')
 options=('!strip' '!debug')
-_release=0.6.0-alpha9
+_release=0.6.0-alpha10
 source_x86_64=("$url/releases/download/v$_release/neutrondrive_${_release}-1_amd64.deb")
 source_aarch64=("$url/releases/download/v$_release/neutrondrive_${_release}-1_arm64.deb")
-sha256sums_x86_64=('7a7df620fdea1b98d59b7c40d0e3073703c65841edb66ff5888a467dbb0de29a')
-sha256sums_aarch64=('ff1f3a106b15e77d00d0a77f20e89f787becdc99810d606ee4c9b4ffaa6f5a27')
+sha256sums_x86_64=('fe6fabb4d26ef47f55b687f96a7e7411e2d1b2be99aed6dace4cfc965d63e75c')
+sha256sums_aarch64=('f69ec1781d133b3dc305ed2b6137591894fb6cb97bac2c5f619e7939a95cfec9')
 noextract=("neutrondrive_${_release}-1_amd64.deb" "neutrondrive_${_release}-1_arm64.deb")
 
 package() {
@@ -27,5 +27,8 @@ package() {
     [[ $CARCH == aarch64 ]] && debarch=arm64
     bsdtar -xOf "$srcdir/neutrondrive_${_release}-1_${debarch}.deb" data.tar.xz |
         bsdtar -xJf - -C "$pkgdir" ./usr
+    # Arch uses /usr/lib; /usr/lib64 is a symlink owned by filesystem.
+    # Keep the equivalent host extensions in /usr/lib only.
+    rm -rf "$pkgdir/usr/lib64" "$pkgdir/usr/lib/x86_64-linux-gnu" "$pkgdir/usr/lib/aarch64-linux-gnu"
     mv "$pkgdir/usr/share/licenses/neutrondrive" "$pkgdir/usr/share/licenses/$pkgname"
 }

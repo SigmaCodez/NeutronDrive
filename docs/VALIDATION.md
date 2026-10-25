@@ -135,3 +135,23 @@ AUR publication is pending an AUR account and SSH access; GitHub provides the
 recipe, generated metadata and tested Arch binary without claiming an AUR listing.
 The supplemental release files use `PORTABLE_SHA256SUMS`; existing alpha6 files
 and the release tag are retained unchanged.
+
+## 0.6.0 alpha10 release validation
+
+Native application and DEB source commit: `bba4545cdf728ddec2da026e781fa3acc2844033`. Package corrections and final validation are recorded
+in the [release checks](https://github.com/SigmaCodez/NeutronDrive/pull/9/checks). Feature changes and release metadata are
+tracked in [PR #9](https://github.com/SigmaCodez/NeutronDrive/pull/9).
+
+The build validates both native architectures, Rust tests and Clippy, retained
+regression contracts, SDK bridge tests and eight Linux installation packages.
+Native menu providers are tested against real host libraries with synthetic
+file information and intercepted process spawning, including the two Nautilus
+ABIs. Isolated actual Qt input tests cover the themed sign-in/folder steps,
+photo selection, viewer, albums and navigation. Fresh English previews come
+from the unchanged release DEB, with executable hashes in GUI-PREVIEWS.json.
+
+No new live cloud mutation test was performed for this UI/menu release. Earlier
+alpha9 live-test evidence remains separately dated above. PCManFM/PCManFM-Qt
+full desktop GUI testing remains pending. This does not certify every distro
+or establish absence of all bugs. See release BUILD_INFO.json, TEST_RESULTS.json,
+SHA256SUMS and native/SDK provenance for exact artifacts and test jobs.

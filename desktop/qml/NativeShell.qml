@@ -130,11 +130,17 @@ Item {
         }catch(error){console.error(error);stop();Qt.exit(1)}
     })
     Timer {interval:100;running:controller.initialized;repeat:true;onTriggered:{if(startup.activationPending()){controller.view.show();controller.view.raise();controller.view.requestActivate()}}}
+    Timer { interval: 150; running: controller.initialized && !controller.smoke; repeat: true; onTriggered: {
+        if(controller.state.busy || controller.view.dialogOpen)return;
+        let request=startup.nextFileAction();
+        if(request){controller.reveal("");controller.send("file_manager",[JSON.parse(request)]);}
+    } }
     Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:{let available=startup.trayAvailable();if(controller.trayAvailable && !available && controller.view && !controller.view.visible)controller.reveal("");controller.trayAvailable=available;controller.send("poll_services",[])}}
     Timer {id:initialUpdate;interval:10000;running:controller.initialized;onTriggered:updater.tick()}
     Timer {id:updateTimer;interval:3600000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
     // Isolated end-to-end checks of the actual existing Main.qml, without an account.
-    property int stage: 0
+    property int stage: 900
+    property var checkedWizard: null
     property var lastDialog: ({})
     property var checkedList: null
     property var checkedRow: null
@@ -167,7 +173,52 @@ Item {
         onTriggered:{
             try{
                 if(controller.state.busy)return;
-                if(controller.stage===0){
+                if(controller.stage===900){
+                    controller.view.s=Object.assign({},controller.state,{setupNeeded:true,setupFolder:"/home/alex/ProtonDrive",authenticated:false,busy:false});
+                    controller.checkedWizard=Array.from(controller.view.contentData).find(item=>item.objectName==="setupWizard");
+                    if(!controller.checkedWizard)throw new Error("Setup wizard missing");
+                    controller.view.width=900;controller.view.height=640;
+                    controller.setAppearancePreference("light");controller.stage=901;
+                }else if(controller.stage===901){
+                    let wizard=controller.checkedWizard;
+                    let next=controller.childNamed(wizard.contentItem,"setupNext");
+                    let path=controller.childNamed(wizard.contentItem,"setupPath");
+                    if(wizard.step!==0 || !wizard.visible || next.enabled || path.visible)throw new Error("Unauthenticated setup must show only sign-in and disable Next");
+                    if(wizard.height>controller.view.height-30)throw new Error("Setup exceeds minimum window height");
+                    controller.capture("setup-sign-in-light.png",902);
+                }else if(controller.stage===902){
+                    controller.setAppearancePreference("dark");controller.stage=903;
+                }else if(controller.stage===903){controller.capture("setup-sign-in-dark.png",904);
+                }else if(controller.stage===904){
+                    controller.view.s=Object.assign({},controller.view.s,{authenticated:true});controller.stage=905;
+                }else if(controller.stage===905){
+                    let next=controller.childNamed(controller.checkedWizard.contentItem,"setupNext");
+                    if(!next.enabled)throw new Error("Authenticated setup cannot continue");
+                    next.clicked();controller.stage=906;
+                }else if(controller.stage===906){
+                    let wizard=controller.checkedWizard;
+                    if(wizard.step!==1 || controller.childNamed(wizard.contentItem,"setupSignIn").visible || !controller.childNamed(wizard.contentItem,"setupPath").visible)throw new Error("Sync folder is not a separate step");
+                    if(wizard.height>controller.view.height-30)throw new Error("Folder step exceeds minimum window height");
+                    controller.capture("setup-folder-dark.png",907);
+                }else if(controller.stage===907){
+                    controller.setAppearancePreference("light");controller.stage=908;
+                }else if(controller.stage===908){controller.capture("setup-folder-light.png",909);
+                }else if(controller.stage===909){
+                    let wizard=controller.checkedWizard;
+                    let path=controller.childNamed(wizard.contentItem,"setupPath");
+                    let finish=controller.childNamed(wizard.contentItem,"setupFinish");
+                    path.text="   ";
+                    if(finish.enabled)throw new Error("Setup accepts blank folder");
+                    path.text="/tmp/NeutronDrive-setup-preview";
+                    if(!finish.enabled)throw new Error("Setup rejects authenticated folder step");
+                    controller.childNamed(wizard.contentItem,"setupBack").clicked();
+                    if(wizard.step!==0)throw new Error("Setup Back failed");
+                    controller.childNamed(wizard.contentItem,"setupNext").clicked();
+                    if(path.text!=="/tmp/NeutronDrive-setup-preview")throw new Error("Back lost selected folder");
+                    controller.view.s=Qt.binding(function(){return controller.state});
+                    controller.view.width=1220;controller.view.height=820;
+                    console.log("NATIVE_SETUP_STEPS_AND_THEMES_OK");controller.stage=0;
+                }else if(controller.stage===0){
                     if(!controller.view.visible)throw new Error("Main window is not visible");
                     if(controller.fileEntries.length===0)throw new Error("Demo files missing");
                     if(Qt.application.arguments.length>5){
@@ -272,6 +323,28 @@ Item {
                     if(!preview || preview.status!==Image.Ready)return;
                     controller.capture("light-photos.png",210);
                 }else if(controller.stage===210){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    let check=controller.childNamed(panel,"photoCheck-0");
+                    if(!check || check.visible || panel.selectionMode)throw new Error("Photo selection boxes must be hidden by default");
+                    controller.childNamed(panel,"photoSelectionButton").clicked();
+                    if(!check.visible)throw new Error("Photo selection toggle did not show overlay");
+                    check.clicked();
+                    if(panel.selected.length!==1)throw new Error("Photo checkbox did not select exactly one item");
+                    controller.stage=21001;
+                }else if(controller.stage===21001){controller.capture("light-photos-selection.png",21002);
+                }else if(controller.stage===21002){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    controller.childNamed(panel,"photoSelectionButton").clicked();
+                    if(panel.selected.length || controller.childNamed(panel,"photoCheck-0").visible)throw new Error("Leaving photo selection did not reset controls");
+                    panel.showPhoto(0);controller.stage=21003;
+                }else if(controller.stage===21003){controller.capture("light-photo-viewer.png",21004);
+                }else if(controller.stage===21004){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    panel.showPhoto(1);
+                    if(panel.viewerIndex!==1)throw new Error("Photo viewer navigation failed");
+                    panel.openAlbum("");
+                    console.log("NATIVE_PHOTO_SELECTION_AND_VIEWER_OK");controller.stage=21005;
+                }else if(controller.stage===21005){
                     controller.childNamed(controller.view.contentItem,"photoAlbumsButton").clicked();controller.stage=2101;
                 }else if(controller.stage===2101){
                     let albums=controller.childNamed(controller.view.contentItem,"photoAlbumsGrid");

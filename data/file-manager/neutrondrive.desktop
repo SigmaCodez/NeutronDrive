@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Service
-MimeType=application/octet-stream;inode/directory;
-Actions=keep;free;
+MimeType=all/allfiles;inode/directory;
+Actions=keep;free;share;
 X-KDE-Priority=TopLevel
 X-KDE-Submenu=NeutronDrive
 X-KDE-RequiredNumberOfUrls=1
@@ -11,10 +11,16 @@ X-KDE-Protocols=file
 Name=Keep on this device
 Name[de]=Auf diesem Gerät behalten
 Icon=download
-Exec=neutrondrive --pin %f
+Exec=neutrondrive --file-action pin -- %f
 
 [Desktop Action free]
 Name=Free up local space
 Name[de]=Lokalen Speicher freigeben
 Icon=edit-clear
-Exec=neutrondrive --evict %f
+Exec=neutrondrive --file-action evict -- %f
+
+[Desktop Action share]
+Name=Share…
+Name[de]=Teilen…
+Icon=document-share
+Exec=neutrondrive --file-action share -- %f

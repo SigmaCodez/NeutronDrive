@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Action
+Name=Keep on device
+Name[de]=Auf Gerät behalten
+Icon=io.github.SigmaCodez.NeutronDrive
+Profiles=sync;
+
+[X-Action-Profile sync]
+MimeTypes=all/all;
+Schemes=file;
+SelectionCount==1
+Exec=/usr/bin/neutrondrive --file-action pin -- %f
+ShowIfTrue=/usr/lib/neutrondrive/bin/neutrondrive-file-manager %f

@@ -25,6 +25,7 @@ dist/
 core/target/
 
 desktop/target/
+file-manager/target/
 .qmlls.ini
 
 # Cargo verifies every file listed in vendored crate manifests.

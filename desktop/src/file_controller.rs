@@ -327,7 +327,9 @@ impl qobject::NativeFiles {
                     }
                     0
                 };
-                if demo {demo_operation(&work.operation)} else if work.target == Target::Background {
+                if demo {demo_operation(&work.operation)} else if work.target == Target::FileManager {
+                    crate::file_manager::run(&executable,&work.operation,&mut callback)
+                } else if work.target == Target::Background {
                     crate::background::run(&executable,&work.operation,&mut callback)
                 } else if work.target == Target::Mount && matches!(work.operation["action"].as_str(),Some("pin_remote"|"evict_remote")) {
                     crate::setup::availability(&executable,&work.operation,&mut callback)

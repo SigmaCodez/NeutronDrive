@@ -1,4 +1,4 @@
-# Desktop features: alpha9
+# Desktop features: alpha10
 
 Alpha9 includes these features in both the native frontend and SDK bridge.
 Upgrade the complete application package; older bridges do not contain all
@@ -49,6 +49,11 @@ without GPS data do not receive an invented location. Photo uploads, favorite
 editing, RAW grouping and import remain outside this change.
 
 ## Guided placeholder sync (alpha9)
+
+Alpha10 uses a themed two-step assistant: sign in to Proton
+first, then choose the sync folder. Continue is enabled after authentication;
+Back preserves the folder choice. Cards, buttons and inputs follow the main
+window’s light/dark appearance.
 
 The first-run assistant defaults to `~/ProtonDrive`. Choose an empty real folder,
 sign in, then finish. Setup starts the existing native FUSE service and enables
@@ -131,3 +136,24 @@ BUILD_INFO.json and TEST_RESULTS.json for the exact scope and remaining limits.
 
 See the alpha8 release BUILD_INFO.json and TEST_RESULTS.json for the exact
 build commit, GitHub test run and installed-package validation.
+
+## Gallery and desktop refinements (alpha10)
+
+The photo grid now shows clean image tiles. **Select photos** enters selection
+mode; only then do checkboxes appear in the top-left corner of images. **Done**
+clears the selection. Tile clicks normally open an in-app preview with previous /
+next navigation, keyboard arrows, zoom, date information and download / map actions.
+The preview uses the existing bounded thumbnail cache, not an automatic original
+file download. Unsupported photo/video previews offer an original download.
+
+Thumbnail size is adjustable. Selection actions support clearing or selecting up
+to 48 loaded photos and the existing album operations. This is a bounded batch,
+not a claim that all photos in a large library are selected. Continuous loading,
+total counts and album operations remain. Video playback, favorites filters,
+photo import and complete Proton Photos web parity are not added by this UI change.
+New strings have English/German text; other locales use English fallback for these
+new labels while retaining their existing translations.
+
+The guided assistant now separates Proton sign-in from folder selection, with
+Next / Back navigation and shared light/dark theme styling. Native desktop menus
+are described in [file-manager integration](FILE-MANAGER-INTEGRATION.md).

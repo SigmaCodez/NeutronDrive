@@ -6,6 +6,7 @@ mod background;
 mod casefold;
 mod cli_text;
 mod file_controller;
+mod file_manager;
 pub mod files;
 mod headless;
 mod instance;

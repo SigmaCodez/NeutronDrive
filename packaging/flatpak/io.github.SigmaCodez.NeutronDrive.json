@@ -67,6 +67,21 @@
         },
         {
           "type": "file",
+          "path": "../../build/native-frontend/libneutrondrive_file_manager.so",
+          "dest": "prebuilt-frontend"
+        },
+        {
+          "type": "file",
+          "path": "../../build/native-frontend/libneutrondrive_nautilus3.so",
+          "dest": "prebuilt-frontend"
+        },
+        {
+          "type": "file",
+          "path": "../../build/native-frontend/neutrondrive-file-manager",
+          "dest": "prebuilt-frontend"
+        },
+        {
+          "type": "file",
           "url": "https://files.pythonhosted.org/packages/99/20/3a6ca95052e1744b5a3eba164e2dd451d358a3dcaf78179de4b45c8e3f47/pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl",
           "sha256": "660aea45bfa36f1e06f799b934c2a7df963bd31abc5083e8bb8a5bfaef45686b",
           "dest": "build/qt-wheels/x86_64",

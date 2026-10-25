@@ -56,7 +56,14 @@ pub(crate) fn catalog_at(executable: &Path) -> Option<PathBuf> {
 }
 pub fn configure(args: &[String], check: bool) -> Result<(), Failure> {
     let fixture = check && args.first().is_some_and(|a| a == "--check-window-fixture");
-    let (demo, cli) = if check {
+    let file_action = if args.first().is_some_and(|s| s == "--file-action") {
+        Some(crate::file_manager::request(args)?)
+    } else {
+        None
+    };
+    let (demo, cli) = if file_action.is_some() {
+        (false, None)
+    } else if check {
         (!fixture, None)
     } else {
         options(args)?
@@ -86,7 +93,7 @@ pub fn configure(args: &[String], check: bool) -> Result<(), Failure> {
         && std::ffi::CString::new(sdk.as_bytes())
             .is_ok_and(|path| unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 });
     CONFIG
-        .set(json!({"demo":demo,"catalog":catalog,"executable":sdk,"available":available,"payload":payload,"flatpak":std::env::var_os("FLATPAK_ID").is_some()}))
+        .set(json!({"fileAction":file_action,"demo":demo,"catalog":catalog,"executable":sdk,"available":available,"payload":payload,"flatpak":std::env::var_os("FLATPAK_ID").is_some()}))
         .map_err(|_| failure("Application already configured"))
 }
 #[cxx_qt::bridge]
@@ -109,6 +116,9 @@ pub mod qobject {
         #[qinvokable]
         #[cxx_name = "activationPending"]
         fn activation_pending(self: &NativeStartup) -> bool;
+        #[qinvokable]
+        #[cxx_name = "nextFileAction"]
+        fn next_file_action(self: &NativeStartup) -> QString;
         #[qinvokable]
         fn shutdown(self: Pin<&mut NativeStartup>);
         #[qinvokable]
@@ -168,12 +178,13 @@ impl qobject::NativeStartup {
             } else {
                 "native"
             };
-            Instance::claim(
+            Instance::claim_request(
                 &Path::new(
                     root.as_str()
                         .ok_or_else(|| failure("Invalid application state directory"))?,
                 )
                 .join(format!("qt-window-{scope}")),
+                config.get("fileAction").filter(|v| !v.is_null()).cloned(),
             )
         })();
         match result {
@@ -188,6 +199,16 @@ impl qobject::NativeStartup {
                 -1
             }
         }
+    }
+    fn next_file_action(&self) -> QString {
+        QString::from(
+            self.rust()
+                .instance
+                .as_ref()
+                .and_then(Instance::next_request)
+                .map(|v| v.to_string())
+                .unwrap_or_default(),
+        )
     }
     fn activation_pending(&self) -> bool {
         self.rust().instance.as_ref().is_some_and(Instance::pending)

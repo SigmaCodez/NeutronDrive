@@ -72,6 +72,7 @@ ApplicationWindow {
     palette.base: window.theme.canvas; palette.button: window.theme.canvas
     palette.window: window.theme.canvas; palette.highlightedText: window.theme.onAccent
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
+    readonly property bool dialogOpen: modal.visible || folderPicker.visible || filePicker.visible || setupWizard.visible
     property bool gridView: false
     Timer { interval: 60000; repeat: true; running: Boolean(s.authenticated); triggeredOnStart: true; onTriggered: if(!s.busy)controller.send("account_storage",[]) }
     property var appController: controller
@@ -149,22 +150,95 @@ ApplicationWindow {
 
     Dialog {
         id: setupWizard; objectName: "setupWizard"
+        property int step: 0
         visible: Boolean(s.setupNeeded); modal: true; closePolicy: Popup.NoAutoClose
-        anchors.centerIn: parent; width: Math.min(640,window.width-60)
-        title: window.tr("Welcome to NeutronDrive")
+        onOpened: step = 0
+        anchors.centerIn: parent; width: Math.min(680, window.width - 60)
+        padding: 28
+        background: Rectangle { radius: 18; color: window.theme.canvas; border.color: window.theme.cardBorder }
+        header: Item { implicitHeight: 0 }
+        Overlay.modal: Rectangle { color: window.darkMode ? "#99000000" : "#66252236" }
         contentItem: ColumnLayout {
-            spacing: 16
-            Label { text: window.tr("Your files, ready when you need them"); font.pixelSize: 22; font.bold: true; wrapMode: Text.Wrap; Layout.fillWidth: true }
-            Copy { text: window.tr("Sign in, choose an empty sync folder, and start. Files appear without downloading their contents. Open a file or choose Keep on device to download it.") }
-            Action { text: window.tr("Sign in to Proton"); command: "login"; enabled: !s.busy }
-            TextField { id: setupPath; Layout.fillWidth: true; text: s.setupFolder || ""; enabled: !s.busy; onEditingFinished: controller.send("setup_folder",[text]) }
-            Button { text: window.tr("Choose sync folder"); enabled: !s.busy; onClicked: setupFolderPicker.open() }
-            Copy { text: window.tr("Finishing starts the sync service and enables automatic startup at login. Existing files in the selected folder will never be hidden or moved.") }
-            Copy { text: s.fields.notice_label.value || ""; visible: Boolean(text) }
+            spacing: 22
             RowLayout {
-                Button { text: window.tr("Later"); enabled: !s.busy; onClicked: controller.send("setup_later",[]) }
+                spacing: 12
+                Rectangle {
+                    Layout.preferredWidth: 44; Layout.preferredHeight: 44; radius: 13; color: window.theme.accent
+                    DriveIcon { anchors.centerIn: parent; symbol: "brand"; ink: window.theme.onAccent }
+                }
+                ColumnLayout {
+                    spacing: 3
+                    Heading { text: window.tr("Welcome to NeutronDrive"); font.pixelSize: 22; wrapMode: Text.Wrap }
+                    Copy { text: window.tr("Your files, ready when you need them") }
+                }
+            }
+            RowLayout {
+                Layout.fillWidth: true; spacing: 12
+                Repeater {
+                    model: [window.tr("Sign in to Proton"), window.tr("Choose sync folder")]
+                    delegate: Rectangle {
+                        required property int index
+                        required property string modelData
+                        Layout.fillWidth: true; implicitHeight: steps.implicitHeight + 24
+                        radius: 10; color: setupWizard.step === index ? window.theme.selected : window.theme.sidebar
+                        RowLayout {
+                            id: steps
+                            anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; margins: 12 }
+                            spacing: 8
+                            Label { text: (index + 1).toString(); font.bold: true; color: setupWizard.step === index ? window.theme.accentText : window.theme.muted }
+                            Label { text: modelData; Layout.fillWidth: true; wrapMode: Text.Wrap; font.bold: setupWizard.step === index; color: setupWizard.step === index ? window.theme.accentText : window.theme.muted }
+                        }
+                    }
+                }
+            }
+            Card {
+                visible: setupWizard.step === 0
+                color: window.theme.sidebar
+                Heading { text: window.tr("Sign in to Proton") }
+                Copy { text: window.tr("Die Anmeldung erfolgt bei Proton im Browser. Diese App ist unabhängig und wird nicht von Proton unterstützt.") }
+                Action {
+                    objectName: "setupSignIn"
+                    text: s.authenticated ? window.tr("Verbunden") : window.tr("Sign in to Proton")
+                    command: "login"; primary: !s.authenticated; enabled: !s.busy && !s.authenticated
+                }
+            }
+            ColumnLayout {
+                visible: setupWizard.step === 1; Layout.fillWidth: true; spacing: 16
+                Card {
+                    color: window.theme.sidebar
+                    Heading { text: window.tr("Choose sync folder") }
+                    TextField {
+                        id: setupPath; objectName: "setupPath"
+                        Layout.fillWidth: true; implicitHeight: 44; padding: 12
+                        text: s.setupFolder || ""; enabled: !s.busy; selectByMouse: true
+                        color: window.theme.text; selectionColor: window.theme.accent; selectedTextColor: window.theme.onAccent
+                        Accessible.name: window.tr("Choose sync folder")
+                        onTextEdited: controller.send("setup_folder", [text])
+                        background: Rectangle { radius: 9; color: window.theme.input; border.color: setupPath.activeFocus ? window.theme.accent : window.theme.border }
+                    }
+                    Action { text: window.tr("Choose sync folder"); onClicked: setupFolderPicker.open() }
+                }
+                Copy { text: window.tr("Finishing starts the sync service and enables automatic startup at login. Existing files in the selected folder will never be hidden or moved.") }
+            }
+            Copy { text: s.fields.notice_label.value || ""; visible: Boolean(text); color: window.theme.accentText }
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: window.theme.cardBorder }
+            RowLayout {
+                spacing: 10
+                Action { text: window.tr("Later"); onClicked: controller.send("setup_later", []) }
                 Item { Layout.fillWidth: true }
-                Button { text: window.tr("Finish and start sync"); highlighted: true; enabled: !s.busy && setupPath.text.length>0; onClicked: { controller.send("setup_folder",[setupPath.text]); controller.send("setup_finish",[]); } }
+                Action { objectName: "setupBack"; visible: setupWizard.step === 1; text: window.tr("Previous"); onClicked: setupWizard.step = 0 }
+                Action {
+                    objectName: "setupNext"
+                    visible: setupWizard.step === 0; text: window.tr("Next"); primary: true
+                    enabled: !s.busy && Boolean(s.authenticated)
+                    onClicked: setupWizard.step = 1
+                }
+                Action {
+                    objectName: "setupFinish"
+                    visible: setupWizard.step === 1; text: window.tr("Finish and start sync"); primary: true
+                    enabled: !s.busy && Boolean(s.authenticated) && setupPath.text.trim().length > 0
+                    onClicked: { controller.send("setup_folder", [setupPath.text]); controller.send("setup_finish", []); }
+                }
             }
         }
     }

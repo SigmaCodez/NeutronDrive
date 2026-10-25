@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       verified_native_run:
-        description: 'Optional completed run whose native tests/artifacts match this source (workflow/docs-only changes)'
+        description: 'Optional completed run whose native tests/artifacts match this source (unchanged native source; packaging/docs-only changes)'
         required: false
         type: string
 
@@ -68,13 +68,30 @@ jobs:
           PY
           )
           git fetch --no-tags --depth=1 origin "$nd_source_sha"
+          git show "$nd_source_sha:packaging/backend-lock.json" > "$RUNNER_TEMP/previous-backend-lock.json"
           git diff --name-only -z "$nd_source_sha" HEAD > "$RUNNER_TEMP/native-source-diff"
           python3 - <<'PY'
-          import os
+          import json, os
           from pathlib import Path
+          def build_coordinates(lock):
+              for key in ("version", "published", "application_release"):
+                  lock.pop(key, None)
+              for arch in lock["architectures"].values():
+                  for key in ("url", "sha512", "provenance_url"):
+                      arch.pop(key, None)
+              return lock
+          old = json.loads((Path(os.environ["RUNNER_TEMP"])/"previous-backend-lock.json").read_text())
+          current = json.loads(Path("packaging/backend-lock.json").read_text())
+          assert build_coordinates(old) == build_coordinates(current), "SDK build coordinates changed"
           paths = (Path(os.environ['RUNNER_TEMP'])/'native-source-diff').read_bytes().split(b'\0')
-          allowed = {b'.github/workflows/ci.yml', b'.github/workflows/portable-packages.yml'}
-          changed = [p.decode() for p in paths if p and p not in allowed and not p.startswith(b'docs/') and not (b'/' not in p and p.endswith(b'.md'))]
+          # These paths only assemble packages or pin distribution downloads.
+          # Compilers, application/test sources and provenance validators remain disallowed.
+          allowed = {b'.github/workflows/ci.yml', b'.github/workflows/portable-packages.yml',
+                     b'scripts/build-snap', b'scripts/build-flatpak', b'scripts/prepare-native-arch',
+                     b'packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json',
+                     b'packaging/backend-lock.json', b'packaging/aur/neutrondrive-bin/PKGBUILD',
+                     b'packaging/aur/neutrondrive-bin/.SRCINFO'}
+          changed = [p.decode() for p in paths if p and p not in allowed and not p.startswith(b'docs/') and not p.endswith(b'.md')]
           assert not changed, 'Native artifact reuse rejects changed application/build/test inputs: '+repr(changed)
           PY
       - uses: actions/download-artifact@v4
