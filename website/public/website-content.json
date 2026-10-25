@@ -3,7 +3,7 @@
   "release": "v0.1.0-beta1",
   "locales": {
     "en": {
-      "description": "The independent open-source client brings your cloud to where you work.",
+      "description": "An unofficial, open-source Linux desktop client for Proton Drive, developed independently of Proton AG.",
       "features": [
         [
           "Background sync",
@@ -25,7 +25,7 @@
       "faq": [
         [
           "Is NeutronDrive an official Proton client?",
-          "No. NeutronDrive is an independent open-source project and is not supported by Proton AG. You need a Proton account with access to Proton Drive."
+          "No. NeutronDrive is an unofficial, open-source Proton Drive client, developed independently of Proton AG and not officially supported by Proton. You need a Proton account with access to Proton Drive."
         ],
         [
           "Is NeutronDrive free?",
@@ -58,8 +58,8 @@
       ],
       "trust": [
         [
-          "Independent. And open.",
-          "A community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
+          "Unofficial. And open source.",
+          "An unofficial Proton Drive client developed as an independent community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
         ],
         [
           "Beta means still in development.",
@@ -99,7 +99,7 @@
       ]
     },
     "de": {
-      "description": "Der unabhängige Open-Source-Client bringt deine Cloud dorthin, wo du arbeitest.",
+      "description": "Ein inoffizieller Open-Source-Desktop-Client für Proton Drive unter Linux, unabhängig von Proton AG entwickelt.",
       "features": [
         [
           "Synchronisiert im Hintergrund",
@@ -121,7 +121,7 @@
       "faq": [
         [
           "Ist NeutronDrive ein offizieller Proton-Client?",
-          "Nein. NeutronDrive ist ein unabhängiges Open-Source-Projekt und wird nicht von Proton AG unterstützt. Du benötigst ein Proton-Konto mit Zugriff auf Proton Drive."
+          "Nein. NeutronDrive ist ein inoffizieller Open-Source-Client für Proton Drive, unabhängig von Proton AG entwickelt und ohne offiziellen Support von Proton. Du benötigst ein Proton-Konto mit Zugriff auf Proton Drive."
         ],
         [
           "Ist NeutronDrive kostenlos?",
@@ -154,8 +154,8 @@
       ],
       "trust": [
         [
-          "Unabhängig. Und offen.",
-          "Ein Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
+          "Inoffiziell. Und Open Source.",
+          "Ein inoffizieller Proton-Drive-Client, entwickelt als unabhängiges Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
         ],
         [
           "Beta heißt: noch in Entwicklung.",
@@ -195,7 +195,7 @@
       ]
     },
     "fr": {
-      "description": "Le client open source indépendant rapproche votre cloud de votre espace de travail.",
+      "description": "Un client de bureau Linux non officiel et open source pour Proton Drive, développé indépendamment de Proton AG.",
       "features": [
         [
           "Synchronisation en arrière-plan",
@@ -217,7 +217,7 @@
       "faq": [
         [
           "NeutronDrive est-il un client officiel de Proton ?",
-          "Non. NeutronDrive est un projet open source indépendant, sans assistance de Proton AG. Un compte Proton avec accès à Proton Drive est nécessaire."
+          "Non. NeutronDrive est un client non officiel et open source de Proton Drive, développé indépendamment de Proton AG et sans assistance officielle de Proton. Un compte Proton avec accès à Proton Drive est nécessaire."
         ],
         [
           "NeutronDrive est-il gratuit ?",
@@ -250,8 +250,8 @@
       ],
       "trust": [
         [
-          "Indépendant et ouvert.",
-          "Un projet communautaire sous licence MIT. Sans affiliation, recommandation ni assistance officielle de Proton AG."
+          "Non officiel. Et open source.",
+          "Un client non officiel de Proton Drive, développé comme projet communautaire indépendant sous licence MIT. Ni affilié à Proton AG, ni recommandé ou officiellement pris en charge par Proton AG."
         ],
         [
           "Bêta signifie : en développement.",
@@ -291,7 +291,7 @@
       ]
     },
     "es": {
-      "description": "El cliente independiente de código abierto lleva tu nube al lugar donde trabajas.",
+      "description": "Un cliente de escritorio Linux no oficial y de código abierto para Proton Drive, desarrollado de forma independiente de Proton AG.",
       "features": [
         [
           "Sincronización en segundo plano",
@@ -313,7 +313,7 @@
       "faq": [
         [
           "¿Es NeutronDrive un cliente oficial de Proton?",
-          "No. NeutronDrive es un proyecto independiente de código abierto y no recibe soporte de Proton AG. Necesitas una cuenta de Proton con acceso a Proton Drive."
+          "No. NeutronDrive es un cliente no oficial y de código abierto de Proton Drive, desarrollado de forma independiente de Proton AG y sin soporte oficial de Proton. Necesitas una cuenta de Proton con acceso a Proton Drive."
         ],
         [
           "¿Es gratuito NeutronDrive?",
@@ -346,8 +346,8 @@
       ],
       "trust": [
         [
-          "Independiente y abierto.",
-          "Un proyecto comunitario con licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
+          "No oficial. Y de código abierto.",
+          "Un cliente no oficial de Proton Drive, desarrollado como proyecto comunitario independiente bajo licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
         ],
         [
           "Beta significa: en desarrollo.",
@@ -387,7 +387,7 @@
       ]
     },
     "it": {
-      "description": "Il client indipendente open source porta il tuo cloud dove lavori.",
+      "description": "Un client desktop Linux non ufficiale e open source per Proton Drive, sviluppato indipendentemente da Proton AG.",
       "features": [
         [
           "Sincronizzazione in background",
@@ -409,7 +409,7 @@
       "faq": [
         [
           "NeutronDrive è un client ufficiale di Proton?",
-          "No. NeutronDrive è un progetto open source indipendente, non supportato da Proton AG. Serve un account Proton con accesso a Proton Drive."
+          "No. NeutronDrive è un client non ufficiale e open source di Proton Drive, sviluppato indipendentemente da Proton AG e senza supporto ufficiale di Proton. Serve un account Proton con accesso a Proton Drive."
         ],
         [
           "NeutronDrive è gratuito?",
@@ -442,8 +442,8 @@
       ],
       "trust": [
         [
-          "Indipendente e aperto.",
-          "Un progetto della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
+          "Non ufficiale. E open source.",
+          "Un client non ufficiale di Proton Drive, sviluppato come progetto indipendente della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
         ],
         [
           "Beta significa: in sviluppo.",
