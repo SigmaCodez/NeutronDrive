@@ -524,7 +524,10 @@ ApplicationWindow {
         visible: Boolean(s.history && s.history.visible)
         title: window.tr("Version history"); modal: true
         anchors.centerIn: parent; width: Math.min(680,window.width-60); height: Math.min(500,window.height-80)
-        footer: DialogButtonBox { delegate: DriveButton { theme: window.theme } standardButtons: Dialog.Close; onRejected: historyDialog.reject() }
+        footer: Item {
+            implicitHeight: 64
+            Action { objectName: "historyClose"; text: window.tr("Abbrechen / Schließen"); enabled: true; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 16; onClicked: historyDialog.reject() }
+        }
         padding: 20
         background: Rectangle { radius: 14; color: window.theme.canvas; border.color: window.theme.dialogBorder }
         header: Label { text: window.tr("Version history"); color: window.theme.text; font.pixelSize: 20; font.bold: true; padding: 20 }

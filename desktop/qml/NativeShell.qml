@@ -431,7 +431,11 @@ Item {
                     if(!controller.state.history.visible || controller.state.history.revisions.length!==2)throw new Error("Version history failed");
                     controller.capture("light-history.png",212);
                 }else if(controller.stage===212){
-                    controller.send("history_close",[]);
+                    let closeButton=null;
+                    for(let item of controller.view.contentData)if(item.objectName==="historyDialog")closeButton=controller.childNamed(item.footer,"historyClose");
+                    if(!closeButton || !closeButton.visible || !closeButton.enabled || !closeButton.text)throw new Error("History close button missing");
+                    closeButton.clicked();
+                    if(controller.state.history.visible)throw new Error("History close button did not close dialog");
                     console.log("NATIVE_PHOTOS_AND_HISTORY_OK");controller.stage=21;
                 }else if(controller.stage===21){
                     if(controller.fixture){
