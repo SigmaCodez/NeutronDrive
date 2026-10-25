@@ -1,7 +1,7 @@
 # Desktop features
 
 The latest published package is alpha14; its changes are tracked in
-[PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11). The sections below
+[PR #13](https://github.com/SigmaCodez/NeutronDrive/pull/13). The sections below
 identify when features were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
@@ -193,7 +193,7 @@ history and Photos. Native OS file pickers and tray menus follow the desktop.
 See [design conventions](DESIGN.md).
 
 Photo thumbnails decode at tile resolution and screen density rather than
-always at 600 × 600 pixels. Photo-model changes are deferred during a flick,
+always at 600 × 600 pixels. Incremental photo-model changes are deferred during a flick,
 then applied without resetting selection or scroll position. Rust avoids
 copying retained base64 previews when requesting or updating a batch.
 The visible range is checked for missing previews even if its first tile is

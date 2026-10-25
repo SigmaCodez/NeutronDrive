@@ -12,8 +12,9 @@ Reuse these components when adding screens instead of introducing a second style
   translations and accessible names.
 - Application dialogs use the same surfaces and controls. Operating-system file
   pickers and desktop tray menus retain the system's native presentation.
-- Photo tiles decode at their display size and screen density. Model changes
-  received during a flick are applied when movement finishes. Selection and
+- Photo tiles decode at their display size and screen density. Incremental model changes
+  received during a flick are applied when movement finishes; a refreshed or
+  replaced inventory clears stale tiles immediately. Selection and
   scroll position are preserved; requests inspect the entire visible range for
   missing previews. Preview retention remains bounded.
 
