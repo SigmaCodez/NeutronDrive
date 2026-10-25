@@ -137,7 +137,7 @@ flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flath
 flatpak install --user ./neutrondrive-0.1.0b1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
-# Snap (unsigned alpha package)
+# Snap (unsigned beta package)
 sudo snap install --dangerous ./neutrondrive_0.1.0-beta1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
