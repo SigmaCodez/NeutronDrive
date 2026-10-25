@@ -2,11 +2,17 @@
 #include <gmodule.h>
 #include <stdio.h>
 #include <string.h>
+static gpointer emblem_file=NULL;
+static int emblem_adds=0,emblem_invalidations=0;
+static char *file_uri(void *file){return g_strdup(file==emblem_file?"file:///tmp/nd-menu-sync/complete":file);}
+static void add_emblem(void *file,const char *name){g_assert(file==emblem_file);g_assert_cmpstr(name,==,"neutrondrive-available");emblem_adds++;}
+#define INFO_STUB(prefix) void prefix##_file_info_add_emblem(void *f,const char *n){add_emblem(f,n);} void prefix##_file_info_invalidate_extension_info(void *f){g_assert(f==emblem_file);emblem_invalidations++;}
+INFO_STUB(nautilus) INFO_STUB(nemo) INFO_STUB(caja)
 // Isolated fake file-info payloads; menu provider/types/items come from the real host libraries.
-char *nautilus_file_info_get_uri(void *file){return g_strdup(file);}
-char *nemo_file_info_get_uri(void *file){return g_strdup(file);}
-char *caja_file_info_get_uri(void *file){return g_strdup(file);}
-char *thunarx_file_info_get_uri(void *file){return g_strdup(file);}
+char *nautilus_file_info_get_uri(void *file){return file_uri(file);}
+char *nemo_file_info_get_uri(void *file){return file_uri(file);}
+char *caja_file_info_get_uri(void *file){return file_uri(file);}
+char *thunarx_file_info_get_uri(void *file){return file_uri(file);}
 static int activations=0;
 // Capture the literal GLib argv instead of launching the user's installed app.
 gboolean g_spawn_async(const gchar *cwd,gchar **argv,gchar **env,GSpawnFlags flags,GSpawnChildSetupFunc setup,gpointer data,GPid *pid,GError **error){
@@ -63,6 +69,22 @@ int main(int argc,char **argv){
  items=nautilus?get2(provider,selection):get3(provider,NULL,selection);g_assert(items==NULL);
  selection->data="file:///tmp/nd-menu-sync/../private";
  items=nautilus?get2(provider,selection):get3(provider,NULL,selection);g_assert(items==NULL);
- g_list_free(selection);g_object_unref(provider);
+ g_list_free(selection);
+ if(!thunar){
+  snprintf(name,sizeof name,"%s_info_provider_get_type",prefix);GType (*info_type)(void)=sym(host,name);
+  void **info=g_type_interface_peek(G_OBJECT_GET_CLASS(provider),info_type());g_assert(info);
+  int (*update)(void*,void*,void*,void**)=info[2];emblem_file=g_object_new(G_TYPE_OBJECT,NULL);
+  const char *index=g_getenv("ND_TEST_AVAILABILITY");g_assert(index);
+  g_file_set_contents(index,"{\"version\":1,\"available\":{\"complete\":true}}",-1,NULL);
+  g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,1);
+  g_file_set_contents(index,"{\"version\":1,\"available\":{}}",-1,NULL);
+  gint64 end=g_get_monotonic_time()+5*G_TIME_SPAN_SECOND;
+  while(emblem_invalidations==0&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
+  g_assert_cmpint(emblem_invalidations,>,0);g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,1);
+  g_object_unref(emblem_file);emblem_file=NULL;
+  snprintf(name,sizeof name,"%s_module_shutdown",prefix);void (*shutdown)(void)=sym(plugin,name);shutdown();
+  puts("NATIVE_FILE_MANAGER_EMBLEMS_OK");
+ }
+ g_object_unref(provider);
  puts("NATIVE_FILE_MANAGER_PROVIDER_OK");return 0;
 }

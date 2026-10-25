@@ -34,6 +34,9 @@ cargo fmt -- --check
     cargo "${nd_cargo[@]}" build --locked --offline
 )
 python3 "$nd_root/file-manager/tests/check-providers.py" "$CARGO_TARGET_DIR/debug/libneutrondrive_file_manager.so" "$CARGO_TARGET_DIR/debug/libneutrondrive_nautilus3.so"
+if [[ ${NEUTRONDRIVE_GVFS_TEST:-0} == 1 ]]; then
+    timeout 20 bash "$nd_root/file-manager/tests/check-gio-emblems.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-file-manager"
+fi
 (cd "$nd_root/core" && NEUTRONDRIVE_DBUS_TEST=1 cargo "${nd_cargo[@]}" test --locked --offline --test desktop_bus -- --test-threads=1)
 python3 "$nd_root/desktop/tests/check-cli-localization.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
@@ -82,6 +85,7 @@ timeout 30 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" 
     /bin/bash "$nd_root/desktop/tests/check-services.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
 if [[ ${NEUTRONDRIVE_FUSE_TEST:-0} == 1 ]]; then
     timeout 30 /bin/bash "$nd_root/desktop/tests/check-foreground-mount.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
+    timeout 60 python3 "$nd_root/desktop/tests/check-cached-browsing.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
 fi
 
 mkdir "$nd_check_config/local"
@@ -115,3 +119,7 @@ timeout 25 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" 
 
 timeout 45 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
     /bin/bash "$nd_root/desktop/tests/check-window-instance.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
+
+if [[ ${NEUTRONDRIVE_TRAY_TEST:-0} == 1 ]]; then
+    timeout 60 bash "$nd_root/desktop/tests/check-tray-autostart.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
+fi

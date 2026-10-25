@@ -14,7 +14,7 @@ This is a tracked comparison, not a claim of complete parity.
 | Individual-file deletion propagation | Guarded baseline and trash support |
 | Whole-folder deletion propagation | Blocked when the public SDK cannot prove trashed children; not parity |
 | Online-only files and keep-offline/evict | Linux FUSE implementation; requires native helper, strict Snap limitations remain |
-| File-manager overlays/context menus | Alpha9 adds app and Dolphin availability actions. Alpha10 adds native Nautilus/Nemo/Caja/Thunar menus and sharing; see FILE-MANAGER-INTEGRATION.md. Explorer-like overlays remain absent |
+| File-manager overlays/context menus | Alpha9 adds app and Dolphin availability actions. Alpha10 adds native Nautilus/Nemo/Caja/Thunar menus and sharing; see FILE-MANAGER-INTEGRATION.md. Alpha11 adds cache-aware overlays; see the per-file-manager support matrix |
 | Shared with me | Browsing/transfers exist; dedicated automatic shared-folder synchronization is not complete |
 | Version history and restore UI | Alpha8: lists historical revisions and requests restoration after confirmation and stale-baseline checks; server application is eventually consistent |
 | Proton Docs/Sheets desktop integration | Not complete |

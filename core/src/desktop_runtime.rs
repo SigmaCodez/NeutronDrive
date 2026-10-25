@@ -530,6 +530,26 @@ pub fn run(config: Config, callback: &mut impl FnMut(Value) -> i32) -> Result<Va
             crate::desktop_bus::bounded(builder.build(), Duration::from_secs(5), callback)
                 .await?
                 .map_err(|_| "Laufwerksdienst konnte nicht am Sitzungsbus registriert werden.")?;
+        // Optional host metadata bridge. It is isolated from the FUSE pump and
+        // exits when this service process ends; missing GVfs never blocks sync.
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(parent) = exe.parent() {
+                if let Ok(mut child) =
+                    std::process::Command::new(parent.join("neutrondrive-file-manager"))
+                        .args(["--watch-emblems", &std::process::id().to_string()])
+                        .stdin(std::process::Stdio::null())
+                        .stdout(std::process::Stdio::null())
+                        .stderr(std::process::Stdio::null())
+                        .spawn()
+                {
+                    let _ = thread::Builder::new()
+                        .name("emblem-helper".into())
+                        .spawn(move || {
+                            let _ = child.wait();
+                        });
+                }
+            }
+        }
         let runtime = zruntime::SharedRuntime::current()
             .map_err(|_| "D-Bus-Laufzeit ist nicht verfügbar.")?;
         while !connection.is_closed() {

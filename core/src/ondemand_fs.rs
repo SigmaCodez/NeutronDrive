@@ -23,7 +23,7 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc, LazyLock, Mutex,
+        Arc, LazyLock, Mutex, RwLock,
     },
     time::Instant,
 };
@@ -138,6 +138,8 @@ struct OpenFile {
     intent: Value,
 }
 struct Mount {
+    snapshot: Arc<RwLock<crate::ondemand_snapshot::Snapshot>>,
+    generation: u64,
     config: Config,
     objects: PathBuf,
     recovery: PathBuf,
@@ -269,6 +271,8 @@ impl Mount {
             )?;
         }
         Ok(Self {
+            snapshot: Arc::new(RwLock::new(crate::ondemand_snapshot::Snapshot::default())),
+            generation: 0,
             config,
             objects,
             recovery,
@@ -316,7 +320,37 @@ impl Mount {
     fn open_inodes(&self) -> BTreeSet<u64> {
         self.files.values().map(|f| f.inode).collect()
     }
+    fn publish(&self, persist: bool) {
+        let snapshot = crate::ondemand_snapshot::Snapshot {
+            generation: self.generation,
+            entries: self
+                .tree
+                .entries
+                .iter()
+                .map(|e| (e.inode, e.clone()))
+                .collect(),
+            tree: self.tree.clone(),
+            objects: self.objects.clone(),
+            writable: self.config.writable,
+            blocked: self.blocked,
+            writers: self
+                .files
+                .values()
+                .filter(|f| f.writable)
+                .map(|f| f.inode)
+                .collect(),
+        };
+        if persist {
+            // Decoration failures must never change the outcome of a file write.
+            let _ = io::write_json(
+                &self.config.cache.join("availability.json"),
+                snapshot.availability(),
+            );
+        }
+        *self.snapshot.write().unwrap() = snapshot;
+    }
     fn save(&self) -> Result<()> {
+        self.publish(true);
         tree::save(
             &self.config.cache.join("metadata.json"),
             &self.config.remote_root,
@@ -454,9 +488,15 @@ impl Mount {
                         time.elapsed().as_secs_f64() >= self.config.metadata_ttl
                     })))
         {
-            match self.refresh(inode, host) {
+            // Browsing must not recursively hydrate a pinned subtree.
+            // Pins are refreshed by explicit pin/refresh and cloud events.
+            match self.refresh_snapshot(inode, host) {
                 Ok(v) => return Ok(v),
-                Err(Error::Backend(_)) if self.tree.listed.contains(&inode) => {
+                Err(Error::Backend(error))
+                    if !error.cancelled && self.tree.listed.contains(&inode) =>
+                {
+                    // Avoid retrying the same failed network request for every stat/lookup.
+                    self.loaded.insert(inode, Instant::now());
                     self.error =
                         "Cloud unavailable; showing saved metadata. Pinned files remain readable."
                             .into();
@@ -871,6 +911,7 @@ impl Mount {
                 json!({"tree":self.tree,"handles":self.files.keys().collect::<Vec<_>>()})
             }
             Action::Invalidate => {
+                self.generation = self.generation.wrapping_add(1);
                 self.loaded.clear();
                 // Cloud events keep pinned content current even when no file
                 // manager is browsing the directory.
@@ -1100,7 +1141,7 @@ impl Drop for Mount {
         self.close();
     }
 }
-fn timestamp(value: &str) -> i64 {
+pub(crate) fn timestamp(value: &str) -> i64 {
     fn parse(value: &str) -> Option<i64> {
         let input = std::ffi::CString::new(value).ok()?;
         let mut tm: libc::tm = unsafe { std::mem::zeroed() };
@@ -1177,8 +1218,10 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
     Ok(match operation {
         Operation::Create { config } => match Mount::new(config, host) {
             Ok(mount) => {
+                mount.publish(true);
                 let status = mount.status();
                 let id = NEXT.fetch_add(1, Ordering::Relaxed);
+                SNAPSHOTS.lock().unwrap().insert(id, mount.snapshot.clone());
                 MOUNTS
                     .lock()
                     .unwrap()
@@ -1188,6 +1231,7 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
             Err(e) => envelope(Err(e), None),
         },
         Operation::Close { id } => {
+            SNAPSHOTS.lock().unwrap().remove(&id);
             let mount = MOUNTS.lock().unwrap().remove(&id);
             match mount {
                 Some(mount) => {
@@ -1218,12 +1262,73 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
                 None => envelope(Err(fail(libc::EBADF, "Unknown mount")), None),
                 Some(mount) => {
                     let mut mount = mount.lock().unwrap();
+                    let publish = !matches!(
+                        operation,
+                        Action::Metadata { .. }
+                            | Action::Snapshot
+                            | Action::Recovery
+                            | Action::Read { .. }
+                            | Action::Listdir { .. }
+                            | Action::Lookup { .. }
+                    );
                     let result = mount.apply(operation, host);
+                    if publish {
+                        mount.publish(true);
+                    }
                     envelope(result, Some(&mut mount))
                 }
             }
         }
     })
+}
+
+// Readers never acquire the mount/SDK lock. A cloud timeout cannot block cached browsing.
+type SharedSnapshot = Arc<RwLock<crate::ondemand_snapshot::Snapshot>>;
+static SNAPSHOTS: LazyLock<Mutex<BTreeMap<u64, SharedSnapshot>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
+pub(crate) fn cached(id: u64, action: &Action) -> Option<Value> {
+    let snapshot = SNAPSHOTS.lock().ok()?.get(&id)?.clone();
+    let value = snapshot.read().ok()?.answer(action);
+    value
+}
+pub(crate) fn absent(id: u64, action: &Action) -> bool {
+    let Action::Lookup { parent, name } = action else {
+        return false;
+    };
+    if matches!(name.as_str(), "." | "..") {
+        return false;
+    }
+    let Some(snapshot) = SNAPSHOTS.lock().unwrap().get(&id).cloned() else {
+        return false;
+    };
+    let s = snapshot.read().unwrap();
+    !s.blocked
+        && s.tree.listed.contains(parent)
+        && s.tree
+            .children
+            .get(parent)
+            .is_none_or(|c| !c.contains_key(name))
+}
+pub(crate) fn generation(id: u64) -> u64 {
+    let Some(snapshot) = SNAPSHOTS.lock().unwrap().get(&id).cloned() else {
+        return 0;
+    };
+    let value = snapshot.read().unwrap().generation;
+    value
+}
+pub(crate) fn folders(id: u64) -> Vec<u64> {
+    let Some(snapshot) = SNAPSHOTS.lock().unwrap().get(&id).cloned() else {
+        return Vec::new();
+    };
+    let s = snapshot.read().unwrap();
+    let mut folders: Vec<_> = s
+        .entries
+        .values()
+        .filter(|e| e.node["type"] == "folder")
+        .map(|e| e.inode)
+        .collect();
+    folders.sort_by_key(|id| (s.tree.listed.contains(id), *id));
+    folders
 }
 
 #[cfg(test)]
@@ -1306,6 +1411,110 @@ mod tests {
             offline,
             metadata_ttl: 15.0,
         }
+    }
+    #[test]
+    fn cached_browsing_does_not_wait_for_sdk_lock() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let created = run(
+            Operation::Create {
+                config: config(&temp, false),
+            },
+            &mut host,
+        )
+        .unwrap();
+        let id = created["value"].as_u64().unwrap();
+        run(
+            Operation::Call {
+                id,
+                operation: Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+            },
+            &mut host,
+        )
+        .unwrap();
+        let shared = MOUNTS.lock().unwrap().get(&id).unwrap().clone();
+        let guard = shared.lock().unwrap(); // Simulate an indefinitely blocked network operation.
+        let started = Instant::now();
+        assert_eq!(
+            cached(
+                id,
+                &Action::Listdir {
+                    inode: 1,
+                    refresh: true
+                }
+            )
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+            1
+        );
+        let e = cached(
+            id,
+            &Action::Lookup {
+                parent: 1,
+                name: "data".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            cached(
+                id,
+                &Action::Metadata {
+                    inode: e["inode"].as_u64().unwrap()
+                }
+            )
+            .unwrap()["cached"],
+            true
+        );
+        assert!(started.elapsed().as_millis() < 200);
+        let status: Value =
+            serde_json::from_slice(&std::fs::read(temp.0.join("availability.json")).unwrap())
+                .unwrap();
+        assert_eq!(status["available"]["data"], true);
+        assert_eq!(status["available"][""], true);
+        drop(guard);
+        run(Operation::Close { id }, &mut host).unwrap();
+        assert!(cached(id, &Action::Metadata { inode: 1 }).is_none());
+    }
+    #[test]
+    fn browser_refresh_does_not_download_pinned_descendants() {
+        struct NoDownload(Host);
+        impl Services for NoDownload {
+            fn poll(&mut self) -> std::result::Result<(), Failure> {
+                Ok(())
+            }
+            fn request(
+                &mut self,
+                method: &str,
+                args: Value,
+            ) -> std::result::Result<Value, Failure> {
+                assert_ne!(
+                    method, "download",
+                    "Browsing must not download file contents"
+                );
+                self.0.request(method, args)
+            }
+        }
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        host.content = b"new revision".to_vec();
+        host.revision = 2;
+        mount.loaded.clear();
+        mount.listdir(1, true, &mut NoDownload(host)).unwrap();
     }
     #[test]
     fn folder_pin_survives_restart_and_refreshes_revisions_without_opening_files() {

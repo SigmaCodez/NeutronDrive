@@ -42,6 +42,7 @@ class NativePackagingTests(unittest.TestCase):
                 target = root / relative; target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / relative, target)
             shutil.copytree(ROOT / 'data', root / 'data')
+            shutil.copytree(ROOT / 'file-manager/kde', root / 'file-manager/kde')
             catalogs = root / 'src/neutrondrive/locales'; catalogs.mkdir(parents=True)
             (catalogs / 'en.json').write_text('{}')
             backend = root / 'sdk'; backend.write_bytes(b'fixture')
@@ -55,6 +56,8 @@ class NativePackagingTests(unittest.TestCase):
             self.assertTrue((destination / 'usr/bin/neutrondrive').read_text().startswith('#!/bin/sh'))
             self.assertTrue((destination / 'usr/lib/neutrondrive/neutrondrive/locales/en.json').is_file())
             self.assertEqual(list(destination.rglob('*.py')), [])
+            self.assertTrue((destination / 'usr/share/neutrondrive/integrations/dolphin/CMakeLists.txt').is_file())
+            self.assertTrue((destination / 'usr/share/icons/hicolor/scalable/emblems/neutrondrive-available.svg').is_file())
             for libdir in ('lib', 'lib64', 'lib/x86_64-linux-gnu'):
                 for manager in ('nautilus/extensions-3.0','nautilus/extensions-4','nemo/extensions-3.0','caja/extensions-2.0','thunarx-3'):
                     link=destination/'usr'/libdir/manager/'libneutrondrive.so'

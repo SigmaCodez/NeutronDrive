@@ -155,3 +155,42 @@ alpha9 live-test evidence remains separately dated above. PCManFM/PCManFM-Qt
 full desktop GUI testing remains pending. This does not certify every distro
 or establish absence of all bugs. See release BUILD_INFO.json, TEST_RESULTS.json,
 SHA256SUMS and native/SDK provenance for exact artifacts and test jobs.
+
+## Unreleased file-manager/cache/tray work — 2026-10-25
+
+Local development validation, separate from the published alpha10 release:
+
+- Rust core: 176 unit tests, 18 runtime/service integration tests; Clippy passes.
+- Rust/Qt frontend: 69 unit tests and Clippy pass. Isolated actual-window checks
+  cover setup, file/grid/photo interaction, hide-to-tray/reopen and normal exit.
+- Real Nautilus 4, Nemo, Caja and Thunar libraries accept the native menu provider.
+  Nautilus/Nemo/Caja InfoProvider tests verify adding a completed-file emblem and
+  invalidating it when availability changes. The legacy Nautilus 3 artifact
+  builds; a fresh live Nautilus 42 runtime test was not performed here.
+- A separate X11/StatusNotifier host verifies actual `--background` tray startup,
+  hidden initial window, activation, close-to-tray and a silent duplicate start.
+- Isolated GVfs tests verify adding/removing the custom emblem while preserving
+  a user-set favorite emblem. No test-account content is changed.
+- The KDE 6 adapter compiles and loads with a real KIO plugin loader; its test
+  observes overlay removal and the Proton Drive bookmark. KDE 5 remains untested.
+- A separate GIO test process hides only the configured existing mount and
+  restores visibility when its temporary configuration changes. The user's
+  running file manager and mount remain untouched.
+- The real FUSE synthetic-SDK test injects a five-second list stall: cached root
+  listing, stat and missing-name lookup complete in approximately 1 ms. Nested
+  metadata prefetch completes without downloading file contents.
+- Foreground mounts, desktop services, guided setup, mount cleanup, application
+  activation/crash recovery, AppImage cache and native loader checks pass.
+- All 13 native packaging/provenance tests pass. Native host packages stage the
+  emblem and KDE addon source; the addon is compiled against the host KDE ABI.
+
+These are development tests, not a new release or local installation. A full PC
+restart with these new binaries, every file-manager GUI and every distribution
+has not been tested. See [the support matrix](FILE-MANAGER-INTEGRATION.md) for
+optional dependencies and the remaining PCManFM duplicate-volume limitation.
+
+The 25 GUI languages and unsupported-locale English fallback passed their actual
+window/input checks. Tests using the local network-hosted Qt runtime intermittently exceeded
+the normal 25-second process deadline; the successful local rerun allowed 60
+seconds for process startup with identical UI assertions and local catalog copies.
+The repository's normal CI deadline was not relaxed.

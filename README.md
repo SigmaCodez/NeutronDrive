@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
-**Status: 0.6.0 alpha 10.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 11.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -12,10 +12,12 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
-Alpha10 adds a themed two-step setup assistant, opt-in photo selection and a
-zoomable preview, plus native file-manager menu extensions. See
-[desktop refinements](docs/DESKTOP-FEATURES.md#gallery-and-desktop-refinements-alpha10)
-and [file-manager support](docs/FILE-MANAGER-INTEGRATION.md).
+Alpha11 improves cached cloud browsing, recursively preloads directory metadata,
+starts the tray alongside background sync and keeps transfers running when the
+window is closed to the tray. Green availability emblems and a **Proton Drive**
+favorite extend the file-manager integrations. See
+[desktop behavior](docs/DESKTOP-FEATURES.md#alpha11-tray-and-cached-browsing)
+and the [per-file-manager support matrix](docs/FILE-MANAGER-INTEGRATION.md).
 
 ## Photos and setup previews
 
@@ -163,21 +165,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha10-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha11-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha10-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha11-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha10-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha11-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a10-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a11-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha10_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha11_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -185,8 +187,8 @@ Additional formats:
 
 ```sh
 # Portable x86_64 AppImage
-chmod +x NeutronDrive-0.6.0-alpha10-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha10-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha11-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha11-x86_64.AppImage
 
 # Arch/Manjaro: review the PKGBUILD, then build as a regular user
 # Requires base-devel and git.

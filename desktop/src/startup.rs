@@ -19,13 +19,15 @@ fn failure(message: &str) -> Failure {
         cancelled: false,
     }
 }
-fn options(args: &[String]) -> Result<(bool, Option<String>), Failure> {
+fn options(args: &[String]) -> Result<(bool, bool, Option<String>), Failure> {
     let mut demo = false;
+    let mut tray = false;
     let mut cli = None;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--demo" => demo = true,
+            "--tray" => tray = true,
             "--cli" => {
                 let value = args
                     .next()
@@ -36,7 +38,7 @@ fn options(args: &[String]) -> Result<(bool, Option<String>), Failure> {
             _ => return Err(failure("Unknown graphical application option")),
         }
     }
-    Ok((demo, cli))
+    Ok((demo, tray, cli))
 }
 pub(crate) fn catalog_at(executable: &Path) -> Option<PathBuf> {
     let parent = executable.parent()?;
@@ -61,10 +63,10 @@ pub fn configure(args: &[String], check: bool) -> Result<(), Failure> {
     } else {
         None
     };
-    let (demo, cli) = if file_action.is_some() {
-        (false, None)
+    let (demo, tray, cli) = if file_action.is_some() {
+        (false, false, None)
     } else if check {
-        (!fixture, None)
+        (!fixture, false, None)
     } else {
         options(args)?
     };
@@ -93,7 +95,7 @@ pub fn configure(args: &[String], check: bool) -> Result<(), Failure> {
         && std::ffi::CString::new(sdk.as_bytes())
             .is_ok_and(|path| unsafe { libc::access(path.as_ptr(), libc::X_OK) == 0 });
     CONFIG
-        .set(json!({"fileAction":file_action,"demo":demo,"catalog":catalog,"executable":sdk,"available":available,"payload":payload,"flatpak":std::env::var_os("FLATPAK_ID").is_some()}))
+        .set(json!({"fileAction":file_action,"tray":tray,"demo":demo,"catalog":catalog,"executable":sdk,"available":available,"payload":payload,"flatpak":std::env::var_os("FLATPAK_ID").is_some()}))
         .map_err(|_| failure("Application already configured"))
 }
 #[cxx_qt::bridge]
@@ -178,13 +180,14 @@ impl qobject::NativeStartup {
             } else {
                 "native"
             };
-            Instance::claim_request(
+            Instance::claim_mode(
                 &Path::new(
                     root.as_str()
                         .ok_or_else(|| failure("Invalid application state directory"))?,
                 )
                 .join(format!("qt-window-{scope}")),
                 config.get("fileAction").filter(|v| !v.is_null()).cloned(),
+                config["tray"] != true,
             )
         })();
         match result {
@@ -231,7 +234,11 @@ mod tests {
     fn graphical_options_preserve_explicit_backend_and_reject_service_flags() {
         assert_eq!(
             options(&["--demo".into(), "--cli".into(), "/sdk with spaces".into()]).unwrap(),
-            (true, Some("/sdk with spaces".into()))
+            (true, false, Some("/sdk with spaces".into()))
+        );
+        assert_eq!(
+            options(&["--tray".into(), "--cli".into(), "/sdk".into()]).unwrap(),
+            (false, true, Some("/sdk".into()))
         );
         assert!(options(&["--cli".into()]).is_err());
         assert!(options(&["--daemon".into()]).is_err());

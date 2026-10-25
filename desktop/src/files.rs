@@ -973,11 +973,13 @@ impl Files {
                     );
                     return vec![];
                 }
-                if self.busy() {
-                    return self.dialog("confirm","Laufenden Vorgang abbrechen?","Bereits übertragene Dateien bleiben erhalten. Die App wartet auf das Ende des Backends.",json!({}),Answer::Close);
-                }
+                // Hiding a window does not cancel work. Only explicit exit (or
+                // absence of a tray host) needs the cancellation confirmation.
                 if args[1] == true {
                     return vec![Effect::Hide];
+                }
+                if self.busy() {
+                    return self.dialog("confirm","Laufenden Vorgang abbrechen?","Bereits übertragene Dateien bleiben erhalten. Die App wartet auf das Ende des Backends.",json!({}),Answer::Close);
                 }
                 if self.flatpak && self.state["demo"] != true {
                     return self.submit_target(
@@ -1785,6 +1787,23 @@ mod tests {
                 .as_slice(),
             [Effect::Close]
         ));
+    }
+
+    #[test]
+    fn tray_close_preserves_active_work() {
+        let mut m = model();
+        let job = work(m.dispatch("action", &json!(["refresh"])));
+        assert!(m.busy());
+        assert!(matches!(
+            m.dispatch("request_close", &json!([false, true]))
+                .as_slice(),
+            [Effect::Hide]
+        ));
+        assert!(m.busy());
+        assert!(!m.closing);
+        m.complete(job.id, Ok(json!([])));
+        assert!(!m.busy());
+        assert!(!m.closing);
     }
 
     #[test]

@@ -347,6 +347,37 @@ pub fn run(args: &[String]) -> Option<i32> {
     if options.mode == "--diagnose" {
         return Some(diagnose(&cli, &text));
     }
+    // The existing --background autostart entries remain valid after upgrading.
+    // The tray is a separate single-instance GUI; it never owns the daemon lifetime.
+    let tray = if options.mode == "--background"
+        && ["DISPLAY", "WAYLAND_DISPLAY"]
+            .iter()
+            .any(|key| std::env::var_os(key).is_some_and(|v| !v.is_empty()))
+    {
+        std::env::current_exe().ok().and_then(|exe| {
+            match std::process::Command::new(exe)
+                .args(["--tray", "--cli", &cli])
+                .stdin(std::process::Stdio::null())
+                .spawn()
+            {
+                Ok(child) => Some(child),
+                Err(error) => {
+                    eprintln!("Could not start NeutronDrive tray: {error}");
+                    None
+                }
+            }
+        })
+    } else {
+        None
+    };
+    if let Some(mut child) = tray {
+        // Reap duplicate/failed GUI launches without blocking synchronization.
+        let _ = std::thread::Builder::new()
+            .name("tray-child".into())
+            .spawn(move || {
+                let _ = child.wait();
+            });
+    }
     let result = (|| {
         let data = runtime::value(json!({"op":"data_dir"}))?;
         let data = PathBuf::from(

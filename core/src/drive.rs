@@ -249,11 +249,13 @@ where
             command(&["auth", "logout", "--json"])
         }
         Operation::List { path } => {
+            timeout = 10.;
             backend::remote(&path)?;
             list_path = Some(path.clone());
             command(&["filesystem", "list", "--json", "--", &path])
         }
         Operation::Info { path } => {
+            timeout = 10.;
             backend::remote(&path)?;
             node_parent = Some(
                 path.rsplit_once('/')

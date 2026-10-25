@@ -29,10 +29,11 @@ def sources():
         'file-manager/Cargo.toml', 'file-manager/Cargo.lock', 'desktop/Cargo.toml', 'desktop/Cargo.lock', 'desktop/build.rs', 'desktop/ui.qrc',
         'core/Cargo.toml', 'core/Cargo.lock', 'packaging/qt-lock.json',
         'data/io.github.SigmaCodez.NeutronDrive.svg',
+        'data/neutrondrive-available.svg',
     )]
     for relative, pattern in [('desktop/src', '*.rs'), ('desktop/include', '*.h'),
                               ('desktop/qml', '*.qml'), ('desktop/data', '*'),
-                              ('file-manager/src', '*.rs'), ('core/src', '*.rs'), ('src/neutrondrive/qml', '*.qml'),
+                              ('file-manager/src', '*.rs'), ('file-manager/kde', '*'), ('core/src', '*.rs'), ('src/neutrondrive/qml', '*.qml'),
                               ('src/neutrondrive/locales', '*.json')]:
         files.extend(p for p in (ROOT / relative).rglob(pattern) if p.is_file())
     return {str(p.relative_to(ROOT)): sha(p) for p in sorted(set(files))}
