@@ -1,5 +1,30 @@
 # Validation record
 
+## Current status: alpha11 release and alpha12 development
+
+The latest published release is [alpha11](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha11).
+Its release assets include BUILD_INFO.json, TEST_RESULTS.json, provenance and
+SHA256SUMS. The records below describe their stated versions, not every later build.
+
+Alpha12 is development work in [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11).
+The initial alpha12 [full CI run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40193814097)
+passed both native architectures and all Linux package jobs. A subsequent live
+Nautilus shutdown test found a provider-lifetime bug; its correction adds a
+regression that fails before the fix and passes afterward for Nautilus, Nemo,
+Caja and Thunar. Follow-up CI is recorded separately in
+[run 40199746441](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40199746441).
+
+The corrected local package is `0.6.0~alpha12-1+local1`: the CI-built application
+and SDK with locally rebuilt, tested file-manager libraries. Cache and pinned
+selections survived installation. The user confirmed the Neutron favorite icon
+in Nautilus. Repeated shutdown completed without a new crash report. Final live
+checks listed 11 directories in 0.06–0.11 seconds and rendered three folder
+windows in 0.14–0.15 seconds. One earlier listing exceeded eight seconds; the
+final checks did not reproduce it, and its cause is not conclusively identified.
+These observations do not certify every folder or file manager. Current English
+light/dark previews are labeled alpha12 development captures; see
+[their provenance](GUI-PREVIEWS.json).
+
 ## Published 0.6.0 alpha9
 
 Package source commit: `69b16e9dd4bacc96113eb14f001812d260563c50`.

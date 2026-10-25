@@ -11,7 +11,7 @@ This is a project publishing requirement, not an optional cosmetic follow-up.
    Keep historical validation evidence clearly identified as historical.
 4. Capture new previews from the actual release executable with English selected
    in Settings. Include the light and dark file views, automatic sync/computer
-   backup and online drive. Replace all four README images on every release;
+   backup and online drive. Refresh the README gallery and its light/dark settings and setup previews on every release;
    do not reuse older screenshots just because the layout appears similar.
 5. Use an isolated profile and clearly disclosed synthetic data. Never expose
    account details, personal filenames or live synchronization data. Use English
@@ -31,3 +31,13 @@ This is a project publishing requirement, not an optional cosmetic follow-up.
 The screenshot files are `docs/demo.png`, `docs/demo-dark.png`,
 `docs/background-demo.png` and `docs/ondemand-demo.png`. These stable filenames
 are replaced by new captures; the metadata records which release they show.
+
+## Repository presentation
+
+Keep the README, About description and topics in English. Show badges for the
+actual license, runtime, interface and CI status; do not borrow another project's
+license or imply upstream affiliation. The release badge includes prereleases.
+Document development captures separately from published versions, and keep
+installation examples tied to downloadable release assets. GitHub language
+statistics exclude third-party license documentation and vendored dependencies
+through `.gitattributes`; maintained build/test code remains visible.

@@ -1,0 +1,4 @@
+# Preserve third-party notices, but do not count them as application code.
+packaging/licenses/** linguist-documentation
+# Vendored Rust dependencies are upstream source, not NeutronDrive implementation.
+core/vendor/** linguist-vendored
