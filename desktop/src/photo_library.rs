@@ -34,9 +34,10 @@ impl Files {
             "albums" => self.photo_submit(json!({"action":"albums"})),
             "previews" => {
                 let start = request["start"].as_u64().unwrap_or(0) as usize;
-                let photos = self.state["photos"].as_array().cloned().unwrap_or_default();
+                let photos = self.state["photos"].as_array();
                 let ids: Vec<_> = photos
-                    .iter()
+                    .into_iter()
+                    .flatten()
                     .skip(start)
                     .take(48)
                     .filter(|p| p["previewLoaded"] != true)
@@ -166,7 +167,10 @@ impl Files {
                         self.message("Invalid photo batch", true);
                         return vec![];
                     }
-                    let mut current = self.state["photos"].as_array().cloned().unwrap_or_default();
+                    let mut current = match self.state["photos"].take() {
+                        Value::Array(items) => items,
+                        _ => Vec::new(),
+                    };
                     for (index, old) in current.iter_mut().enumerate() {
                         if index < (start as usize).saturating_sub(48)
                             || index >= start as usize + 96
@@ -180,7 +184,7 @@ impl Files {
                             old["previewLoaded"] = json!(true);
                         }
                     }
-                    self.state["photos"] = json!(current);
+                    self.state["photos"] = Value::Array(current);
                     self.photos_revision += 1;
                     return vec![];
                 }
@@ -195,7 +199,10 @@ impl Files {
                     self.message("Invalid photo batch", true);
                     return vec![];
                 }
-                let mut current = self.state["photos"].as_array().cloned().unwrap_or_default();
+                let mut current = match self.state["photos"].take() {
+                    Value::Array(items) => items,
+                    _ => Vec::new(),
+                };
                 for mut p in photos.iter().cloned() {
                     if current.iter().any(|old| old["uid"] == p["uid"]) {
                         continue;
@@ -209,7 +216,7 @@ impl Files {
                     photo["thumbnail"] = json!("");
                     photo["previewLoaded"] = json!(false);
                 }
-                self.state["photos"] = json!(current);
+                self.state["photos"] = Value::Array(current);
                 self.photos_revision += 1;
                 let next = start + ids.len() as u64;
                 self.state["photoOffset"] = json!(next);

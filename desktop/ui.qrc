@@ -3,4 +3,11 @@
 <file alias="PhotoLibraryPanel.qml">../src/neutrondrive/qml/PhotoLibraryPanel.qml</file>
 <file alias="DriveIcon.qml">../src/neutrondrive/qml/DriveIcon.qml</file>
 <file alias="tray.svg">../data/io.github.SigmaCodez.NeutronDrive.svg</file>
+<file alias="DriveButton.qml">../src/neutrondrive/qml/DriveButton.qml</file>
+<file alias="DriveField.qml">../src/neutrondrive/qml/DriveField.qml</file>
+<file alias="DriveCheck.qml">../src/neutrondrive/qml/DriveCheck.qml</file>
+<file alias="DriveMenuItem.qml">../src/neutrondrive/qml/DriveMenuItem.qml</file>
+<file alias="DriveMenu.qml">../src/neutrondrive/qml/DriveMenu.qml</file>
+<file alias="DriveCombo.qml">../src/neutrondrive/qml/DriveCombo.qml</file>
+<file alias="DriveScrollBar.qml">../src/neutrondrive/qml/DriveScrollBar.qml</file>
 </qresource></RCC>
