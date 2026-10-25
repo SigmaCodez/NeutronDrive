@@ -169,5 +169,5 @@ No claim of visual testing across all desktop versions is made.
 Implementation references: [Nemo sidebar](https://github.com/linuxmint/nemo/blob/6.4.5/src/nemo-places-sidebar.c),
 [Caja bookmark](https://github.com/mate-desktop/caja/blob/master/libcaja-private/caja-bookmark.c),
 [Thunar folder metadata](https://github.com/xfce-mirror/thunar/blob/master/thunar/thunar-file.c),
-[PCManFM-Qt bookmarks](https://github.com/lxqt/libfm-qt/blob/master/src/bookmarks.cpp),
+[PCManFM-Qt bookmarks](https://github.com/lxqt/libfm-qt/blob/master/src/core/bookmarks.cpp),
 [KDE Places model](https://api.kde.org/kfileplacesmodel.html).
