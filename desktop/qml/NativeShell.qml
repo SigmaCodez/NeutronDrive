@@ -251,6 +251,14 @@ Item {
                 }else if(controller.stage===1){
                     controller.capture("dark-settings.png",11);
                 }else if(controller.stage===11){
+                    let choice=controller.childNamed(controller.view.contentItem,"appearanceSelector");
+                    choice.popup.open();controller.stage=110;
+                }else if(controller.stage===110){
+                    let choice=controller.childNamed(controller.view.contentItem,"appearanceSelector");
+                    if(!choice.popup.visible || choice.popup.contentItem.count!==3)throw new Error("Themed appearance choices missing");
+                    choice.currentIndex=1;choice.activated(1);choice.popup.close();
+                    if(controller.view.darkMode)throw new Error("Themed appearance choice did not apply");
+                    console.log("NATIVE_THEMED_CONTROLS_OK");
                     controller.setAppearancePreference("light");
                     if(controller.view.darkMode)throw new Error("Light theme did not reach main window");
                     controller.show_page("background");controller.stage=2;
@@ -400,6 +408,23 @@ Item {
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");
                     if(grid.count!==2048 || grid.contentY!==controller.photoBenchScroll || controller.childNamed(grid,"photoPreview-1000")!==controller.photoBenchDelegate)throw new Error("Photo append/status update recreated delegates or moved scroll position");
                     console.log("NATIVE_PHOTO_INCREMENTAL_MODEL_OK",Date.now()-controller.photoBenchStarted);
+                    if(controller.photoBenchDelegate.sourceSize.width>Math.ceil(grid.cellWidth*controller.view.screen.devicePixelRatio))throw new Error("Photo thumbnail decode exceeds tile resolution");
+                    controller.photoBench.selectionMode=true;controller.photoBench.selected=[1000];
+                    // Drive the scrolling state deterministically: offscreen Qt does
+                    // not consistently advance synthetic kinetic gestures.
+                    controller.photoBench.scrolling=true;controller.stage=21023;
+                }else if(controller.stage===21023){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+
+                    let items=photoBenchController.photoEntries.slice();items[1000]=Object.assign({},items[1000],{name:"During flick"});
+                    photoBenchController.photoEntries=items;
+                    if(!controller.photoBench.pendingPhotos)throw new Error("Photo update was not deferred during movement");
+                    controller.photoBench.scrolling=false;controller.stage=21024;
+                }else if(controller.stage===21024){
+                    if(controller.photoBench.pendingPhotos || controller.photoBench.appliedPhotos[1000].name!=="During flick" || controller.photoBench.selected[0]!==1000)throw new Error("Deferred photo result or selection lost");
+                    controller.photoBench.scrolling=true;photoBenchController.photoEntries=[];
+                    if(controller.photoBench.pendingPhotos || controller.childNamed(controller.photoBench,"photoGrid").count!==0)throw new Error("Photo inventory reset left stale tiles during scrolling");
+                    console.log("NATIVE_PHOTO_DEFERRED_UPDATES_OK");
                     controller.photoBench.destroy();controller.photoBench=null;
                     controller.show_page("files");
                     let index=controller.fileEntries.findIndex(entry=>!entry.isFolder);
@@ -408,7 +433,11 @@ Item {
                     if(!controller.state.history.visible || controller.state.history.revisions.length!==2)throw new Error("Version history failed");
                     controller.capture("light-history.png",212);
                 }else if(controller.stage===212){
-                    controller.send("history_close",[]);
+                    let closeButton=null;
+                    for(let item of controller.view.contentData)if(item.objectName==="historyDialog")closeButton=controller.childNamed(item.footer,"historyClose");
+                    if(!closeButton || !closeButton.visible || !closeButton.enabled || !closeButton.text)throw new Error("History close button missing");
+                    closeButton.clicked();
+                    if(controller.state.history.visible)throw new Error("History close button did not close dialog");
                     console.log("NATIVE_PHOTOS_AND_HISTORY_OK");controller.stage=21;
                 }else if(controller.stage===21){
                     if(controller.fixture){

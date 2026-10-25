@@ -1,5 +1,19 @@
 # Validation record
 
+## Alpha14 validation
+
+The [source and package CI](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40213218108)
+records alpha14 native architecture, SDK and installed-package checks. Release
+BUILD_INFO.json and TEST_RESULTS.json identify the final successful runs and
+checksums. Local checks passed 71 desktop Rust tests, 14 package checks and the
+isolated Qt interface suite. The 2,048-entry photo regression checks incremental
+updates, preserved selection and deferred updates during the scrolling state, including inventory reset without stale tiles.
+That state is driven deterministically because offscreen Qt does not reliably
+advance a synthetic flick; this is not a hardware FPS or live-cloud benchmark.
+Current English light/dark release captures are recorded in
+[GUI-PREVIEWS.json](GUI-PREVIEWS.json).
+
+
 ## Alpha13 release validation
 
 [Full source, SDK and Linux package CI](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40206351901)
@@ -52,9 +66,8 @@ in Nautilus. Repeated shutdown completed without a new crash report. Final live
 checks listed 11 directories in 0.06–0.11 seconds and rendered three folder
 windows in 0.14–0.15 seconds. One earlier listing exceeded eight seconds; the
 final checks did not reproduce it, and its cause is not conclusively identified.
-These observations do not certify every folder or file manager. Current English
-light/dark previews are labeled alpha12 development captures; see
-[their provenance](GUI-PREVIEWS.json).
+These observations do not certify every folder or file manager. Those alpha12 development captures have been superseded by the current
+release previews; see [their provenance](GUI-PREVIEWS.json).
 
 ## Published 0.6.0 alpha9
 

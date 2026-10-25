@@ -1,7 +1,7 @@
 # Desktop features
 
-The latest published package is alpha13; its changes are tracked in
-[PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11). The sections below
+The latest published package is alpha14; its changes are tracked in
+[PR #13](https://github.com/SigmaCodez/NeutronDrive/pull/13). The sections below
 identify when features were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
@@ -184,3 +184,18 @@ The sync daemon has its own lifetime.
 
 Metadata prefetch, local availability emblems and file-manager Places integration
 are described in the [support matrix](FILE-MANAGER-INTEGRATION.md). See the alpha11 release validation for package and installation evidence.
+
+### Unified interface (alpha14)
+
+Shared buttons, selectors, text fields, checkboxes, menus and scrollbars now
+carry the same light/dark styling through setup, settings, sharing, version
+history and Photos. Native OS file pickers and tray menus follow the desktop.
+See [design conventions](DESIGN.md).
+
+Photo thumbnails decode at tile resolution and screen density rather than
+always at 600 × 600 pixels. Incremental photo-model changes are deferred during a flick,
+then applied without resetting selection or scroll position. Rust avoids
+copying retained base64 previews when requesting or updating a batch.
+The visible range is checked for missing previews even if its first tile is
+already cached. These changes reduce local rendering work; cloud response time
+and the first download of a preview still depend on the connection.

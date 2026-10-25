@@ -8,12 +8,12 @@ ApplicationWindow {
     id: window
     readonly property bool darkMode: controller.appearance.dark
     readonly property var theme: darkMode ? {
-        "canvas": "#191822",
+        "canvas": "#1c1b27",
         "text": "#f1eef9",
         "accent": "#aa91ff",
-        "sidebar": "#211f2d",
+        "sidebar": "#171620",
         "muted": "#b3adc4",
-        "border": "#4a445c",
+        "border": "#464052",
         "disabledText": "#817b91",
         "disabled": "#292635",
         "hover": "#373047",
@@ -70,6 +70,8 @@ ApplicationWindow {
     palette.text: window.theme.text; palette.windowText: window.theme.text
     palette.buttonText: window.theme.text; palette.highlight: window.theme.accent
     palette.base: window.theme.canvas; palette.button: window.theme.canvas
+    palette.toolTipBase: window.theme.sidebar; palette.toolTipText: window.theme.text
+    palette.placeholderText: window.theme.muted
     palette.window: window.theme.canvas; palette.highlightedText: window.theme.onAccent
     palette.light: window.theme.sidebar; palette.mid: window.theme.border; palette.dark: window.theme.muted
     readonly property bool dialogOpen: modal.visible || folderPicker.visible || filePicker.visible || setupWizard.visible
@@ -92,28 +94,16 @@ ApplicationWindow {
         color: window.theme.text; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText
         Layout.fillWidth: true
     }
-    component Action: Button {
-        id: actionButton
+    component Action: DriveButton {
+        theme: window.theme
         property string command
         property string field: ""
-        property bool primary: false
         enabled: field ? window.f(field).enabled : !s.busy
         onClicked: controller.action(command)
-        implicitHeight: 40
-        padding: 12
-        contentItem: Text {
-            text: actionButton.text; textFormat: Text.PlainText; font: actionButton.font
-            color: !actionButton.enabled ? window.theme.disabledText : actionButton.primary ? window.theme.onAccent : window.theme.text
-            horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-        }
-        background: Rectangle {
-            radius: 9
-            color: !actionButton.enabled ? window.theme.disabled : actionButton.primary ? (actionButton.hovered ? window.theme.primaryHover : window.theme.accent) : actionButton.hovered ? window.theme.hover : window.theme.canvas
-            border.width: actionButton.activeFocus ? 2 : 1
-            border.color: actionButton.primary || actionButton.activeFocus ? window.theme.accent : window.theme.border
-            Behavior on color { ColorAnimation { duration: 100 } }
-        }
     }
+    component Field: DriveField { theme: window.theme }
+    component Choice: DriveCombo { theme: window.theme }
+    component Check: DriveCheck { theme: window.theme }
     component ViewToggle: Button {
         id: viewToggle
         checkable: true; implicitHeight: 40; padding: 12
@@ -121,16 +111,12 @@ ApplicationWindow {
         contentItem: Text { text: viewToggle.text; font: viewToggle.font; color: viewToggle.checked ? window.theme.accentText : window.theme.secondaryText; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
         background: Rectangle { radius: 8; color: viewToggle.checked ? window.theme.selected : viewToggle.hovered ? window.theme.navHover : "transparent"; border.color: viewToggle.activeFocus ? window.theme.accent : "transparent" }
     }
-    component Input: TextField {
-        id: input
+    component Input: Field {
         property string field
         text: window.f(field).value
         enabled: window.f(field).enabled && !s.busy
-        selectByMouse: true
-        color: window.theme.text; placeholderTextColor: window.muted
-        Layout.fillWidth: true; implicitHeight: 44; padding: 12
+        Layout.fillWidth: true
         onTextEdited: controller.edit(field, text)
-        background: Rectangle { color: window.theme.input; radius: 9; border.color: input.activeFocus ? window.theme.accent : window.theme.border }
     }
     component Card: Rectangle {
         color: window.theme.canvas; radius: 14; border.color: window.theme.cardBorder
@@ -139,13 +125,11 @@ ApplicationWindow {
         default property alias contents: cardContents.data
         ColumnLayout { id: cardContents; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 18 } spacing: 12 }
     }
-    component Toggle: CheckBox {
-        id: check
+    component Toggle: Check {
         property string field
         checked: window.f(field).value
         enabled: !s.busy
         onToggled: controller.edit(field, checked)
-        contentItem: Text { text: check.text; textFormat: Text.PlainText; color: window.theme.text; leftPadding: check.indicator.width + check.spacing; verticalAlignment: Text.AlignVCenter }
     }
 
     Dialog {
@@ -207,7 +191,7 @@ ApplicationWindow {
                 Card {
                     color: window.theme.sidebar
                     Heading { text: window.tr("Choose sync folder") }
-                    TextField {
+                    Field {
                         id: setupPath; objectName: "setupPath"
                         Layout.fillWidth: true; implicitHeight: 44; padding: 12
                         text: s.setupFolder || ""; enabled: !s.busy; selectByMouse: true
@@ -307,7 +291,7 @@ ApplicationWindow {
                     RowLayout {
                         Layout.fillWidth: true
                         Copy { text: window.tr("Account storage"); font.bold: true }
-                        ToolButton { text: "↻"; font.pixelSize: 20; implicitWidth: 30; implicitHeight: 30; enabled: !s.busy; onClicked: controller.send("account_storage",[]); Accessible.name: window.tr("Refresh storage"); ToolTip.visible: hovered; ToolTip.text: window.tr("Refresh storage") }
+                        Action { text: "↻"; flat: true; padding: 4; font.pixelSize: 20; implicitWidth: 30; implicitHeight: 30; enabled: !s.busy; onClicked: controller.send("account_storage",[]); Accessible.name: window.tr("Refresh storage"); ToolTip.visible: hovered; ToolTip.text: window.tr("Refresh storage") }
                     }
                     ProgressBar {
                         id: storageProgress
@@ -342,11 +326,7 @@ ApplicationWindow {
                     Menu {
                         id: accountMenu; objectName: "accountMenu"; y: -height-8; width: 240; padding: 6
                         background: Rectangle { radius: 12; color: window.theme.canvas; border.color: window.theme.border }
-                        component AccountItem: MenuItem {
-                            id: item; implicitHeight: 40
-                            contentItem: Text { text: item.text; textFormat: Text.PlainText; color: item.enabled ? window.theme.text : window.theme.disabledText; font: item.font; verticalAlignment: Text.AlignVCenter; leftPadding: 10 }
-                            background: Rectangle { radius: 7; color: item.highlighted ? window.theme.selected : "transparent" }
-                        }
+                        component AccountItem: DriveMenuItem { theme: window.theme }
                         AccountItem { objectName: "accountSettings"; text: window.tr("Einstellungen"); onTriggered: controller.show_page("settings") }
                         AccountItem { objectName: "accountSubscription"; text: window.tr("Subscription"); onTriggered: controller.action("subscription") }
                         AccountItem { objectName: "accountDriveOnline"; text: window.tr("Proton Drive online"); onTriggered: controller.action("web") }
@@ -418,7 +398,7 @@ ApplicationWindow {
                 Action { text: window.tr("Aktualisieren"); command: "refresh"; field: "refresh_button" }
             }
             Flow { Layout.fillWidth: true; spacing: 4
-                Repeater { model: s.crumbs; delegate: Button { required property string modelData; required property int index; text: modelData+"  ›"; flat: true; onClicked: controller.crumb(index) } }
+                Repeater { model: s.crumbs; delegate: Action { required property string modelData; required property int index; text: modelData+"  ›"; flat: true; onClicked: controller.crumb(index) } }
             }
             Rectangle {
                 Layout.fillHeight: true; Layout.fillWidth: true; radius: 12; color: window.theme.canvas; border.color: window.theme.cardBorder
@@ -442,7 +422,7 @@ ApplicationWindow {
                             else if (event.key===Qt.Key_Space) { controller.select_row(s.focusIndex,true); event.accepted=true }
                         }
                          boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar {}
+                        ScrollBar.vertical: DriveScrollBar { theme: window.theme }
                         delegate: Rectangle {
                             id: fileRow
                             required property var modelData; required property int index
@@ -482,7 +462,7 @@ ApplicationWindow {
                         cellWidth: width / Math.max(1, Math.floor(width / 148)); cellHeight: 144
                         currentIndex: s.focusIndex; keyNavigationEnabled: false; activeFocusOnTab: true
                         boundsBehavior: Flickable.StopAtBounds
-                        ScrollBar.vertical: ScrollBar {}
+                        ScrollBar.vertical: DriveScrollBar { theme: window.theme }
                         Keys.onPressed: function(event) {
                             if (s.busy) return;
                             if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
@@ -544,14 +524,17 @@ ApplicationWindow {
         visible: Boolean(s.history && s.history.visible)
         title: window.tr("Version history"); modal: true
         anchors.centerIn: parent; width: Math.min(680,window.width-60); height: Math.min(500,window.height-80)
-        standardButtons: Dialog.Close
+        footer: Item {
+            implicitHeight: 64
+            Action { objectName: "historyClose"; text: window.tr("Abbrechen / Schließen"); enabled: true; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 16; onClicked: historyDialog.reject() }
+        }
         padding: 20
         background: Rectangle { radius: 14; color: window.theme.canvas; border.color: window.theme.dialogBorder }
         header: Label { text: window.tr("Version history"); color: window.theme.text; font.pixelSize: 20; font.bold: true; padding: 20 }
         onRejected: controller.send("history_close",[])
         contentItem: ListView {
             clip: true; model: s.history ? s.history.revisions : []; spacing: 10
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: DriveScrollBar { theme: window.theme }
             delegate: RowLayout {
                 required property var modelData; required property int index
                 width: ListView.view.width; spacing: 12
@@ -560,11 +543,12 @@ ApplicationWindow {
                     Label { text: modelData.created ? new Date(modelData.created).toLocaleString(window.locale,"dd MMM yyyy · HH:mm") : "—"; textFormat: Text.PlainText; color: window.theme.text }
                     Label { text: modelData.size===undefined ? "—" : Number(modelData.size).toLocaleString(window.locale,"f",0)+" B"; color: window.muted }
                 }
-                Button { text: modelData.state==="active" ? window.tr("Current version") : window.tr("Wiederherstellen"); enabled: !s.busy && modelData.state==="superseded"; onClicked: {controller.send("version_restore",[index]);controller.send("history_close",[]);} }
+                Action { text: modelData.state==="active" ? window.tr("Current version") : window.tr("Wiederherstellen"); enabled: !s.busy && modelData.state==="superseded"; onClicked: {controller.send("version_restore",[index]);controller.send("history_close",[]);} }
             }
         }
     }
     component PageScroll: ScrollView {
+        ScrollBar.vertical: DriveScrollBar { theme: window.theme; parent: scroll; x: scroll.width-width; y: scroll.topPadding; height: scroll.availableHeight }
         id: scroll
         clip: true; contentWidth: availableWidth
         default property alias contents: pageColumn.data
@@ -711,7 +695,7 @@ ApplicationWindow {
             Card {
                 Heading { text: window.tr("Erscheinungsbild") }
                 Copy { text: window.tr("Erscheinungsbild") }
-                ComboBox {
+                Choice {
                     objectName: "appearanceSelector"
                     Layout.fillWidth: true
                     model: [window.tr("Systemeinstellung"), window.tr("Hell"), window.tr("Dunkel")]
@@ -720,7 +704,7 @@ ApplicationWindow {
                     Accessible.name: window.tr("Erscheinungsbild")
                 }
                 Copy { text: window.tr("Sprache") }
-                ComboBox {
+                Choice {
                     objectName: "languageSelector"
                     Layout.fillWidth: true
                     model: controller.languageOptions
@@ -743,19 +727,19 @@ ApplicationWindow {
             }
             Card {
                 Heading { text: window.tr("Updates") }
-                CheckBox {
+                Check {
                     text: window.tr("Automatisch täglich nach Updates suchen")
                     checked: controller.updates.automatic
                     enabled: !controller.updates.busy
                     onToggled: controller.updates.setOption("automatic", checked)
                 }
-                CheckBox {
+                Check {
                     text: window.tr("Vorabversionen einschließen")
                     checked: controller.updates.previews
                     enabled: !controller.updates.busy
                     onToggled: controller.updates.setOption("previews", checked)
                 }
-                CheckBox {
+                Check {
                     text: window.tr("Updates automatisch herunterladen")
                     visible: controller.updates.packageFormat === "deb"
                     checked: controller.updates.autoDownload
@@ -808,7 +792,8 @@ ApplicationWindow {
         onRejected: controller.answer_dialog(window.request.token,false,[])
     }
     Dialog {
-        id: modal; objectName: "confirmationDialog"
+        id: modal; objectName: "confirmationDialog"; padding: 24
+        Overlay.modal: Rectangle { color: window.darkMode ? "#99000000" : "#66252236" }
         anchors.centerIn: parent; width: Math.min(560,window.width-60)
         modal: true; closePolicy: Popup.CloseOnEscape
         onRejected: controller.answer_dialog(window.request.token,false,"")
@@ -817,12 +802,12 @@ ApplicationWindow {
         contentItem: ColumnLayout {
             spacing: 16
             Copy { text: window.request.description || ""; color: window.theme.secondaryText }
-            TextField { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: window.theme.text }
-            TextArea { visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: window.theme.accentText }
+            Field { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: window.theme.text }
+            TextArea { padding: 12; background: Rectangle { radius: 10; color: window.theme.input; border.color: window.theme.border } visible: window.request.kind==="share" && Boolean(window.request.url); text: window.request.url || ""; textFormat: Text.PlainText; readOnly: true; selectByMouse: true; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true; color: window.theme.accentText }
             RowLayout {
                 visible: window.request.kind==="share"
-                TextField { id: shareEmail; Layout.fillWidth: true; placeholderText: window.tr("Email address"); inputMethodHints: Qt.ImhEmailCharactersOnly; maximumLength: 254 }
-                ComboBox { id: shareRole; model: [window.tr("Viewer"),window.tr("Editor")] }
+                Field { id: shareEmail; Layout.fillWidth: true; placeholderText: window.tr("Email address"); inputMethodHints: Qt.ImhEmailCharactersOnly; maximumLength: 254 }
+                Choice { id: shareRole; model: [window.tr("Viewer"),window.tr("Editor")] }
             }
             Flow {
                 Layout.fillWidth: true; spacing: 8

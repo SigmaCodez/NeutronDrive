@@ -11,9 +11,9 @@ An independent, open-source **Linux desktop client for Proton Drive**. Browse yo
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Latest published version: [0.6.0 alpha13](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha13).**
-This update improves photo scrolling, adds a signed-in account menu and includes
-file-manager browsing, favorite-icon and shutdown corrections from alpha12 development.
+**Latest published version: [0.6.0 alpha14](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha14).**
+This update unifies buttons, inputs, menus and selection controls across the interface,
+with refined light/dark styling and lighter photo rendering while scrolling.
 This is alpha software; keep an independent backup. Complete Windows/macOS feature
 parity has not been reached.
 
@@ -23,7 +23,7 @@ service requests. The interface and icon are original.
 
 ## Light and dark appearance
 
-Fresh captures of the **alpha13 release GUI**, in English, using isolated
+Fresh captures of the **alpha14 release GUI**, in English, using isolated
 synthetic demo data. These are actual application renders, not mockups or a live
 account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 
@@ -88,7 +88,7 @@ See [desktop features](docs/DESKTOP-FEATURES.md),
 ## Install
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **published alpha13 assets**, not development artifacts.
+The commands below use the **published alpha14 assets**, not development artifacts.
 Packages are community alpha builds, not official Proton packages or store listings.
 
 | Format | Intended systems | Important details |
@@ -102,29 +102,29 @@ Packages are community alpha builds, not official Proton packages or store listi
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_0.6.0-alpha13-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha14-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-0.6.0-alpha13-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha14-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-0.6.0-alpha13-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha14-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a13-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a14-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha13_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha14_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-0.6.0-alpha13-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha13-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha14-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha14-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-0.6.0alpha13-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-0.6.0alpha14-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
