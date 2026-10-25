@@ -29,6 +29,7 @@ struct Call {
     reply: mpsc::SyncSender<Result<Value>>,
 }
 struct Kernel {
+    id: u64,
     calls: mpsc::SyncSender<Call>,
     cache: PathBuf,
     directories: Mutex<(u64, BTreeMap<u64, Vec<Value>>)>,
@@ -95,11 +96,35 @@ fn attrs(v: Value) -> Result<FileAttr> {
 }
 impl Kernel {
     fn call(&self, action: Action) -> Result<Value> {
+        if let Some(value) = ondemand_fs::cached(self.id, &action) {
+            return Ok(value);
+        }
+        if ondemand_fs::absent(self.id, &action) {
+            return Err(Errno::ENOENT);
+        }
         let (reply, rx) = mpsc::sync_channel(1);
-        self.calls
-            .send(Call { action, reply })
-            .map_err(|_| Errno::EIO)?;
-        rx.recv().map_err(|_| Errno::EIO)?
+        let metadata = matches!(
+            action,
+            Action::Metadata { .. } | Action::Lookup { .. } | Action::Listdir { .. }
+        );
+        let call = Call { action, reply };
+        if metadata {
+            // A stalled SDK request must not trap Nautilus' metadata probes.
+            // Only read-only requests may time out: writes must retain their
+            // original acknowledgement and recovery semantics.
+            self.calls.try_send(call).map_err(|error| match error {
+                mpsc::TrySendError::Full(_) => Errno::EAGAIN,
+                mpsc::TrySendError::Disconnected(_) => Errno::EIO,
+            })?;
+            rx.recv_timeout(Duration::from_secs(3))
+                .map_err(|error| match error {
+                    mpsc::RecvTimeoutError::Timeout => Errno::EAGAIN,
+                    mpsc::RecvTimeoutError::Disconnected => Errno::EIO,
+                })?
+        } else {
+            self.calls.send(call).map_err(|_| Errno::EIO)?;
+            rx.recv().map_err(|_| Errno::EIO)?
+        }
     }
     fn attr(&self, ino: INodeNo) -> Result<FileAttr> {
         attrs(self.call(Action::Metadata { inode: ino.0 })?)
@@ -501,11 +526,13 @@ pub fn run(
 ) -> std::result::Result<Value, Failure> {
     let (tx, rx) = mpsc::sync_channel(16);
     let fs = Kernel {
+        id: config.id,
         calls: tx,
         cache: config.cache,
         directories: Mutex::new((1, BTreeMap::new())),
     };
     let mut options = fuser::Config::default();
+    options.n_threads = Some(4);
     options.mount_options = vec![
         MountOption::FSName("NeutronDrive".into()),
         MountOption::Subtype("neutrondrive".into()),
@@ -516,9 +543,14 @@ pub fn run(
     if !config.writable {
         options.mount_options.push(MountOption::RO);
     }
-    let mut session = Session::new(fs, &config.mountpoint, &options).map_err(|_| {
-        Failure::from("FUSE mount failed. Check /dev/fuse permissions and fuse3 installation.")
+    let mut session = Session::new(fs, &config.mountpoint, &options).map_err(|error| {
+        Failure::from(format!(
+            "FUSE mount failed: {error}. Check /dev/fuse permissions and fuse3 installation."
+        ))
     })?;
+    if let Err(error) = crate::desktop_bookmarks::ensure(&config.mountpoint) {
+        eprintln!("Could not add Proton Drive bookmark: {error}");
+    }
     let mut unmounter = session.unmount_callable();
     let worker = std::thread::Builder::new()
         .name("nd-fuse".into())
@@ -528,6 +560,8 @@ pub fn run(
     // The foreign callback remains scoped to this caller thread throughout.
     let mut cancelled = callback(json!({"kind":"sync_started"})) != 0;
     let mut detached = false;
+    let mut generation = ondemand_fs::generation(config.id);
+    let mut prefetched = BTreeMap::<u64, std::time::Instant>::new();
     loop {
         if cancelled && !detached {
             unmounter
@@ -541,6 +575,49 @@ pub fn run(
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if !cancelled {
                     cancelled = callback(json!({"kind":"poll"})) != 0;
+                    if !cancelled {
+                        let current_generation = ondemand_fs::generation(config.id);
+                        if current_generation != generation {
+                            prefetched.clear();
+                            generation = current_generation;
+                        }
+                        // Breadth-first metadata-only traversal, one directory per idle turn.
+                        // Cached kernel lookups use the independent mirror during this request.
+                        if let Some(inode) =
+                            ondemand_fs::folders(config.id).into_iter().find(|id| {
+                                prefetched
+                                    .get(id)
+                                    .is_none_or(|t| t.elapsed() >= Duration::from_secs(300))
+                            })
+                        {
+                            prefetched.insert(inode, std::time::Instant::now());
+                            let operation = Operation::Call {
+                                id: config.id,
+                                operation: Action::Listdir {
+                                    inode,
+                                    refresh: true,
+                                },
+                            };
+                            let result = match &executable {
+                                Some(executable) => ondemand_fs::run(
+                                    operation,
+                                    &mut crate::sync_remote::Sdk {
+                                        executable: executable.clone(),
+                                        callback,
+                                    },
+                                ),
+                                None => ondemand_fs::run(
+                                    operation,
+                                    &mut crate::host::Callback(callback),
+                                ),
+                            };
+                            if let Ok(v) = result {
+                                cancelled =
+                                    callback(json!({"kind":"fuse_status","status":v["status"]}))
+                                        != 0;
+                            }
+                        }
+                    }
                 }
                 continue;
             }

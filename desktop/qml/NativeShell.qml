@@ -103,7 +103,7 @@ Item {
     function restore_entry(index){send("restore_entry",[index])}
     function action(name){send("action",[name])}
     function answer_dialog(token,accepted,value){send("answer_dialog",[token,accepted,value])}
-    function request_close(){if(smoke)console.log("NATIVE_WINDOW_CLOSE_REQUEST",allowClose);if(allowClose)return true;send("request_close",[updateAdapter.state.installing===true,!smoke && !launch.demo && trayAvailable && !explicitQuit]);return false}
+    function request_close(){if(smoke)console.log("NATIVE_WINDOW_CLOSE_REQUEST",allowClose);if(allowClose)return true;send("request_close",[updateAdapter.state.installing===true,!smoke && !launch.demo && startup.trayAvailable() && !explicitQuit]);return false}
     function setLanguagePreference(value){if(!preferences.setLanguagePreference(value))files.notify(preferences.error,true)}
     function setAppearancePreference(value){if(preferences.setAppearancePreference(value))appearanceObject.setMode(preferences.appearance);else files.notify(preferences.error,true)}
     function stop(){if(!updater.shutdown())return false;files.shutdown();appearanceObject.shutdown();startup.shutdown();return true}
@@ -122,8 +122,9 @@ Item {
             if(component.status!==Component.Ready)throw new Error(component.errorString());
             // A Window parented to this non-visual root Item would wait for a
             // parent window that does not exist. Keep it as a real top-level window.
-            view=component.createObject(null);
+            view=component.createObject(null, launch.tray ? {visible:false} : {});
             if(!view)throw new Error(component.errorString());
+            trayAvailable=startup.trayAvailable();
             initialized=true;
             if(launch.demo || launch.available){action("refresh")}else{show_page("settings");files.notify(translate("Das Proton-SDK-Backend wurde nicht gefunden."),true)}
             ready();
@@ -136,6 +137,11 @@ Item {
         if(request){controller.reveal("");controller.send("file_manager",[JSON.parse(request)]);}
     } }
     Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:{let available=startup.trayAvailable();if(controller.trayAvailable && !available && controller.view && !controller.view.visible)controller.reveal("");controller.trayAvailable=available;controller.send("poll_services",[])}}
+    // Some desktops publish their tray host after autostart applications.
+    // Keep the icon registered and reveal a usable window if no host appears.
+    Timer { interval: 15000; running: controller.initialized && controller.launch.tray === true; onTriggered: {
+        if(!startup.trayAvailable() && !controller.view.visible)controller.reveal("");
+    } }
     Timer {id:initialUpdate;interval:10000;running:controller.initialized;onTriggered:updater.tick()}
     Timer {id:updateTimer;interval:3600000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
     // Isolated end-to-end checks of the actual existing Main.qml, without an account.
@@ -383,6 +389,16 @@ Item {
                     if(controller.lastDialog.kind!=="folder")throw new Error("Folder dialog missing");
                     for(let child of controller.view.contentData){if(child.objectName==="folderPicker")child.close()}
                     controller.answer_dialog(controller.lastDialog.token,false,[]);
+                    // Exercise the real window's tray-close path without requiring a
+                    // tray host in the isolated offscreen test session.
+                    controller.send("request_close",[false,true]);controller.stage=61;
+                }else if(controller.stage===61){
+                    if(controller.view.visible)return;
+                    if(controller.allowClose)throw new Error("Tray close shut down the application");
+                    controller.reveal("");controller.stage=62;
+                }else if(controller.stage===62){
+                    if(!controller.view.visible)throw new Error("Tray window did not reopen");
+                    console.log("NATIVE_TRAY_HIDE_AND_REOPEN_OK");
                     console.log("NATIVE_MAIN_WINDOW_OK");console.log("NATIVE_WINDOW_CLOSE_RESULT",controller.view.close());controller.stage=7;
                 }
             }catch(error){console.error(error);controller.stop();Qt.exit(1)}

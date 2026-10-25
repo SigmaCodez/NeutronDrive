@@ -157,3 +157,16 @@ new labels while retaining their existing translations.
 The guided assistant now separates Proton sign-in from folder selection, with
 Next / Back navigation and shared light/dark theme styling. Native desktop menus
 are described in [file-manager integration](FILE-MANAGER-INTEGRATION.md).
+
+### Alpha11 tray and cached browsing
+
+Graphical-session `--background` startup also launches the single-instance tray
+window using `--tray`. A duplicate tray launch does not reveal an existing hidden
+window. Closing the window hides it while a tray host is available; the explicit
+Quit action still exits the window and tray. If no tray host becomes available,
+the hidden startup window is revealed after 15 seconds so it remains accessible.
+Hiding keeps active transfers running; explicit exit retains cancellation confirmation.
+The sync daemon has its own lifetime.
+
+Metadata prefetch, local availability emblems and file-manager Places integration
+are described in the [support matrix](FILE-MANAGER-INTEGRATION.md). See the alpha11 release validation for package and installation evidence.

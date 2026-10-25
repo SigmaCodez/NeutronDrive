@@ -3,6 +3,7 @@ set -euo pipefail
 nd_binary=$1
 nd_root=$(mktemp -d)
 export XDG_STATE_HOME="$nd_root/state"
+export XDG_CONFIG_HOME="$nd_root/config"
 nd_pid=
 cleanup() {
     if [[ -n $nd_pid ]] && kill -0 "$nd_pid" 2>/dev/null; then

@@ -99,9 +99,17 @@ impl Instance {
     pub fn claim(directory: &Path) -> Result<Option<Self>, Failure> {
         Self::claim_request(directory, None)
     }
+    #[cfg(test)]
     pub fn claim_request(
         directory: &Path,
         request: Option<serde_json::Value>,
+    ) -> Result<Option<Self>, Failure> {
+        Self::claim_mode(directory, request, true)
+    }
+    pub fn claim_mode(
+        directory: &Path,
+        request: Option<serde_json::Value>,
+        activate: bool,
     ) -> Result<Option<Self>, Failure> {
         if let Some(ref value) = request {
             crate::file_manager::validate(value)?;
@@ -118,7 +126,7 @@ impl Instance {
             let started = Instant::now();
             loop {
                 if let Ok(mut stream) = connect(&path) {
-                    if let Some(ref value) = request {
+                    if request.is_some() || !activate {
                         stream
                             .set_nonblocking(false)
                             .map_err(|_| failure("Window connection failed"))?;
@@ -126,7 +134,13 @@ impl Instance {
                             .set_write_timeout(Some(Duration::from_millis(300)))
                             .map_err(|_| failure("Window connection failed"))?;
                         stream
-                            .write_all(value.to_string().as_bytes())
+                            .write_all(
+                                request
+                                    .as_ref()
+                                    .map(|v| v.to_string())
+                                    .unwrap_or_else(|| "tray".into())
+                                    .as_bytes(),
+                            )
                             .map_err(|_| failure("Could not forward file-manager action"))?;
                     }
                     return Ok(None);
@@ -174,7 +188,6 @@ impl Instance {
         for _ in 0..16 {
             match self.listener.accept() {
                 Ok((stream, _)) => {
-                    activate = true;
                     if self.incoming.borrow().len() < 32 && stream.set_nonblocking(true).is_ok() {
                         self.incoming
                             .borrow_mut()
@@ -194,6 +207,7 @@ impl Instance {
                 loop {
                     match stream.read(&mut buffer) {
                         Ok(0) => {
+                            activate |= data.as_slice() != b"tray";
                             if !data.is_empty() && self.requests.borrow().len() < 32 {
                                 if let Ok(value) = serde_json::from_slice(data) {
                                     if crate::file_manager::validate(&value).is_ok() {
@@ -244,6 +258,15 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+    #[test]
+    fn tray_autostart_does_not_reveal_an_existing_window() {
+        let tmp = Temp::new("tray-start");
+        let owner = Instance::claim(&tmp.0).unwrap().unwrap();
+        assert!(Instance::claim_mode(&tmp.0, None, false).unwrap().is_none());
+        assert!(!owner.pending());
+        assert!(Instance::claim(&tmp.0).unwrap().is_none());
+        assert!(owner.pending());
     }
     #[test]
     fn forwards_literal_file_actions_and_rejects_invalid_messages() {

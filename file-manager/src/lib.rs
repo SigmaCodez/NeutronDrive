@@ -2,7 +2,12 @@
 //! Only the host's public GObject ABI is used. No Qt, Python, network calls or
 //! cloud operations run in a file-manager process. Activation launches the app
 //! with literal argv; the app validates the live mount before doing any work.
+mod availability;
+mod emblems;
+pub mod gio_emblems;
 pub mod paths;
+mod volumes;
+pub mod watcher;
 use std::{
     ffi::{c_char, c_int, c_uint, c_void, CStr, CString},
     ptr,
@@ -99,6 +104,9 @@ unsafe extern "C" fn interface_init(interface: Ptr, _data: Ptr) {
         items_with_window as *const () as usize
     };
 }
+unsafe extern "C" fn instance_ready(instance: Ptr, _: Ptr) {
+    volumes::start(instance);
+}
 unsafe fn initialize(module: Ptr, host: Host) {
     if API.get().is_some() {
         return;
@@ -149,7 +157,7 @@ unsafe fn initialize(module: Ptr, host: Host) {
             class_data: ptr::null_mut(),
             instance_size: q.instance_size.try_into().ok()?,
             n_preallocs: 0,
-            instance_init: ptr::null_mut(),
+            instance_init: instance_ready as *const () as Ptr,
             value_table: ptr::null_mut(),
         };
         let name = CString::new(format!("NeutronDrive{prefix}MenuProvider")).ok()?;
@@ -177,6 +185,9 @@ unsafe fn initialize(module: Ptr, host: Host) {
             data: ptr::null_mut(),
         };
         add(module, type_, provider(), &iface);
+        if host != Host::Thunar {
+            emblems::register(module, type_, prefix, add);
+        }
         Some(())
     };
     let _ = std::panic::catch_unwind(init);
@@ -222,7 +233,8 @@ unsafe extern "C" fn activate(_item: Ptr, data: Ptr) {
 unsafe extern "C" fn items_with_window(provider: Ptr, _window: Ptr, files: *mut List) -> *mut List {
     items(provider, files)
 }
-unsafe extern "C" fn items(_provider: Ptr, files: *mut List) -> *mut List {
+unsafe extern "C" fn items(provider: Ptr, files: *mut List) -> *mut List {
+    volumes::start(provider);
     std::panic::catch_unwind(|| menu(files)).unwrap_or(ptr::null_mut())
 }
 unsafe fn menu(mut files: *mut List) -> *mut List {
@@ -390,7 +402,10 @@ macro_rules! exports {
             initialize(module, $host)
         }
         #[no_mangle]
-        pub extern "C" fn $shutdown() {}
+        pub extern "C" fn $shutdown() {
+            emblems::shutdown();
+            volumes::shutdown();
+        }
         /// # Safety
         /// The host provides writable output pointers and retains the loaded module.
         #[no_mangle]
@@ -432,3 +447,42 @@ exports!(
     nautilus_module_list_types,
     Host::NautilusLegacy
 );
+
+/// # Safety
+/// The caller supplies a readable NUL-terminated UTF-8 path.
+#[no_mangle]
+pub unsafe extern "C" fn neutrondrive_is_available(path: *const c_char) -> c_int {
+    if path.is_null() {
+        return 0;
+    }
+    std::panic::catch_unwind(|| {
+        CStr::from_ptr(path)
+            .to_str()
+            .ok()
+            .filter(|p| p.len() <= 4096)
+            .is_some_and(|p| availability::available(std::path::Path::new(p))) as c_int
+    })
+    .unwrap_or(0)
+}
+
+/// # Safety
+/// `buffer` points to at least `capacity` writable bytes. Returns bytes including NUL, or zero.
+#[no_mangle]
+pub unsafe extern "C" fn neutrondrive_sync_root(buffer: *mut c_char, capacity: usize) -> usize {
+    std::panic::catch_unwind(|| {
+        let Some(root) = paths::configured_root() else {
+            return 0;
+        };
+        let Some(path) = root.to_str() else { return 0 };
+        let Ok(text) = CString::new(path) else {
+            return 0;
+        };
+        let bytes = text.as_bytes_with_nul();
+        if buffer.is_null() || bytes.len() > capacity {
+            return 0;
+        }
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), buffer.cast(), bytes.len());
+        bytes.len()
+    })
+    .unwrap_or(0)
+}
