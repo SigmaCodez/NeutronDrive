@@ -110,3 +110,32 @@ Validation includes real host-library menu and emblem callbacks, isolated GVfs
 add/remove tests preserving user emblems, a KDE 6 plugin-loader test, and a real
 FUSE test with a deliberately stalled SDK. Full graphical sessions on every
 listed desktop/distribution have not been tested.
+
+
+## Alpha12: content probes and the Nautilus favorite icon
+
+GLib may open files with `O_NOATIME` to guess their content type while listing a
+folder. Previously this optional operation could wait behind cloud requests,
+download a placeholder, or hash a large cached file. For known GIO clients
+(Nautilus, Nemo, Caja, Thunar, PCManFM and `gio`), the FUSE adapter now declines
+this read-only probe immediately. GLib retains its filename-based MIME guess.
+Normal file opening, copying, hydration and integrity verification are unchanged;
+`O_NOATIME` reads from other applications continue to work. This deliberately
+bounded compatibility rule does not suppress all thumbnail generation or claim
+that every file manager's content-inspection strategy is supported.
+
+The existing Neutron application icon decorates the configured Proton Drive
+favorite in Nautilus 50. Nautilus has no public bookmark-icon extension API, so
+this optional adapter checks the GTK4 row type and GObject property types at
+runtime. Unknown layouts are left unchanged. Only the exact configured local
+folder is matched. Other favorites and remote URIs are untouched; saved icons
+are restored when the configured folder changes or the extension shuts down.
+The adapter uses the host GTK/GIO libraries and local configuration only, with
+bounded traversal on the existing two-second main-loop timer. It does not load
+Qt, make network requests or access cloud file contents in Nautilus.
+
+`check-cached-browsing.py` includes a real GIO MIME query while a synthetic SDK is
+stalled, followed by ordinary `O_NOATIME` reads and `gio copy` content checks.
+`check-sidebar.py` uses real GTK4/GObject with synthetic sidebar rows to check
+scope, later windows, icon resets, configuration changes and shutdown restoration.
+This is an adapter test, not visual verification on every Nautilus version.

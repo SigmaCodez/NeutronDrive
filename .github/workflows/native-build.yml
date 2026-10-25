@@ -40,7 +40,7 @@ jobs:
       - name: Install baseline build and isolated-test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev libnautilus-extension-dev libnemo-extension1 libcaja-extension1 libthunarx-3-0 g++ binutils cmake ninja-build perl pkg-config zlib1g-dev python3-gi dbus-daemon gvfs xvfb libx11-dev fuse3 libgl-dev libopengl-dev libegl-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-randr0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-render0 libxcb-shape0 libxcb-glx0 libfontconfig1 libdbus-1-3 libsm6 libice6 libatomic1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libsecret-1-0
+          sudo apt-get install -y libglib2.0-dev libnautilus-extension-dev libnemo-extension1 libcaja-extension1 libthunarx-3-0 g++ binutils cmake ninja-build perl pkg-config zlib1g-dev python3-gi gir1.2-gtk-4.0 dbus-daemon gvfs xvfb libx11-dev fuse3 libgl-dev libopengl-dev libegl-dev libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-randr0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb-render0 libxcb-shape0 libxcb-glx0 libfontconfig1 libdbus-1-3 libsm6 libice6 libatomic1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libsecret-1-0
           if [ ! -c /dev/fuse ]; then sudo modprobe fuse; fi
           sudo chmod a+rw /dev/fuse
           rustup toolchain install 1.98.0 --profile minimal --component rustfmt --component clippy

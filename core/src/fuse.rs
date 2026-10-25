@@ -43,6 +43,28 @@ fn name(v: &OsStr) -> Result<String> {
 fn offset(v: u64) -> Result<i64> {
     i64::try_from(v).map_err(|_| Errno::EOVERFLOW)
 }
+// GLib's local content-type probe uses O_NOATIME, unlike its normal input
+// stream/copy operation. A failed optional probe falls back to the filename.
+// Do not hydrate (or hash a multi-GB cache object) merely to draw a folder.
+// Scope this to the known GIO clients: O_NOATIME alone is a valid application
+// read request and must continue to work for editors, backup tools, etc.
+fn content_type_probe(pid: u32, flags: i32) -> bool {
+    if flags & libc::O_ACCMODE != libc::O_RDONLY
+        || flags & libc::O_NOATIME == 0
+        || flags & (libc::O_TRUNC | libc::O_CREAT) != 0
+    {
+        return false;
+    }
+    std::fs::read_link(format!("/proc/{pid}/exe"))
+        .ok()
+        .and_then(|path| path.file_name().map(OsStr::to_owned))
+        .is_some_and(|name| {
+            matches!(
+                name.to_str(),
+                Some("gio" | "nautilus" | "nemo" | "caja" | "Thunar" | "thunar" | "pcmanfm")
+            )
+        })
+}
 fn unpack(v: Value) -> Result<Value> {
     if let Some(e) = v["errno"].as_i64() {
         return Err(Errno::from_i32(e as i32));
@@ -229,7 +251,13 @@ impl Filesystem for Kernel {
                 .map_err(|_| Errno::EIO)
         );
     }
-    fn open(&self, _: &Request, ino: INodeNo, flags: OpenFlags, reply: ReplyOpen) {
+    fn open(&self, request: &Request, ino: INodeNo, flags: OpenFlags, reply: ReplyOpen) {
+        if content_type_probe(request.pid(), flags.0) {
+            // EPERM would make GLib retry without O_NOATIME. EAGAIN makes it
+            // keep its filename-based type without suppressing normal opens.
+            reply.error(Errno::EAGAIN);
+            return;
+        }
         match self
             .call(Action::Open {
                 inode: ino.0,
