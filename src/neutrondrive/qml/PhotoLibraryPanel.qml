@@ -19,7 +19,14 @@ ColumnLayout {
         // Defer updates within the same inventory, but clear a refreshed or
         // replaced album immediately so old tiles cannot outlive its data.
         let replaces=items.length<photoModel.count || (items.length>0 && appliedPhotos.length>0 && items[0].uid!==appliedPhotos[0].uid);
-        if(scrolling && photoModel.count>0 && !replaces) { pendingPhotos=true; return; }
+        if(scrolling && photoModel.count>0 && !replaces) {
+            // Append new pages immediately so reaching the bottom never requires
+            // releasing the wheel/touchpad. Existing tiles update after movement.
+            let added=[];
+            for(let i=photoModel.count;i<items.length;i++) { photoModel.append({entry:items[i]}); added.push(items[i]); }
+            if(added.length)appliedPhotos=appliedPhotos.concat(added);
+            pendingPhotos=true; return;
+        }
         pendingPhotos=false;
         // Keep delegates and scroll position alive across status updates and pages.
         for(let i=0;i<Math.min(photoModel.count,items.length);i++) {
@@ -43,6 +50,7 @@ ColumnLayout {
     property real previewZoom: 1
     property int previewAttempt: -1
     property int moreAttempt: -1
+    property double retryAt: 0
     property int viewerAttempt: -1
     readonly property var currentPhoto: viewerIndex >= 0 ? photos[viewerIndex] || ({}) : ({})
     function showPhoto(index) {
@@ -236,7 +244,6 @@ ColumnLayout {
         }
         Label { anchors.centerIn: parent; visible: !panel.viewState.busy && grid.count===0; text: host.tr("No photos"); color: host.theme.text }
     }
-    PhotoButton { visible: !panel.albumsVisible && Boolean(panel.viewState.photosMore); Layout.alignment: Qt.AlignHCenter; text: host.tr("Load more photos"); enabled: !panel.viewState.busy; onClicked: panel.request({action:"more"}) }
     Popup {
         id: viewer; objectName: "photoViewer"
         parent: Overlay.overlay; anchors.centerIn: parent
@@ -297,8 +304,8 @@ ColumnLayout {
             let end=Math.min(grid.count,panel.photos.length,first+columns*(Math.ceil(grid.height/grid.cellHeight)+2));
             let missing=-1;
             for(let i=first;i<end;i++)if(!panel.photos[i].previewLoaded){missing=i;break;}
-            if(!panel.scrolling && missing>=0 && panel.previewAttempt!==missing) { panel.previewAttempt=missing; panel.request({action:"previews",start:missing}); return; }
-            if(panel.viewState.photosMore && panel.moreAttempt!==grid.count && grid.contentY+grid.height>=grid.contentHeight-grid.height*2) { panel.moreAttempt=grid.count; panel.request({action:"more"}); }
+            if(missing>=0 && panel.previewAttempt!==missing) { panel.previewAttempt=missing; panel.request({action:"previews",start:missing}); return; }
+            if(panel.viewState.photosMore && (panel.moreAttempt!==grid.count || Date.now()>panel.retryAt) && grid.contentY+grid.height>=grid.contentHeight-grid.height*2) { panel.moreAttempt=grid.count; panel.retryAt=Date.now()+15000; panel.request({action:"more"}); }
         }
     }
 }

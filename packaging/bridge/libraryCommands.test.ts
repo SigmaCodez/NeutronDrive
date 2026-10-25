@@ -46,10 +46,11 @@ test('map metadata accepts zero coordinates and rejects invalid coordinates with
     const log=spyOn(console,'log').mockImplementation(()=>{});
     try {
         await new CommandPhotoLibrary().action({args:[JSON.stringify({action:'details',ids:['a','b'],thumbnails:false})],photosSdk:{async *iterateNodes(){
-            yield {uid:'a',name:{ok:true,value:'A'},activeRevision:{claimedAdditionalMetadata:{Location:{Latitude:0,Longitude:0}}}};
+            yield {uid:'a',name:{ok:true,value:'A'},activeRevision:{uid:'revision-a',claimedAdditionalMetadata:{Location:{Latitude:0,Longitude:0}}}};
             yield {uid:'b',name:{ok:true,value:'B'},activeRevision:{claimedAdditionalMetadata:{Location:{Latitude:91,Longitude:0}}}};
         }}} as any);
         const response=JSON.parse(log.mock.calls[0][0]);
+        expect(response.photos[0].revision).toBe('revision-a');
         expect(response.photos[0].location).toEqual({latitude:0,longitude:0});expect(response.photos[1].location).toBeNull();
     } finally {log.mockRestore();}
 });

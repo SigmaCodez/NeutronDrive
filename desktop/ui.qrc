@@ -10,4 +10,5 @@
 <file alias="DriveMenu.qml">../src/neutrondrive/qml/DriveMenu.qml</file>
 <file alias="DriveCombo.qml">../src/neutrondrive/qml/DriveCombo.qml</file>
 <file alias="DriveScrollBar.qml">../src/neutrondrive/qml/DriveScrollBar.qml</file>
+    <file alias="ShareWindow.qml">../src/neutrondrive/qml/ShareWindow.qml</file>
 </qresource></RCC>

@@ -112,7 +112,7 @@ export class CommandPhotoLibrary implements Command {
                     const location = typeof latitude === 'number' && Number.isFinite(latitude) && Math.abs(latitude) <= 90 &&
                         typeof longitude === 'number' && Number.isFinite(longitude) && Math.abs(longitude) <= 180 ? { latitude, longitude } : null;
                     nodes.set(node.uid, { uid: node.uid, name: node.name.ok ? node.name.value : '[Unavailable name]', safe: node.name.ok,
-                        modified: node.photo?.captureTime ?? node.activeRevision?.claimedModificationTime, size: node.activeRevision?.claimedSize,
+                        revision: node.activeRevision?.uid ?? '', modified: node.photo?.captureTime ?? node.activeRevision?.claimedModificationTime, size: node.activeRevision?.claimedSize,
                         thumbnail: thumbnails.get(node.uid) || '', location, albums: node.photo?.albums ?? [] });
                 }
                 result = { photos: ids.filter(id => nodes.has(id)).map(id => nodes.get(id)), missing: ids.filter(id => !nodes.has(id)) }; break;

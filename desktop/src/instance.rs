@@ -207,7 +207,7 @@ impl Instance {
                 loop {
                     match stream.read(&mut buffer) {
                         Ok(0) => {
-                            activate |= data.as_slice() != b"tray";
+                            activate |= data.is_empty();
                             if !data.is_empty() && self.requests.borrow().len() < 32 {
                                 if let Ok(value) = serde_json::from_slice(data) {
                                     if crate::file_manager::validate(&value).is_ok() {
@@ -277,7 +277,10 @@ mod tests {
         assert!(Instance::claim_request(&tmp.0, Some(request.clone()))
             .unwrap()
             .is_none());
-        assert!(owner.pending());
+        assert!(
+            !owner.pending(),
+            "File actions must not reveal the main window"
+        );
         assert_eq!(owner.next_request(), Some(request));
         assert!(owner.next_request().is_none());
         assert!(Instance::claim_request(

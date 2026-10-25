@@ -1,5 +1,32 @@
 # Validation record
 
+
+## Alpha15 local source validation (2026-10-25)
+
+Validated from source locally, separately from the published alpha14 artifacts:
+
+- Rust core: 179 unit tests and 18 integration tests passed; desktop: 72 tests passed.
+- Rust formatting and Clippy with warnings denied passed for core and desktop.
+- Pinned Proton SDK bridge: 22 contract tests and TypeScript checking passed.
+- Retained regressions: 348 tests executed, 18 environment-specific tests skipped.
+- Actual offscreen Qt windows: all 25 language catalogs plus English fallback passed.
+  The separate sharing window was opened with the main browser hidden; copying the
+  synthetic link preserved its exact bytes. The new Computer backup page and
+  Settings sync tab/restart control were found and exercised.
+- Photo model: 2,049 synthetic entries, stable scroll position/selection, appending
+  during a deterministically driven scrolling state, automatic next-page requests
+  and missing-preview prefetch passed. This is not a live-account FPS benchmark.
+- Disk-cache tests cover reopening, account/revision separation, expiry, corrupt
+  entries, eviction and denied access. Restart tests cover active synchronization
+  and a failed stop without starting a replacement daemon.
+- Light/dark settings, Computer backup and the separate sharing window were
+  captured from the tested executable and visually inspected using synthetic data.
+
+No real invitations, cloud mutations, local installation or release were performed
+for these development changes. Existing alpha14 release evidence below remains
+historical and does not cover alpha15. Release CI and package evidence are recorded
+separately in the published BUILD_INFO.json and TEST_RESULTS.json.
+
 ## Alpha14 validation
 
 The [source and package CI](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40213218108)

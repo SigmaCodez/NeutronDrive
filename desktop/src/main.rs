@@ -31,6 +31,7 @@ fn main() {
         [mode, _catalog] if mode == "--check-window" => "NativeShell.qml",
         [mode, _catalog, _images] if mode == "--check-window" => "NativeShell.qml",
         [mode, _catalog, _sdk] if mode == "--check-window-fixture" => "NativeShell.qml",
+        [mode, _catalog, _sdk, _images] if mode == "--check-window-fixture" => "NativeShell.qml",
         [mode, _catalog, _images, _language, _title] if mode == "--check-window" => {
             "NativeShell.qml"
         }

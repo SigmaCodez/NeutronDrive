@@ -130,6 +130,31 @@ pub fn run(
     operation: Operation,
     callback: &mut impl FnMut(Value) -> i32,
 ) -> Result<Value> {
+    if let Operation::PhotoLibrary { request } = &operation {
+        if request["action"] == "details" {
+            return crate::photo_cache::details(
+                request.clone(),
+                crate::photo_cache::root().as_deref(),
+                &mut |value| {
+                    let operation = serde_json::from_value(value)
+                        .map_err(|_| Failure::from("Invalid cached photo operation"))?;
+                    run_uncached(executable.clone(), operation, callback)
+                },
+            );
+        }
+    }
+    let logout = matches!(operation, Operation::Logout);
+    let result = run_uncached(executable, operation, callback);
+    if logout && result.is_ok() {
+        crate::photo_cache::clear();
+    }
+    result
+}
+fn run_uncached(
+    executable: String,
+    operation: Operation,
+    callback: &mut impl FnMut(Value) -> i32,
+) -> Result<Value> {
     execute(
         operation,
         callback,

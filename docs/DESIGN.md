@@ -11,9 +11,12 @@ Reuse these components when adding screens instead of introducing a second style
 - All user-controlled text is rendered as plain text; labels keep their existing
   translations and accessible names.
 - Application dialogs use the same surfaces and controls. Operating-system file
-  pickers and desktop tray menus retain the system's native presentation.
+  pickers and desktop tray menus retain the system's native presentation. Sharing
+  uses a separate application-modal window with the same palette and controls;
+  file-manager requests do not raise the main browser.
 - Photo tiles decode at their display size and screen density. Incremental model changes
-  received during a flick are applied when movement finishes; a refreshed or
+  to existing tiles received during a flick are applied when movement finishes;
+  new pages are appended immediately so scrolling can continue. A refreshed or
   replaced inventory clears stale tiles immediately. Selection and
   scroll position are preserved; requests inspect the entire visible range for
   missing previews. Preview retention remains bounded.

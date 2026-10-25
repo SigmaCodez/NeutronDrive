@@ -14,7 +14,7 @@ pub enum Done {
     Refresh,
     None,
     Share(Value),
-    RemovedLink,
+    ShareReload(Value),
     Versions(String),
     VersionRestored,
     Photos,
@@ -48,7 +48,8 @@ pub struct Work {
 #[derive(Clone, Debug)]
 enum Answer {
     Invite {
-        path: String,
+        node: Value,
+        value: Value,
         email: String,
         role: String,
     },
@@ -85,7 +86,8 @@ enum Answer {
         value: Value,
     },
     Revoke {
-        path: String,
+        node: Value,
+        value: Value,
     },
     Logout,
     BackgroundFolder,
@@ -419,7 +421,7 @@ impl Files {
             let label=match state {"idle"=>"Aktuell","syncing"=>"Wird synchronisiert","paused"=>"Pausiert","conflicts"|"conflict"=>"Konflikt","blocked"=>"Blockiert","offline"=>"Offline","error"=>"Failed","stopped"=>"Dienst ist gestoppt",""|"waiting"=>"Waiting",other=>other};
             let conflicts=job["conflicts"].as_array().into_iter().flatten().take(5).map(|v|self.locale.diagnostic(v.as_str().unwrap_or(""))).collect::<Vec<_>>().join("; ");
             json!({"id":job["id"],"name":job["name"].as_str().filter(|v|!v.is_empty()).unwrap_or(text(job,"local_root")),
-                "detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
+                "computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
                 "status":format!("{} · {} {}",self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts)})
         }).collect::<Vec<_>>());
     }
@@ -792,10 +794,11 @@ impl Files {
                         }
                     }
                     Done::Share(node) => self.share_dialog(node, value),
-                    Done::RemovedLink => {
-                        self.message(&self.tr("Freigabelink entfernt."), false);
-                        vec![]
-                    }
+                    Done::ShareReload(node) => self.submit(
+                        "Freigabestatus laden",
+                        json!({"action":"sharing","path":node["path"]}),
+                        Done::Share(node),
+                    ),
                     Done::Version => {
                         self.field("backend_label", json!(value.as_str().unwrap_or("")));
                         vec![]
@@ -850,7 +853,7 @@ impl Files {
     fn share_dialog(&mut self, node: Value, value: Value) -> Vec<Effect> {
         let url = text(&value["urlAccess"], "url").to_string();
         let title = format!("{}{}", self.tr("Freigabe · "), text(&node, "name"));
-        self.dialog("share",&title,"Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.",json!({"url":url}),Answer::Share{node,value})
+        self.dialog("share",&title,"Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.",json!({"url":url,"node":node}),Answer::Share{node,value})
     }
     fn local_paths(value: &Value) -> Vec<String> {
         value
@@ -873,12 +876,17 @@ impl Files {
         }
         let (_, answer) = self.pending.take().unwrap();
         if !accepted {
-            return vec![];
+            return match answer {
+                Answer::Invite { node, value, .. } | Answer::Revoke { node, value } => {
+                    self.share_dialog(node, value)
+                }
+                _ => vec![],
+            };
         }
         let string = value.as_str().unwrap_or("");
         let response = value.clone();
         match answer {
-            Answer::Invite { path, email, role } => self.submit("Share by email",json!({"action":"invite","path":path,"email":email,"role":role}),Done::None),
+            Answer::Invite { node, email, role, .. } => self.submit("Share by email",json!({"action":"invite","path":node["path"],"email":email,"role":role}),Done::ShareReload(node)),
             Answer::Close => {self.closing=true;self.field("status_label",json!(self.tr("Vorgang wird beendet …")));if self.busy(){vec![Effect::Cancel]}else{vec![Effect::Close]}},
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
@@ -930,17 +938,17 @@ impl Files {
                 json!({"action":"trash","paths":paths}),
                 Done::Refresh,
             ),
-            Answer::Revoke { path } => self.submit(
+            Answer::Revoke { node, .. } => self.submit(
                 "Freigabelink entfernen",
-                json!({"action":"remove_link","path":path}),
-                Done::RemovedLink,
+                json!({"action":"remove_link","path":node["path"]}),
+                Done::ShareReload(node),
             ),
             Answer::Share { node, value } => {
                 if response["action"] == "invite" {
                     let email=text(&response,"email").trim().to_string();
                     let role=text(&response,"role").to_string();
                     if email.is_empty() || !["viewer","editor"].contains(&role.as_str()) { self.message("Enter an email address and choose a role",true); return vec![]; }
-                    return self.dialog("confirm","Send sharing invitation?",&format!("{}: {} ({})",self.tr("Recipient"),email,role),json!({}),Answer::Invite {path:text(&node,"path").into(),email,role});
+                    return self.dialog("confirm","Send sharing invitation?",&format!("{}: {} ({})",self.tr("Recipient"),email,role),json!({}),Answer::Invite {node,value,email,role});
                 }
                 let url = text(&value["urlAccess"], "url");
                 match string {
@@ -954,9 +962,7 @@ impl Files {
                         "Freigabelink deaktivieren?",
                         "Der bisherige Link funktioniert anschließend nicht mehr.",
                         json!({}),
-                        Answer::Revoke {
-                            path: text(&node, "path").into(),
-                        },
+                        Answer::Revoke { node, value },
                     ),
                     "create" if url.is_empty() => self.submit(
                         "Freigabelink erstellen",
@@ -1055,6 +1061,7 @@ impl Files {
                     "files",
                     "photos",
                     "background",
+                    "computer-backup",
                     "ondemand",
                     "local-trash",
                     "activity",
@@ -1062,11 +1069,18 @@ impl Files {
                 ]
                 .contains(&args[0].as_str().unwrap_or("")) =>
             {
-                self.state["page"] = args[0].clone();
+                self.state["page"] = if args[0] == "background" {
+                    json!("settings")
+                } else {
+                    args[0].clone()
+                };
+                self.state["settingsSync"] = json!(args[0] == "background");
                 if args[0] == "local-trash" {
                     return self.refresh_trash();
                 }
-                if args[0] == "background" || args[0] == "ondemand" {
+                if ["background", "settings", "computer-backup", "ondemand"]
+                    .contains(&args[0].as_str().unwrap_or(""))
+                {
                     return self.dispatch("poll_services", &json!([]));
                 }
             }
@@ -1082,6 +1096,14 @@ impl Files {
                     "Account storage",
                     json!({"action":"account_storage"}),
                     Done::AccountStorage,
+                );
+            }
+            "share_open" if !self.busy() && self.pending.is_none() && args[0]["safe"] == true => {
+                let node = args[0].clone();
+                return self.submit(
+                    "Freigabestatus laden",
+                    json!({"action":"sharing","path":node["path"]}),
+                    Done::Share(node),
                 );
             }
             "file_manager" if !self.busy() && self.pending.is_none() => {
@@ -1273,7 +1295,7 @@ impl Files {
             "chooseBackground"=>self.dialog("folder","Sync-Ordner wählen","",json!({"multiple":false}),Answer::BackgroundFolder),
             "addJob"=>self.activate_background(false),
             "addComputerFolder"=>self.activate_background(true),
-            "start"|"stop"=>self.submit_background("Hintergrund-Sync",json!({"action":name})),
+            "start"|"stop"|"restart"=>self.submit_background("Hintergrund-Sync",json!({"action":name})),
             "login" => {
                 self.message(&self.tr("Die Anmeldung erfolgt bei Proton im Browser. Diese App ist unabhängig und wird nicht von Proton unterstützt."),false);
                 self.submit("Anmelden",json!({"action":"login"}),Done::Refresh)
@@ -1470,6 +1492,21 @@ mod tests {
             request.operation,
             json!({"action":"invite","path":original,"email":"test@example.invalid","role":"viewer"})
         );
+        let reload = work(m.complete(request.id, Ok(json!({"accepted":true}))));
+        assert_eq!(
+            reload.operation,
+            json!({"action":"sharing","path":original})
+        );
+        let restored = dialog(m.complete(reload.id, Ok(json!({}))));
+        assert_eq!(restored["node"]["path"], original);
+        let confirm = dialog(m.answer(
+            restored["token"].as_u64().unwrap(),
+            true,
+            &json!({"action":"invite","email":"second@example.invalid","role":"viewer"}),
+        ));
+        let cancelled = dialog(m.answer(confirm["token"].as_u64().unwrap(), false, &Value::Null));
+        assert_eq!(cancelled["kind"], "share");
+        assert_eq!(cancelled["node"]["path"], original);
     }
     #[test]
     fn sorting_search_and_selection_preserve_independent_file_model() {

@@ -1,6 +1,6 @@
 # Arch Linux / Manjaro package
 
-`neutrondrive-bin` repackages the alpha14 NeutronDrive DEBs with fixed SHA256
+`neutrondrive-bin` repackages the alpha15 NeutronDrive DEBs with fixed SHA256
 checksums, preserving the bundled Qt runtime, Rust core, bridge, language catalogs
 and native D-Bus/systemd files. Host dependencies are resolved by pacman. It does
 not run account, autostart or synchronization commands during installation.

@@ -1,5 +1,5 @@
 Name:           neutrondrive
-Version:        0.6.0~alpha14
+Version:        0.6.0~alpha15
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive (alpha)
 License:        MIT
