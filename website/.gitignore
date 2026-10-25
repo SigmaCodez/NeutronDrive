@@ -1,0 +1,6 @@
+node_modules/
+.next/
+out/
+.env*
+security-headers.conf
+!public/screenshots/*.png

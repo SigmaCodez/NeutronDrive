@@ -1,0 +1,29 @@
+[Unit]
+Description=Refresh NeutronDrive release texts and screenshots
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=neutrondrive-content
+Group=neutrondrive-content
+StateDirectory=neutrondrive-content
+StateDirectoryMode=0755
+ExecStart=/usr/bin/python3 /usr/local/lib/neutrondrive-content/sync-server-content.py
+TimeoutStartSec=5min
+UMask=0022
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+LockPersonality=yes
+MemoryMax=192M
+CPUQuota=25%
+TasksMax=16

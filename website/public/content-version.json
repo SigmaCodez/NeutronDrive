@@ -1,0 +1,14 @@
+{
+  "release": "v0.1.0-beta1",
+  "release_fingerprint": "6f2f941213adc052ed791f01319713523563be980a96c5f39c5afdea7104d4df",
+  "reviewed_at": "2026-10-25T22:42:39.498622+00:00",
+  "screenshots_release": "v0.1.0-beta1",
+  "screenshots_pending": false,
+  "screenshots": {
+    "files-grid-dark.png": "4c8ebdadb82aa91da3ad4fbaeb4853a71e49ee1f3c73ce0132aa2a4a638740e1",
+    "files-grid-light.png": "b3e8aeef6b27c841f6b830d3a7a9f508ab9a27ebacc466995c3bbe0e00c370ec",
+    "photos-light.png": "581931333eac14848624c58d34802dc5151d84c44015cdece7c86d541c4c1cc4",
+    "sharing-light.png": "13bfa00c469adaac70d1281636fcea92b8ba825d628966dd62f61e3318dd05ae",
+    "computer-backup-light.png": "96076a21023539f94c77df377e19c469efed54551bc01c600cd9f34ffdfd7c63"
+  }
+}

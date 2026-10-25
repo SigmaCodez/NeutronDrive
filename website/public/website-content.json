@@ -1,0 +1,486 @@
+{
+  "schema": 1,
+  "release": "v0.1.0-beta1",
+  "locales": {
+    "en": {
+      "description": "The independent open-source client brings your cloud to where you work.",
+      "features": [
+        [
+          "Background sync",
+          "Connect local folders to your cloud. Pause jobs, retry transfers and keep track of conflicts."
+        ],
+        [
+          "Online, until you need it offline",
+          "Download content on demand. “Keep on device” makes selected files and folders available on your computer."
+        ],
+        [
+          "A home for your photos",
+          "Timeline, image viewer and albums. Cached thumbnails stay available between sessions."
+        ],
+        [
+          "Feels like your desktop",
+          "Native Qt Quick interface, light and dark modes, tray and autostart. File-manager integration depends on your desktop."
+        ]
+      ],
+      "faq": [
+        [
+          "Is NeutronDrive an official Proton client?",
+          "No. NeutronDrive is an independent open-source project and is not supported by Proton AG. You need a Proton account with access to Proton Drive."
+        ],
+        [
+          "Is NeutronDrive free?",
+          "Yes. The source code is MIT licensed. There is no NeutronDrive subscription. Proton’s own plans and terms apply to Proton storage and services."
+        ],
+        [
+          "Which desktops are supported?",
+          "NeutronDrive is built for Linux. File-manager integration and status icons depend on the desktop and its version. GNOME needs a suitable extension for a visible tray icon. Sandboxed packages have additional limitations."
+        ],
+        [
+          "Are all files automatically available offline?",
+          "No. Online files are downloaded on demand. Use “Keep on device” to select files or folders for offline use. Wait for downloads to finish before disconnecting."
+        ],
+        [
+          "What is new in beta 0.1?",
+          "Import photos and videos from an extracted Google Takeout export after reviewing the preview. Computer backup now has clearer setup for two-way folder sync; it is not a system-image backup. The DEB/RPM updater coordinates app and service restarts. An optional Ko-fi link lets you support development. Takeout album reconstruction and automatic import resume are not included."
+        ],
+        [
+          "How do I move from an older version to beta 0.1?",
+          "The public version series restarts at 0.1.0-beta1. Install the beta package manually once: older clients may not offer the numerically lower version. DEB, RPM and Arch use epoch 1 so package managers recognise the upgrade. Preferences, account storage and sync data are retained. Keep an independent backup; future beta updates use the usual updater."
+        ],
+        [
+          "What are the beta limitations?",
+          "Among other limits, there is no multi-account interface, no Proton Docs/Sheets export and no complete advanced-link settings. Whole-folder deletion propagation remains blocked. Concurrent changes can cause conflicts; keep an independent backup."
+        ],
+        [
+          "How can I help?",
+          "Report reproducible bugs through GitHub Issues, review translations or contribute code. Report security vulnerabilities through the private reporting process described in SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Independent. And open.",
+          "A community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
+        ],
+        [
+          "Beta means still in development.",
+          "Keep an independent backup. Not all features of the Windows and macOS clients are available. Packages are currently unsigned."
+        ],
+        [
+          "Local files remain local files.",
+          "Synchronised files and local caches are stored as plaintext on your device. Protect your user account and use disk encryption if needed."
+        ]
+      ],
+      "views": [
+        [
+          "Files",
+          "Everything in its place.",
+          "Your cloud files in a familiar interface. Grid or list, with search, upload and download."
+        ],
+        [
+          "Light mode",
+          "Fits your desktop.",
+          "Light, dark or following your system. Choose how NeutronDrive feels."
+        ],
+        [
+          "Photos",
+          "Memories. Well organised.",
+          "Scroll through your photo timeline, open images and organise your collection into albums."
+        ],
+        [
+          "Computer backup",
+          "Your computer, included.",
+          "Register your Linux computer and synchronise selected folders with the Computers section of Proton Drive."
+        ],
+        [
+          "Sharing",
+          "Share without detours.",
+          "Manage shares, create public links and send confirmed invitations in a dedicated window."
+        ]
+      ]
+    },
+    "de": {
+      "description": "Der unabhängige Open-Source-Client bringt deine Cloud dorthin, wo du arbeitest.",
+      "features": [
+        [
+          "Synchronisiert im Hintergrund",
+          "Verbinde lokale Ordner mit deiner Cloud. Pausiere Jobs, starte sie erneut und behalte Konflikte im Blick."
+        ],
+        [
+          "Online, bis du es offline brauchst",
+          "Lade Inhalte bei Bedarf. Mit „Keep on device“ bleiben ausgewählte Dateien und Ordner auf deinem Rechner."
+        ],
+        [
+          "Ein Zuhause für deine Fotos",
+          "Timeline, Bildbetrachter und Alben. Zwischengespeicherte Vorschaubilder bleiben über Sitzungen hinweg erhalten."
+        ],
+        [
+          "Fühlt sich nach Desktop an",
+          "Native Qt-Quick-Oberfläche, Hell- und Dunkelmodus, Tray und Autostart. Dateimanager-Integration je nach Desktop."
+        ]
+      ],
+      "faq": [
+        [
+          "Ist NeutronDrive ein offizieller Proton-Client?",
+          "Nein. NeutronDrive ist ein unabhängiges Open-Source-Projekt und wird nicht von Proton AG unterstützt. Du benötigst ein Proton-Konto mit Zugriff auf Proton Drive."
+        ],
+        [
+          "Ist NeutronDrive kostenlos?",
+          "Ja. Der Quellcode steht unter der MIT-Lizenz. Ein NeutronDrive-Abonnement gibt es nicht. Für Speicherplatz und Leistungen von Proton gelten deren eigene Tarife und Bedingungen."
+        ],
+        [
+          "Welche Desktops werden unterstützt?",
+          "NeutronDrive ist für Linux entwickelt. Die Dateimanager-Integration und Statussymbole hängen vom Desktop und seiner Version ab. GNOME benötigt für ein sichtbares Tray-Symbol eine passende Erweiterung. Sandboxed Pakete haben zusätzliche Einschränkungen."
+        ],
+        [
+          "Sind alle Dateien automatisch offline verfügbar?",
+          "Nein. Online-Dateien werden bei Bedarf geladen. Mit „Keep on device“ kannst du Dateien oder Ordner für Offline-Nutzung vormerken. Warte auf den abgeschlossenen Download, bevor du die Verbindung trennst."
+        ],
+        [
+          "Was ist neu in Beta 0.1?",
+          "Importiere Fotos und Videos aus einem entpackten Google-Takeout-Export nach Prüfung der Vorschau. Das Computer-Backup bietet eine klarere Einrichtung für den bidirektionalen Ordnerabgleich; es ist kein Systemabbild-Backup. Der DEB/RPM-Updater koordiniert den Neustart von App und Diensten. Über einen optionalen Ko-fi-Link kannst du die Entwicklung unterstützen. Die Wiederherstellung von Takeout-Alben und eine automatische Import-Fortsetzung sind nicht enthalten."
+        ],
+        [
+          "Wie wechsle ich von einer älteren Version zu Beta 0.1?",
+          "Die öffentliche Versionsreihe beginnt neu bei 0.1.0-beta1. Installiere das Beta-Paket einmal manuell: Ältere Clients bieten die numerisch niedrigere Version möglicherweise nicht an. DEB, RPM und Arch verwenden Epoch 1, damit Paketmanager das Upgrade erkennen. Einstellungen, Kontospeicher und Sync-Daten bleiben erhalten. Behalte ein unabhängiges Backup; spätere Beta-Updates erfolgen über den gewohnten Updater."
+        ],
+        [
+          "Welche Grenzen hat die Beta-Version?",
+          "Unter anderem gibt es keine Mehrkonten-Oberfläche, keinen Export von Proton Docs/Sheets und keine vollständigen erweiterten Link-Einstellungen. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können Konflikte verursachen; halte deshalb ein unabhängiges Backup bereit."
+        ],
+        [
+          "Wie kann ich mithelfen?",
+          "Melde reproduzierbare Fehler über GitHub Issues, prüfe Übersetzungen oder arbeite am Code mit. Sicherheitslücken bitte über die in SECURITY.md beschriebene private Meldemöglichkeit weitergeben."
+        ]
+      ],
+      "trust": [
+        [
+          "Unabhängig. Und offen.",
+          "Ein Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
+        ],
+        [
+          "Beta heißt: noch in Entwicklung.",
+          "Behalte ein unabhängiges Backup. Nicht alle Funktionen der Windows- und macOS-Clients sind verfügbar. Pakete sind derzeit nicht signiert."
+        ],
+        [
+          "Lokale Dateien bleiben lokale Dateien.",
+          "Synchronisierte Dateien und lokale Caches liegen im Klartext auf deinem Gerät. Schütze dein Benutzerkonto und nutze bei Bedarf Festplattenverschlüsselung."
+        ]
+      ],
+      "views": [
+        [
+          "Dateien",
+          "Alles an seinem Platz.",
+          "Deine Cloud-Dateien in einer vertrauten Oberfläche. Als Raster oder Liste, mit Suche, Upload und Download."
+        ],
+        [
+          "Light Mode",
+          "Passt sich deinem Desktop an.",
+          "Hell, dunkel oder automatisch wie dein System. Du entscheidest, wie sich NeutronDrive anfühlt."
+        ],
+        [
+          "Fotos",
+          "Erinnerungen. Gut sortiert.",
+          "Scrolle durch deine Fototimeline, öffne Bilder und organisiere deine Sammlung in Alben."
+        ],
+        [
+          "Computer-Backup",
+          "Dein Rechner, mitgedacht.",
+          "Registriere deinen Linux-Computer und synchronisiere ausgewählte Ordner mit dem Computer-Bereich von Proton Drive."
+        ],
+        [
+          "Teilen",
+          "Teilen, ohne Umwege.",
+          "Verwalte Freigaben, erstelle öffentliche Links und versende bestätigte Einladungen in einem eigenen Fenster."
+        ]
+      ]
+    },
+    "fr": {
+      "description": "Le client open source indépendant rapproche votre cloud de votre espace de travail.",
+      "features": [
+        [
+          "Synchronisation en arrière-plan",
+          "Reliez vos dossiers locaux au cloud. Mettez les tâches en pause, relancez les transferts et suivez les conflits."
+        ],
+        [
+          "En ligne, puis hors ligne au besoin",
+          "Téléchargez le contenu à la demande. « Keep on device » conserve les fichiers et dossiers sélectionnés sur votre ordinateur."
+        ],
+        [
+          "Un espace pour vos photos",
+          "Chronologie, visionneuse et albums. Les miniatures en cache sont conservées entre les sessions."
+        ],
+        [
+          "Une vraie application de bureau",
+          "Interface native Qt Quick, modes clair et sombre, zone de notification et démarrage automatique. L’intégration au gestionnaire de fichiers dépend du bureau."
+        ]
+      ],
+      "faq": [
+        [
+          "NeutronDrive est-il un client officiel de Proton ?",
+          "Non. NeutronDrive est un projet open source indépendant, sans assistance de Proton AG. Un compte Proton avec accès à Proton Drive est nécessaire."
+        ],
+        [
+          "NeutronDrive est-il gratuit ?",
+          "Oui. Le code source est sous licence MIT. Il n’existe aucun abonnement NeutronDrive. Les offres et conditions de Proton s’appliquent à son stockage et à ses services."
+        ],
+        [
+          "Quels bureaux sont pris en charge ?",
+          "NeutronDrive est conçu pour Linux. L’intégration au gestionnaire de fichiers et les icônes d’état dépendent du bureau et de sa version. GNOME nécessite une extension adaptée pour afficher l’icône de notification. Les paquets isolés ont des limites supplémentaires."
+        ],
+        [
+          "Tous les fichiers sont-ils automatiquement disponibles hors ligne ?",
+          "Non. Les fichiers en ligne sont téléchargés à la demande. Utilisez « Keep on device » pour sélectionner des fichiers ou dossiers hors ligne. Attendez la fin du téléchargement avant de vous déconnecter."
+        ],
+        [
+          "Quelles nouveautés apporte la bêta 0.1 ?",
+          "Importez des photos et vidéos depuis un export Google Takeout extrait, après vérification de l’aperçu. La sauvegarde du PC propose une configuration plus claire pour la synchronisation bidirectionnelle des dossiers ; ce n’est pas une sauvegarde d’image système. Le programme de mise à jour DEB/RPM coordonne le redémarrage de l’application et des services. Un lien Ko-fi facultatif permet de soutenir le développement. La reconstruction des albums Takeout et la reprise automatique de l’import ne sont pas incluses."
+        ],
+        [
+          "Comment passer d’une ancienne version à la bêta 0.1 ?",
+          "La série publique recommence à 0.1.0-beta1. Installez une fois le paquet bêta manuellement : les anciens clients peuvent ne pas proposer une version numériquement inférieure. DEB, RPM et Arch utilisent l’epoch 1 pour que les gestionnaires de paquets reconnaissent la mise à niveau. Les préférences, le stockage du compte et les données de synchronisation sont conservés. Gardez une sauvegarde indépendante ; les futures mises à jour bêta utiliseront le mécanisme habituel."
+        ],
+        [
+          "Quelles sont les limites de la version bêta ?",
+          "Il n’y a notamment pas d’interface multicomptes, d’export de Proton Docs/Sheets ni de réglages avancés complets des liens. La propagation de la suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante."
+        ],
+        [
+          "Comment contribuer ?",
+          "Signalez les erreurs reproductibles dans GitHub Issues, relisez les traductions ou contribuez au code. Pour les vulnérabilités, utilisez la procédure de signalement privé décrite dans SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Indépendant et ouvert.",
+          "Un projet communautaire sous licence MIT. Sans affiliation, recommandation ni assistance officielle de Proton AG."
+        ],
+        [
+          "Bêta signifie : en développement.",
+          "Conservez une sauvegarde indépendante. Toutes les fonctions des clients Windows et macOS ne sont pas disponibles. Les paquets ne sont pas encore signés."
+        ],
+        [
+          "Les fichiers locaux restent locaux.",
+          "Les fichiers synchronisés et les caches locaux sont stockés en clair sur votre appareil. Protégez votre compte utilisateur et chiffrez votre disque si nécessaire."
+        ]
+      ],
+      "views": [
+        [
+          "Fichiers",
+          "Chaque chose à sa place.",
+          "Vos fichiers cloud dans une interface familière. Grille ou liste, recherche, envoi et téléchargement."
+        ],
+        [
+          "Mode clair",
+          "En accord avec votre bureau.",
+          "Clair, sombre ou selon votre système. Choisissez l’apparence de NeutronDrive."
+        ],
+        [
+          "Photos",
+          "Des souvenirs bien organisés.",
+          "Parcourez la chronologie, ouvrez vos images et organisez votre collection en albums."
+        ],
+        [
+          "Sauvegarde du PC",
+          "Votre ordinateur aussi.",
+          "Enregistrez votre ordinateur Linux et synchronisez des dossiers avec la section Ordinateurs de Proton Drive."
+        ],
+        [
+          "Partage",
+          "Partagez sans détour.",
+          "Gérez les partages, créez des liens publics et envoyez des invitations confirmées dans une fenêtre dédiée."
+        ]
+      ]
+    },
+    "es": {
+      "description": "El cliente independiente de código abierto lleva tu nube al lugar donde trabajas.",
+      "features": [
+        [
+          "Sincronización en segundo plano",
+          "Conecta carpetas locales a tu nube. Pausa tareas, reintenta transferencias y controla los conflictos."
+        ],
+        [
+          "En línea, hasta que lo necesites sin conexión",
+          "Descarga contenido bajo demanda. “Keep on device” conserva los archivos y carpetas seleccionados en tu equipo."
+        ],
+        [
+          "Un hogar para tus fotos",
+          "Cronología, visor de imágenes y álbumes. Las miniaturas en caché se conservan entre sesiones."
+        ],
+        [
+          "Como parte de tu escritorio",
+          "Interfaz nativa Qt Quick, modos claro y oscuro, bandeja y arranque automático. La integración con el gestor de archivos depende del escritorio."
+        ]
+      ],
+      "faq": [
+        [
+          "¿Es NeutronDrive un cliente oficial de Proton?",
+          "No. NeutronDrive es un proyecto independiente de código abierto y no recibe soporte de Proton AG. Necesitas una cuenta de Proton con acceso a Proton Drive."
+        ],
+        [
+          "¿Es gratuito NeutronDrive?",
+          "Sí. El código fuente tiene licencia MIT. No hay suscripción a NeutronDrive. Para el almacenamiento y los servicios de Proton se aplican sus propias tarifas y condiciones."
+        ],
+        [
+          "¿Qué escritorios son compatibles?",
+          "NeutronDrive está desarrollado para Linux. La integración con el gestor de archivos y los iconos de estado dependen del escritorio y su versión. GNOME necesita una extensión para mostrar el icono de bandeja. Los paquetes aislados tienen limitaciones adicionales."
+        ],
+        [
+          "¿Todos los archivos están disponibles automáticamente sin conexión?",
+          "No. Los archivos en línea se descargan bajo demanda. Usa “Keep on device” para seleccionar archivos o carpetas para uso sin conexión. Espera a que termine la descarga antes de desconectarte."
+        ],
+        [
+          "¿Qué novedades incluye la beta 0.1?",
+          "Importa fotos y vídeos desde una exportación de Google Takeout extraída, tras revisar la vista previa. La copia del equipo ofrece una configuración más clara para sincronizar carpetas en ambas direcciones; no es una copia de imagen del sistema. El actualizador DEB/RPM coordina el reinicio de la aplicación y los servicios. Un enlace opcional a Ko-fi permite apoyar el desarrollo. No se incluyen la reconstrucción de álbumes de Takeout ni la reanudación automática de importaciones."
+        ],
+        [
+          "¿Cómo paso de una versión anterior a la beta 0.1?",
+          "La serie pública vuelve a empezar en 0.1.0-beta1. Instala el paquete beta manualmente una vez: los clientes antiguos pueden no ofrecer una versión numéricamente inferior. DEB, RPM y Arch usan epoch 1 para que los gestores de paquetes reconozcan la actualización. Se conservan las preferencias, el almacenamiento de la cuenta y los datos de sincronización. Mantén una copia independiente; las futuras actualizaciones beta usarán el actualizador habitual."
+        ],
+        [
+          "¿Cuáles son las limitaciones de la versión beta?",
+          "Entre otras, no hay interfaz multicuenta, exportación de Proton Docs/Sheets ni ajustes avanzados completos de enlaces. La propagación del borrado de carpetas completas sigue bloqueada. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente."
+        ],
+        [
+          "¿Cómo puedo ayudar?",
+          "Informa de errores reproducibles en GitHub Issues, revisa traducciones o contribuye al código. Comunica vulnerabilidades mediante el proceso privado descrito en SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Independiente y abierto.",
+          "Un proyecto comunitario con licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
+        ],
+        [
+          "Beta significa: en desarrollo.",
+          "Conserva una copia de seguridad independiente. No están disponibles todas las funciones de los clientes de Windows y macOS. Los paquetes aún no están firmados."
+        ],
+        [
+          "Los archivos locales siguen siendo locales.",
+          "Los archivos sincronizados y las cachés locales se guardan sin cifrar en tu dispositivo. Protege tu cuenta de usuario y utiliza cifrado de disco si lo necesitas."
+        ]
+      ],
+      "views": [
+        [
+          "Archivos",
+          "Todo en su sitio.",
+          "Tus archivos en la nube, en una interfaz familiar. Cuadrícula o lista, búsqueda, carga y descarga."
+        ],
+        [
+          "Modo claro",
+          "Se adapta a tu escritorio.",
+          "Claro, oscuro o según tu sistema. Tú eliges el aspecto de NeutronDrive."
+        ],
+        [
+          "Fotos",
+          "Recuerdos bien organizados.",
+          "Recorre la cronología, abre imágenes y organiza tu colección en álbumes."
+        ],
+        [
+          "Copia del equipo",
+          "Tu ordenador también cuenta.",
+          "Registra tu equipo Linux y sincroniza carpetas con la sección Ordenadores de Proton Drive."
+        ],
+        [
+          "Compartir",
+          "Comparte sin rodeos.",
+          "Gestiona archivos compartidos, crea enlaces públicos y envía invitaciones confirmadas en una ventana propia."
+        ]
+      ]
+    },
+    "it": {
+      "description": "Il client indipendente open source porta il tuo cloud dove lavori.",
+      "features": [
+        [
+          "Sincronizzazione in background",
+          "Collega le cartelle locali al cloud. Metti in pausa le attività, riprova i trasferimenti e tieni sotto controllo i conflitti."
+        ],
+        [
+          "Online, finché non serve offline",
+          "Scarica i contenuti su richiesta. “Keep on device” mantiene i file e le cartelle selezionati sul computer."
+        ],
+        [
+          "Una casa per le tue foto",
+          "Cronologia, visualizzatore e album. Le miniature in cache restano disponibili tra una sessione e l’altra."
+        ],
+        [
+          "Parte del tuo desktop",
+          "Interfaccia nativa Qt Quick, temi chiaro e scuro, area di notifica e avvio automatico. L’integrazione con il gestore file dipende dal desktop."
+        ]
+      ],
+      "faq": [
+        [
+          "NeutronDrive è un client ufficiale di Proton?",
+          "No. NeutronDrive è un progetto open source indipendente, non supportato da Proton AG. Serve un account Proton con accesso a Proton Drive."
+        ],
+        [
+          "NeutronDrive è gratuito?",
+          "Sì. Il codice sorgente è sotto licenza MIT. Non esiste un abbonamento NeutronDrive. Per lo spazio e i servizi di Proton valgono le relative tariffe e condizioni."
+        ],
+        [
+          "Quali desktop sono supportati?",
+          "NeutronDrive è sviluppato per Linux. L’integrazione con il gestore file e le icone di stato dipendono dal desktop e dalla versione. GNOME richiede un’estensione adatta per l’icona nell’area di notifica. I pacchetti isolati hanno ulteriori limiti."
+        ],
+        [
+          "Tutti i file sono automaticamente disponibili offline?",
+          "No. I file online vengono scaricati su richiesta. Usa “Keep on device” per selezionare file o cartelle da usare offline. Attendi la fine del download prima di scollegarti."
+        ],
+        [
+          "Quali sono le novità della beta 0.1?",
+          "Importa foto e video da un’esportazione Google Takeout estratta, dopo aver controllato l’anteprima. Il backup del computer offre una configurazione più chiara per la sincronizzazione bidirezionale delle cartelle; non è un backup dell’immagine del sistema. L’aggiornamento DEB/RPM coordina il riavvio dell’app e dei servizi. Un link facoltativo a Ko-fi permette di sostenere lo sviluppo. La ricostruzione degli album Takeout e la ripresa automatica delle importazioni non sono incluse."
+        ],
+        [
+          "Come passo da una versione precedente alla beta 0.1?",
+          "La serie pubblica riparte da 0.1.0-beta1. Installa il pacchetto beta manualmente una volta: i vecchi client potrebbero non proporre una versione numericamente inferiore. DEB, RPM e Arch usano epoch 1 affinché i gestori dei pacchetti riconoscano l’aggiornamento. Preferenze, archivio dell’account e dati sincronizzati vengono conservati. Mantieni un backup indipendente; i futuri aggiornamenti beta useranno il normale programma di aggiornamento."
+        ],
+        [
+          "Quali sono i limiti della versione beta?",
+          "Tra gli altri, mancano l’interfaccia multi-account, l’esportazione di Proton Docs/Sheets e le impostazioni avanzate complete dei link. La propagazione dell’eliminazione di intere cartelle rimane bloccata. Le modifiche simultanee possono creare conflitti: conserva un backup indipendente."
+        ],
+        [
+          "Come posso contribuire?",
+          "Segnala errori riproducibili su GitHub Issues, rivedi le traduzioni o contribuisci al codice. Segnala le vulnerabilità attraverso la procedura privata descritta in SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Indipendente e aperto.",
+          "Un progetto della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
+        ],
+        [
+          "Beta significa: in sviluppo.",
+          "Conserva un backup indipendente. Non tutte le funzioni dei client Windows e macOS sono disponibili. I pacchetti non sono ancora firmati."
+        ],
+        [
+          "I file locali restano locali.",
+          "I file sincronizzati e le cache locali sono memorizzati in chiaro sul dispositivo. Proteggi il tuo account e usa la crittografia del disco se necessario."
+        ]
+      ],
+      "views": [
+        [
+          "File",
+          "Tutto al suo posto.",
+          "I tuoi file nel cloud in un’interfaccia familiare. Griglia o elenco, ricerca, caricamento e download."
+        ],
+        [
+          "Tema chiaro",
+          "Si adatta al tuo desktop.",
+          "Chiaro, scuro o come il sistema. Scegli l’aspetto di NeutronDrive."
+        ],
+        [
+          "Foto",
+          "Ricordi ben organizzati.",
+          "Scorri la cronologia, apri le immagini e organizza la raccolta in album."
+        ],
+        [
+          "Backup del computer",
+          "Anche il tuo computer conta.",
+          "Registra il tuo computer Linux e sincronizza le cartelle selezionate con la sezione Computer di Proton Drive."
+        ],
+        [
+          "Condivisione",
+          "Condividi senza giri.",
+          "Gestisci le condivisioni, crea link pubblici e invia inviti confermati in una finestra dedicata."
+        ]
+      ]
+    }
+  }
+}
