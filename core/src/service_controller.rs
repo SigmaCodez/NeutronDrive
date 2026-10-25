@@ -24,6 +24,7 @@ pub enum Operation {
         environment: BTreeMap<String, String>,
     },
     Stop,
+    StopIdle,
 }
 pub fn status(state: &Path) -> Result<Value> {
     if let Ok(value) = control::command(&state.join("control.sock"), "status", None, 5.0) {
@@ -197,13 +198,28 @@ pub fn run(state: &Path, operation: Operation) -> Result<Value> {
         Operation::Start { argv, environment } => {
             start(state, argv, environment, Duration::from_secs(8))
         }
-        Operation::Stop => {
+        Operation::Stop | Operation::StopIdle => {
             let existing = status(state)?;
             if existing["running"] != true {
+                if matches!(operation, Operation::StopIdle) && state.join("control.sock").exists() {
+                    return Err(
+                        "Cannot confirm that the sync daemon is stopped; update was not installed."
+                            .into(),
+                    );
+                }
                 return Ok(existing);
             }
             let socket = state.join("control.sock");
-            control::command(&socket, "stop", None, 5.0)?;
+            control::command(
+                &socket,
+                if matches!(operation, Operation::StopIdle) {
+                    "stop_idle"
+                } else {
+                    "stop"
+                },
+                None,
+                5.0,
+            )?;
             let deadline = Instant::now() + Duration::from_secs(10);
             loop {
                 match std::fs::symlink_metadata(&socket) {

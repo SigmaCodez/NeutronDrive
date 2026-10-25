@@ -10,6 +10,8 @@ impl Files {
     }
     pub(super) fn photo_action(&mut self, request: &Value) -> Vec<Effect> {
         match text(request, "action") {
+            "takeout" if self.state["authenticated"] == true && self.state["demo"] != true => self.dialog(
+                "folder","Google Takeout import","Extract all Takeout ZIP files into one folder first. Choose the Google Photos folder. Photos and videos are checked before uploading; matching JSON files supply dates and locations.",json!({"multiple":false}),Answer::TakeoutFolder),
             "map" => {
                 let photo = request["index"]
                     .as_u64()

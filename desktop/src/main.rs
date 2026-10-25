@@ -19,11 +19,15 @@ mod setup;
 mod startup;
 mod update_controller;
 mod update_installer;
+mod update_restart;
 mod updates;
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QString, QUrl};
 fn main() {
     appimage::run();
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(code) = update_restart::restore_mode(&args) {
+        std::process::exit(code);
+    }
     if let Some(code) = headless::run(&args) {
         std::process::exit(code);
     }
@@ -96,5 +100,6 @@ fn main() {
     let result = app.exec();
     drop(engine);
     drop(application);
+    update_restart::relaunch();
     std::process::exit(result);
 }

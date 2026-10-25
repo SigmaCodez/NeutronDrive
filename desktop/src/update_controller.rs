@@ -32,6 +32,9 @@ pub mod qobject {
         type NativeUpdates = super::UpdateController;
         #[qsignal]
         fn notice(self: Pin<&mut NativeUpdates>, message: QString);
+        #[qsignal]
+        #[cxx_name = "restartRequested"]
+        fn restart_requested(self: Pin<&mut NativeUpdates>);
         #[qinvokable]
         fn configure(
             self: Pin<&mut NativeUpdates>,
@@ -148,7 +151,7 @@ impl qobject::NativeUpdates {
             .unwrap()
             .translate(&model.status)
             .replace("{p0}", model.release["tag"].as_str().unwrap_or(""));
-        let value = json!({"automatic":model.automatic,"autoDownload":model.auto_download,"previews":model.previews,"busy":model.active.is_some(),"installing":matches!(model.active,Some(Task::Install{..})),"status":status,"packageFormat":model.format,"available":!model.release.is_null(),"downloadable":model.downloadable(),"ready":model.download.is_some()});
+        let value = json!({"automatic":model.automatic,"autoDownload":model.auto_download,"previews":model.previews,"busy":model.active.is_some(),"installing":matches!(model.active,Some(Task::Install{..}|Task::Restart(_))),"restartPending":model.restart.is_some(),"status":status,"packageFormat":model.format,"available":!model.release.is_null(),"downloadable":model.downloadable(),"ready":model.download.is_some()});
         self.as_mut().rust_mut().state_json = QString::from(value.to_string());
         self.state_json_changed();
     }
@@ -247,6 +250,11 @@ impl qobject::NativeUpdates {
         }
     }
     fn complete(mut self: Pin<&mut Self>, result: Result<Outcome, Failure>) {
+        let installed = matches!(&result, Ok(Outcome::Installed(_)));
+        let relaunch = match &result {
+            Ok(Outcome::Restarted(plan)) => Some(plan.clone()),
+            _ => None,
+        };
         let mut binding = self.as_mut().rust_mut();
         let Some(model) = binding.model.as_mut() else {
             return;
@@ -263,7 +271,12 @@ impl qobject::NativeUpdates {
             self.as_mut()
                 .notice(QString::from(state["status"].as_str().unwrap_or("")));
         }
-        if download {
+        if let Some(plan) = relaunch {
+            crate::update_restart::request_relaunch(plan);
+            self.as_mut().restart_requested();
+        } else if installed {
+            self.dispatch(&QString::from("restart"), false);
+        } else if download {
             self.dispatch(&QString::from("download"), false);
         }
     }
@@ -273,7 +286,7 @@ impl qobject::NativeUpdates {
             .rust()
             .model
             .as_ref()
-            .is_some_and(|m| matches!(m.active, Some(Task::Install { .. })))
+            .is_some_and(|m| matches!(m.active, Some(Task::Install { .. } | Task::Restart(_))))
         {
             return false;
         }

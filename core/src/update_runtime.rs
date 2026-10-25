@@ -160,13 +160,40 @@ fn installation(payload: &Path) -> Value {
         "appimage"
     } else if payload.canonicalize().ok().as_deref()
         == Some(Path::new("/usr/lib/neutrondrive/neutrondrive"))
-        && Path::new("/var/lib/dpkg/info/neutrondrive.list").is_file()
     {
-        "deb"
+        native_format(
+            Path::new("/var/lib/dpkg/info/neutrondrive.list").is_file(),
+            &std::fs::read_to_string("/usr/lib/neutrondrive/package-format").unwrap_or_default(),
+            Path::new("/run/ostree-booted").exists()
+                || Path::new("/sbin/transactional-update").exists(),
+        )
     } else {
         "other"
     })
 }
+fn native_format(deb: bool, marker: &str, transactional: bool) -> &'static str {
+    if transactional {
+        return "other";
+    }
+    if deb {
+        return "deb";
+    }
+    match marker.trim() {
+        "rpm-fedora" => "rpm-fedora",
+        "rpm-opensuse" => "rpm-opensuse",
+        _ => "other",
+    }
+}
+fn package_filename(release: &Release) -> Result<&'static std::ffi::CStr> {
+    if release.asset_url.ends_with(".deb") {
+        Ok(c"neutrondrive.deb")
+    } else if release.asset_url.ends_with(".rpm") {
+        Ok(c"neutrondrive.rpm")
+    } else {
+        Err(Error::Invalid("Unsupported update package format"))
+    }
+}
+
 fn check(
     current: &str,
     preview: bool,
@@ -275,9 +302,10 @@ struct Staging {
     name: CString,
     path: PathBuf,
     keep: bool,
+    filename: &'static std::ffi::CStr,
 }
 impl Staging {
-    fn new(destination: &Path) -> Result<Self> {
+    fn new(destination: &Path, filename: &'static std::ffi::CStr) -> Result<Self> {
         let destination = absolute(destination)?;
         let parent = directory(&destination, true, false)?;
         let mut bytes = [0; 16];
@@ -299,7 +327,7 @@ impl Staging {
         }
         let file = match open_at(
             &directory,
-            c"neutrondrive.deb",
+            filename,
             libc::O_RDWR | libc::O_CREAT | libc::O_EXCL,
         ) {
             Ok(file) => file,
@@ -321,6 +349,7 @@ impl Staging {
             name,
             path,
             keep: false,
+            filename,
         })
     }
     fn validate_path(&self) -> Result<()> {
@@ -328,7 +357,7 @@ impl Staging {
         if !same(&current.metadata()?, &self.directory.metadata()?) {
             return Err(Error::Invalid("Update directory changed"));
         }
-        let file = open_at(&current, c"neutrondrive.deb", libc::O_RDONLY)?;
+        let file = open_at(&current, self.filename, libc::O_RDONLY)?;
         if !same(&file.metadata()?, &self.file.metadata()?) {
             return Err(Error::Invalid("Downloaded package changed"));
         }
@@ -341,12 +370,12 @@ impl Drop for Staging {
             return;
         }
         if let (Ok(current), Ok(original)) = (
-            open_at(&self.directory, c"neutrondrive.deb", libc::O_RDONLY),
+            open_at(&self.directory, self.filename, libc::O_RDONLY),
             self.file.metadata(),
         ) {
             if current.metadata().is_ok_and(|m| same(&m, &original)) {
                 unsafe {
-                    libc::unlinkat(self.directory.as_raw_fd(), c"neutrondrive.deb".as_ptr(), 0);
+                    libc::unlinkat(self.directory.as_raw_fd(), self.filename.as_ptr(), 0);
                 }
             }
         }
@@ -374,7 +403,7 @@ fn download(
 ) -> Result<Value> {
     release_valid(release)?;
     poll(callback)?;
-    let mut staging = Staging::new(destination)?;
+    let mut staging = Staging::new(destination, package_filename(release)?)?;
     let mut response = transport.open(&release.asset_url, Mode::Download)?;
     let deadline = Instant::now() + Duration::from_secs(600);
     let mut sha = Sha256::new();
@@ -404,7 +433,7 @@ fn download(
     staging.directory.sync_all()?;
     staging.parent.sync_all()?;
     staging.validate_path()?;
-    let path = staging.path.join("neutrondrive.deb");
+    let path = staging.path.join(staging.filename.to_str().unwrap());
     staging.keep = true;
     Ok(json!(path))
 }
@@ -516,6 +545,52 @@ mod tests {
         }
     }
     #[test]
+    fn native_rpm_marker_and_transactional_hosts() {
+        assert_eq!(native_format(false, "rpm-fedora\n", false), "rpm-fedora");
+        assert_eq!(
+            native_format(false, "rpm-opensuse\n", false),
+            "rpm-opensuse"
+        );
+        assert_eq!(native_format(false, "rpm-unknown", false), "other");
+        assert_eq!(native_format(false, "rpm-fedora", true), "other");
+        assert_eq!(native_format(true, "", false), "deb");
+    }
+    #[test]
+    fn rpm_download_is_verified_named_and_cleaned_on_failure() {
+        let tmp = Temp::new();
+        let mut rpm = release();
+        rpm.asset_url = rpm.asset_url.replace(".deb", ".rpm");
+        let value = download(
+            &rpm,
+            &tmp.0,
+            &mut Fixture(Some(b"package".to_vec())),
+            &mut |_| 0,
+        )
+        .unwrap();
+        let path = Path::new(value.as_str().unwrap());
+        assert_eq!(path.file_name().unwrap(), "neutrondrive.rpm");
+        assert!(verify(path, &rpm, &mut |_| 0).is_ok());
+        std::fs::remove_file(path).unwrap();
+        std::fs::remove_dir(path.parent().unwrap()).unwrap();
+        assert!(download(
+            &rpm,
+            &tmp.0,
+            &mut Fixture(Some(b"corrupt".to_vec())),
+            &mut |_| 0
+        )
+        .is_err());
+        assert_eq!(std::fs::read_dir(&tmp.0).unwrap().count(), 0);
+        rpm.asset_url = rpm.asset_url.replace(".rpm", ".exe");
+        assert!(download(
+            &rpm,
+            &tmp.0,
+            &mut Fixture(Some(b"package".to_vec())),
+            &mut |_| 0
+        )
+        .is_err());
+        assert_eq!(std::fs::read_dir(&tmp.0).unwrap().count(), 0);
+    }
+    #[test]
     fn download_is_private_and_reverification_detects_modification() {
         let tmp = Temp::new();
         let r = release();
@@ -622,8 +697,8 @@ mod tests {
     #[test]
     fn cleanup_preserves_replacement_file() {
         let tmp = Temp::new();
-        let staging = Staging::new(&tmp.0).unwrap();
-        let path = staging.path.join("neutrondrive.deb");
+        let staging = Staging::new(&tmp.0, c"neutrondrive.deb").unwrap();
+        let path = staging.path.join(staging.filename.to_str().unwrap());
         std::fs::rename(&path, staging.path.join("original")).unwrap();
         std::fs::write(&path, b"replacement").unwrap();
         drop(staging);

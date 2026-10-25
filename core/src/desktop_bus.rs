@@ -25,6 +25,7 @@ pub struct Launcher {
 #[derive(Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Operation {
+    StopForUpdate,
     Request {
         request: Value,
         launcher: Option<Launcher>,
@@ -273,8 +274,74 @@ async fn request(
     };
     response(&raw)
 }
+// Two-phase, non-activating shutdown. The first reply acknowledges a safe
+// unmount; disappearance of that exact connection confirms worker cleanup.
+async fn stop_for_update(callback: &mut impl FnMut(Value) -> i32) -> Result<Value> {
+    let connection = connected(callback).await?;
+    let name = bus_name();
+    if !has_owner(&connection, &name, callback).await? {
+        return Ok(json!({"running":false}));
+    }
+    let reply = bounded(
+        connection.call_method(
+            Some("org.freedesktop.DBus"),
+            "/org/freedesktop/DBus",
+            Some("org.freedesktop.DBus"),
+            "GetNameOwner",
+            &(name.as_str(),),
+        ),
+        Duration::from_secs(3),
+        callback,
+    )
+    .await?
+    .map_err(|_| "Could not identify the drive service.")?;
+    let owner: String = reply
+        .body()
+        .deserialize()
+        .map_err(|_| "Invalid service owner.")?;
+    let proxy = zbus::proxy::Builder::<zbus::Proxy<'_>>::new(&connection)
+        .destination(owner.as_str())
+        .path(PATH)
+        .interface(name.as_str())
+        .cache_properties(zbus::proxy::CacheProperties::No)
+        .build()
+        .await
+        .map_err(|_| "Invalid drive service.")?;
+    let raw: String = bounded(
+        proxy.call("Request", &(r#"{"action":"prepare_update"}"#,)),
+        Duration::from_secs(650),
+        &mut |_| 0,
+    )
+    .await?
+    .map_err(|_| "Drive service could not prepare the update. Close open files and try again.")?;
+    if response(&raw)?["prepared"] != true {
+        return Err("Drive service did not confirm update preparation.".into());
+    }
+    // Once preparation is acknowledged, cancellation must not strand a frozen
+    // service. A lost finish reply is resolved by the exact owner's departure.
+    let _ = bounded(
+        proxy.call::<_, _, String>("Request", &(r#"{"action":"finish_update"}"#,)),
+        Duration::from_secs(5),
+        &mut |_| 0,
+    )
+    .await;
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while has_owner(&connection, &owner, &mut |_| 0).await? {
+        if Instant::now() >= deadline {
+            return Err(
+                "Drive service shutdown is not confirmed; update was not installed.".into(),
+            );
+        }
+        zruntime::SharedRuntime::current()
+            .map_err(|_| "D-Bus runtime unavailable.")?
+            .sleep(Duration::from_millis(50))
+            .await;
+    }
+    Ok(json!({"running":true}))
+}
 pub fn run(operation: Operation, callback: &mut impl FnMut(Value) -> i32) -> Result<Value> {
     match operation {
+        Operation::StopForUpdate => zbus::block_on(stop_for_update(callback)),
         Operation::Request {
             request: payload,
             launcher,

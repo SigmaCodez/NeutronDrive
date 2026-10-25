@@ -1,6 +1,7 @@
 # NeutronDrive
 
 [![Latest release (including previews)](https://img.shields.io/github/v/release/SigmaCodez/NeutronDrive?include_prereleases&label=release)](https://github.com/SigmaCodez/NeutronDrive/releases)
+[![Development status: Beta](https://img.shields.io/badge/status-beta-f1c40f)](#moving-from-the-retired-alpha-releases)
 [![Tests and Linux packages](https://github.com/SigmaCodez/NeutronDrive/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SigmaCodez/NeutronDrive/actions/workflows/ci.yml)
 [![Application runtime: Rust](https://img.shields.io/badge/runtime-Rust-dea584)](docs/RUST-MIGRATION.md)
 [![Interface: Qt Quick / QML](https://img.shields.io/badge/UI-Qt_Quick%20%2F%20QML-41cd52)](desktop/README.md)
@@ -11,19 +12,25 @@ An independent, open-source **Linux desktop client for Proton Drive**. Browse yo
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Latest published version: [0.6.0 alpha15](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.6.0-alpha15).**
-This update caches photo thumbnails between sessions, loads more photos as you scroll,
-opens sharing in a dedicated window, and simplifies sync and backup configuration.
-This is alpha software; keep an independent backup. Complete Windows/macOS feature
+**Latest published version: [0.1.0 beta1](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.1.0-beta1).**
+This update adds Google Takeout import, clearer computer backup setup, optional
+Ko-fi support and coordinated app/service restarts after DEB and RPM updates.
+This is beta software; keep an independent backup. Complete Windows/macOS feature
 parity has not been reached.
 
 NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. It uses Proton's open-source SDK for account access, encryption and
 service requests. The interface and icon are original.
 
+Import an extracted Google Takeout photo/video export with a review before upload,
+configure computer backup separately, and optionally support development on Ko-fi.
+The built-in DEB/RPM updater safely restarts the app and previously running services.
+See [feature details and limitations](docs/DESKTOP-FEATURES.md#beta-01-takeout-computer-and-donations)
+and [update restart behavior](docs/DESKTOP-FEATURES.md#beta-01-update-restart).
+
 ## Light and dark appearance
 
-Fresh captures of the **alpha15 release GUI**, in English, using isolated
+Fresh captures of the **0.1 beta release GUI**, in English, using isolated
 synthetic demo data. These are actual application renders, not mockups or a live
 account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 
@@ -48,6 +55,7 @@ account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 [Photo viewer](docs/previews/development/light-photo-viewer.png) ·
 [Albums](docs/previews/albums-light.png) ·
 [Sync settings](docs/previews/background-light.png) ·
+[Computer setup](docs/previews/computers-light.png) ·
 [Computer backup](docs/previews/computer-backup-light.png) ·
 [Sharing window](docs/previews/sharing-light.png) ·
 [Online drive](docs/previews/online-drive-light.png) ·
@@ -55,6 +63,22 @@ account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 
 The app follows your system's light/dark preference. **Settings → Appearance**
 also lets you choose System, Light or Dark manually. Theme changes apply immediately.
+
+## In your file manager
+
+![Proton Drive bookmark with the Neutron icon and green offline checkmarks in GNOME Files, dark mode](docs/previews/file-manager-dark.png)
+
+![Proton Drive bookmark and downloaded file/folder indicators in GNOME Files, light mode](docs/previews/file-manager-light.png)
+
+The **Proton Drive** bookmark uses NeutronDrive’s icon. A **green checkmark**
+means a file is available locally; a folder is marked when its contents are
+fully available offline. Use **Keep on device** to retain selected files or
+folders and **Free up space** to remove eligible local cached copies.
+
+These are current GNOME Files (Nautilus) captures in English, with synthetic
+example files and offline-status fixtures rendered by the real extension.
+They illustrate the integration, not a live cloud download. Appearance varies
+with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
 ## What you can do
 
@@ -73,6 +97,8 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
   overlays, image viewer, albums and location links to OpenStreetMap. Incremental
   tiles preserve scroll position, retain nearby previews and load pages ahead;
   thumbnails are cached across sessions; first-time previews still depend on the network.
+- **Import Google Photos:** review an extracted Takeout export and upload photos/videos
+  with matching date/location metadata. [Import guide and limits](docs/TAKEOUT-IMPORT.md).
 - **Manage your account:** the lower-left user menu opens Settings, the Proton
   subscription dashboard, Proton Drive online and guarded sign-out.
 - **Share:** view incoming/outgoing shares, create public links and send confirmed
@@ -80,19 +106,29 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
   open that window directly.
 - **Keep working in the background:** close to tray, login autostart, availability
   emblems and a Proton Drive favorite on supported desktops.
-- **Check for updates:** daily or manual checks; native DEB packages support
-  verified download and installation after system authorization.
+- **Check for updates:** daily or manual checks; native DEB and supported Fedora/openSUSE RPM
+  packages support verified downloads, installation after system authorization,
+  and a guarded app/service restart.
 
 See [desktop features](docs/DESKTOP-FEATURES.md),
 [file-manager support](docs/FILE-MANAGER-INTEGRATION.md),
 [computer backup](docs/COMPUTER-BACKUP.md) and
 [Windows feature comparison](docs/WINDOWS-PARITY.md) for the exact scope.
 
+## Moving from the retired alpha releases
+
+The public version series restarts at **0.1.0-beta1**. Older 0.6 alpha clients may
+not offer this numerically lower version through their update checker; download
+and install the beta package once. DEB, RPM and Arch packages use **epoch 1**, so
+package managers correctly treat the beta as an upgrade. Preferences, account
+storage and sync data are retained. Future beta updates use the usual updater.
+The old GitHub release downloads are retired; their Git history/tags remain.
+
 ## Install
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **published alpha15 assets**, not development artifacts.
-Packages are community alpha builds, not official Proton packages or store listings.
+The commands below use the **published beta 0.1 assets**, not development artifacts.
+Packages are community beta builds, not official Proton packages or store listings.
 
 | Format | Intended systems | Important details |
 | --- | --- | --- |
@@ -105,29 +141,29 @@ Packages are community alpha builds, not official Proton packages or store listi
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_0.6.0-alpha15-1_amd64.deb
+sudo apt install ./neutrondrive_0.1.0-beta1-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-0.6.0-alpha15-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.1.0-beta1-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-0.6.0-alpha15-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.1.0-beta1-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a15-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.1.0b1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
-# Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha15_amd64.snap
+# Snap (unsigned beta package)
+sudo snap install --dangerous ./neutrondrive_0.1.0-beta1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-0.6.0-alpha15-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha15-x86_64.AppImage
+chmod +x NeutronDrive-0.1.0-beta1-x86_64.AppImage
+./NeutronDrive-0.1.0-beta1-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-0.6.0alpha15-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-0.1.0beta1-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes

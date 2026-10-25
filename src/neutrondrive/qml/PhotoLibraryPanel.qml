@@ -101,6 +101,11 @@ ColumnLayout {
         PhotoButton { text: host.tr("Refresh"); enabled: !panel.viewState.busy; onClicked: panel.albumsVisible ? panel.request({action:"albums"}) : panel.openAlbum(panel.viewState.photoAlbum || "") }
     }
     RowLayout {
+        Layout.fillWidth: true; spacing: 12
+        PhotoButton { objectName: "takeoutImportButton"; text: host.tr("Google Takeout import"); enabled: !panel.viewState.busy && panel.viewState.authenticated && !panel.viewState.demo; onClicked: panel.request({action:"takeout"}) }
+        Label { Layout.fillWidth: true; text: host.tr("Import photos and videos from an extracted Google Photos export."); wrapMode: Text.WordWrap; color: host.theme.muted; font.pixelSize: 12 }
+    }
+    RowLayout {
         visible: !panel.albumsVisible; spacing: 12
         Label { text: panel.viewState.photoAlbum ? ((panel.viewState.photoAlbums || []).find(a=>a.uid===panel.viewState.photoAlbum)?.name || host.tr("Albums")) : host.tr("Your photo library"); color: host.theme.muted; Layout.fillWidth: true; elide: Text.ElideRight }
         Label { text: host.tr("Thumbnail size"); color: host.theme.muted }

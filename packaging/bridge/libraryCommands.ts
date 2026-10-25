@@ -1,3 +1,8 @@
+import { lstat } from 'node:fs/promises';
+import path from 'node:path';
+import { generateAdditionalPhotoNodeMetadata } from '@protontech/drive-sdk/additionalNodeMetadata';
+import { getFileMetadata } from './commands/fileSystem/commandFileSystemUpload';
+import { getLocalFileMediaType } from './commands/fileSystem/mediaType';
 /** Additive public-SDK operations; account and cryptography stay upstream. */
 import { type ActionArgs, type Command } from './cli';
 
@@ -158,5 +163,40 @@ export class CommandAccountStorage implements Command {
         const label = (value: unknown) => typeof value === 'string' && value.length <= 320 && !/[\x00-\x1f\x7f]/.test(value) ? value.trim() : '';
         const account = { name: label(response.User?.DisplayName) || label(response.User?.Name) || label(response.User?.Email), email: label(response.User?.Email) };
         console.log(JSON.stringify({ total, used, free: Math.max(0, total! - used!), account }));
+    }
+}
+
+/** One Rust-planned media item; original files are never modified. */
+export class CommandPhotoImport implements Command {
+    group = 'photo'; name = 'import-single'; args = ['request'];
+    async action({ photosSdk, logger, args: [raw] }: ActionArgs) {
+        const request = JSON.parse(raw);
+        if (!request || typeof request.path !== 'string' || !path.isAbsolute(request.path)
+            || !/^[a-f0-9]{40}$/.test(request.sha1) || typeof request.expectedRoot !== 'string') throw new Error('Invalid photo import request');
+        const stat = await lstat(request.path);
+        if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Import requires a regular media file');
+        const root = await photosSdk.getMyPhotosRootFolder();
+        if (request.expectedRoot && request.expectedRoot !== root.uid) throw new Error('Photo account changed; import stopped');
+        const mediaType = getLocalFileMediaType(logger, request.path);
+        if (!mediaType.startsWith('image/') && !mediaType.startsWith('video/')) throw new Error('Unsupported media type');
+        const name = path.basename(request.path);
+        const extra = await generateAdditionalPhotoNodeMetadata(Bun.file(request.path), mediaType, undefined, logger);
+        const prepared = await getFileMetadata({logger,skipThumbnails:false}, {kind:'file',localPath:request.path,baseName:name,parentNode:root},mediaType,async()=>extra);
+        if (prepared.metadata.expectedSha1 !== request.sha1) throw new Error('Takeout file changed; scan again');
+        const metadata = {...prepared.metadata, captureTime:extra.captureTime};
+        if (request.captureTime !== null) {
+            if (!Number.isSafeInteger(request.captureTime) || request.captureTime < -62135596800 || request.captureTime > 253402300799) throw new Error('Invalid capture time');
+            metadata.captureTime = new Date(request.captureTime*1000);
+        }
+        if (request.location !== null) {
+            if (!Array.isArray(request.location) || request.location.length!==2 || !request.location.every(Number.isFinite) || Math.abs(request.location[0])>90 || Math.abs(request.location[1])>180) throw new Error('Invalid location');
+            metadata.additionalMetadata = {...metadata.additionalMetadata,Location:{Latitude:request.location[0],Longitude:request.location[1]}};
+        }
+        const duplicates = await photosSdk.findPhotoDuplicates(name, async()=>request.sha1);
+        if (duplicates.length) { console.log(JSON.stringify({root:root.uid,status:'skipped'})); return; }
+        const uploader = await photosSdk.getFileUploader(name,metadata);
+        const controller = await uploader.uploadFromStream(prepared.file.stream(),prepared.thumbnails);
+        await controller.completion();
+        console.log(JSON.stringify({root:root.uid,status:'uploaded'}));
     }
 }

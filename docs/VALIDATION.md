@@ -1,5 +1,151 @@
 # Validation record
 
+## Beta 0.1 validation (2026-10-25)
+
+The [complete package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40239359051)
+passed for commit `28732e1a29ae318c905dc39ede27675d0bdb86aa`: DEB on amd64/arm64,
+Fedora/openSUSE RPM, Flatpak, strict Snap, AppImage and Arch installation/runtime
+checks. DEB/RPM/Arch retain epoch 1 so the public version reset upgrades the old
+0.6 alpha packages. Arch's download filename omits the epoch colon while the
+installed package metadata retains it; pacman installation and version ordering
+are tested after the rename.
+
+Both native architecture jobs in the [native source run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40237046306)
+passed at `30adc377b91910454646688cb6d726f3df073ebe`, including Rust/Qt/service,
+regression and SDK checks. That run's Arch runtime test also passed, but GitHub's
+artifact uploader rejected the colon in its filename. The successful package run
+above verifies unchanged native/SDK provenance and rebuilds/tests all packages
+with that filename correction. The earlier alpha-only package-version assertion
+was updated for beta spellings and native package epochs before these native jobs.
+
+Local checks passed: 187 core unit tests, 18 existing integration tests,
+83 desktop unit tests, Clippy/fmt, and 348 retained regression tests with
+18 environment-dependent skips. The final downloaded amd64 DEB reports
+`NeutronDrive 0.1.0-beta.1` and passes the isolated no-Python staged runtime test.
+Its real Qt window checks include English light/dark captures and the separate
+sharing window. [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records the exact executable,
+package and image hashes. [FILE-MANAGER-PREVIEWS.json](FILE-MANAGER-PREVIEWS.json)
+records real isolated Nautilus light/dark captures with synthetic example files
+and offline-state fixtures. The extension used for those captures is byte-for-byte
+identical to the verified beta extension; no live cloud download is depicted.
+
+The final documentation/checksum commit undergoes a separate package verification
+run. Native/SDK inputs must remain identical to the successful native source jobs;
+the final run repeats package assembly and runtime checks. Release assets retain
+the original successful package-run bytes pinned by the AUR recipe and backend
+lock. `BUILD_INFO.json` and `TEST_RESULTS.json` identify all three evidence stages.
+
+No live-account Takeout upload, full beta PC reboot, or physical-machine RPM
+upgrade was performed. Full Windows/macOS parity and every Linux desktop are not
+claimed. Takeout archives must be extracted first; album reconstruction, comments
+and persistent import resume remain unsupported.
+
+## Pre-beta alpha16 candidate validation (2026-10-25)
+
+This candidate was superseded before publication by the requested 0.1 beta release.
+The evidence below describes that earlier candidate, not the final beta binaries.
+
+The complete [source and Linux package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40232633624)
+passed for source commit `32cd2d5bf33a0cfa048328334d5d8ed31c73023c`.
+It covers x86_64 and ARM64 native Rust/Qt/SDK builds, DEB installation on both
+architectures, Fedora/openSUSE RPM installation, strict Snap, Flatpak runtime,
+AppImage startup and Arch installation. Both RPM tests verify the distribution
+marker used by the new updater.
+
+Local checks additionally passed: 186 core unit tests, 18 existing integration
+tests, real private D-Bus/daemon process replacement tests, 83 desktop unit tests,
+Clippy/fmt, 23 SDK bridge tests and TypeScript checking, 348 retained regressions
+(18 environment-dependent skips), and actual Qt windows in all 25 languages plus
+English fallback. The synthetic Takeout upload tests check original video bytes,
+capture time, GPS, duplicates and account/source-hash guards. No real-account
+Takeout import or local privileged RPM upgrade was performed.
+
+The downloaded amd64 release DEB passed the isolated no-Python staged runtime
+check. Fresh English light/dark captures were made directly with its unmodified
+executable and bundled Qt; [candidate capture record](https://github.com/SigmaCodez/NeutronDrive/blob/790c5213c987db2bc43617892626596021717b27/docs/GUI-PREVIEWS.json) records the package,
+binary and image hashes. The initial sandboxed local launch could not create its
+activation socket; rerunning the same test with local IPC access passed.
+
+Release metadata pins these exact original CI package/SDK bytes. A separate
+metadata verification run validates unchanged native/SDK source provenance and
+repeats package assembly/runtime checks; its rebuilt package bytes do not replace
+the checksum-pinned originals. The release's `BUILD_INFO.json` and `TEST_RESULTS.json`
+identify both runs and the final release commit.
+
+
+
+## Post-alpha15 Takeout and UI validation (2026-10-25)
+
+Development changes, not included in published alpha15 packages:
+
+- Rust core: 186 unit tests and 18 existing integration tests passed; desktop:
+  83 tests passed. Formatting and Clippy with warnings denied passed.
+- The Takeout fixture covers media recognition, JSON date matching, duplicate
+  content, skipped symlinks, unchanged source bytes, changed-file refusal,
+  cancellation and partial failure counts. The UI model requires a separate
+  confirmation after scanning and opens Ko-fi only as an external URL.
+- All 23 SDK-bridge contract tests and TypeScript checking passed. The new test
+  streams a synthetic video to a mocked SDK uploader, checks exact original bytes,
+  capture time and location, skips an existing duplicate, and refuses a changed
+  account or hash. No photo was uploaded to a live account.
+- The actual Qt window suite passed with explicit checks for the Takeout entry,
+  Computer setup card and Ko-fi footer. Current Photos, Computer overview and
+  backup-configuration captures were visually inspected.
+- All 348 retained regressions passed (18 environment-specific skips), followed
+  by actual-window checks for all 25 languages and unsupported-locale English fallback.
+- New UI strings were added to all 25 catalogs. German was manually reviewed;
+  other new strings were machine-translated from public fixed UI text only.
+
+No real Google export or live-account bulk import has been tested. Source media
+and sidecars were synthetic; archive extraction and album reconstruction are not
+implemented. Updated bridge packaging is required to use the import.
+
+## Post-alpha15 RPM updater validation (2026-10-25)
+
+Development changes, not included in the published alpha15 binaries:
+
+- Rust core: 184 unit tests and 18 existing integration tests passed; desktop:
+  82 tests passed. Formatting and Clippy with warnings denied passed.
+- RPM selection tests cover Fedora/openSUSE and both recognized architectures,
+  invalid digests, unknown formats and missing architecture matches. Download
+  tests verify the RPM suffix, SHA-256 revalidation and corrupt-download cleanup.
+- Installer tests cover DNF5/DNF/Zypper selection without crossing distribution
+  families. The actual metadata reader and cancellation path passed against a
+  synthetic RPM built with RPM 6.0.1 extracted into a temporary directory.
+  The fixture was never installed. No global signature-check override is used.
+- RPM spec expansion produced the expected Fedora and openSUSE package markers;
+  the RPM CI jobs now verify the installed marker against their build matrix.
+- The isolated real-service replacement test passed again with the new binary.
+- Qt updater and actual offscreen window checks passed, followed by all 348
+  retained regressions (18 environment-specific tests skipped).
+
+No privileged RPM transaction or full Fedora/openSUSE installation was performed
+on this Ubuntu machine. GitHub CI has not run for these unpublished changes.
+
+## Post-alpha15 update restart validation (2026-10-25)
+
+Development changes, not included in the published alpha15 binaries:
+
+- Rust core: 181 unit tests and 18 existing integration tests passed. Desktop:
+  79 tests passed, including a real child-process `exec` handoff with literal
+  executable and SDK paths containing spaces.
+- The new private-session service integration test passed with the newly built
+  executable: the sync daemon PID and online-file service D-Bus owner both
+  changed after shutdown/restoration. Stopping an absent service did not activate
+  it. No credentials or mounted cloud filesystem were used.
+- Update transaction tests cover active-sync refusal, failed stops, cancelled or
+  failed installation recovery, preserving stopped services, and retrying failed
+  restoration without reinstalling the package.
+- Formatting and Clippy with warnings denied passed for both Rust crates.
+- The Qt updater, full offscreen window/input suite and separate sharing fixture
+  passed. All 25 languages and the unsupported-locale English fallback passed
+  their actual-window checks. All 348 retained regression tests completed (18 environment-specific
+  tests skipped). The first local invocation omitted the test import path for a
+  subprocess; the complete suite passed after correcting the test environment.
+
+No real package-manager transaction, live-account update, PC restart or external
+package-manager update was performed. The new automatic handoff applies to the
+built-in DEB updater. File-manager processes are not forcibly restarted.
 
 ## Alpha15 release validation
 

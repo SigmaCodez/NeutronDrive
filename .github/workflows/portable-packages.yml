@@ -25,7 +25,7 @@ jobs:
         run: |
           mkdir build/appimage-test
           cd build/appimage-test
-          ../../dist/NeutronDrive-0.6.0-alpha15-x86_64.AppImage --appimage-extract >/dev/null
+          ../../dist/NeutronDrive-0.1.0-beta1-x86_64.AppImage --appimage-extract >/dev/null
           export XDG_CACHE_HOME="$RUNNER_TEMP/nd-appimage-cache"
           export XDG_CONFIG_HOME="$RUNNER_TEMP/nd-appimage-config"
           export XDG_STATE_HOME="$RUNNER_TEMP/nd-appimage-state"
@@ -67,7 +67,22 @@ jobs:
       - name: Build and install with makepkg/pacman
         run: |
           su builder -c 'cd /home/builder/package && makepkg --syncdeps --noconfirm && makepkg --printsrcinfo > .SRCINFO'
+          # Keep epoch 1 inside .PKGINFO, but remove ':' from the download name:
+          # GitHub artifacts reject colons for cross-platform extraction.
+          python - <<'PYNAME'
+          from pathlib import Path
+          import re
+          for package in Path('/home/builder/package').glob('*.pkg.tar.zst'):
+              name = re.sub(r'^(neutrondrive-bin-)\d+:', r'\1', package.name)
+              assert ':' not in name
+              if name != package.name:
+                  destination = package.with_name(name)
+                  assert not destination.exists()
+                  package.rename(destination)
+          PYNAME
           pacman -U --noconfirm /home/builder/package/*.pkg.tar.zst
+          nd_installed=$(pacman -Q neutrondrive-bin | cut -d ' ' -f 2)
+          test "$(vercmp "$nd_installed" '0.6.0alpha15-1')" -gt 0
           python3 desktop/tests/check-staged-runtime.py /usr
           neutrondrive --diagnose
           cd /home/builder/package

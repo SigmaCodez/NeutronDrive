@@ -37,6 +37,8 @@ struct Shared {
     config: Config,
     cancel: AtomicBool,
     stopping: AtomicBool,
+    update_prepared: AtomicBool,
+    cleaned: AtomicBool,
     mount: Mutex<Option<JoinHandle<()>>>,
     events: Mutex<Option<Worker>>,
 }
@@ -307,6 +309,9 @@ impl Shared {
         )
     }
     fn shutdown(self: &Arc<Self>) -> Result<()> {
+        if self.cleaned.load(Ordering::Acquire) {
+            return Ok(());
+        }
         self.stopping.store(true, Ordering::Release);
         self.cancel.store(true, Ordering::Release);
         let mut host = Native(self.clone());
@@ -326,6 +331,7 @@ impl Shared {
         }
         mount(Mount::Forget { id: self.manager }, None, &mut |_| 0)?;
         desktop_service::run(Core::Forget { id: self.core }, &mut host)?;
+        self.cleaned.store(true, Ordering::Release);
         Ok(())
     }
 }
@@ -383,6 +389,14 @@ impl Server {
         let action = request["action"].as_str().ok_or_else(invalid)?;
         let result = if action == "status" {
             self.shared.status()
+        } else if action == "finish_update" {
+            if !self.shared.update_prepared.load(Ordering::Acquire) {
+                return Err(zbus::fdo::Error::Failed(
+                    "Update shutdown was not prepared.".into(),
+                ));
+            }
+            self.shared.stopping.store(true, Ordering::Release);
+            Ok(json!({}))
         } else if action == "cancel" {
             if self
                 .shared
@@ -481,6 +495,8 @@ pub fn run(config: Config, callback: &mut impl FnMut(Value) -> i32) -> Result<Va
         config,
         cancel: AtomicBool::new(false),
         stopping: AtomicBool::new(false),
+        update_prepared: AtomicBool::new(false),
+        cleaned: AtomicBool::new(false),
         mount: Mutex::new(None),
         events: Mutex::new(None),
     });
@@ -499,7 +515,22 @@ pub fn run(config: Config, callback: &mut impl FnMut(Value) -> i32) -> Result<Va
                     let _ = job.reply.send(Err("Dienst wird beendet.".into()));
                     continue;
                 }
-                let _ = job.reply.send(owned.request(job.request));
+                if job.request["action"] == "restore" {
+                    // Recovery after an interrupted updater can release the reservation.
+                    owned.update_prepared.store(false, Ordering::Release);
+                }
+                if owned.update_prepared.load(Ordering::Acquire) {
+                    let _ = job
+                        .reply
+                        .send(Err("Service is reserved for an update.".into()));
+                    continue;
+                }
+                let prepare = job.request["action"] == "prepare_update";
+                let result = owned.request(job.request);
+                if prepare && result.is_ok() {
+                    owned.update_prepared.store(true, Ordering::Release);
+                }
+                let _ = job.reply.send(result);
             }
         }) {
         Ok(worker) => worker,
@@ -552,7 +583,7 @@ pub fn run(config: Config, callback: &mut impl FnMut(Value) -> i32) -> Result<Va
         }
         let runtime = zruntime::SharedRuntime::current()
             .map_err(|_| "D-Bus-Laufzeit ist nicht verfügbar.")?;
-        while !connection.is_closed() {
+        while !connection.is_closed() && !shared.stopping.load(Ordering::Acquire) {
             if callback(json!({"kind":"poll"})) != 0 {
                 break;
             }
@@ -560,6 +591,9 @@ pub fn run(config: Config, callback: &mut impl FnMut(Value) -> i32) -> Result<Va
         }
         shared.stopping.store(true, Ordering::Release);
         shared.cancel.store(true, Ordering::Release);
+        if shared.update_prepared.load(Ordering::Acquire) {
+            shared.shutdown()?;
+        }
         let _ = connection.close().await;
         Ok(Value::Null)
     });

@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The current SDK bridge and application packages are published together in
-`v0.6.0-alpha15`. Source builds are inspectable; bit-for-bit reproducibility
+`v0.1.0-beta1`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -146,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.6.0-alpha15_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_0.1.0-beta1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -255,6 +255,17 @@ makepkg --syncdeps
 
 This recipe has no Python runtime dependencies and verifies the original DEB's
 frontend and SDK provenance before creating its local source/checksum entries.
-The published `packaging/aur/neutrondrive-bin` recipe pins the alpha15 native
+The published `packaging/aur/neutrondrive-bin` recipe pins the beta 0.1 native
 DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.
+
+## Beta 0.1 version reset
+
+The public release line restarts at `0.1.0-beta1` (Rust `0.1.0-beta.1`). Keep
+**epoch 1** in all subsequent DEB, RPM and Arch package metadata: it makes the
+numerically lower beta a normal upgrade from the retired 0.6 alpha packages.
+Do not include the epoch in release asset filenames. Flatpak and Snap use their
+normal bundle/revision replacement mechanisms; AppImages are replaced manually.
+Existing 0.6 alpha update checkers need one manual beta installation. The beta
+updater excludes the known retired alpha versions from its newer-release ordering.
+Historical Git tags remain, but old GitHub release downloads are retired.

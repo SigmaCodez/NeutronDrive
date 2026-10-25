@@ -68,10 +68,25 @@ Item {
         function setOption(name,value){updater.setOption(name,value)}
         function checkNow(){updater.dispatch("check",controller.state.busy)}
         function downloadUpdate(){updater.dispatch("download",controller.state.busy)}
-        function installUpdate(){updater.dispatch("install",controller.state.busy)}
+        function installUpdate(){updater.dispatch("install",controller.state.busy || controller.view.dialogOpen)}
+        function restartUpdate(){updater.dispatch("restart",controller.state.busy || controller.view.dialogOpen)}
         function openRelease(){updater.dispatch("openRelease",false)}
     }
-    Connections { target: updater; function onNotice(message){files.notify(message,false)} }
+    Connections {
+        target: updater
+        function onNotice(message){files.notify(message,false)}
+        function onRestartRequested(){
+            Qt.callLater(function(){
+                if(!updater.shutdown())return;
+                controller.initialized=false;
+                serviceTimer.stop();initialUpdate.stop();updateTimer.stop();
+                files.shutdown();appearanceObject.shutdown();startup.shutdown();
+                controller.allowClose=true;
+                controller.view.close();
+                Qt.quit();
+            });
+        }
+    }
     Connections {
         target: files
         function onDialogRequested(value){controller.dialogRequested(JSON.parse(value))}
@@ -90,7 +105,7 @@ Item {
             }
         }
     }
-    function send(method,args){files.dispatch(method,JSON.stringify(args))}
+    function send(method,args){if((updateAdapter.state.installing || updateAdapter.state.restartPending) && method!=="request_close")return;files.dispatch(method,JSON.stringify(args))}
     function translate(source){let activeLanguage=preferences.language;let ready=initialized;return preferences.translate(source)}
     function edit(name,value){send("edit",[name,value])}
     function show_page(page){send("show_page",[page])}
@@ -133,7 +148,7 @@ Item {
     })
     Timer {interval:100;running:controller.initialized;repeat:true;onTriggered:{if(startup.activationPending()){controller.view.show();controller.view.raise();controller.view.requestActivate()}}}
     Timer { interval: 150; running: controller.initialized && !controller.smoke; repeat: true; onTriggered: {
-        if(controller.state.busy || controller.view.dialogOpen)return;
+        if(updateAdapter.state.installing || updateAdapter.state.restartPending || controller.state.busy || controller.view.dialogOpen)return;
         let request=startup.nextFileAction();
         if(request){let value=JSON.parse(request);if(value.action==="share")controller.view.openShareLoading();else controller.reveal("");controller.send("file_manager",[value]);}
     } }
@@ -274,6 +289,16 @@ Item {
                     if(!controller.childNamed(controller.view.contentItem,"computerBackupButton"))throw new Error("Computer backup configuration missing");
                     console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",2001);
                 }else if(controller.stage===2001){
+                    controller.navigate(controller.translate("Computer"),"/devices");controller.stage=20011;
+                }else if(controller.stage===20011){
+                    let setup=controller.childNamed(controller.view.contentItem,"configureComputerBackup");
+                    if(!setup || !setup.visible)throw new Error("Computer setup card missing");
+                    let donate=controller.childNamed(controller.view.contentItem,"donationButton");
+                    if(!donate || !donate.visible)throw new Error("Ko-fi footer missing");
+                    controller.capture("light-computers.png",20012);
+                }else if(controller.stage===20012){
+                    controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=20013;
+                }else if(controller.stage===20013){
                     controller.show_page("ondemand");controller.stage=3;
                 }else if(controller.stage===3){
                     if(!(controller.childNamed(controller.view.contentItem,"page-ondemand").contentHeight>0))throw new Error("Online page cannot scroll");
@@ -361,6 +386,8 @@ Item {
                     if(controller.state.photos.length!==2 || !controller.childNamed(controller.view.contentItem,"photoGrid"))throw new Error("Photo timeline failed");
                     let preview=controller.childNamed(controller.view.contentItem,"photoPreview-0");
                     if(!preview || preview.status!==Image.Ready)return;
+                    if(!controller.childNamed(controller.view.contentItem,"takeoutImportButton"))throw new Error("Takeout import missing");
+                    console.log("NATIVE_TAKEOUT_AND_DONATION_OK");
                     controller.capture("light-photos.png",210);
                 }else if(controller.stage===210){
                     let panel=controller.childNamed(controller.view.contentItem,"page-photos");

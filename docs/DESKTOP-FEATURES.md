@@ -1,11 +1,93 @@
 # Desktop features
 
-The latest published package is alpha15. The sections below identify when features
+The latest published package is beta 0.1. The sections below identify when features
 were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
 
-## Alpha15 changes
+## Beta 0.1: Takeout, Computer and donations
+
+**Photos → Google Takeout import** accepts an extracted Google Photos export.
+Download every archive part from Google Takeout and extract/merge them into one
+folder before choosing it. ZIP/TGZ archives are not extracted by NeutronDrive.
+The Rust planner scans media files and associated JSON, then asks for confirmation
+with counts for media, videos, duplicates, ignored files and metadata warnings.
+Only confirmation starts uploads into Proton Photos, not My files.
+
+Matching `.json` and `.supplemental-metadata.json` files supply `photoTakenTime`
+and valid GPS coordinates. Exact sidecar names take precedence; a unique title
+match handles truncated metadata filenames. Missing or ambiguous metadata uses
+the SDK's embedded metadata fallback and is counted as a warning. Original media
+bytes and local JSON files are never rewritten. Albums, descriptions, comments
+and edited/original relationships are not reconstructed. See Google's
+[export metadata explanation](https://support.google.com/photos/answer/3024190?hl=EN).
+
+Identical content within the selected export is skipped. The public Photos SDK
+checks existing uploads by name/content before uploading, allowing the same
+export to be retried after cancellation or a lost reply. This is not a global
+cross-name duplicate finder. The source hash is checked again before each upload;
+a changed source or account stops the operation. Upload failures stop the batch
+and show its partial counts and error. Refresh Photos to view new items.
+
+Imports run in the existing cancellable worker. Closing to the tray keeps the
+app available; explicitly quitting can cancel the import. There is no separate
+scheduled import daemon or automatic restart resume. Supported extensions cover
+common image/video formats; decoding and preview support depend on the pinned
+Proton SDK. Limits: 100,000 unique media files, 500,000 directory entries,
+64 directory levels, 1 MiB per JSON and 64 MiB of JSON per directory. Split larger
+exports into batches. Symbolic links and special files are ignored.
+
+**Computer** now separates a prominent **Back up this computer** setup card from
+**Saved computers**. Generic upload/new-folder controls are hidden at the device
+root. The setup page explains that this is two-way folder synchronization, not a
+system image or independent recovery archive, and is separate from `~/ProtonDrive`.
+
+An optional **Support on Ko-fi** button sits at the bottom of the sidebar. It opens
+<https://ko-fi.com/D1D11J5U3D> in the browser. No Ko-fi JavaScript or remote widget is
+loaded inside the application. New fixed UI strings are included in all 25
+catalogs; German was reviewed manually and other new translations are machine drafts.
+
+These features require beta 0.1 or newer, including its updated SDK bridge.
+
+## Beta 0.1: update restart
+
+The built-in DEB/RPM updater now coordinates the application, synchronization daemon,
+online-file service and its emblem helper. It refuses an active sync and uses a
+normal unmount that refuses open files; it never forces an unmount or kills a
+transfer. Mount configuration, offline availability and paused jobs are retained.
+The final idle check is made under the daemon's job-selection lock.
+
+After successful installation, a helper from the newly installed executable
+restores services that were running, then the UI releases its single-instance
+lock and replaces itself with the new executable. A failed/cancelled installer
+restores the previous services and keeps the UI open. If service restoration
+fails after installation, **Restart app and services** retries the restart without
+installing the package again. New actions are blocked during this handoff.
+
+These changes are included starting with beta 0.1. They apply to updates
+initiated by the built-in DEB/RPM updater once this implementation is installed;
+external package-manager upgrades and other package formats retain their existing
+update flow. Native Fedora RPMs use DNF5 or DNF; openSUSE RPMs use Zypper. The
+package records its build family so the updater selects only the matching release
+asset and architecture. A missing asset never falls back to a different family.
+Existing RPM installations need one manual upgrade to the version introducing
+this support and its package marker. Atomic/OSTree and transactional-update hosts
+keep their system-managed update workflow.
+
+Downloads require the GitHub release SHA-256 digest and are verified again before
+installation. The RPM name must be `neutrondrive`; administrator authorization is
+requested through `pkexec`. Missing tools are detected before stopping services.
+Zypper accepts the verified local unsigned RPM while keeping repository signature
+verification enabled. DNF retains the host's signature-checking policy; if that
+policy requires signed local RPMs, the current unsigned release is rejected.
+The command flows follow the [DNF](https://dnf.readthedocs.io/en/stable/command_ref.html),
+[DNF5](https://dnf5.readthedocs.io/en/latest/commands/install.8.html) and
+[Zypper](https://manpages.opensuse.org/Tumbleweed/zypper/zypper.8.en.html) manuals.
+
+File-manager extension libraries already loaded inside Nautilus or
+another file manager are refreshed when that file manager next restarts.
+
+## Photos, sharing and sync settings
 
 - **Photos:** the next page and its previews load automatically near the bottom;
   there is no “Load more photos” button. Appending continues during scrolling.
@@ -30,7 +112,7 @@ photo-library, album and account-storage commands.
   after the previous daemon has confirmed stopping. It does not unmount online files.
 
 Older navigation labels in historical sections refer to the version in which
-the feature was introduced. In alpha15, synchronization is configured in Settings.
+the feature was introduced. In the current beta, synchronization is configured in Settings.
 
 ## Files and sync
 

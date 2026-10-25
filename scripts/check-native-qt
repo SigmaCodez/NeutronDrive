@@ -45,6 +45,7 @@ if [[ ${NEUTRONDRIVE_GVFS_TEST:-0} == 1 ]]; then
     timeout 20 bash "$nd_root/file-manager/tests/check-gio-emblems.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-file-manager"
 fi
 (cd "$nd_root/core" && NEUTRONDRIVE_DBUS_TEST=1 cargo "${nd_cargo[@]}" test --locked --offline --test desktop_bus -- --test-threads=1)
+(cd "$nd_root/core" && NEUTRONDRIVE_UPDATE_TEST_BINARY="$CARGO_TARGET_DIR/debug/neutrondrive-qt" cargo "${nd_cargo[@]}" test --locked --offline --test update_handoff -- --test-threads=1)
 python3 "$nd_root/desktop/tests/check-cli-localization.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"
 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
     python3 "$nd_root/desktop/tests/check-window-localization.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt" "$nd_root/src/neutrondrive/locales"

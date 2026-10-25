@@ -1,7 +1,13 @@
 # Native file-manager integration
 
-Alpha10 adds **Keep on device**, **Free up space** and **Share…** to
-Linux file-manager context menus. These changes are included in the native alpha10 packages.
+The native **0.1 beta** packages add **Keep on device**, **Free up space** and
+**Share…** to supported Linux file-manager context menus.
+
+![Proton Drive favorite and green offline checkmarks in GNOME Files](previews/file-manager-dark.png)
+
+[Light appearance](previews/file-manager-light.png) · [Capture details](FILE-MANAGER-PREVIEWS.json).
+These real Nautilus captures use synthetic files and offline-status fixtures;
+they do not depict a live cloud download.
 
 | File manager | Integration | Scope |
 | --- | --- | --- |
@@ -72,7 +78,7 @@ Public interface references:
 
 ## Alpha11: availability and Places integration
 
-These changes are included in alpha11 native packages. The Dolphin overlay addon
+These features are included in the native beta packages. The Dolphin overlay addon
 is supplied as source and must be built for the host KDE version.
 
 | File manager | Availability check mark | Proton Drive favorite | Hide duplicate mount |
