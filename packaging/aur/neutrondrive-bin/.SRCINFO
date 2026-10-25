@@ -41,8 +41,8 @@ pkgbase = neutrondrive-bin
 	options = !strip
 	options = !debug
 	source_x86_64 = https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.1.0-beta1/neutrondrive_0.1.0-beta1-1_amd64.deb
-	sha256sums_x86_64 = ec5f743ae57759c562a2bd47478bda1c29cc430e99c68249ba521877eaaccd55
+	sha256sums_x86_64 = 19bc4ca9a72f2a23cce641dc0b8fc1ae40ee1cdbf563ae055fb3c6af7b5381e1
 	source_aarch64 = https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.1.0-beta1/neutrondrive_0.1.0-beta1-1_arm64.deb
-	sha256sums_aarch64 = 37208bc05069c5ea9ee1af02e6f5418bba6dcf689718bf9f1a9b163c7a20a5aa
+	sha256sums_aarch64 = 8f49d90638ee9d21a2254c44bd5796bf50c3ac09f6e047f2867d79804437bb92
 
 pkgname = neutrondrive-bin

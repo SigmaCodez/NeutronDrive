@@ -87,7 +87,7 @@ The command flows follow the [DNF](https://dnf.readthedocs.io/en/stable/command_
 File-manager extension libraries already loaded inside Nautilus or
 another file manager are refreshed when that file manager next restarts.
 
-## Alpha15 changes
+## Photos, sharing and sync settings
 
 - **Photos:** the next page and its previews load automatically near the bottom;
   there is no “Load more photos” button. Appending continues during scrolling.
@@ -112,7 +112,7 @@ another file manager are refreshed when that file manager next restarts.
   after the previous daemon has confirmed stopping. It does not unmount online files.
 
 Older navigation labels in historical sections refer to the version in which
-the feature was introduced. In alpha15, synchronization is configured in Settings.
+the feature was introduced. In the current beta, synchronization is configured in Settings.
 
 ## Files and sync
 

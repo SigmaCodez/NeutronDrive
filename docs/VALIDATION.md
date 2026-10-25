@@ -1,5 +1,45 @@
 # Validation record
 
+## Beta 0.1 validation (2026-10-25)
+
+The [complete package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40239359051)
+passed for commit `28732e1a29ae318c905dc39ede27675d0bdb86aa`: DEB on amd64/arm64,
+Fedora/openSUSE RPM, Flatpak, strict Snap, AppImage and Arch installation/runtime
+checks. DEB/RPM/Arch retain epoch 1 so the public version reset upgrades the old
+0.6 alpha packages. Arch's download filename omits the epoch colon while the
+installed package metadata retains it; pacman installation and version ordering
+are tested after the rename.
+
+Both native architecture jobs in the [native source run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40237046306)
+passed at `30adc377b91910454646688cb6d726f3df073ebe`, including Rust/Qt/service,
+regression and SDK checks. That run's Arch runtime test also passed, but GitHub's
+artifact uploader rejected the colon in its filename. The successful package run
+above verifies unchanged native/SDK provenance and rebuilds/tests all packages
+with that filename correction. The earlier alpha-only package-version assertion
+was updated for beta spellings and native package epochs before these native jobs.
+
+Local checks passed: 187 core unit tests, 18 existing integration tests,
+83 desktop unit tests, Clippy/fmt, and 348 retained regression tests with
+18 environment-dependent skips. The final downloaded amd64 DEB reports
+`NeutronDrive 0.1.0-beta.1` and passes the isolated no-Python staged runtime test.
+Its real Qt window checks include English light/dark captures and the separate
+sharing window. [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records the exact executable,
+package and image hashes. [FILE-MANAGER-PREVIEWS.json](FILE-MANAGER-PREVIEWS.json)
+records real isolated Nautilus light/dark captures with synthetic example files
+and offline-state fixtures. The extension used for those captures is byte-for-byte
+identical to the verified beta extension; no live cloud download is depicted.
+
+The final documentation/checksum commit undergoes a separate package verification
+run. Native/SDK inputs must remain identical to the successful native source jobs;
+the final run repeats package assembly and runtime checks. Release assets retain
+the original successful package-run bytes pinned by the AUR recipe and backend
+lock. `BUILD_INFO.json` and `TEST_RESULTS.json` identify all three evidence stages.
+
+No live-account Takeout upload, full beta PC reboot, or physical-machine RPM
+upgrade was performed. Full Windows/macOS parity and every Linux desktop are not
+claimed. Takeout archives must be extracted first; album reconstruction, comments
+and persistent import resume remain unsupported.
+
 ## Pre-beta alpha16 candidate validation (2026-10-25)
 
 This candidate was superseded before publication by the requested 0.1 beta release.
@@ -22,7 +62,7 @@ Takeout import or local privileged RPM upgrade was performed.
 
 The downloaded amd64 release DEB passed the isolated no-Python staged runtime
 check. Fresh English light/dark captures were made directly with its unmodified
-executable and bundled Qt; [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records the package,
+executable and bundled Qt; [candidate capture record](https://github.com/SigmaCodez/NeutronDrive/blob/790c5213c987db2bc43617892626596021717b27/docs/GUI-PREVIEWS.json) records the package,
 binary and image hashes. The initial sandboxed local launch could not create its
 activation socket; rerunning the same test with local IPC access passed.
 

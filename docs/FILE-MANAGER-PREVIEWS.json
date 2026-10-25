@@ -1,0 +1,18 @@
+{
+  "captured_at": "2026-10-25T21:48:18.416566+00:00",
+  "file_manager": "GNOME Files (Nautilus) 50.2.2",
+  "language": "en",
+  "environment": "Isolated Xvfb display, private D-Bus session and temporary HOME/XDG directories. The running user desktop and language were not changed.",
+  "data": "Synthetic example files and a fixture availability index, rendered by the actual installed NeutronDrive Rust extension. No live Proton account or actual cloud download is depicted.",
+  "extension_sha256": "a4b4022c0198493967b0eea536825383002494af3db7b195e7e32d7404e26e35",
+  "extension_source": "The extension used for these captures is byte-for-byte identical to the native x86_64 extension from the beta 0.1 build.",
+  "capture": "Direct X11 pixel capture, no compositing or image edits.",
+  "images": {
+    "previews/file-manager-dark.png": "73113c48bad1d6f50a2e9beeea6fcbd9722a50b4d50e4d2737dc72e7ccd34f23",
+    "previews/file-manager-light.png": "cae0d485f2ac142abfe95898197af05a7f536623153d9597465aa963032ed78c"
+  },
+  "extension_source_tree": "56e7b80fd5e9ac7419d2b513274895735e74cb29",
+  "candidate_commit": "30adc377b91910454646688cb6d726f3df073ebe",
+  "release_artifact_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40237046306",
+  "release_artifact_checksum_verified": true
+}

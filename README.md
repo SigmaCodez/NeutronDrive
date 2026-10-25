@@ -1,6 +1,7 @@
 # NeutronDrive
 
 [![Latest release (including previews)](https://img.shields.io/github/v/release/SigmaCodez/NeutronDrive?include_prereleases&label=release)](https://github.com/SigmaCodez/NeutronDrive/releases)
+[![Development status: Beta](https://img.shields.io/badge/status-beta-f1c40f)](#moving-from-the-retired-alpha-releases)
 [![Tests and Linux packages](https://github.com/SigmaCodez/NeutronDrive/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SigmaCodez/NeutronDrive/actions/workflows/ci.yml)
 [![Application runtime: Rust](https://img.shields.io/badge/runtime-Rust-dea584)](docs/RUST-MIGRATION.md)
 [![Interface: Qt Quick / QML](https://img.shields.io/badge/UI-Qt_Quick%20%2F%20QML-41cd52)](desktop/README.md)
@@ -62,6 +63,22 @@ account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 
 The app follows your system's light/dark preference. **Settings → Appearance**
 also lets you choose System, Light or Dark manually. Theme changes apply immediately.
+
+## In your file manager
+
+![Proton Drive bookmark with the Neutron icon and green offline checkmarks in GNOME Files, dark mode](docs/previews/file-manager-dark.png)
+
+![Proton Drive bookmark and downloaded file/folder indicators in GNOME Files, light mode](docs/previews/file-manager-light.png)
+
+The **Proton Drive** bookmark uses NeutronDrive’s icon. A **green checkmark**
+means a file is available locally; a folder is marked when its contents are
+fully available offline. Use **Keep on device** to retain selected files or
+folders and **Free up space** to remove eligible local cached copies.
+
+These are current GNOME Files (Nautilus) captures in English, with synthetic
+example files and offline-status fixtures rendered by the real extension.
+They illustrate the integration, not a live cloud download. Appearance varies
+with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
 ## What you can do
 
