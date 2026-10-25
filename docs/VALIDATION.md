@@ -1,5 +1,46 @@
 # Validation record
 
+
+## Alpha15 release validation
+
+The [full source and package workflow](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40219851199)
+uses application commit `4a18d57fead2c59428535891104e3f684a9ae598`.
+A transient TLS download interruption affected the first openSUSE package attempt;
+the job passed on retry without relaxing source or package checks. Both native
+architectures and every Linux package job completed successfully.
+The unmodified amd64 release DEB passed the isolated Qt window suite and the
+separate sharing/clipboard fixture. Eighteen actual English GUI captures were
+visually inspected; binary, package and image hashes are recorded in
+[GUI-PREVIEWS.json](GUI-PREVIEWS.json). Fifteen local package/version/launcher
+checks also passed. Exact final successful workflow results and the metadata
+verification run are recorded in release BUILD_INFO.json and TEST_RESULTS.json.
+
+## Alpha15 local source validation (2026-10-25)
+
+Validated from source locally, separately from the published alpha14 artifacts:
+
+- Rust core: 179 unit tests and 18 integration tests passed; desktop: 72 tests passed.
+- Rust formatting and Clippy with warnings denied passed for core and desktop.
+- Pinned Proton SDK bridge: 22 contract tests and TypeScript checking passed.
+- Retained regressions: 348 tests executed, 18 environment-specific tests skipped.
+- Actual offscreen Qt windows: all 25 language catalogs plus English fallback passed.
+  The separate sharing window was opened with the main browser hidden; copying the
+  synthetic link preserved its exact bytes. The new Computer backup page and
+  Settings sync tab/restart control were found and exercised.
+- Photo model: 2,049 synthetic entries, stable scroll position/selection, appending
+  during a deterministically driven scrolling state, automatic next-page requests
+  and missing-preview prefetch passed. This is not a live-account FPS benchmark.
+- Disk-cache tests cover reopening, account/revision separation, expiry, corrupt
+  entries, eviction and denied access. Restart tests cover active synchronization
+  and a failed stop without starting a replacement daemon.
+- Light/dark settings, Computer backup and the separate sharing window were
+  captured from the tested executable and visually inspected using synthetic data.
+
+The local checks did not send real invitations, mutate cloud files or install the
+application. Existing alpha14 release evidence below remains
+historical and does not cover alpha15. Release CI and package evidence are recorded
+separately in the published BUILD_INFO.json and TEST_RESULTS.json.
+
 ## Alpha14 validation
 
 The [source and package CI](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40213218108)

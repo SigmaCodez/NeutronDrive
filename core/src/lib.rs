@@ -38,6 +38,7 @@ mod ondemand_replace;
 mod ondemand_snapshot;
 mod ondemand_tree;
 mod ondemand_write;
+mod photo_cache;
 mod policy;
 mod portals;
 mod process;

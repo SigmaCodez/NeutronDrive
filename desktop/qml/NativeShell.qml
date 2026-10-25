@@ -21,7 +21,7 @@ Item {
         onActivated: controller.reveal("")
         menu: Platform.Menu {
             Platform.MenuItem { text: controller.translate("NeutronDrive öffnen"); onTriggered: controller.reveal("") }
-            Platform.MenuItem { text: controller.translate("Automatischer Sync"); onTriggered: controller.reveal("background") }
+            Platform.MenuItem { text: controller.translate("Einstellungen"); onTriggered: controller.reveal("settings") }
             Platform.MenuItem { text: controller.translate("Online-Laufwerk"); onTriggered: controller.reveal("ondemand") }
             Platform.MenuSeparator {}
             Platform.MenuItem { text: controller.translate("Sync-Dienst starten"); enabled: !controller.state.busy && !controller.state.backgroundRunning; onTriggered: controller.action("start") }
@@ -123,7 +123,7 @@ Item {
             if(component.status!==Component.Ready)throw new Error(component.errorString());
             // A Window parented to this non-visual root Item would wait for a
             // parent window that does not exist. Keep it as a real top-level window.
-            view=component.createObject(null, launch.tray ? {visible:false} : {});
+            view=component.createObject(null, (launch.tray || launch.fileAction) ? {visible:false} : {});
             if(!view)throw new Error(component.errorString());
             trayAvailable=startup.trayAvailable();
             initialized=true;
@@ -135,7 +135,7 @@ Item {
     Timer { interval: 150; running: controller.initialized && !controller.smoke; repeat: true; onTriggered: {
         if(controller.state.busy || controller.view.dialogOpen)return;
         let request=startup.nextFileAction();
-        if(request){controller.reveal("");controller.send("file_manager",[JSON.parse(request)]);}
+        if(request){let value=JSON.parse(request);if(value.action==="share")controller.view.openShareLoading();else controller.reveal("");controller.send("file_manager",[value]);}
     } }
     Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:{let available=startup.trayAvailable();if(controller.trayAvailable && !available && controller.view && !controller.view.visible)controller.reveal("");controller.trayAvailable=available;controller.send("poll_services",[])}}
     // Some desktops publish their tray host after autostart applications.
@@ -159,6 +159,7 @@ Item {
         return null;
     }
     function dialogChild(name){
+        if(name==="copyShareLink")return childNamed(view.sharingWindow.contentItem,name);
         for(let item of view.contentData){
             if(item.objectName==="confirmationDialog")return childNamed(item.contentItem,name);
         }
@@ -169,7 +170,7 @@ Item {
     property var photoBenchDelegate: null
     property real photoBenchScroll: 0
     property real photoBenchStarted: 0
-    QtObject { id: photoBenchController; property var photoEntries: []; property string language: "en"; function send(method,args){} }
+    QtObject { id: photoBenchController; property var photoEntries: []; property string language: "en"; property var requests: []; function send(method,args){requests=requests.concat([args[0]])} }
     property int captureFrames: 0
     function capture(name,next){
         if(fixture || Qt.application.arguments.length<4 || !Qt.application.arguments[3]){stage=next;return}
@@ -263,8 +264,15 @@ Item {
                     if(controller.view.darkMode)throw new Error("Light theme did not reach main window");
                     controller.show_page("background");controller.stage=2;
                 }else if(controller.stage===2){
-                    if(!(controller.childNamed(controller.view.contentItem,"page-background").contentHeight>0))throw new Error("Background page cannot scroll");
-                    controller.capture("light-background.png",2001);
+                    if(!(controller.childNamed(controller.view.contentItem,"page-settings").contentHeight>0))throw new Error("Background page cannot scroll");
+                    if(controller.childNamed(controller.view.contentItem,"nav-background"))throw new Error("Obsolete sync navigation remains");
+                    if(!controller.childNamed(controller.view.contentItem,"restartSyncButton"))throw new Error("Sync restart missing in Settings");
+                    controller.capture("light-background.png",2000);
+                }else if(controller.stage===2000){
+                    controller.show_page("computer-backup");controller.stage=20001;
+                }else if(controller.stage===20001){
+                    if(!controller.childNamed(controller.view.contentItem,"computerBackupButton"))throw new Error("Computer backup configuration missing");
+                    console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",2001);
                 }else if(controller.stage===2001){
                     controller.show_page("ondemand");controller.stage=3;
                 }else if(controller.stage===3){
@@ -417,11 +425,26 @@ Item {
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");
 
                     let items=photoBenchController.photoEntries.slice();items[1000]=Object.assign({},items[1000],{name:"During flick"});
+                    items.push({uid:"bench-2048",name:"Next page",safe:true,thumbnail:"",previewLoaded:true});
                     photoBenchController.photoEntries=items;
+                    if(grid.count!==2049 || grid.contentY!==controller.photoBenchScroll)throw new Error("Appending during scrolling stalled or moved the viewport");
                     if(!controller.photoBench.pendingPhotos)throw new Error("Photo update was not deferred during movement");
                     controller.photoBench.scrolling=false;controller.stage=21024;
                 }else if(controller.stage===21024){
                     if(controller.photoBench.pendingPhotos || controller.photoBench.appliedPhotos[1000].name!=="During flick" || controller.photoBench.selected[0]!==1000)throw new Error("Deferred photo result or selection lost");
+                    photoBenchController.requests=[];
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoTotal:3000};
+                    controller.childNamed(controller.photoBench,"photoGrid").positionViewAtEnd();
+                    controller.stage=21025;
+                }else if(controller.stage===21025){
+                    if(!photoBenchController.requests.some(request=>request.action==="more"))return;
+                    controller.photoBench.viewState={busy:false,photosMore:false,photoTotal:2049};
+                    controller.photoBench.scrolling=true;
+                    let items=photoBenchController.photoEntries.slice();items[2048]=Object.assign({},items[2048],{previewLoaded:false});
+                    photoBenchController.requests=[];photoBenchController.photoEntries=items;controller.stage=21026;
+                }else if(controller.stage===21026){
+                    if(!photoBenchController.requests.some(request=>request.action==="previews" && request.start===2048))return;
+                    console.log("NATIVE_PHOTO_AUTOMATIC_PAGING_AND_PREFETCH_OK");
                     controller.photoBench.scrolling=true;photoBenchController.photoEntries=[];
                     if(controller.photoBench.pendingPhotos || controller.childNamed(controller.photoBench,"photoGrid").count!==0)throw new Error("Photo inventory reset left stale tiles during scrolling");
                     console.log("NATIVE_PHOTO_DEFERRED_UPDATES_OK");
@@ -450,12 +473,15 @@ Item {
                     controller.dialogChild("dialogAccept").clicked();controller.stage=23;
                 }else if(controller.stage===23){
                     if(controller.state.noticeError)throw new Error("Synthetic rename failed");
-                    controller.select_row(0,false);controller.action("Freigabe");controller.stage=24;
+                    controller.select_row(0,false);controller.view.hide();controller.action("Freigabe");controller.stage=24;
                 }else if(controller.stage===24){
-                    if(controller.lastDialog.kind!=="share")throw new Error("Share dialog missing");
+                    if(controller.lastDialog.kind!=="share" || !controller.view.sharingWindow.visible)throw new Error("Separate share window missing");
+                    if(controller.view.visible)throw new Error("Sharing unexpectedly revealed main window");
+                    if(Qt.application.arguments.length>4 && !files.snapshotWindow("shareWindow",Qt.application.arguments[4]+"/share-window-light.png"))throw new Error("Share window capture failed");
                     controller.dialogChild("copyShareLink").clicked();controller.stage=25;
                 }else if(controller.stage===25){
                     if(files.clipboardText()!=="https://drive.proton.me/urls/synthetic?literal=%3Cb%3E")throw new Error("Clipboard value changed");
+                    controller.view.sharingWindow.close();controller.view.show();
                     console.log("NATIVE_PROMPT_AND_CLIPBOARD_OK");
                     controller.action("chooseBackground");controller.stage=6;
                 }else if(controller.stage===6){

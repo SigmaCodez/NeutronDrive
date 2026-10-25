@@ -29,7 +29,8 @@ fn execute(
 ) -> Result<Value, Failure> {
     let action = operation["action"].as_str().unwrap_or("");
     if ![
-        "status", "start", "stop", "remove", "pause", "resume", "sync", "add", "computer",
+        "status", "start", "stop", "restart", "remove", "pause", "resume", "sync", "add",
+        "computer",
     ]
     .contains(&action)
     {
@@ -58,6 +59,19 @@ fn execute(
     match action {
         "status" => return call(status),
         "start" => {
+            call(start)?;
+        }
+        "restart" => {
+            let current = call(status.clone())?;
+            if current["jobs"]
+                .as_array()
+                .is_some_and(|jobs| jobs.iter().any(|job| job["state"] == "syncing"))
+            {
+                return Err(failure(
+                    "Wait for active synchronization to finish before restarting the service.",
+                ));
+            }
+            call(service(json!({"action":"stop"})))?;
             call(start)?;
         }
         "stop" => {
@@ -122,6 +136,39 @@ fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn restart_waits_for_confirmed_stop_and_refuses_active_sync() {
+        for (syncing, stop_fails) in [(true, false), (false, true), (false, false)] {
+            let mut calls = Vec::new();
+            let result = execute(
+                "sdk",
+                &json!({"action":"restart"}),
+                Path::new("/app"),
+                false,
+                &mut |r| {
+                    calls.push(r.clone());
+                    if r["op"] == "data_dir" {
+                        return Ok(json!("/tmp/state"));
+                    }
+                    if r["operation"]["action"] == "stop" && stop_fails {
+                        return Err(failure("Still stopping"));
+                    }
+                    Ok(
+                        json!({"running":true,"jobs":[{"state":if syncing {"syncing"} else {"idle"}}]}),
+                    )
+                },
+            );
+            assert_eq!(result.is_ok(), !syncing && !stop_fails);
+            assert_eq!(
+                calls.iter().any(|r| r["operation"]["action"] == "start"),
+                !syncing && !stop_fails
+            );
+            if !syncing && !stop_fails {
+                assert_eq!(calls[2]["operation"]["action"], "stop");
+                assert_eq!(calls[3]["operation"]["action"], "start");
+            }
+        }
+    }
     #[test]
     fn denied_portal_prevents_all_job_and_cloud_changes() {
         for action in ["add", "computer"] {

@@ -1,10 +1,36 @@
 # Desktop features
 
-The latest published package is alpha14; its changes are tracked in
-[PR #13](https://github.com/SigmaCodez/NeutronDrive/pull/13). The sections below
-identify when features were introduced.
+The latest published package is alpha15. The sections below identify when features
+were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
+
+## Alpha15 changes
+
+- **Photos:** the next page and its previews load automatically near the bottom;
+  there is no “Load more photos” button. Appending continues during scrolling.
+  JPEG thumbnail payloads are cached under `$XDG_CACHE_HOME/neutrondrive/photo-thumbnails-v1`
+  (normally `~/.cache/neutrondrive/photo-thumbnails-v1`). The private cache is
+  limited to 512 MiB and entries expire after 30 days. Account identity and the
+  current photo revision determine the cache key. Authenticated metadata is still
+  fetched before reuse; this is not an offline photo-library mode. Missing,
+  corrupt or unwritable cache entries fall back to fetching previews. Signing
+  out clears this cache. Originals are not downloaded for timeline browsing.
+  The updated SDK bridge is required to expose revision IDs; older bridges work
+  without persistent thumbnail caching.
+- **Sharing:** file-manager sharing opens its own themed window, without raising
+  the main browser. Link copying, link creation/revocation and email invitations
+  retain the selected file/folder. Invitations and revocation require confirmation.
+  Canceling confirmation returns to sharing; successful changes reload its status.
+- **Computer backup:** choose Computers → Computer backup to add and manage
+  backup folders. Other folder-pair jobs remain under Settings → Automatic sync.
+- **Navigation:** the Automatic sync sidebar entry is removed. Settings contains
+  a dedicated Automatic sync tab with configuration and service start/stop/restart.
+  Restart refuses a reported active synchronization and only starts a replacement
+  after the previous daemon has confirmed stopping. It does not unmount online files.
+
+Older navigation labels in historical sections refer to the version in which
+the feature was introduced. In alpha15, synchronization is configured in Settings.
 
 ## Files and sync
 
@@ -23,7 +49,7 @@ retain errors, conflicts and per-job pause/resume/retry controls.
 
 ## Tray
 
-The Qt tray provides window activation, direct access to Automatic sync and
+The Qt tray provides window activation, direct access to Settings and
 Online drive, and explicit sync-service start/stop. Closing an idle window hides
 it only when a tray is available. Closing during an active transfer keeps the
 existing cancellation confirmation. If the tray host disappears, a hidden window
