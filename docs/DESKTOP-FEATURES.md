@@ -1,6 +1,6 @@
 # Desktop features
 
-The latest published package is alpha11; alpha12 development work is tracked in
+The latest published package is alpha13; its changes are tracked in
 [PR #11](https://github.com/SigmaCodez/NeutronDrive/pull/11). The sections below
 identify when features were introduced.
 Upgrade the complete application package; older bridges do not contain all
@@ -8,7 +8,7 @@ photo-library, album and account-storage commands.
 
 ## Files and sync
 
-### Account menu (unreleased)
+### Account menu (alpha13)
 
 The lower-left account button displays the signed-in user's display name and,
 when available, email address. Its themed menu opens Settings, the Proton
@@ -41,7 +41,7 @@ certify tray support in every desktop/environment combination.
 ## Photos and albums (alpha9)
 
 Photos inventories the timeline once and displays the total count. Scrolling
-loads metadata and JPEG previews in batches of up to 48. The unreleased scrolling
+loads metadata and JPEG previews in batches of up to 48. The alpha13 scrolling
 update preserves grid delegates and scroll position, separates thumbnail updates
 from service/status updates, and requests the next page before reaching the end.
 Page loading retains up to 96 thumbnail payloads; preview refresh retains a
