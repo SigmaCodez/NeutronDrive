@@ -77,6 +77,9 @@ noextract=('neutrondrive.deb')
 package() {{
     bsdtar -xOf "$srcdir/neutrondrive.deb" data.tar.xz |
         bsdtar -xJf - -C "$pkgdir" ./usr
+    # Arch uses /usr/lib; /usr/lib64 is a symlink owned by filesystem.
+    # Keep the equivalent host extensions in /usr/lib only.
+    rm -rf "$pkgdir/usr/lib64" "$pkgdir/usr/lib/x86_64-linux-gnu" "$pkgdir/usr/lib/aarch64-linux-gnu"
     mv "$pkgdir/usr/share/licenses/neutrondrive" "$pkgdir/usr/share/licenses/$pkgname"
 }}
 '''

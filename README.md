@@ -4,7 +4,7 @@ An independent, open-source **Linux desktop client for Proton Drive**, with a
 native Qt Quick/QML interface and Proton's open-source SDK/CLI as its encryption and account
 backend. The interface follows the system language, with 25 Windows-matching language variants and an English fallback. See [localization and translation review status](docs/LOCALIZATION.md).
 
-**Status: 0.6.0 alpha 9.** Automatic background synchronization, recoverable
+**Status: 0.6.0 alpha 10.** Automatic background synchronization, recoverable
 bidirectional file deletions and real on-demand files are implemented. Full Windows/macOS feature parity is not yet reached.
 Keep an independent backup while using this alpha. See the actual [validation record](docs/VALIDATION.md).
 
@@ -12,17 +12,16 @@ NeutronDrive is not affiliated with, endorsed by, or officially supported by
 Proton AG. Proton names are used only to identify the compatible service. The
 interface and icon are original; no Windows/macOS application code is copied.
 
-> **In development after alpha9:** a themed two-step setup assistant, cleaner photo
-> selection and a zoomable preview, plus native file-manager menu extensions.
-> See [desktop refinements](docs/DESKTOP-FEATURES.md#gallery-and-desktop-refinements-development-after-alpha9)
-> and [file-manager support](docs/FILE-MANAGER-INTEGRATION.md). These changes are not
-> included in the alpha9 downloads yet.
+Alpha10 adds a themed two-step setup assistant, opt-in photo selection and a
+zoomable preview, plus native file-manager menu extensions. See
+[desktop refinements](docs/DESKTOP-FEATURES.md#gallery-and-desktop-refinements-alpha10)
+and [file-manager support](docs/FILE-MANAGER-INTEGRATION.md).
 
-## Next-build previews
+## Photos and setup previews
 
-Captured from the actual development UI in English with synthetic demo data.
+Actual alpha10 release UI, captured in English with isolated synthetic data.
 
-![Photo selection in the development build](docs/previews/development/light-photos-selection.png)
+![Photo selection](docs/previews/development/light-photos-selection.png)
 
 [Clean photo grid](docs/previews/development/light-photos.png) ·
 [Image preview](docs/previews/development/light-photo-viewer.png) ·
@@ -40,7 +39,7 @@ views; arrow keys, Ctrl+A, Ctrl-click and double-click folder navigation work in
 both. The view choice lasts for the current application session. Grid tiles use
 file/folder icons, not photo thumbnails.
 
-![Current alpha9 grid view in English](docs/previews/files-grid-light.png)
+![Current alpha10 grid view in English](docs/previews/files-grid-light.png)
 
 [Dark grid](docs/previews/files-grid-dark.png) ·
 [Detailed list](docs/previews/files-list-light.png) ·
@@ -65,11 +64,11 @@ sync overview, computer backup and guarded version history remain available.
 See [desktop feature details and limits](docs/DESKTOP-FEATURES.md). This is not a
 claim of complete Windows/macOS parity; package restrictions remain explicit.
 
-## Published alpha9 interface
+## Published alpha10 interface
 
-![Current alpha9 interface in English with isolated sample files](docs/demo.png)
+![Current alpha10 interface in English with isolated sample files](docs/demo.png)
 
-Actual alpha9 GUI, captured in English using isolated synthetic data; no live account or personal files.
+Actual alpha10 GUI, captured in English using isolated synthetic data; no live account or personal files.
 [Preview build and capture details](docs/GUI-PREVIEWS.json).
 
 [Current dark appearance preview](docs/demo-dark.png) · Appearance follows the desktop setting or your manual preference.
@@ -164,21 +163,21 @@ After downloading a matching package:
 
 ```sh
 # Debian/Ubuntu
-sudo apt install ./neutrondrive_0.6.0-alpha9-1_amd64.deb
+sudo apt install ./neutrondrive_0.6.0-alpha10-1_amd64.deb
 
 # Fedora (use the Fedora artifact)
-sudo dnf install ./neutrondrive-0.6.0-alpha9-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-0.6.0-alpha10-fedora-x86_64.rpm
 
 # openSUSE (use the openSUSE artifact)
-sudo zypper install ./neutrondrive-0.6.0-alpha9-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-0.6.0-alpha10-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.6.0a9-x86_64.flatpak
+flatpak install --user ./neutrondrive-0.6.0a10-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (unsigned alpha package)
-sudo snap install --dangerous ./neutrondrive_0.6.0-alpha9_amd64.snap
+sudo snap install --dangerous ./neutrondrive_0.6.0-alpha10_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 ```
 
@@ -186,8 +185,8 @@ Additional formats:
 
 ```sh
 # Portable x86_64 AppImage
-chmod +x NeutronDrive-0.6.0-alpha9-x86_64.AppImage
-./NeutronDrive-0.6.0-alpha9-x86_64.AppImage
+chmod +x NeutronDrive-0.6.0-alpha10-x86_64.AppImage
+./NeutronDrive-0.6.0-alpha10-x86_64.AppImage
 
 # Arch/Manjaro: review the PKGBUILD, then build as a regular user
 # Requires base-devel and git.
@@ -429,7 +428,7 @@ and use their normal package/update workflow. See [update behavior and limits](d
 Automatic sync now includes a Computer backup card that registers a Linux
 computer through the official SDK and synchronizes selected folders under
 Proton Drive's Computers section. It requires the new source-built SDK bridge
-and Rust core, included in alpha9 packages. See
+and Rust core, included in alpha10 packages. See
 [setup and safety behavior](docs/COMPUTER-BACKUP.md) and the
 [Windows feature comparison](docs/WINDOWS-PARITY.md) for remaining gaps.
 

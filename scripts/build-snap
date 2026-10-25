@@ -40,7 +40,7 @@ def prepare(project):
     native.verify(frontend, args.arch)
     target = project / "native-frontend" / args.arch
     target.mkdir(parents=True)
-    for name in (native.BINARY, native.REPORT):
+    for name in (native.BINARY, native.REPORT, *native.FILE_MANAGER_ARTIFACTS):
         shutil.copyfile(frontend / name, target / name)
     qt_spec = importlib.util.spec_from_file_location("qt_runtime", ROOT / "packaging/qt_runtime.py")
     qt_runtime = importlib.util.module_from_spec(qt_spec)
@@ -55,8 +55,15 @@ def prepare(project):
         if Path(directory) == ROOT / "core":
             ignored.add("vendor")
         return ignored
-    for name in ("src", "data", "packaging", "core", "desktop"):
+    for name in ("src", "data", "packaging", "core", "desktop", "file-manager"):
         shutil.copytree(ROOT / name, project / name, ignore=ignore_build_cache)
+    # Validate the isolated source copy as well as the original checkout.
+    original_root = native.ROOT
+    try:
+        native.ROOT = project
+        native.verify(project / "native-frontend" / args.arch, args.arch)
+    finally:
+        native.ROOT = original_root
     # This project stages a prebuilt, verified executable; retain dependency
     # notices without copying the entire compiler dependency source cache.
     for crate in (ROOT / "core/vendor").iterdir():

@@ -1,7 +1,7 @@
-# Native file-manager integration (development)
+# Native file-manager integration (alpha10)
 
-The next build adds **Keep on device**, **Free up space** and **Share…** to
-Linux file-manager context menus. These changes are not in the alpha9 release.
+Alpha10 adds **Keep on device**, **Free up space** and **Share…** to
+Linux file-manager context menus. These changes are included in the native alpha10 packages.
 
 | File manager | Integration | Scope |
 | --- | --- | --- |

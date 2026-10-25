@@ -1,4 +1,4 @@
-# Desktop features: alpha9
+# Desktop features: alpha10
 
 Alpha9 includes these features in both the native frontend and SDK bridge.
 Upgrade the complete application package; older bridges do not contain all
@@ -50,7 +50,7 @@ editing, RAW grouping and import remain outside this change.
 
 ## Guided placeholder sync (alpha9)
 
-The next development build uses a themed two-step assistant: sign in to Proton
+Alpha10 uses a themed two-step assistant: sign in to Proton
 first, then choose the sync folder. Continue is enabled after authentication;
 Back preserves the folder choice. Cards, buttons and inputs follow the main
 window’s light/dark appearance.
@@ -137,7 +137,7 @@ BUILD_INFO.json and TEST_RESULTS.json for the exact scope and remaining limits.
 See the alpha8 release BUILD_INFO.json and TEST_RESULTS.json for the exact
 build commit, GitHub test run and installed-package validation.
 
-## Gallery and desktop refinements (development, after alpha9)
+## Gallery and desktop refinements (alpha10)
 
 The photo grid now shows clean image tiles. **Select photos** enters selection
 mode; only then do checkboxes appear in the top-left corner of images. **Done**
