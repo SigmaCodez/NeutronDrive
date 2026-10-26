@@ -295,6 +295,15 @@ jobs:
           snap run --shell neutrondrive -c 'cat /proc/self/mountinfo >/dev/null'
           snap run neutrondrive --version
           snap run neutrondrive --diagnose
+          # Exercise real job registration, daemon IPC, pause/remove and
+          # autostart within confinement, using a deliberately missing SDK.
+          snap run --shell neutrondrive -c '
+            export SNAP_USER_DATA="$SNAP_USER_DATA/ci-background"
+            export XDG_STATE_HOME="$SNAP_USER_DATA/state" XDG_CONFIG_HOME="$SNAP_USER_DATA/config"
+            export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software
+            mkdir -p "$SNAP_USER_DATA/local"
+            exec "$SNAP/usr/bin/neutrondrive" --check-background "$SNAP/usr/lib/neutrondrive/neutrondrive/locales" "$SNAP_USER_DATA/local"
+          '
           # snap run itself needs the real session bus to create its cgroup.
           # Isolate the theme fixture only after entering the strict sandbox
           # and its normal command-chain, without disabling confinement.
