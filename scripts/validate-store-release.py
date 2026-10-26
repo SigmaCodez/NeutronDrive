@@ -12,12 +12,21 @@ def normalized(version):
     return version.removeprefix('v').replace('-beta.', '-beta')
 
 
+def channel_for(tag):
+    if re.fullmatch(r'v\d+\.\d+\.\d+-beta\.?\d+', tag):
+        return 'latest/beta'
+    if re.fullmatch(r'v\d+\.\d+\.\d+', tag):
+        return 'latest/stable'
+    raise ValueError('Expected a stable or beta semantic version tag')
+
+
 def validate(release, tag, package, checksums, metadata):
     if release.get('draft') or not release.get('published_at') or release.get('tag_name') != tag:
         raise ValueError('Expected the requested published GitHub release')
-    if not re.fullmatch(r'v\d+\.\d+\.\d+-beta\.?\d+', tag):
-        raise ValueError('This publisher accepts beta releases only')
-    for field, expected in {'name': 'neutrondrive', 'confinement': 'strict', 'grade': 'devel',
+    channel = channel_for(tag)
+    if channel == 'latest/stable' and release.get('prerelease'):
+        raise ValueError('A GitHub prerelease cannot publish to stable')
+    for field, expected in {'name': 'neutrondrive', 'confinement': 'strict', 'grade': 'stable' if channel == 'latest/stable' else 'devel',
                             'base': 'core24', 'summary': 'Unofficial Proton Drive client for Linux'}.items():
         if metadata.get(field) != expected:
             raise ValueError(f'Unexpected Snap {field}')

@@ -1,8 +1,8 @@
-# Automatic Snap Store beta releases
+# Automatic Snap Store releases
 
-The **Publish Snap Store beta** workflow uploads the existing amd64 Snap asset of a
-published GitHub beta release to `latest/beta`. It does not build a different
-package and never promotes releases to stable. Normal pushes and pull requests
+The **Publish Snap Store release** workflow uploads the existing amd64 Snap asset of a
+published GitHub release to its corresponding channel: beta tags to `latest/beta`, regular version tags to `latest/stable`. It does not build a different
+package and selects stable only for a regular release with `grade: stable`. Normal pushes and pull requests
 cannot publish to the Store.
 
 ## Release procedure
@@ -15,7 +15,7 @@ cannot publish to the Store.
    Store's review to pass; upload or review errors fail the workflow visibly.
 
 The publisher checks that the release is published, its tag matches the package
-version, and the package is `neutrondrive`, strict, core24, amd64 and grade devel.
+version, and the package is `neutrondrive`, strict, core24, amd64 and the correct grade (`devel` for beta, `stable` for stable).
 It requires the summary `Unofficial Proton Drive client for Linux`.
 The default-branch validator runs before the Store credential is exposed to the
 upload step. The downloaded Snap is inspected, not executed.
@@ -35,14 +35,14 @@ the maintainer through the website or authenticated CLI trigger automatically.
 
 Repository: `SigmaCodez/NeutronDrive`.
 Secret: `SNAPCRAFT_STORE_CREDENTIALS` (GitHub Actions repository secret).
-Scope: `neutrondrive`, `latest/beta`, ACLs `package_access,package_push,package_release`.
+Scope: `neutrondrive`, `latest/beta,latest/stable`, ACLs `package_access,package_push,package_release`.
 Current credential expires **2027-10-26 at 00:00 UTC**. Renew it before expiry.
 
 Generate the replacement interactively without printing its contents:
 
 ```bash
 umask 077
-snapcraft export-login --snaps=neutrondrive --channels=latest/beta \
+snapcraft export-login --snaps=neutrondrive --channels=latest/beta,latest/stable \
   --acls=package_access,package_push,package_release \
   --expires=2027-10-26T00:00:00Z store-login
 # Store directly as an encrypted repository secret; never commit the file.

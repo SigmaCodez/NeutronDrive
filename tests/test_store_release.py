@@ -41,8 +41,28 @@ class StoreReleaseTests(unittest.TestCase):
         self.release['draft'] = True
         with self.assertRaises(ValueError): self.validate()
 
-    def test_stable_tag_rejected(self):
-        self.tag = self.release['tag_name'] = 'v0.1.0'
+    def stable(self):
+        self.tag = self.release['tag_name'] = 'v1.0.0'
+        self.metadata.update(version='1.0.0', grade='stable')
+
+    def test_stable_release(self):
+        self.stable()
+        self.validate()
+        self.assertEqual(module.channel_for(self.tag), 'latest/stable')
+        self.assertEqual(module.channel_for('v1.0.1-beta1'), 'latest/beta')
+
+    def test_devel_grade_cannot_publish_stable(self):
+        self.stable()
+        self.metadata['grade'] = 'devel'
+        with self.assertRaises(ValueError): self.validate()
+
+    def test_prerelease_cannot_publish_stable(self):
+        self.stable()
+        self.release['prerelease'] = True
+        with self.assertRaises(ValueError): self.validate()
+
+    def test_unknown_tag_rejected(self):
+        self.tag = self.release['tag_name'] = 'v1.0.0-rc1'
         with self.assertRaises(ValueError): self.validate()
 
     def test_missing_or_duplicate_checksum(self):

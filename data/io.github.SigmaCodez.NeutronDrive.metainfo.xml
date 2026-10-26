@@ -8,7 +8,7 @@
   <developer id="io.github.sigmacodez"><name>SigmaCodez and contributors</name></developer>
   <description>
     <p>NeutronDrive provides a native Qt 6 interface to Proton Drive through its official SDK. Browse your cloud folders and transfer files using Proton's encryption and browser sign-in.</p>
-    <p>This is an independent community project, not affiliated with, endorsed by, or officially supported by Proton AG. This beta release needs a Proton account, a browser, and a running Secret Service such as GNOME Keyring or a compatible KWallet service.</p>
+    <p>This is an independent community project, not affiliated with, endorsed by, or officially supported by Proton AG. The application needs a Proton account, a browser, and a running Secret Service such as GNOME Keyring or a compatible KWallet service.</p>
   </description>
   <launchable type="desktop-id">io.github.SigmaCodez.NeutronDrive.desktop</launchable>
   <url type="homepage">https://neutrondrive.sigmacodez.dev</url>
@@ -22,5 +22,5 @@
   <content_rating type="oars-1.1"/>
   <requires><internet>always</internet></requires>
   <supports><control>pointing</control><control>keyboard</control></supports>
-  <releases><release version="0.1.0b1" date="2026-10-25" type="development"><description><p>First beta: native Rust and Qt Quick client with online placeholders, photo libraries, Takeout import, computer folder synchronization, sharing and coordinated DEB/RPM updates.</p></description></release></releases>
+  <releases><release version="1.0.0" date="2026-10-26" type="stable"><description><p>Stable release with native Rust and Qt Quick, standalone sandbox folder sync, responsive account storage refresh and automated Snap Store publication. Native DEB/RPM packages retain online placeholders and file-manager integration.</p></description></release><release version="0.1.0b1" date="2026-10-25" type="development"><description><p>First beta: native Rust and Qt Quick client with online placeholders, photo libraries, Takeout import, computer folder synchronization, sharing and coordinated DEB/RPM updates.</p></description></release></releases>
 </component>
