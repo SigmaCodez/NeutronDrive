@@ -247,7 +247,7 @@ impl Files {
     pub fn message(&mut self, message: &str, error: bool) {
         self.state["noticeError"] = error.into();
         self.field("notice_label", json!(self.locale.diagnostic(message)));
-        self.state["fields"]["notice_label"]["visible"] = true.into();
+        self.state["fields"]["notice_label"]["visible"] = (!message.is_empty()).into();
     }
     fn field(&mut self, key: &str, value: Value) {
         self.state["fields"][key]["value"] = value;
@@ -1664,6 +1664,15 @@ mod tests {
         ));
         assert_eq!(w.operation["paths"], json!(["/tmp/a b"]));
         assert_eq!(w.operation["file_strategy"], "rename");
+    }
+    #[test]
+    fn clearing_notice_hides_the_banner() {
+        let mut m = loaded();
+        m.message("An operation failed", true);
+        assert_eq!(m.state["fields"]["notice_label"]["visible"], true);
+        m.message("", false);
+        assert_eq!(m.state["fields"]["notice_label"]["visible"], false);
+        assert_eq!(m.state["noticeError"], false);
     }
     #[test]
     fn stale_result_does_not_release_current_busy_operation() {
