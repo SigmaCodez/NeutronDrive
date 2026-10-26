@@ -146,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.1.0-beta1_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_1.0.0_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -279,3 +279,10 @@ The local Snap/Flatpak downloads are not Store listings. See
 Store editions use ordinary downloaded-folder synchronization and explicitly
 exclude native FUSE/file-manager integration. The native DEB/RPM behavior is
 unchanged. Publication requires runtime testing of the changed packages.
+
+## Stable 1.0
+
+Application and distributable package versions are 1.0.0. Epoch 1 is retained for
+native package upgrades. Snap uses `grade: stable`; regular GitHub release tags
+publish to `latest/stable`, while beta tags continue to use `latest/beta`.
+See [Store automation](../docs/snap-store-automation.md).

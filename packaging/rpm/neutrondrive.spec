@@ -1,8 +1,8 @@
 Name:           neutrondrive
 Epoch:          1
-Version:        0.1.0~beta1
+Version:        1.0.0
 Release:        1%{?dist}
-Summary:        Independent Qt client for Proton Drive (beta)
+Summary:        Independent Qt client for Proton Drive
 License:        MIT
 URL:            https://github.com/SigmaCodez/NeutronDrive
 Source0:        neutrondrive-payload.tar.gz
