@@ -1,6 +1,6 @@
 # Interface refinement and download emblems
 
-Unreleased changes based on v1.0.0. No package was installed or published for this change.
+Prepared for v1.0.1. The design/emblem build was installed locally on Ubuntu 26.04.1; release packages and Ubuntu 26.10 are verified separately by CI.
 
 ## Behavior
 
@@ -24,6 +24,20 @@ Unreleased changes based on v1.0.0. No package was installed or published for th
 - Package staging verifies both green and blue SVG icons are included.
 - Actual English GUI captures were inspected in light, dark and compact modes. See previews/design-polish/capture.json.
 
+## Real-account test on 2026-10-27
+
+Three synthetic 8 MiB files were uploaded to a uniquely named test folder.
+The installed native status provider reported `0 -> 2 -> 1` (online-only,
+downloading, available) for both an individual file and a selected subfolder.
+SHA-256 checks of all three files read through the mounted folder matched the
+originals. Including metadata and content verification, these operations took
+about 83 and 108 seconds. A preceding user-initiated folder download reported a
+cloud-availability warning; the controlled test succeeded. This does not certify
+that every item in the user's earlier selection completed.
+
+The Qt regression verifies pin and evict do not reveal a hidden main window;
+existing sharing-window and instance-forwarding tests also pass.
+
 ## Limits
 
-No new real-account upload/download, installer or store publication was performed. Dolphin's KIO adapter was updated but not built or exercised in a KDE desktop here. Synthetic fixtures and local kernel tests do not establish complete Windows/macOS feature parity or prove all real-account scenarios.
+The real-account test inspected provider status and file contents; it did not capture the live painted icons. No v1.0.1 store publication is claimed until its workflow completes. Dolphin's KIO adapter was updated but not built or exercised in a KDE desktop here. Synthetic fixtures and local kernel tests do not establish complete Windows/macOS feature parity or prove all real-account scenarios.

@@ -12,9 +12,10 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Latest published version: [1.0.0](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.0).**
-This update adds Google Takeout import, clearer computer backup setup, optional
-Ko-fi support and coordinated app/service restarts after DEB and RPM updates.
+**Version [1.0.1](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.1).**
+This update refines the light/dark interface, adds blue download progress emblems,
+and keeps file-manager offline actions in the background. Ubuntu 26.10 DEB
+installation and interface checks are part of the release test matrix.
 Keep an independent backup of important files. Complete Windows/macOS feature
 parity has not been reached.
 
@@ -28,13 +29,13 @@ The built-in DEB/RPM updater safely restarts the app and previously running serv
 See [feature details and limitations](docs/DESKTOP-FEATURES.md#beta-01-takeout-computer-and-donations)
 and [update restart behavior](docs/DESKTOP-FEATURES.md#beta-01-update-restart).
 
-## Upcoming interface refinement
+## Interface and download progress
 
-Development previews of the updated Qt Quick interface: a clearer content area,
+The Qt Quick interface provides a clearer content area,
 consistent light/dark surfaces, roomier navigation and a wrapping file-action bar.
-These changes are not part of the published 1.0.0 packages yet.
+The following English previews use isolated synthetic data in the actual app.
 
-![Development interface in dark mode](docs/previews/design-polish/dark-grid.png)
+![NeutronDrive interface in dark mode](docs/previews/design-polish/dark-grid.png)
 
 [Light mode](docs/previews/design-polish/light-grid.png) ·
 [Compact layout](docs/previews/design-polish/compact-files.png) ·
@@ -48,36 +49,14 @@ Snap and Flatpak still do not install native file-manager extensions.
 
 ## Light and dark appearance
 
-Existing captures of the **0.1 beta release GUI**, in English, using isolated
-synthetic demo data. These are actual application renders, not mockups or a live
-account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
+![NeutronDrive file grid in light mode](docs/previews/design-polish/light-grid.png)
 
-### Dark mode
+![NeutronDrive settings in dark mode](docs/previews/design-polish/dark-settings.png)
 
-![NeutronDrive file grid in dark mode](docs/previews/files-grid-dark.png)
+![Photo library in light mode](docs/previews/design-polish/light-photos.png)
 
-![Signed-in account menu in dark mode](docs/previews/account-menu-dark.png)
-
-![NeutronDrive appearance settings in dark mode](docs/previews/settings-dark.png)
-
-[Dark sign-in assistant](docs/previews/development/setup-sign-in-dark.png) ·
-[Dark sync-folder assistant](docs/previews/development/setup-folder-dark.png)
-
-### Light mode and photos
-
-![NeutronDrive file grid in light mode](docs/previews/files-grid-light.png)
-
-![Photo selection with image-overlay checkboxes](docs/previews/development/light-photos-selection.png)
-
-[Photo timeline](docs/previews/photos-light.png) ·
-[Photo viewer](docs/previews/development/light-photo-viewer.png) ·
-[Albums](docs/previews/albums-light.png) ·
-[Sync settings](docs/previews/background-light.png) ·
-[Computer setup](docs/previews/computers-light.png) ·
-[Computer backup](docs/previews/computer-backup-light.png) ·
-[Sharing window](docs/previews/sharing-light.png) ·
-[Online drive](docs/previews/online-drive-light.png) ·
-[Version history](docs/previews/history-light.png)
+[Compact layout](docs/previews/design-polish/compact-files.png) ·
+[Capture version and hashes](docs/previews/design-polish/capture.json)
 
 The app follows your system's light/dark preference. **Settings → Appearance**
 also lets you choose System, Light or Dark manually. Theme changes apply immediately.
@@ -91,7 +70,8 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
 The **Proton Drive** bookmark uses NeutronDrive’s icon. A **green checkmark**
 means a file is available locally; a folder is marked when its contents are
 fully available offline. Use **Keep on device** to retain selected files or
-folders and **Free up space** to remove eligible local cached copies.
+folders and **Free up space** to remove eligible local cached copies. These
+actions do not open the main window. **Share** opens its separate sharing window.
 
 These are current GNOME Files (Nautilus) captures in English, with synthetic
 example files and offline-status fixtures rendered by the real extension.
@@ -143,8 +123,12 @@ The old GitHub releases and tags are retired; Git history remains. Historical re
 
 ## Install
 
+DEB packages are provided for amd64 and arm64. The release checks install the
+same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
+These container checks do not replace a full GNOME/Wayland desktop-session test.
+
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.0 release assets**, not development artifacts.
+The commands below use the **1.0.1 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 | Format | Intended systems | Important details |
@@ -158,29 +142,29 @@ Packages are independent community builds, not official Proton packages or store
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.0-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.1-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.0-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.1-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.0-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.1-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.0-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.0_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.0-x86_64.AppImage
-./NeutronDrive-1.0.0-x86_64.AppImage
+chmod +x NeutronDrive-1.0.1-x86_64.AppImage
+./NeutronDrive-1.0.1-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.0-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.1-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
