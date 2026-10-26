@@ -307,7 +307,21 @@ Item {
                     controller.show_page("local-trash");controller.stage=4;
                 }else if(controller.stage===4){controller.show_page("activity");controller.stage=5;
                 }else if(controller.stage===5){controller.show_page("files");controller.stage=15;
-                }else if(controller.stage===15){controller.capture("light-files.png",16);
+                }else if(controller.stage===15){
+                    controller.view.width=900;controller.view.height=640;controller.stage=150;
+                }else if(controller.stage===150){
+                    let actions=controller.childNamed(controller.view.contentItem,"fileActionBar");
+                    let list=controller.childNamed(controller.view.contentItem,"fileList");
+                    if(!actions || !list || list.height<100)throw new Error("Compact layout hides the file browser: " + (list ? list.height : "missing list") + ", actions=" + Boolean(actions));
+                    for(let item of actions.children){
+                        if(!item.visible || item.width<=0)continue;
+                        if(item.x+item.width>actions.width+1 || item.y+item.height>actions.height+1)throw new Error("File action clipped in compact layout");
+                    }
+                    console.log("NATIVE_COMPACT_FILE_ACTIONS_OK");
+                    controller.capture("compact-files.png",151);
+                }else if(controller.stage===151){
+                    controller.view.width=1220;controller.view.height=820;controller.stage=152;
+                }else if(controller.stage===152){controller.capture("light-files.png",16);
                 }else if(controller.stage===16){
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileList");
                     if(!controller.checkedList)throw new Error("File list missing");

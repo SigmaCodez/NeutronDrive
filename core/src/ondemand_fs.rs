@@ -149,6 +149,7 @@ struct Mount {
     loaded: BTreeMap<u64, Instant>,
     files: BTreeMap<u64, OpenFile>,
     observed: BTreeMap<String, Value>,
+    downloading: BTreeSet<u64>,
     error: String,
     blocked: bool,
     closed: bool,
@@ -282,6 +283,7 @@ impl Mount {
             loaded: BTreeMap::new(),
             files: BTreeMap::new(),
             observed: BTreeMap::new(),
+            downloading: BTreeSet::new(),
             error: String::new(),
             blocked: false,
             closed: false,
@@ -323,6 +325,7 @@ impl Mount {
     fn publish(&self, persist: bool) {
         let snapshot = crate::ondemand_snapshot::Snapshot {
             generation: self.generation,
+            downloading: self.downloading.clone(),
             entries: self
                 .tree
                 .entries
@@ -383,6 +386,14 @@ impl Mount {
     // A folder pin is a durable policy: later children inherit it during refresh.
     // Iterative traversal bounds cycles and avoids consuming the Rust stack.
     fn sync_pin_tree(&mut self, root: u64, host: &mut impl Services) -> Result<()> {
+        self.downloading.insert(root);
+        self.publish(true);
+        let result = self.sync_pin_tree_inner(root, host);
+        self.downloading.remove(&root);
+        self.publish(true);
+        result
+    }
+    fn sync_pin_tree_inner(&mut self, root: u64, host: &mut impl Services) -> Result<()> {
         let mut pending = vec![root];
         let mut visited = BTreeSet::new();
         while let Some(inode) = pending.pop() {
@@ -428,7 +439,11 @@ impl Mount {
                     ));
                 }
                 tree::node(&current)?;
-                self.hydrate(&current, host)?;
+                self.downloading.insert(inode);
+                self.publish(true);
+                let hydrated = self.hydrate(&current, host);
+                self.downloading.remove(&inode);
+                hydrated?;
                 if let Some(saved) = self.tree.entries.iter_mut().find(|e| e.inode == inode) {
                     saved.node = current;
                 }
@@ -1480,6 +1495,64 @@ mod tests {
         run(Operation::Close { id }, &mut host).unwrap();
         assert!(cached(id, &Action::Metadata { inode: 1 }).is_none());
     }
+    #[test]
+    fn pin_progress_is_published_before_download_and_cleared_on_success_or_failure() {
+        struct ProgressHost {
+            inner: Host,
+            cache: PathBuf,
+            fail: bool,
+            observed: bool,
+        }
+        impl Services for ProgressHost {
+            fn poll(&mut self) -> std::result::Result<(), Failure> {
+                Ok(())
+            }
+            fn request(
+                &mut self,
+                method: &str,
+                args: Value,
+            ) -> std::result::Result<Value, Failure> {
+                if method == "download" {
+                    let status: Value = serde_json::from_slice(
+                        &std::fs::read(self.cache.join("availability.json")).unwrap(),
+                    )
+                    .unwrap();
+                    assert_eq!(status["downloading"][""], true);
+                    assert_eq!(status["downloading"]["data"], true);
+                    assert!(status["available"].as_object().unwrap().is_empty());
+                    self.observed = true;
+                    if self.fail {
+                        return Err(Failure {
+                            message: "cancelled transfer".into(),
+                            cancelled: true,
+                        });
+                    }
+                }
+                self.inner.request(method, args)
+            }
+        }
+        for fail in [false, true] {
+            let temp = Temp::new();
+            let mut host = ProgressHost {
+                inner: Host::new(),
+                cache: temp.0.clone(),
+                fail,
+                observed: false,
+            };
+            let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+            let result = mount.sync_pin_tree(1, &mut host);
+            assert_eq!(result.is_err(), fail);
+            assert!(host.observed);
+            assert!(mount.downloading.is_empty());
+            let status: Value =
+                serde_json::from_slice(&std::fs::read(temp.0.join("availability.json")).unwrap())
+                    .unwrap();
+            assert!(status["downloading"].as_object().unwrap().is_empty());
+            assert_eq!(status["available"]["data"] == true, !fail);
+            assert_eq!(status["available"][""] == true, !fail);
+        }
+    }
+
     #[test]
     fn browser_refresh_does_not_download_pinned_descendants() {
         struct NoDownload(Host);

@@ -16,6 +16,7 @@ struct Index {
     checked: Option<Instant>,
     root: PathBuf,
     available: BTreeSet<String>,
+    downloading: BTreeSet<String>,
 }
 static INDEX: LazyLock<Mutex<Index>> = LazyLock::new(|| Mutex::new(Index::default()));
 fn json(path: &Path, limit: u64) -> Option<Value> {
@@ -35,7 +36,7 @@ fn json(path: &Path, limit: u64) -> Option<Value> {
     }
     serde_json::from_slice(&b).ok()
 }
-pub fn available(path: &Path) -> bool {
+pub fn status(path: &Path) -> u8 {
     let mut index = INDEX.lock().unwrap();
     if index
         .checked
@@ -43,6 +44,7 @@ pub fn available(path: &Path) -> bool {
     {
         index.checked = Some(Instant::now());
         index.available.clear();
+        index.downloading.clear();
         index.root = PathBuf::new();
         if let Some(state) = paths::state_directory() {
             if let Some(config) = json(&state.join("ondemand-service/mount.json"), 16384) {
@@ -63,6 +65,9 @@ pub fn available(path: &Path) -> bool {
                         16 * 1024 * 1024,
                     ) {
                         if data["version"] == 1 {
+                            if owner_alive(&data) {
+                                index.downloading = true_paths(&data["downloading"]);
+                            }
                             if let Some(entries) = data["available"].as_object() {
                                 index.available = entries
                                     .iter()
@@ -76,22 +81,89 @@ pub fn available(path: &Path) -> bool {
             }
         }
     }
-    paths::relative(&index.root, path).is_some_and(|p| index.available.contains(&p))
+    paths::relative(&index.root, path).map_or(0, |p| {
+        if index.downloading.contains(&p) {
+            2
+        } else if index.available.contains(&p) {
+            1
+        } else {
+            0
+        }
+    })
 }
 
-pub fn all_available() -> BTreeSet<PathBuf> {
-    let _ = available(Path::new("/"));
+pub fn available(path: &Path) -> bool {
+    status(path) == 1
+}
+fn true_paths(value: &Value) -> BTreeSet<String> {
+    value
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(_, v)| **v == true)
+        .map(|(k, _)| k.clone())
+        .collect()
+}
+fn owner_alive(value: &Value) -> bool {
+    let Some(pid) = value["owner_pid"]
+        .as_u64()
+        .filter(|pid| *pid > 1 && *pid <= i32::MAX as u64)
+    else {
+        return false;
+    };
+    let Some(expected) = value["owner_start"].as_str().filter(|s| !s.is_empty()) else {
+        return false;
+    };
+    std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()
+        .is_some_and(|s| {
+            s.rsplit_once(") ").is_some_and(|(_, fields)| {
+                let fields: Vec<_> = fields.split_whitespace().collect();
+                fields
+                    .first()
+                    .is_some_and(|state| !["Z", "X"].contains(state))
+                    && fields.get(19).is_some_and(|start| *start == expected)
+            })
+        })
+}
+pub fn all_states() -> std::collections::BTreeMap<PathBuf, u8> {
+    let _ = status(Path::new("/"));
     let index = INDEX.lock().unwrap();
     index
         .available
         .iter()
-        .filter(|p| {
+        .map(|p| (p, 1))
+        .chain(index.downloading.iter().map(|p| (p, 2)))
+        .filter(|(p, _)| {
             !p.is_empty()
                 && !Path::new(p).is_absolute()
                 && Path::new(p)
                     .components()
                     .all(|c| matches!(c, std::path::Component::Normal(_)))
         })
-        .map(|p| index.root.join(p))
+        .map(|(p, state)| (index.root.join(p), state))
         .collect()
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn progress_requires_the_original_live_process() {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap();
+        let start = stat
+            .rsplit_once(") ")
+            .unwrap()
+            .1
+            .split_whitespace()
+            .nth(19)
+            .unwrap();
+        let mut value = serde_json::json!({"owner_pid":std::process::id(),"owner_start":start});
+        assert!(owner_alive(&value));
+        value["owner_start"] = serde_json::json!("0");
+        assert!(!owner_alive(&value));
+        assert!(!owner_alive(
+            &serde_json::json!({"owner_pid":0,"owner_start":start})
+        ));
+        assert!(!owner_alive(&serde_json::json!({})));
+    }
 }
