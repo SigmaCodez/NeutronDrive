@@ -184,10 +184,11 @@ D-Bus service activation file plus an optional user systemd unit. Enable
 `neutrondrive-background.service` only if you prefer systemd to GUI-managed XDG
 autostart; do not enable both. The GUI can generate an XDG autostart entry.
 
-Flatpak uses the Background portal for session persistence/autostart. Mounting
-online files requires the native NeutronDrive helper on the host. Its manifest
-grants only the application-specific D-Bus name, not general Flatpak host-spawn
-access. Host helper and sandbox can require separate Proton browser sessions.
+The development Flatpak uses the Background portal for session persistence and
+autostart, and performs ordinary downloaded-folder synchronization entirely
+inside the sandbox. It neither activates nor requires a native host service.
+Online placeholders and native file-manager extensions remain native-package
+features. Previously published beta1 bundles still use the older helper design.
 
 Snap autostart is declared for snap-userd and uses Snap-specific arguments. Its
 helper has a separate D-Bus name and cannot accidentally use a native instance.
@@ -268,4 +269,13 @@ Do not include the epoch in release asset filenames. Flatpak and Snap use their
 normal bundle/revision replacement mechanisms; AppImages are replaced manually.
 Existing 0.6 alpha update checkers need one manual beta installation. The beta
 updater excludes the known retired alpha versions from its newer-release ordering.
-Historical Git tags remain, but old GitHub release downloads are retired.
+Old release tags and downloads are retired; Git history remains.
+
+## Store preparation
+
+The local Snap/Flatpak downloads are not Store listings. See
+[Snap beta publication](../docs/stores/snap-store.md) and
+[Flathub readiness and current blockers](../docs/stores/flathub-readiness.md).
+Store editions use ordinary downloaded-folder synchronization and explicitly
+exclude native FUSE/file-manager integration. The native DEB/RPM behavior is
+unchanged. Publication requires runtime testing of the changed packages.

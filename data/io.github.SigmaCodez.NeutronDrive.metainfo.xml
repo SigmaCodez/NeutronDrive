@@ -2,18 +2,22 @@
 <component type="desktop-application">
   <id>io.github.SigmaCodez.NeutronDrive</id>
   <name>NeutronDrive</name>
-  <summary>An independent Linux client for Proton Drive</summary>
+  <summary>Unofficial Proton Drive client for Linux</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <developer id="io.github.sigmacodez"><name>SigmaCodez and contributors</name></developer>
   <description>
     <p>NeutronDrive provides a native Qt 6 interface to Proton Drive through its official SDK. Browse your cloud folders and transfer files using Proton's encryption and browser sign-in.</p>
-    <p>This is an independent community project, not an official Proton application. This beta release needs a Proton account, a browser, and a running Secret Service such as GNOME Keyring or a compatible KWallet service.</p>
+    <p>This is an independent community project, not affiliated with, endorsed by, or officially supported by Proton AG. This beta release needs a Proton account, a browser, and a running Secret Service such as GNOME Keyring or a compatible KWallet service.</p>
   </description>
   <launchable type="desktop-id">io.github.SigmaCodez.NeutronDrive.desktop</launchable>
-  <url type="homepage">https://github.com/SigmaCodez/NeutronDrive</url>
+  <url type="homepage">https://neutrondrive.sigmacodez.dev</url>
   <url type="bugtracker">https://github.com/SigmaCodez/NeutronDrive/issues</url>
   <url type="vcs-browser">https://github.com/SigmaCodez/NeutronDrive</url>
+  <screenshots>
+    <screenshot type="default"><caption>Files in the light theme</caption><image>https://raw.githubusercontent.com/SigmaCodez/NeutronDrive/v0.1.0-beta1/docs/demo.png</image></screenshot>
+    <screenshot><caption>Files in the dark theme</caption><image>https://raw.githubusercontent.com/SigmaCodez/NeutronDrive/v0.1.0-beta1/docs/demo-dark.png</image></screenshot>
+  </screenshots>
   <provides><binary>neutrondrive</binary></provides>
   <content_rating type="oars-1.1"/>
   <requires><internet>always</internet></requires>

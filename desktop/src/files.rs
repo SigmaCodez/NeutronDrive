@@ -216,13 +216,15 @@ impl Files {
             snap: std::env::var_os("SNAP").is_some_and(|v| !v.is_empty()),
         };
         this.state["fields"]["background_add_button"]["enabled"] = (!demo).into();
-        this.state["fields"]["mount_button"]["enabled"] = (!demo && !this.snap).into();
+        this.state["fields"]["mount_button"]["enabled"] =
+            (!demo && !this.snap && !this.flatpak).into();
         this.state["photos"] = json!([]);
         this.state["photoOffset"] = json!(0);
         this.state["photosMore"] = json!(false);
         this.state["authenticated"] = json!(false);
         this.state["account"] = Value::Null;
         this.state["storage"] = Value::Null;
+        this.state["sandboxed"] = json!(this.snap || this.flatpak);
         this.state["setupNeeded"] = json!(false);
         this.state["setupFolder"] = json!("");
         this.state["photoTotal"] = Value::Null;
@@ -282,8 +284,7 @@ impl Files {
             self.state["actions"][name] = json!({"value":"","enabled":allowed,"visible":(name == "Wiederherstellen") == trash});
         }
         for name in ["Keep on device", "Free up space"] {
-            self.state["actions"][name] =
-                json!({"enabled":safe && !trash && selected.len()==1,"visible":!trash});
+            self.state["actions"][name] = json!({"enabled":safe && !trash && selected.len()==1 && !self.snap && !self.flatpak,"visible":!trash && !self.snap && !self.flatpak});
         }
         self.state["actions"]["Versions"] = json!({"enabled":safe && !trash && selected.len()==1 && selected[0]["type"]=="file", "visible":!trash});
         let writable = self.path().starts_with("/my-files") || self.path().matches('/').count() > 1;
@@ -484,8 +485,8 @@ impl Files {
             );
             return vec![];
         }
-        if operation["action"] == "mount" && self.snap {
-            self.message(&self.tr("Online-Laufwerke sind im Snap nicht verfügbar. Bitte das native DEB- oder RPM-Paket verwenden; Dateien durchsuchen und synchronisieren bleibt im Snap möglich."),true);
+        if self.snap || self.flatpak {
+            self.message(&self.tr("Online-Platzhalter sind in dieser Sandbox nicht verfügbar. Normale Ordnersynchronisation ist in den Einstellungen verfügbar."),true);
             return vec![];
         }
         self.submit_target("Online-Laufwerk", operation, Done::Mount, Target::Mount)
@@ -680,11 +681,16 @@ impl Files {
                         vec![]
                     }
                     Done::Setup => {
-                        if value["mounted"] != true {
+                        let downloaded = (self.snap || self.flatpak)
+                            && value["mode"] == "download"
+                            && value["running"] == true;
+                        if value["mounted"] != true && !downloaded {
                             self.message("Setup did not start the sync service", true);
                             return vec![];
                         }
-                        self.render_mount(&value);
+                        if !downloaded {
+                            self.render_mount(&value);
+                        }
                         self.mount_local = self.state["setupFolder"].as_str().map(str::to_string);
                         self.field("mount_label", self.state["setupFolder"].clone());
                         self.field("mount_remote", json!("/my-files"));
@@ -697,7 +703,7 @@ impl Files {
                         }
                         self.state["setupNeeded"] = json!(false);
                         self.message(
-                            "Sync is running. Files download when opened or kept on this device.",
+                            if downloaded { "Sync is running. Files are downloaded to your sync folder." } else { "Sync is running. Files download when opened or kept on this device." },
                             false,
                         );
                         vec![]
@@ -1169,8 +1175,8 @@ impl Files {
                 self.state["setupFolder"] = args[0].clone();
             }
             "setup_finish" if !self.busy() => {
-                if self.snap || self.state["demo"] == true {
-                    self.message("Online placeholders require the native package or a configured Flatpak host helper.",true);
+                if self.state["demo"] == true {
+                    self.message("Setup is unavailable in demo mode.", true);
                     return vec![];
                 }
                 return self.submit_target(
@@ -1462,6 +1468,24 @@ mod tests {
             )[0],
             Effect::Close
         ));
+    }
+    #[test]
+    fn sandbox_setup_uses_download_sync_and_mount_actions_do_not_start_workers() {
+        for flatpak in [false, true] {
+            let mut m = model();
+            m.snap = !flatpak;
+            m.flatpak = flatpak;
+            m.state["demo"] = json!(false);
+            m.state["setupFolder"] = json!("/home/test/ProtonDrive");
+            assert!(m.mount_action(json!({"action":"mount"})).is_empty());
+            assert!(m.mount_action(json!({"action":"pin"})).is_empty());
+            let job = work(m.dispatch("setup_finish", &json!([])));
+            assert_eq!(job.operation["action"], "setup");
+            // Failed startup must leave setup incomplete.
+            m.state["setupNeeded"] = json!(true);
+            m.complete(job.id, Ok(json!({"mode":"download","running":false})));
+            assert_eq!(m.state["setupNeeded"], true);
+        }
     }
     #[test]
     fn close_preserves_active_install_and_flatpak_background_service() {

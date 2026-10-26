@@ -167,7 +167,9 @@ impl qobject::NativeFiles {
         let mut model = Files::new(locale, &executable.to_string(), demo);
         let store = crate::preferences::Store::interface();
         model.state["setupNeeded"] = json!(!demo && store.read("setup", "") != "complete");
-        model.state["setupFolder"] = json!(std::env::var_os("HOME")
+        model.state["setupFolder"] = json!(std::env::var_os("SNAP_REAL_HOME")
+            .filter(|v| !v.is_empty())
+            .or_else(|| std::env::var_os("HOME"))
             .map(std::path::PathBuf::from)
             .unwrap_or_default()
             .join("ProtonDrive"));

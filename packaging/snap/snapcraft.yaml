@@ -1,11 +1,11 @@
 name: neutrondrive
 base: core24
 version: '0.1.0-beta1'
-summary: Independent Linux client for Proton Drive
+summary: Unofficial Proton Drive client for Linux
 description: |
   Browse and transfer Proton Drive files with a native Qt interface and the
-  bundled SDK-based NeutronDrive event bridge. This is an alpha community project, not
-  an official Proton application.
+  bundled SDK-based NeutronDrive event bridge. This is beta community software, not affiliated with, endorsed by, or
+  officially supported by Proton AG.
 
   On-demand FUSE mounts require the native DEB/RPM installation; strict Snap
   confinement does not support this application's unprivileged FUSE helper.
@@ -17,7 +17,7 @@ description: |
 grade: devel
 confinement: strict
 license: MIT
-website: https://github.com/SigmaCodez/NeutronDrive
+website: https://neutrondrive.sigmacodez.dev
 source-code: https://github.com/SigmaCodez/NeutronDrive
 issues: https://github.com/SigmaCodez/NeutronDrive/issues
 icon: data/io.github.SigmaCodez.NeutronDrive.svg
