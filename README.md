@@ -1,7 +1,7 @@
 # NeutronDrive
 
 [![Latest release (including previews)](https://img.shields.io/github/v/release/SigmaCodez/NeutronDrive?include_prereleases&label=release)](https://github.com/SigmaCodez/NeutronDrive/releases)
-[![Development status: Beta](https://img.shields.io/badge/status-beta-f1c40f)](#moving-from-the-retired-alpha-releases)
+[![Release status: Stable](https://img.shields.io/badge/status-stable-brightgreen)](#moving-from-the-retired-alpha-releases)
 [![Tests and Linux packages](https://github.com/SigmaCodez/NeutronDrive/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SigmaCodez/NeutronDrive/actions/workflows/ci.yml)
 [![Application runtime: Rust](https://img.shields.io/badge/runtime-Rust-dea584)](docs/RUST-MIGRATION.md)
 [![Interface: Qt Quick / QML](https://img.shields.io/badge/UI-Qt_Quick%20%2F%20QML-41cd52)](desktop/README.md)
@@ -12,10 +12,10 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Latest published version: [0.1.0 beta1](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v0.1.0-beta1).**
+**Latest published version: [1.0.0](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.0).**
 This update adds Google Takeout import, clearer computer backup setup, optional
 Ko-fi support and coordinated app/service restarts after DEB and RPM updates.
-This is beta software; keep an independent backup. Complete Windows/macOS feature
+Keep an independent backup of important files. Complete Windows/macOS feature
 parity has not been reached.
 
 NeutronDrive is not affiliated with, endorsed by, or officially supported by
@@ -30,7 +30,7 @@ and [update restart behavior](docs/DESKTOP-FEATURES.md#beta-01-update-restart).
 
 ## Light and dark appearance
 
-Fresh captures of the **0.1 beta release GUI**, in English, using isolated
+Existing captures of the **0.1 beta release GUI**, in English, using isolated
 synthetic demo data. These are actual application renders, not mockups or a live
 account. [Capture version, timestamp and hashes](docs/GUI-PREVIEWS.json).
 
@@ -117,53 +117,52 @@ See [desktop features](docs/DESKTOP-FEATURES.md),
 
 ## Moving from the retired alpha releases
 
-The public version series restarts at **0.1.0-beta1**. Older 0.6 alpha clients may
-not offer this numerically lower version through their update checker; download
-and install the beta package once. DEB, RPM and Arch packages use **epoch 1**, so
-package managers correctly treat the beta as an upgrade. Preferences, account
-storage and sync data are retained. Future beta updates use the usual updater.
-The old GitHub releases and tags are retired; Git history remains. Only the current beta release tag is retained.
+The stable version series starts at **1.0.0**. Users of retired alpha clients can download and install the current package
+once if their old updater does not offer it. DEB, RPM and Arch packages use **epoch 1**, so
+package managers correctly treat the release as an upgrade. Preferences, account
+storage and sync data are retained. Future updates use the usual updater.
+The old GitHub releases and tags are retired; Git history remains. Historical release notes describe their original versions.
 
 ## Install
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **published beta 0.1 assets**, not development artifacts.
-Packages are community beta builds, not official Proton packages or store listings.
+The commands below use the **1.0.0 release assets**, not development artifacts.
+Packages are independent community builds, not official Proton packages or store listings.
 
 | Format | Intended systems | Important details |
 | --- | --- | --- |
 | DEB | Ubuntu 22.04+, Debian 12+, Mint, Pop!_OS | x86_64 and ARM64; ARM64 needs GLIBC 2.39 (e.g. Ubuntu 24.04+/Debian 13+) |
 | RPM | Current Fedora and openSUSE | Separate distribution-specific x86_64 packages |
-| Flatpak | Flatpak-enabled Linux distributions | Online files additionally require the native host helper |
-| Snap | Systems with snapd | Connect Secret Service; use a native package for FUSE online files |
+| Flatpak | Flatpak-enabled Linux distributions | Standalone downloaded-folder sync; no online placeholders |
+| Snap | Systems with snapd | Standalone downloaded-folder sync; connect keyring and mount-observe |
 | AppImage | x86_64 GLIBC desktops | Ubuntu 22.04+/Debian 12+ baseline; native helper for online files |
 | Arch package / AUR recipe | Arch Linux, Manjaro | Downloadable package and PKGBUILD; **not published to the AUR** |
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_0.1.0-beta1-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.0-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-0.1.0-beta1-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.0-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-0.1.0-beta1-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.0-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-0.1.0b1-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.0-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
-# Snap (unsigned beta package)
-sudo snap install --dangerous ./neutrondrive_0.1.0-beta1_amd64.snap
+# Snap (local unsigned package)
+sudo snap install --dangerous ./neutrondrive_1.0.0_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-0.1.0-beta1-x86_64.AppImage
-./NeutronDrive-0.1.0-beta1-x86_64.AppImage
+chmod +x NeutronDrive-1.0.0-x86_64.AppImage
+./NeutronDrive-1.0.0-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-0.1.0beta1-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.0-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes

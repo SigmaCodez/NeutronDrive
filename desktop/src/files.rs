@@ -10,7 +10,6 @@ pub enum Done {
     TakeoutScan,
     TakeoutImport,
     FileManager,
-    AccountStorage,
     Setup,
     Loaded,
     Refresh,
@@ -32,6 +31,7 @@ pub enum Done {
 }
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Target {
+    AccountStorage,
     FileManager,
     Drive,
     Background,
@@ -216,13 +216,15 @@ impl Files {
             snap: std::env::var_os("SNAP").is_some_and(|v| !v.is_empty()),
         };
         this.state["fields"]["background_add_button"]["enabled"] = (!demo).into();
-        this.state["fields"]["mount_button"]["enabled"] = (!demo && !this.snap).into();
+        this.state["fields"]["mount_button"]["enabled"] =
+            (!demo && !this.snap && !this.flatpak).into();
         this.state["photos"] = json!([]);
         this.state["photoOffset"] = json!(0);
         this.state["photosMore"] = json!(false);
         this.state["authenticated"] = json!(false);
         this.state["account"] = Value::Null;
         this.state["storage"] = Value::Null;
+        this.state["sandboxed"] = json!(this.snap || this.flatpak);
         this.state["setupNeeded"] = json!(false);
         this.state["setupFolder"] = json!("");
         this.state["photoTotal"] = Value::Null;
@@ -282,8 +284,7 @@ impl Files {
             self.state["actions"][name] = json!({"value":"","enabled":allowed,"visible":(name == "Wiederherstellen") == trash});
         }
         for name in ["Keep on device", "Free up space"] {
-            self.state["actions"][name] =
-                json!({"enabled":safe && !trash && selected.len()==1,"visible":!trash});
+            self.state["actions"][name] = json!({"enabled":safe && !trash && selected.len()==1 && !self.snap && !self.flatpak,"visible":!trash && !self.snap && !self.flatpak});
         }
         self.state["actions"]["Versions"] = json!({"enabled":safe && !trash && selected.len()==1 && selected[0]["type"]=="file", "visible":!trash});
         let writable = self.path().starts_with("/my-files") || self.path().matches('/').count() > 1;
@@ -484,8 +485,8 @@ impl Files {
             );
             return vec![];
         }
-        if operation["action"] == "mount" && self.snap {
-            self.message(&self.tr("Online-Laufwerke sind im Snap nicht verfügbar. Bitte das native DEB- oder RPM-Paket verwenden; Dateien durchsuchen und synchronisieren bleibt im Snap möglich."),true);
+        if self.snap || self.flatpak {
+            self.message(&self.tr("Online-Platzhalter sind in dieser Sandbox nicht verfügbar. Normale Ordnersynchronisation ist in den Einstellungen verfügbar."),true);
             return vec![];
         }
         self.submit_target("Online-Laufwerk", operation, Done::Mount, Target::Mount)
@@ -563,11 +564,27 @@ impl Files {
             Target::Trash,
         )
     }
+    fn render_account_storage(&mut self, value: &Value) {
+        if let (Some(total), Some(used)) = (value["total"].as_u64(), value["used"].as_u64()) {
+            let clean = |key: &str| {
+                value["account"][key]
+                    .as_str()
+                    .filter(|s| !s.is_empty() && s.len() <= 320 && !s.chars().any(char::is_control))
+                    .unwrap_or("")
+                    .to_string()
+            };
+            self.state["account"] = json!({"name":clean("name"),"email":clean("email")});
+            self.state["storage"] = json!({"total":total,"used":used,"free":total.saturating_sub(used),"percent":if total>0 {100.0*used as f64/total as f64}else{0.0},"usedText":self.locale.size_text(Some(used)),"freeText":self.locale.size_text(Some(total.saturating_sub(used)))});
+        }
+    }
     pub fn service_polled(&mut self, target: Target, generation: u64, value: &Value) {
         if self.next_work != generation {
             return;
         }
         match target {
+            Target::AccountStorage if self.state["authenticated"] == true => {
+                self.render_account_storage(value)
+            }
             Target::Background => self.background_polled(generation, value),
             Target::Mount if self.state["page"] == "ondemand" => self.render_mount(value),
             _ => {}
@@ -658,33 +675,17 @@ impl Files {
                     self.message(&summary, false);
                 }
                 match work.done {
-                    Done::AccountStorage => {
-                        if let (Some(total), Some(used)) =
-                            (value["total"].as_u64(), value["used"].as_u64())
-                        {
-                            let clean = |key: &str| {
-                                value["account"][key]
-                                    .as_str()
-                                    .filter(|s| {
-                                        !s.is_empty()
-                                            && s.len() <= 320
-                                            && !s.chars().any(char::is_control)
-                                    })
-                                    .unwrap_or("")
-                                    .to_string()
-                            };
-                            self.state["account"] =
-                                json!({"name":clean("name"),"email":clean("email")});
-                            self.state["storage"] = json!({"total":total,"used":used,"free":total.saturating_sub(used),"percent":if total>0 {100.0*used as f64/total as f64}else{0.0},"usedText":self.locale.size_text(Some(used)),"freeText":self.locale.size_text(Some(total.saturating_sub(used)))});
-                        }
-                        vec![]
-                    }
                     Done::Setup => {
-                        if value["mounted"] != true {
+                        let downloaded = (self.snap || self.flatpak)
+                            && value["mode"] == "download"
+                            && value["running"] == true;
+                        if value["mounted"] != true && !downloaded {
                             self.message("Setup did not start the sync service", true);
                             return vec![];
                         }
-                        self.render_mount(&value);
+                        if !downloaded {
+                            self.render_mount(&value);
+                        }
                         self.mount_local = self.state["setupFolder"].as_str().map(str::to_string);
                         self.field("mount_label", self.state["setupFolder"].clone());
                         self.field("mount_remote", json!("/my-files"));
@@ -697,7 +698,7 @@ impl Files {
                         }
                         self.state["setupNeeded"] = json!(false);
                         self.message(
-                            "Sync is running. Files download when opened or kept on this device.",
+                            if downloaded { "Sync is running. Files are downloaded to your sync folder." } else { "Sync is running. Files download when opened or kept on this device." },
                             false,
                         );
                         vec![]
@@ -1134,11 +1135,7 @@ impl Files {
                 })]
             }
             "account_storage" if !self.busy() && self.state["authenticated"] == true => {
-                return self.submit(
-                    "Account storage",
-                    json!({"action":"account_storage"}),
-                    Done::AccountStorage,
-                );
+                return vec![Effect::PollService(Target::AccountStorage)];
             }
             "share_open" if !self.busy() && self.pending.is_none() && args[0]["safe"] == true => {
                 let node = args[0].clone();
@@ -1169,8 +1166,8 @@ impl Files {
                 self.state["setupFolder"] = args[0].clone();
             }
             "setup_finish" if !self.busy() => {
-                if self.snap || self.state["demo"] == true {
-                    self.message("Online placeholders require the native package or a configured Flatpak host helper.",true);
+                if self.state["demo"] == true {
+                    self.message("Setup is unavailable in demo mode.", true);
                     return vec![];
                 }
                 return self.submit_target(
@@ -1464,6 +1461,24 @@ mod tests {
         ));
     }
     #[test]
+    fn sandbox_setup_uses_download_sync_and_mount_actions_do_not_start_workers() {
+        for flatpak in [false, true] {
+            let mut m = model();
+            m.snap = !flatpak;
+            m.flatpak = flatpak;
+            m.state["demo"] = json!(false);
+            m.state["setupFolder"] = json!("/home/test/ProtonDrive");
+            assert!(m.mount_action(json!({"action":"mount"})).is_empty());
+            assert!(m.mount_action(json!({"action":"pin"})).is_empty());
+            let job = work(m.dispatch("setup_finish", &json!([])));
+            assert_eq!(job.operation["action"], "setup");
+            // Failed startup must leave setup incomplete.
+            m.state["setupNeeded"] = json!(true);
+            m.complete(job.id, Ok(json!({"mode":"download","running":false})));
+            assert_eq!(m.state["setupNeeded"], true);
+        }
+    }
+    #[test]
     fn close_preserves_active_install_and_flatpak_background_service() {
         let mut m = model();
         assert!(m.dispatch("request_close", &json!([true])).is_empty());
@@ -1724,13 +1739,40 @@ mod tests {
         assert_eq!(w.operation["path"], "/my-files/Straße.txt");
     }
     #[test]
+    fn storage_poll_does_not_block_navigation_or_restore_stale_identity() {
+        let mut m = model();
+        m.state["authenticated"] = json!(true);
+        let generation = m.service_generation();
+        assert!(matches!(
+            m.dispatch("account_storage", &json!([])).as_slice(),
+            [Effect::PollService(Target::AccountStorage)]
+        ));
+        assert!(!m.busy());
+        let navigation = work(m.dispatch("navigate", &json!(["/my-files"])));
+        assert_eq!(navigation.operation["action"], "list");
+        let response =
+            json!({"total":100,"used":25,"account":{"name":"stale","email":"stale@example.org"}});
+        m.service_polled(Target::AccountStorage, generation, &response);
+        assert!(m.state["account"].is_null());
+        m.state["authenticated"] = json!(false);
+        m.service_polled(Target::AccountStorage, m.service_generation(), &response);
+        assert!(m.state["account"].is_null());
+    }
+    #[test]
     fn account_identity_is_bounded_and_logout_clears_personal_views() {
         let mut m = model();
         m.state["authenticated"] = json!(true);
-        let request = work(m.dispatch("account_storage", &json!([])));
-        m.complete(
-            request.id,
-            Ok(json!({"total":100,"used":25,"account":{"name":"Alex","email":"bad\nvalue"}})),
+        let effects = m.dispatch("account_storage", &json!([]));
+        assert!(matches!(
+            effects.as_slice(),
+            [Effect::PollService(Target::AccountStorage)]
+        ));
+        assert!(!m.busy());
+        assert_eq!(m.state["fields"]["spinner"]["visible"], false);
+        m.service_polled(
+            Target::AccountStorage,
+            m.service_generation(),
+            &json!({"total":100,"used":25,"account":{"name":"Alex","email":"bad\nvalue"}}),
         );
         assert_eq!(m.state["account"], json!({"name":"Alex","email":""}));
         assert_eq!(m.state["storage"]["percent"], 25.0);

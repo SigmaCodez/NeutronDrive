@@ -449,17 +449,23 @@ if __name__ == '__main__':
         assert BUS_NAME.endswith('.SnapService')
         client = DesktopClient()
         assert not client.request('status')['available']
-        client.request('restore')
+        restored = client.request('restore')
+        assert restored['available'] is False and restored['mounted'] is False
         Gio, GLib = _gio()
         connection = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-        pid = connection.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus',
-                                   'GetConnectionUnixProcessID', GLib.Variant('(s)', (BUS_NAME,)),
-                                   GLib.VariantType.new('(u)'), Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+        # Sandboxed folder sync must never activate a placeholder daemon.
+        owned = connection.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus',
+                                     'NameHasOwner', GLib.Variant('(s)', (BUS_NAME,)),
+                                     GLib.VariantType.new('(b)'), Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+        assert not owned
         try:
-            assert not client.request('status')['mounted']
-            print('SNAP_ISOLATION_OK')
-        finally:
-            os.kill(pid, signal.SIGTERM)
+            client.request('pin', path='example.txt')
+        except BackendError:
+            pass
+        else:
+            raise AssertionError('Sandbox accepted a placeholder operation')
+        assert not client.request('status')['mounted']
+        print('SNAP_ISOLATION_OK')
         raise SystemExit(0)
     if len(sys.argv) > 1 and sys.argv[1] == '--dbus-kernel-server':
         from reference_desktop_service import run_service

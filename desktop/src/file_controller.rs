@@ -167,7 +167,9 @@ impl qobject::NativeFiles {
         let mut model = Files::new(locale, &executable.to_string(), demo);
         let store = crate::preferences::Store::interface();
         model.state["setupNeeded"] = json!(!demo && store.read("setup", "") != "complete");
-        model.state["setupFolder"] = json!(std::env::var_os("HOME")
+        model.state["setupFolder"] = json!(std::env::var_os("SNAP_REAL_HOME")
+            .filter(|v| !v.is_empty())
+            .or_else(|| std::env::var_os("HOME"))
             .map(std::path::PathBuf::from)
             .unwrap_or_default()
             .join("ProtonDrive"));
@@ -283,6 +285,7 @@ impl qobject::NativeFiles {
         let generation = model.service_generation();
         let qt = self.qt_thread();
         let executable = self.rust().executable.clone();
+        let demo = self.rust().demo;
         let cancel = self.rust().status_cancel.clone();
         self.as_mut().rust_mut().status_pending = true;
         let worker = std::thread::Builder::new()
@@ -291,6 +294,11 @@ impl qobject::NativeFiles {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     let mut callback = |_| i32::from(cancel.load(Ordering::Acquire));
                     match target {
+                        Target::AccountStorage if demo => demo_operation(&json!({"action":"account_storage"})),
+                        Target::AccountStorage => runtime::call(
+                            json!({"op":"drive","executable":executable,"operation":{"action":"account_storage"}}),
+                            &mut callback,
+                        ),
                         Target::Background => crate::background::run(
                             &executable,
                             &json!({"action":"status"}),

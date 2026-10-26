@@ -339,7 +339,20 @@ async fn stop_for_update(callback: &mut impl FnMut(Value) -> i32) -> Result<Valu
     }
     Ok(json!({"running":true}))
 }
+fn sandbox_reply(operation: &Operation) -> Result<Value> {
+    match operation {
+        Operation::Request { request, .. } if matches!(request["action"].as_str(), Some("status" | "restore")) =>
+            Ok(json!({"available":false,"mounted":false,"reason":"Online placeholders are unavailable in the sandbox. Use folder synchronization in Settings."})),
+        _ => Err("Online placeholders are unavailable in the sandbox. Use folder synchronization in Settings.".into()),
+    }
+}
 pub fn run(operation: Operation, callback: &mut impl FnMut(Value) -> i32) -> Result<Value> {
+    if ["FLATPAK_ID", "SNAP"]
+        .iter()
+        .any(|key| std::env::var_os(key).is_some_and(|v| !v.is_empty()))
+    {
+        return sandbox_reply(&operation);
+    }
     match operation {
         Operation::StopForUpdate => zbus::block_on(stop_for_update(callback)),
         Operation::Request {
@@ -351,6 +364,26 @@ pub fn run(operation: Operation, callback: &mut impl FnMut(Value) -> i32) -> Res
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sandbox_never_activates_a_host_mount_service() {
+        for action in ["status", "restore"] {
+            let value = sandbox_reply(&Operation::Request {
+                request: json!({"action":action}),
+                launcher: None,
+            })
+            .unwrap();
+            assert_eq!(value["available"], false);
+            assert_eq!(value["mounted"], false);
+        }
+        for action in ["mount", "pin", "evict", "login", "unmount"] {
+            assert!(sandbox_reply(&Operation::Request {
+                request: json!({"action":action}),
+                launcher: None
+            })
+            .is_err());
+        }
+        assert!(sandbox_reply(&Operation::StopForUpdate).is_err());
+    }
     #[test]
     fn standard_errors_only_retry_provably_undelivered_requests() {
         for error in [

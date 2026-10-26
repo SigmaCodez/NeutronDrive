@@ -205,7 +205,8 @@ ApplicationWindow {
                     }
                     Action { text: window.tr("Choose sync folder"); onClicked: setupFolderPicker.open() }
                 }
-                Copy { text: window.tr("Finishing starts the sync service and enables automatic startup at login. Existing files in the selected folder will never be hidden or moved.") }
+                Copy { text: s.sandboxed ? window.tr("This store edition downloads all files from My files into the selected empty folder and synchronizes changes in both directions. Make sure enough disk space is available. Online placeholders and file-manager extensions are not available in this edition.") : window.tr("Finishing starts the sync service and enables automatic startup at login. Existing files in the selected folder will never be hidden or moved.") }
+                Copy { visible: Boolean(s.sandboxed); text: window.tr("Finishing enables background sync and automatic startup at login. You can configure individual sync folders in Settings instead by choosing Later.") }
             }
             Copy { text: s.fields.notice_label.value || ""; visible: Boolean(text); color: window.theme.accentText }
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: window.theme.cardBorder }
@@ -569,13 +570,13 @@ ApplicationWindow {
             Layout.fillWidth: true; spacing: 16; objectName: "syncSettings"
             Card {
                 Heading { text: window.tr("Your sync folder") }
-                Copy { text: window.f("mount_label").value }
-                Copy { text: window.f("mount_status").value }
-                Copy { text: window.tr("Files appear as online placeholders. Use Keep on device in the file menu to keep selected files or folders available offline.") }
+                Copy { visible: !s.sandboxed; text: window.f("mount_label").value }
+                Copy { visible: !s.sandboxed; text: window.f("mount_status").value }
+                Copy { text: s.sandboxed ? window.tr("This store edition synchronizes downloaded files. Online placeholders and native file-manager extensions are unavailable.") : window.tr("Files appear as online placeholders. Use Keep on device in the file menu to keep selected files or folders available offline.") }
                 Flow { Layout.fillWidth: true; spacing: 8
                     Action { text: window.tr("Set up sync folder"); onClicked: controller.send("setup_open",[]); primary: true }
-                    Action { text: window.tr("Sync settings / online drive only"); onClicked: controller.show_page("ondemand") }
-                    Action { text: window.tr("Refresh sync status"); command: "mountStatus" }
+                    Action { visible: !s.sandboxed; text: window.tr("Sync settings / online drive only"); onClicked: controller.show_page("ondemand") }
+                    Action { visible: !s.sandboxed; text: window.tr("Refresh sync status"); command: "mountStatus" }
                 }
             }
             Card {
@@ -655,7 +656,7 @@ ApplicationWindow {
             Copy { text: window.tr("Dateien beim Öffnen laden, offline vorhalten oder lokalen Speicher freigeben.") }
             Card {
                 Heading { text: window.tr("Online-Laufwerk verbinden") }
-                Copy { text: window.f("mount_label").value }
+                Copy { visible: !s.sandboxed; text: window.f("mount_label").value }
                 Action { text: window.tr("Leeren Einhängeordner wählen"); command: "chooseMount" }
                 Copy { text: window.tr("Cloud-Ordner") }
                 Input { field: "mount_remote" }
@@ -666,7 +667,7 @@ ApplicationWindow {
                     Action { text: window.tr("Trennen"); command: "unmount" }
                     Action { text: window.tr("Aktualisieren"); command: "refreshMount" }
                 }
-                Copy { text: window.f("mount_status").value }
+                Copy { visible: !s.sandboxed; text: window.f("mount_status").value }
             }
             Card {
                 Heading { text: window.tr("Offline-Verfügbarkeit") }
@@ -674,7 +675,7 @@ ApplicationWindow {
                 RowLayout { Action { text: window.tr("Offline vorhalten"); command: "pin" } Action { text: window.tr("Speicher freigeben"); command: "evict" } }
                 Action { text: window.tr("Laufwerkshelfer bei Proton anmelden"); command: "helperLogin" }
             }
-            Copy { text: window.tr("Für Flatpak zusätzlich den nativen Laufwerkshelfer installieren. Online-Laufwerke sind im Snap derzeit nicht verfügbar. Nicht hochgeladene Änderungen bleiben im Wiederherstellungsspeicher.") }
+            Copy { text: window.tr("Online placeholders require the native edition. Unsynced changes remain in recovery storage.") }
         }
     }
     Component {

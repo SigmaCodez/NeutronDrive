@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "v0.1.0-beta1",
+  "release": "v1.0.0",
   "locales": {
     "en": {
       "description": "An unofficial, open-source Linux desktop client for Proton Drive, developed independently of Proton AG.",
@@ -11,7 +11,7 @@
         ],
         [
           "Online, until you need it offline",
-          "Download content on demand. “Keep on device” makes selected files and folders available on your computer."
+          "Native DEB/RPM editions offer on-demand files and “Keep on device”. Snap and Flatpak download the synchronized files as ordinary local files; they do not provide online placeholders or native file-manager extensions."
         ],
         [
           "A home for your photos",
@@ -36,19 +36,19 @@
           "NeutronDrive is built for Linux. File-manager integration and status icons depend on the desktop and its version. GNOME needs a suitable extension for a visible tray icon. Sandboxed packages have additional limitations."
         ],
         [
-          "Are all files automatically available offline?",
-          "No. Online files are downloaded on demand. Use “Keep on device” to select files or folders for offline use. Wait for downloads to finish before disconnecting."
+          "How are files stored offline?",
+          "Native DEB/RPM editions offer on-demand files and “Keep on device”. Snap and Flatpak download the synchronized files as ordinary local files; they do not provide online placeholders or native file-manager extensions."
         ],
         [
-          "What is new in beta 0.1?",
-          "Import photos and videos from an extracted Google Takeout export after reviewing the preview. Computer backup now has clearer setup for two-way folder sync; it is not a system-image backup. The DEB/RPM updater coordinates app and service restarts. An optional Ko-fi link lets you support development. Takeout album reconstruction and automatic import resume are not included."
+          "What is new in 1.0?",
+          "Stable 1.0 includes standalone background folder sync for Snap and Flatpak, a responsive account-storage refresh and automatic Snap Store releases. Native DEB/RPM editions retain online placeholders and file-manager integration."
         ],
         [
-          "How do I move from an older version to beta 0.1?",
-          "The public version series restarts at 0.1.0-beta1. Install the beta package manually once: older clients may not offer the numerically lower version. DEB, RPM and Arch use epoch 1 so package managers recognise the upgrade. Preferences, account storage and sync data are retained. Keep an independent backup; future beta updates use the usual updater."
+          "How do I update to 1.0?",
+          "Install the current package for your distribution. DEB, RPM and Arch retain epoch 1. Keep an independent backup. Snap Store updates are managed by snapd."
         ],
         [
-          "What are the beta limitations?",
+          "What limitations remain?",
           "Among other limits, there is no multi-account interface, no Proton Docs/Sheets export and no complete advanced-link settings. Whole-folder deletion propagation remains blocked. Concurrent changes can cause conflicts; keep an independent backup."
         ],
         [
@@ -62,7 +62,7 @@
           "An unofficial Proton Drive client developed as an independent community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
         ],
         [
-          "Beta means still in development.",
+          "Stable release, independent project.",
           "Keep an independent backup. Not all features of the Windows and macOS clients are available. Packages are currently unsigned."
         ],
         [
@@ -97,7 +97,7 @@
           "Manage shares, create public links and send confirmed invitations in a dedicated window."
         ]
       ],
-      "releaseNotes": "What is new in beta 0.1?\nImport photos and videos from an extracted Google Takeout export after reviewing the preview. Computer backup now has clearer setup for two-way folder sync; it is not a system-image backup. The DEB/RPM updater coordinates app and service restarts. An optional Ko-fi link lets you support development. Takeout album reconstruction and automatic import resume are not included.\n\nHow do I move from an older version to beta 0.1?\nThe public version series restarts at 0.1.0-beta1. Install the beta package manually once: older clients may not offer the numerically lower version. DEB, RPM and Arch use epoch 1 so package managers recognise the upgrade. Preferences, account storage and sync data are retained. Keep an independent backup; future beta updates use the usual updater.\n\nWhat are the beta limitations?\nAmong other limits, there is no multi-account interface, no Proton Docs/Sheets export and no complete advanced-link settings. Whole-folder deletion propagation remains blocked. Concurrent changes can cause conflicts; keep an independent backup.\n\nKeep an independent backup. Not all features of the Windows and macOS clients are available. Packages are currently unsigned."
+      "releaseNotes": "What is new in 1.0?\nStable 1.0 includes standalone background folder sync for Snap and Flatpak, a responsive account-storage refresh and automatic Snap Store releases. Native DEB/RPM editions retain online placeholders and file-manager integration.\n\nHow do I update to 1.0?\nInstall the current package for your distribution. DEB, RPM and Arch retain epoch 1. Keep an independent backup. Snap Store updates are managed by snapd.\n\nWhat limitations remain?\nAmong other limits, there is no multi-account interface, no Proton Docs/Sheets export and no complete advanced-link settings. Whole-folder deletion propagation remains blocked. Concurrent changes can cause conflicts; keep an independent backup."
     },
     "de": {
       "description": "Ein inoffizieller Open-Source-Desktop-Client für Proton Drive unter Linux, unabhängig von Proton AG entwickelt.",
@@ -108,7 +108,7 @@
         ],
         [
           "Online, bis du es offline brauchst",
-          "Lade Inhalte bei Bedarf. Mit „Keep on device“ bleiben ausgewählte Dateien und Ordner auf deinem Rechner."
+          "Native DEB/RPM-Pakete bieten Dateien auf Abruf und „Auf Gerät behalten“. Snap und Flatpak laden synchronisierte Dateien als normale lokale Dateien herunter; sie bieten keine Online-Platzhalter oder nativen Dateimanager-Erweiterungen."
         ],
         [
           "Ein Zuhause für deine Fotos",
@@ -133,19 +133,19 @@
           "NeutronDrive ist für Linux entwickelt. Die Dateimanager-Integration und Statussymbole hängen vom Desktop und seiner Version ab. GNOME benötigt für ein sichtbares Tray-Symbol eine passende Erweiterung. Sandboxed Pakete haben zusätzliche Einschränkungen."
         ],
         [
-          "Sind alle Dateien automatisch offline verfügbar?",
-          "Nein. Online-Dateien werden bei Bedarf geladen. Mit „Keep on device“ kannst du Dateien oder Ordner für Offline-Nutzung vormerken. Warte auf den abgeschlossenen Download, bevor du die Verbindung trennst."
+          "Wie werden Dateien offline gespeichert?",
+          "Native DEB/RPM-Pakete bieten Dateien auf Abruf und „Auf Gerät behalten“. Snap und Flatpak laden synchronisierte Dateien als normale lokale Dateien herunter; sie bieten keine Online-Platzhalter oder nativen Dateimanager-Erweiterungen."
         ],
         [
-          "Was ist neu in Beta 0.1?",
-          "Importiere Fotos und Videos aus einem entpackten Google-Takeout-Export nach Prüfung der Vorschau. Das Computer-Backup bietet eine klarere Einrichtung für den bidirektionalen Ordnerabgleich; es ist kein Systemabbild-Backup. Der DEB/RPM-Updater koordiniert den Neustart von App und Diensten. Über einen optionalen Ko-fi-Link kannst du die Entwicklung unterstützen. Die Wiederherstellung von Takeout-Alben und eine automatische Import-Fortsetzung sind nicht enthalten."
+          "Was ist neu in 1.0?",
+          "Die stabile Version 1.0 bietet eigenständigen Hintergrund-Ordnerabgleich für Snap und Flatpak, eine nicht blockierende Kontospeicher-Abfrage und automatische Snap-Store-Veröffentlichungen. Native DEB/RPM-Pakete behalten Online-Platzhalter und Dateimanager-Integration."
         ],
         [
-          "Wie wechsle ich von einer älteren Version zu Beta 0.1?",
-          "Die öffentliche Versionsreihe beginnt neu bei 0.1.0-beta1. Installiere das Beta-Paket einmal manuell: Ältere Clients bieten die numerisch niedrigere Version möglicherweise nicht an. DEB, RPM und Arch verwenden Epoch 1, damit Paketmanager das Upgrade erkennen. Einstellungen, Kontospeicher und Sync-Daten bleiben erhalten. Behalte ein unabhängiges Backup; spätere Beta-Updates erfolgen über den gewohnten Updater."
+          "Wie aktualisiere ich auf 1.0?",
+          "Installiere das aktuelle Paket für deine Distribution. DEB, RPM und Arch behalten Epoch 1. Bewahre ein unabhängiges Backup auf. Snap-Store-Updates verwaltet snapd."
         ],
         [
-          "Welche Grenzen hat die Beta-Version?",
+          "Welche Einschränkungen bleiben?",
           "Unter anderem gibt es keine Mehrkonten-Oberfläche, keinen Export von Proton Docs/Sheets und keine vollständigen erweiterten Link-Einstellungen. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können Konflikte verursachen; halte deshalb ein unabhängiges Backup bereit."
         ],
         [
@@ -159,7 +159,7 @@
           "Ein inoffizieller Proton-Drive-Client, entwickelt als unabhängiges Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
         ],
         [
-          "Beta heißt: noch in Entwicklung.",
+          "Stabile Version, unabhängiges Projekt.",
           "Behalte ein unabhängiges Backup. Nicht alle Funktionen der Windows- und macOS-Clients sind verfügbar. Pakete sind derzeit nicht signiert."
         ],
         [
@@ -194,7 +194,7 @@
           "Verwalte Freigaben, erstelle öffentliche Links und versende bestätigte Einladungen in einem eigenen Fenster."
         ]
       ],
-      "releaseNotes": "Was ist neu in Beta 0.1?\nImportiere Fotos und Videos aus einem entpackten Google-Takeout-Export nach Prüfung der Vorschau. Das Computer-Backup bietet eine klarere Einrichtung für den bidirektionalen Ordnerabgleich; es ist kein Systemabbild-Backup. Der DEB/RPM-Updater koordiniert den Neustart von App und Diensten. Über einen optionalen Ko-fi-Link kannst du die Entwicklung unterstützen. Die Wiederherstellung von Takeout-Alben und eine automatische Import-Fortsetzung sind nicht enthalten.\n\nWie wechsle ich von einer älteren Version zu Beta 0.1?\nDie öffentliche Versionsreihe beginnt neu bei 0.1.0-beta1. Installiere das Beta-Paket einmal manuell: Ältere Clients bieten die numerisch niedrigere Version möglicherweise nicht an. DEB, RPM und Arch verwenden Epoch 1, damit Paketmanager das Upgrade erkennen. Einstellungen, Kontospeicher und Sync-Daten bleiben erhalten. Behalte ein unabhängiges Backup; spätere Beta-Updates erfolgen über den gewohnten Updater.\n\nWelche Grenzen hat die Beta-Version?\nUnter anderem gibt es keine Mehrkonten-Oberfläche, keinen Export von Proton Docs/Sheets und keine vollständigen erweiterten Link-Einstellungen. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können Konflikte verursachen; halte deshalb ein unabhängiges Backup bereit.\n\nBehalte ein unabhängiges Backup. Nicht alle Funktionen der Windows- und macOS-Clients sind verfügbar. Pakete sind derzeit nicht signiert."
+      "releaseNotes": "Was ist neu in 1.0?\nDie stabile Version 1.0 bietet eigenständigen Hintergrund-Ordnerabgleich für Snap und Flatpak, eine nicht blockierende Kontospeicher-Abfrage und automatische Snap-Store-Veröffentlichungen. Native DEB/RPM-Pakete behalten Online-Platzhalter und Dateimanager-Integration.\n\nWie aktualisiere ich auf 1.0?\nInstalliere das aktuelle Paket für deine Distribution. DEB, RPM und Arch behalten Epoch 1. Bewahre ein unabhängiges Backup auf. Snap-Store-Updates verwaltet snapd.\n\nWelche Einschränkungen bleiben?\nUnter anderem gibt es keine Mehrkonten-Oberfläche, keinen Export von Proton Docs/Sheets und keine vollständigen erweiterten Link-Einstellungen. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können Konflikte verursachen; halte deshalb ein unabhängiges Backup bereit."
     },
     "fr": {
       "description": "Un client de bureau Linux non officiel et open source pour Proton Drive, développé indépendamment de Proton AG.",
@@ -205,7 +205,7 @@
         ],
         [
           "En ligne, puis hors ligne au besoin",
-          "Téléchargez le contenu à la demande. « Keep on device » conserve les fichiers et dossiers sélectionnés sur votre ordinateur."
+          "Les paquets DEB/RPM proposent les fichiers à la demande et la conservation sur l’appareil. Snap et Flatpak téléchargent les fichiers synchronisés comme fichiers locaux ordinaires, sans espaces réservés en ligne ni extensions natives du gestionnaire de fichiers."
         ],
         [
           "Un espace pour vos photos",
@@ -230,19 +230,19 @@
           "NeutronDrive est conçu pour Linux. L’intégration au gestionnaire de fichiers et les icônes d’état dépendent du bureau et de sa version. GNOME nécessite une extension adaptée pour afficher l’icône de notification. Les paquets isolés ont des limites supplémentaires."
         ],
         [
-          "Tous les fichiers sont-ils automatiquement disponibles hors ligne ?",
-          "Non. Les fichiers en ligne sont téléchargés à la demande. Utilisez « Keep on device » pour sélectionner des fichiers ou dossiers hors ligne. Attendez la fin du téléchargement avant de vous déconnecter."
+          "Comment les fichiers sont-ils disponibles hors ligne ?",
+          "Les paquets DEB/RPM proposent les fichiers à la demande et la conservation sur l’appareil. Snap et Flatpak téléchargent les fichiers synchronisés comme fichiers locaux ordinaires, sans espaces réservés en ligne ni extensions natives du gestionnaire de fichiers."
         ],
         [
-          "Quelles nouveautés apporte la bêta 0.1 ?",
-          "Importez des photos et vidéos depuis un export Google Takeout extrait, après vérification de l’aperçu. La sauvegarde du PC propose une configuration plus claire pour la synchronisation bidirectionnelle des dossiers ; ce n’est pas une sauvegarde d’image système. Le programme de mise à jour DEB/RPM coordonne le redémarrage de l’application et des services. Un lien Ko-fi facultatif permet de soutenir le développement. La reconstruction des albums Takeout et la reprise automatique de l’import ne sont pas incluses."
+          "Quelles nouveautés dans la version 1.0 ?",
+          "La version stable 1.0 ajoute la synchronisation autonome des dossiers en arrière-plan pour Snap et Flatpak, une actualisation du stockage du compte sans blocage et la publication automatique sur le Snap Store. Les paquets DEB/RPM conservent les fichiers à la demande et l’intégration au gestionnaire de fichiers."
         ],
         [
-          "Comment passer d’une ancienne version à la bêta 0.1 ?",
-          "La série publique recommence à 0.1.0-beta1. Installez une fois le paquet bêta manuellement : les anciens clients peuvent ne pas proposer une version numériquement inférieure. DEB, RPM et Arch utilisent l’epoch 1 pour que les gestionnaires de paquets reconnaissent la mise à niveau. Les préférences, le stockage du compte et les données de synchronisation sont conservés. Gardez une sauvegarde indépendante ; les futures mises à jour bêta utiliseront le mécanisme habituel."
+          "Comment passer à la version 1.0 ?",
+          "Installez le paquet actuel pour votre distribution. DEB, RPM et Arch conservent l’epoch 1. Gardez une sauvegarde indépendante. snapd gère les mises à jour du Snap Store."
         ],
         [
-          "Quelles sont les limites de la version bêta ?",
+          "Quelles limitations subsistent ?",
           "Il n’y a notamment pas d’interface multicomptes, d’export de Proton Docs/Sheets ni de réglages avancés complets des liens. La propagation de la suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante."
         ],
         [
@@ -256,7 +256,7 @@
           "Un client non officiel de Proton Drive, développé comme projet communautaire indépendant sous licence MIT. Ni affilié à Proton AG, ni recommandé ou officiellement pris en charge par Proton AG."
         ],
         [
-          "Bêta signifie : en développement.",
+          "Version stable, projet indépendant.",
           "Conservez une sauvegarde indépendante. Toutes les fonctions des clients Windows et macOS ne sont pas disponibles. Les paquets ne sont pas encore signés."
         ],
         [
@@ -291,7 +291,7 @@
           "Gérez les partages, créez des liens publics et envoyez des invitations confirmées dans une fenêtre dédiée."
         ]
       ],
-      "releaseNotes": "Quelles nouveautés apporte la bêta 0.1 ?\nImportez des photos et vidéos depuis un export Google Takeout extrait, après vérification de l’aperçu. La sauvegarde du PC propose une configuration plus claire pour la synchronisation bidirectionnelle des dossiers ; ce n’est pas une sauvegarde d’image système. Le programme de mise à jour DEB/RPM coordonne le redémarrage de l’application et des services. Un lien Ko-fi facultatif permet de soutenir le développement. La reconstruction des albums Takeout et la reprise automatique de l’import ne sont pas incluses.\n\nComment passer d’une ancienne version à la bêta 0.1 ?\nLa série publique recommence à 0.1.0-beta1. Installez une fois le paquet bêta manuellement : les anciens clients peuvent ne pas proposer une version numériquement inférieure. DEB, RPM et Arch utilisent l’epoch 1 pour que les gestionnaires de paquets reconnaissent la mise à niveau. Les préférences, le stockage du compte et les données de synchronisation sont conservés. Gardez une sauvegarde indépendante ; les futures mises à jour bêta utiliseront le mécanisme habituel.\n\nQuelles sont les limites de la version bêta ?\nIl n’y a notamment pas d’interface multicomptes, d’export de Proton Docs/Sheets ni de réglages avancés complets des liens. La propagation de la suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante.\n\nConservez une sauvegarde indépendante. Toutes les fonctions des clients Windows et macOS ne sont pas disponibles. Les paquets ne sont pas encore signés."
+      "releaseNotes": "Quelles nouveautés dans la version 1.0 ?\nLa version stable 1.0 ajoute la synchronisation autonome des dossiers en arrière-plan pour Snap et Flatpak, une actualisation du stockage du compte sans blocage et la publication automatique sur le Snap Store. Les paquets DEB/RPM conservent les fichiers à la demande et l’intégration au gestionnaire de fichiers.\n\nComment passer à la version 1.0 ?\nInstallez le paquet actuel pour votre distribution. DEB, RPM et Arch conservent l’epoch 1. Gardez une sauvegarde indépendante. snapd gère les mises à jour du Snap Store.\n\nQuelles limitations subsistent ?\nIl n’y a notamment pas d’interface multicomptes, d’export de Proton Docs/Sheets ni de réglages avancés complets des liens. La propagation de la suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante."
     },
     "es": {
       "description": "Un cliente de escritorio Linux no oficial y de código abierto para Proton Drive, desarrollado de forma independiente de Proton AG.",
@@ -302,7 +302,7 @@
         ],
         [
           "En línea, hasta que lo necesites sin conexión",
-          "Descarga contenido bajo demanda. “Keep on device” conserva los archivos y carpetas seleccionados en tu equipo."
+          "Los paquetes DEB/RPM ofrecen archivos bajo demanda y la opción de conservarlos en el dispositivo. Snap y Flatpak descargan los archivos sincronizados como archivos locales normales, sin marcadores en línea ni extensiones nativas del gestor de archivos."
         ],
         [
           "Un hogar para tus fotos",
@@ -327,19 +327,19 @@
           "NeutronDrive está desarrollado para Linux. La integración con el gestor de archivos y los iconos de estado dependen del escritorio y su versión. GNOME necesita una extensión para mostrar el icono de bandeja. Los paquetes aislados tienen limitaciones adicionales."
         ],
         [
-          "¿Todos los archivos están disponibles automáticamente sin conexión?",
-          "No. Los archivos en línea se descargan bajo demanda. Usa “Keep on device” para seleccionar archivos o carpetas para uso sin conexión. Espera a que termine la descarga antes de desconectarte."
+          "¿Cómo se guardan los archivos sin conexión?",
+          "Los paquetes DEB/RPM ofrecen archivos bajo demanda y la opción de conservarlos en el dispositivo. Snap y Flatpak descargan los archivos sincronizados como archivos locales normales, sin marcadores en línea ni extensiones nativas del gestor de archivos."
         ],
         [
-          "¿Qué novedades incluye la beta 0.1?",
-          "Importa fotos y vídeos desde una exportación de Google Takeout extraída, tras revisar la vista previa. La copia del equipo ofrece una configuración más clara para sincronizar carpetas en ambas direcciones; no es una copia de imagen del sistema. El actualizador DEB/RPM coordina el reinicio de la aplicación y los servicios. Un enlace opcional a Ko-fi permite apoyar el desarrollo. No se incluyen la reconstrucción de álbumes de Takeout ni la reanudación automática de importaciones."
+          "¿Qué novedades incluye la versión 1.0?",
+          "La versión estable 1.0 incluye sincronización autónoma de carpetas en segundo plano para Snap y Flatpak, actualización del almacenamiento sin bloquear la interfaz y publicación automática en Snap Store. Los paquetes DEB/RPM conservan los archivos bajo demanda y la integración con el gestor de archivos."
         ],
         [
-          "¿Cómo paso de una versión anterior a la beta 0.1?",
-          "La serie pública vuelve a empezar en 0.1.0-beta1. Instala el paquete beta manualmente una vez: los clientes antiguos pueden no ofrecer una versión numéricamente inferior. DEB, RPM y Arch usan epoch 1 para que los gestores de paquetes reconozcan la actualización. Se conservan las preferencias, el almacenamiento de la cuenta y los datos de sincronización. Mantén una copia independiente; las futuras actualizaciones beta usarán el actualizador habitual."
+          "¿Cómo actualizo a la versión 1.0?",
+          "Instala el paquete actual para tu distribución. DEB, RPM y Arch conservan epoch 1. Mantén una copia de seguridad independiente. snapd gestiona las actualizaciones de Snap Store."
         ],
         [
-          "¿Cuáles son las limitaciones de la versión beta?",
+          "¿Qué limitaciones quedan?",
           "Entre otras, no hay interfaz multicuenta, exportación de Proton Docs/Sheets ni ajustes avanzados completos de enlaces. La propagación del borrado de carpetas completas sigue bloqueada. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente."
         ],
         [
@@ -353,7 +353,7 @@
           "Un cliente no oficial de Proton Drive, desarrollado como proyecto comunitario independiente bajo licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
         ],
         [
-          "Beta significa: en desarrollo.",
+          "Versión estable, proyecto independiente.",
           "Conserva una copia de seguridad independiente. No están disponibles todas las funciones de los clientes de Windows y macOS. Los paquetes aún no están firmados."
         ],
         [
@@ -388,7 +388,7 @@
           "Gestiona archivos compartidos, crea enlaces públicos y envía invitaciones confirmadas en una ventana propia."
         ]
       ],
-      "releaseNotes": "¿Qué novedades incluye la beta 0.1?\nImporta fotos y vídeos desde una exportación de Google Takeout extraída, tras revisar la vista previa. La copia del equipo ofrece una configuración más clara para sincronizar carpetas en ambas direcciones; no es una copia de imagen del sistema. El actualizador DEB/RPM coordina el reinicio de la aplicación y los servicios. Un enlace opcional a Ko-fi permite apoyar el desarrollo. No se incluyen la reconstrucción de álbumes de Takeout ni la reanudación automática de importaciones.\n\n¿Cómo paso de una versión anterior a la beta 0.1?\nLa serie pública vuelve a empezar en 0.1.0-beta1. Instala el paquete beta manualmente una vez: los clientes antiguos pueden no ofrecer una versión numéricamente inferior. DEB, RPM y Arch usan epoch 1 para que los gestores de paquetes reconozcan la actualización. Se conservan las preferencias, el almacenamiento de la cuenta y los datos de sincronización. Mantén una copia independiente; las futuras actualizaciones beta usarán el actualizador habitual.\n\n¿Cuáles son las limitaciones de la versión beta?\nEntre otras, no hay interfaz multicuenta, exportación de Proton Docs/Sheets ni ajustes avanzados completos de enlaces. La propagación del borrado de carpetas completas sigue bloqueada. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente.\n\nConserva una copia de seguridad independiente. No están disponibles todas las funciones de los clientes de Windows y macOS. Los paquetes aún no están firmados."
+      "releaseNotes": "¿Qué novedades incluye la versión 1.0?\nLa versión estable 1.0 incluye sincronización autónoma de carpetas en segundo plano para Snap y Flatpak, actualización del almacenamiento sin bloquear la interfaz y publicación automática en Snap Store. Los paquetes DEB/RPM conservan los archivos bajo demanda y la integración con el gestor de archivos.\n\n¿Cómo actualizo a la versión 1.0?\nInstala el paquete actual para tu distribución. DEB, RPM y Arch conservan epoch 1. Mantén una copia de seguridad independiente. snapd gestiona las actualizaciones de Snap Store.\n\n¿Qué limitaciones quedan?\nEntre otras, no hay interfaz multicuenta, exportación de Proton Docs/Sheets ni ajustes avanzados completos de enlaces. La propagación del borrado de carpetas completas sigue bloqueada. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente."
     },
     "it": {
       "description": "Un client desktop Linux non ufficiale e open source per Proton Drive, sviluppato indipendentemente da Proton AG.",
@@ -399,7 +399,7 @@
         ],
         [
           "Online, finché non serve offline",
-          "Scarica i contenuti su richiesta. “Keep on device” mantiene i file e le cartelle selezionati sul computer."
+          "I pacchetti DEB/RPM offrono file su richiesta e la possibilità di conservarli sul dispositivo. Snap e Flatpak scaricano i file sincronizzati come normali file locali, senza segnaposto online o estensioni native del file manager."
         ],
         [
           "Una casa per le tue foto",
@@ -424,19 +424,19 @@
           "NeutronDrive è sviluppato per Linux. L’integrazione con il gestore file e le icone di stato dipendono dal desktop e dalla versione. GNOME richiede un’estensione adatta per l’icona nell’area di notifica. I pacchetti isolati hanno ulteriori limiti."
         ],
         [
-          "Tutti i file sono automaticamente disponibili offline?",
-          "No. I file online vengono scaricati su richiesta. Usa “Keep on device” per selezionare file o cartelle da usare offline. Attendi la fine del download prima di scollegarti."
+          "Come vengono salvati i file offline?",
+          "I pacchetti DEB/RPM offrono file su richiesta e la possibilità di conservarli sul dispositivo. Snap e Flatpak scaricano i file sincronizzati come normali file locali, senza segnaposto online o estensioni native del file manager."
         ],
         [
-          "Quali sono le novità della beta 0.1?",
-          "Importa foto e video da un’esportazione Google Takeout estratta, dopo aver controllato l’anteprima. Il backup del computer offre una configurazione più chiara per la sincronizzazione bidirezionale delle cartelle; non è un backup dell’immagine del sistema. L’aggiornamento DEB/RPM coordina il riavvio dell’app e dei servizi. Un link facoltativo a Ko-fi permette di sostenere lo sviluppo. La ricostruzione degli album Takeout e la ripresa automatica delle importazioni non sono incluse."
+          "Quali sono le novità della versione 1.0?",
+          "La versione stabile 1.0 include la sincronizzazione autonoma delle cartelle in background per Snap e Flatpak, l’aggiornamento dello spazio dell’account senza bloccare l’interfaccia e la pubblicazione automatica sullo Snap Store. I pacchetti DEB/RPM mantengono i file su richiesta e l’integrazione con il file manager."
         ],
         [
-          "Come passo da una versione precedente alla beta 0.1?",
-          "La serie pubblica riparte da 0.1.0-beta1. Installa il pacchetto beta manualmente una volta: i vecchi client potrebbero non proporre una versione numericamente inferiore. DEB, RPM e Arch usano epoch 1 affinché i gestori dei pacchetti riconoscano l’aggiornamento. Preferenze, archivio dell’account e dati sincronizzati vengono conservati. Mantieni un backup indipendente; i futuri aggiornamenti beta useranno il normale programma di aggiornamento."
+          "Come aggiorno alla versione 1.0?",
+          "Installa il pacchetto corrente per la tua distribuzione. DEB, RPM e Arch mantengono epoch 1. Conserva un backup indipendente. snapd gestisce gli aggiornamenti dello Snap Store."
         ],
         [
-          "Quali sono i limiti della versione beta?",
+          "Quali limitazioni rimangono?",
           "Tra gli altri, mancano l’interfaccia multi-account, l’esportazione di Proton Docs/Sheets e le impostazioni avanzate complete dei link. La propagazione dell’eliminazione di intere cartelle rimane bloccata. Le modifiche simultanee possono creare conflitti: conserva un backup indipendente."
         ],
         [
@@ -450,7 +450,7 @@
           "Un client non ufficiale di Proton Drive, sviluppato come progetto indipendente della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
         ],
         [
-          "Beta significa: in sviluppo.",
+          "Versione stabile, progetto indipendente.",
           "Conserva un backup indipendente. Non tutte le funzioni dei client Windows e macOS sono disponibili. I pacchetti non sono ancora firmati."
         ],
         [
@@ -485,7 +485,7 @@
           "Gestisci le condivisioni, crea link pubblici e invia inviti confermati in una finestra dedicata."
         ]
       ],
-      "releaseNotes": "Quali sono le novità della beta 0.1?\nImporta foto e video da un’esportazione Google Takeout estratta, dopo aver controllato l’anteprima. Il backup del computer offre una configurazione più chiara per la sincronizzazione bidirezionale delle cartelle; non è un backup dell’immagine del sistema. L’aggiornamento DEB/RPM coordina il riavvio dell’app e dei servizi. Un link facoltativo a Ko-fi permette di sostenere lo sviluppo. La ricostruzione degli album Takeout e la ripresa automatica delle importazioni non sono incluse.\n\nCome passo da una versione precedente alla beta 0.1?\nLa serie pubblica riparte da 0.1.0-beta1. Installa il pacchetto beta manualmente una volta: i vecchi client potrebbero non proporre una versione numericamente inferiore. DEB, RPM e Arch usano epoch 1 affinché i gestori dei pacchetti riconoscano l’aggiornamento. Preferenze, archivio dell’account e dati sincronizzati vengono conservati. Mantieni un backup indipendente; i futuri aggiornamenti beta useranno il normale programma di aggiornamento.\n\nQuali sono i limiti della versione beta?\nTra gli altri, mancano l’interfaccia multi-account, l’esportazione di Proton Docs/Sheets e le impostazioni avanzate complete dei link. La propagazione dell’eliminazione di intere cartelle rimane bloccata. Le modifiche simultanee possono creare conflitti: conserva un backup indipendente.\n\nConserva un backup indipendente. Non tutte le funzioni dei client Windows e macOS sono disponibili. I pacchetti non sono ancora firmati."
+      "releaseNotes": "Quali sono le novità della versione 1.0?\nLa versione stabile 1.0 include la sincronizzazione autonoma delle cartelle in background per Snap e Flatpak, l’aggiornamento dello spazio dell’account senza bloccare l’interfaccia e la pubblicazione automatica sullo Snap Store. I pacchetti DEB/RPM mantengono i file su richiesta e l’integrazione con il file manager.\n\nCome aggiorno alla versione 1.0?\nInstalla il pacchetto corrente per la tua distribuzione. DEB, RPM e Arch mantengono epoch 1. Conserva un backup indipendente. snapd gestisce gli aggiornamenti dello Snap Store.\n\nQuali limitazioni rimangono?\nTra gli altri, mancano l’interfaccia multi-account, l’esportazione di Proton Docs/Sheets e le impostazioni avanzate complete dei link. La propagazione dell’eliminazione di intere cartelle rimane bloccata. Le modifiche simultanee possono creare conflitti: conserva un backup indipendente."
     }
   }
 }
