@@ -13,7 +13,6 @@
     "--filesystem=home",
     "--talk-name=org.freedesktop.secrets",
     "--talk-name=org.kde.StatusNotifierWatcher",
-    "--talk-name=io.github.SigmaCodez.NeutronDrive.Service",
     "--env=GTK_USE_PORTAL=1"
   ],
   "modules": [
@@ -25,7 +24,7 @@
         "strip": false
       },
       "build-commands": [
-        "NEUTRONDRIVE_NATIVE_BUILD=\"$PWD/prebuilt-frontend\" python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser"
+        "NEUTRONDRIVE_NATIVE_BUILD=\"$PWD/prebuilt-frontend\" python3 packaging/stage.py --destdir /app --prefix / --arch \"$FLATPAK_ARCH\" --backend proton-drive --portal-browser --no-host-services"
       ],
       "sources": [
         {

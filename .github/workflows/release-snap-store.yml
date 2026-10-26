@@ -1,11 +1,11 @@
-name: Publish Snap Store beta
+name: Publish Snap Store release
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Published GitHub beta release tag to upload or retry'
+        description: 'Published GitHub release tag to upload or retry'
         required: true
         type: string
   workflow_call:
@@ -19,7 +19,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: snap-store-beta
+  group: snap-store-release
   cancel-in-progress: false
 jobs:
   publish:
@@ -39,7 +39,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 -c 'import os,re; assert re.fullmatch(r"v\d+\.\d+\.\d+-beta\.?\d+",os.environ["ND_TAG"]), "Only beta release tags are supported"'
+          python3 -c 'import os,re; assert re.fullmatch(r"v\d+\.\d+\.\d+(-beta\.?\d+)?",os.environ["ND_TAG"]), "Only stable or beta version tags are supported"'
           gh api "repos/$GITHUB_REPOSITORY/releases/tags/$ND_TAG" > "$RUNNER_TEMP/release.json"
           gh release download "$ND_TAG" --repo "$GITHUB_REPOSITORY" --pattern '*_amd64.snap' --pattern SHA256SUMS --dir "$RUNNER_TEMP/package"
       - name: Validate package metadata, version and checksum
@@ -48,15 +48,19 @@ jobs:
           sudo apt-get install -y squashfs-tools python3-yaml
           nd_package=$(python3 scripts/validate-store-release.py --release "$RUNNER_TEMP/release.json" --tag "$ND_TAG" --directory "$RUNNER_TEMP/package")
           printf 'ND_PACKAGE=%s\n' "$nd_package" >> "$GITHUB_ENV"
+          case "$ND_TAG" in
+            *-beta*) echo 'ND_CHANNEL=latest/beta' >> "$GITHUB_ENV" ;;
+            *) echo 'ND_CHANNEL=latest/stable' >> "$GITHUB_ENV" ;;
+          esac
       - name: Install Snapcraft
         run: sudo snap install snapcraft --classic
-      - name: Publish verified package to latest/beta
+      - name: Publish verified package to the selected channel
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
           test -n "$SNAPCRAFT_STORE_CREDENTIALS" || { echo 'Missing SNAPCRAFT_STORE_CREDENTIALS repository secret'; exit 1; }
-          snapcraft upload --release=latest/beta "$ND_PACKAGE"
+          snapcraft upload --release="$ND_CHANNEL" "$ND_PACKAGE"
           snapcraft status neutrondrive
       - name: Record successful publication
         run: |
-          printf 'Published GitHub release **%s** to Snap Store **latest/beta** (amd64).\n' "$ND_TAG" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Published GitHub release **%s** to Snap Store **%s** (amd64).\n' "$ND_TAG" "$ND_CHANNEL" >> "$GITHUB_STEP_SUMMARY"

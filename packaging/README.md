@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The current SDK bridge and application packages are published together in
-`v0.1.0-beta1`. Source builds are inspectable; bit-for-bit reproducibility
+`v1.0.0`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -38,8 +38,8 @@ minimum libc requirement. Building for an architecture does not test that CPU.
 Build recipes and CI are not a certification that every distro/desktop works.
 Account login, transfer round trips, interruption recovery, sandbox keyring access
 and long-running synchronization must be checked on real target installations.
-No account credentials are used by CI. CI uploads build artifacts; it does not
-publish releases, sign packages or submit to Flathub/Snap Store.
+No account credentials are used by CI. Package CI uploads build artifacts. The separate release workflow publishes
+verified release Snap assets to the Snap Store; it does not submit to Flathub.
 
 ## Qt runtime
 
@@ -146,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_0.1.0-beta1_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_1.0.0_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -184,10 +184,11 @@ D-Bus service activation file plus an optional user systemd unit. Enable
 `neutrondrive-background.service` only if you prefer systemd to GUI-managed XDG
 autostart; do not enable both. The GUI can generate an XDG autostart entry.
 
-Flatpak uses the Background portal for session persistence/autostart. Mounting
-online files requires the native NeutronDrive helper on the host. Its manifest
-grants only the application-specific D-Bus name, not general Flatpak host-spawn
-access. Host helper and sandbox can require separate Proton browser sessions.
+The development Flatpak uses the Background portal for session persistence and
+autostart, and performs ordinary downloaded-folder synchronization entirely
+inside the sandbox. It neither activates nor requires a native host service.
+Online placeholders and native file-manager extensions remain native-package
+features. Previously published beta1 bundles still use the older helper design.
 
 Snap autostart is declared for snap-userd and uses Snap-specific arguments. Its
 helper has a separate D-Bus name and cannot accidentally use a native instance.
@@ -268,4 +269,20 @@ Do not include the epoch in release asset filenames. Flatpak and Snap use their
 normal bundle/revision replacement mechanisms; AppImages are replaced manually.
 Existing 0.6 alpha update checkers need one manual beta installation. The beta
 updater excludes the known retired alpha versions from its newer-release ordering.
-Historical Git tags remain, but old GitHub release downloads are retired.
+Old release tags and downloads are retired; Git history remains.
+
+## Store preparation
+
+The local Snap/Flatpak downloads are not Store listings. See
+[Snap beta publication](../docs/stores/snap-store.md) and
+[Flathub readiness and current blockers](../docs/stores/flathub-readiness.md).
+Store editions use ordinary downloaded-folder synchronization and explicitly
+exclude native FUSE/file-manager integration. The native DEB/RPM behavior is
+unchanged. Publication requires runtime testing of the changed packages.
+
+## Stable 1.0
+
+Application and distributable package versions are 1.0.0. Epoch 1 is retained for
+native package upgrades. Snap uses `grade: stable`; regular GitHub release tags
+publish to `latest/stable`, while beta tags continue to use `latest/beta`.
+See [Store automation](../docs/snap-store-automation.md).

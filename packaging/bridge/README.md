@@ -128,3 +128,10 @@ crypto and authentication behavior are retained. Computer command tests run
 alongside protocol and branding tests during `scripts/build-backend`.
 An explicit source-built backend can be passed to package builders with
 `--backend`; its adjacent provenance must match this checkout and architecture.
+
+## Reliable pipe completion
+
+The entry point ends stdout/stderr and waits for their completion before its
+explicit successful exit. Bun 1.4.2 can otherwise exit with buffered JSON still
+pending when a consumer reads slowly. A delayed-reader regression test transfers
+a 4 MiB JSON result; malformed/truncated responses are still rejected by Rust.
