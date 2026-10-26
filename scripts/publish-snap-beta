@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Validate a tested NeutronDrive Snap and upload only to the beta channel."""
+import argparse
+from pathlib import Path
+import subprocess
+import sys
+
+
+def validate(metadata):
+    expected = {"name": "neutrondrive", "confinement": "strict", "grade": "devel",
+                "summary": "Unofficial Proton Drive client for Linux"}
+    for field, value in expected.items():
+        if metadata.get(field) != value:
+            raise ValueError(f"Unexpected {field}: expected {value!r}")
+    version = metadata.get("version", "")
+    if not isinstance(version, str) or "beta" not in version.lower():
+        raise ValueError("Only a beta version may be published by this helper")
+    if metadata.get("base") != "core24":
+        raise ValueError("Unexpected Snap base; review compatibility before publishing")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("snap", type=Path)
+    parser.add_argument("--check-only", action="store_true", help="Validate without upload or login")
+    args = parser.parse_args()
+    try:
+        import yaml
+        package = args.snap.resolve(strict=True)
+        if not package.is_file() or package.suffix != ".snap":
+            raise ValueError("Choose a regular .snap package")
+        raw = subprocess.check_output(["unsquashfs", "-cat", str(package), "meta/snap.yaml"], text=True)
+        try:
+            metadata = yaml.safe_load(raw)
+        except yaml.YAMLError as error:
+            raise ValueError("Invalid snap YAML metadata") from error
+        if not isinstance(metadata, dict):
+            raise ValueError("Invalid snap metadata")
+        validate(metadata)
+        print(f"Validated {metadata['name']} {metadata['version']} for beta", flush=True)
+        if not args.check_only:
+            subprocess.run(["snapcraft", "upload", "--release=beta", str(package)], check=True)
+    except (ValueError, OSError, subprocess.CalledProcessError, ImportError) as error:
+        print(f"Not published: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

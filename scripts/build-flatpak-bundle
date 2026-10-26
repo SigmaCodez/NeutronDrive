@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix="flatpak-bundle-", dir=ROOT / "build") a
     payload = work / "app"
     (payload / "files").mkdir(parents=True)
     (payload / "var").mkdir()
-    stage.stage(payload / "files", "/", arch, args.backend, portal_browser=True)
+    stage.stage(payload / "files", "/", arch, args.backend, portal_browser=True, host_services=False)
     (payload / "metadata").write_text(
         f"[Application]\nname={app_id}\n"
         f"runtime={manifest['runtime']}/{arch}/{manifest['runtime-version']}\n"
