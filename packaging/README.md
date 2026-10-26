@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The current SDK bridge and application packages are published together in
-`v1.0.0`. Source builds are inspectable; bit-for-bit reproducibility
+`v1.0.1`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -146,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_1.0.0_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_1.0.1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -282,7 +282,7 @@ unchanged. Publication requires runtime testing of the changed packages.
 
 ## Stable 1.0
 
-Application and distributable package versions are 1.0.0. Epoch 1 is retained for
+Application and distributable package versions are 1.0.1. Epoch 1 is retained for
 native package upgrades. Snap uses `grade: stable`; regular GitHub release tags
 publish to `latest/stable`, while beta tags continue to use `latest/beta`.
 See [Store automation](../docs/snap-store-automation.md).
