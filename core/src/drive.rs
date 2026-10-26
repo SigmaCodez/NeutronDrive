@@ -297,7 +297,10 @@ where
                 destination.to_str().ok_or("Unsupported local path")?,
             ])
         }
-        Operation::AccountStorage => command(&["account", "storage", "--json"]),
+        Operation::AccountStorage => {
+            timeout = 10.;
+            command(&["account", "storage", "--json"])
+        }
         Operation::Version => {
             timeout = 30.;
             parse = false;
@@ -580,6 +583,19 @@ mod tests {
                     ])
                 );
                 Ok(json!({}))
+            },
+        )
+        .unwrap();
+    }
+    #[test]
+    fn optional_account_storage_has_a_short_total_timeout() {
+        execute(
+            Operation::AccountStorage,
+            &mut |_| 0,
+            &mut |args, timeout, _, _, _| {
+                assert_eq!(args, command(&["account", "storage", "--json"]));
+                assert_eq!(timeout, 10.0);
+                Ok(json!({"total":100,"used":25}))
             },
         )
         .unwrap();

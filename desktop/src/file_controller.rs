@@ -285,6 +285,7 @@ impl qobject::NativeFiles {
         let generation = model.service_generation();
         let qt = self.qt_thread();
         let executable = self.rust().executable.clone();
+        let demo = self.rust().demo;
         let cancel = self.rust().status_cancel.clone();
         self.as_mut().rust_mut().status_pending = true;
         let worker = std::thread::Builder::new()
@@ -293,6 +294,11 @@ impl qobject::NativeFiles {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     let mut callback = |_| i32::from(cancel.load(Ordering::Acquire));
                     match target {
+                        Target::AccountStorage if demo => demo_operation(&json!({"action":"account_storage"})),
+                        Target::AccountStorage => runtime::call(
+                            json!({"op":"drive","executable":executable,"operation":{"action":"account_storage"}}),
+                            &mut callback,
+                        ),
                         Target::Background => crate::background::run(
                             &executable,
                             &json!({"action":"status"}),
