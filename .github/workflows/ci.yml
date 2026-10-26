@@ -203,7 +203,7 @@ jobs:
       - name: Install release DEB on Ubuntu 26.10
         run: |
           apt-get update
-          apt-get install -y python3 dbus dbus-x11 xvfb xauth nautilus
+          apt-get install -y python3 python3-gi gir1.2-gtk-4.0 dbus dbus-x11 xvfb xauth nautilus
           apt-get install -y ./build/deb/*.deb
           test "$(. /etc/os-release; echo "$VERSION_ID")" = 26.10
           test "$(dpkg-query -W -f='${Version}' neutrondrive)" = 1:1.0.1-1
