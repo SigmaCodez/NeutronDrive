@@ -286,3 +286,27 @@ Application and distributable package versions are 1.0.1. Epoch 1 is retained fo
 native package upgrades. Snap uses `grade: stable`; regular GitHub release tags
 publish to `latest/stable`, while beta tags continue to use `latest/beta`.
 See [Store automation](../docs/snap-store-automation.md).
+
+
+## Ubuntu 26.10 DEB validation
+
+Version 1.0.1 uses the same portable native DEB on Ubuntu 26.10; there is no
+separate Ubuntu-only application build. Choose `amd64` for Intel/AMD PCs or
+`arm64` for ARM64 systems:
+
+```sh
+sudo apt install ./neutrondrive_1.0.1-1_amd64.deb
+```
+
+CI installs the release DEB in an actual `ubuntu:26.10` userspace on both
+architectures, resolves dependencies through APT, checks the installed version,
+starts the Qt interface with isolated synthetic data, and exercises the native
+Nautilus sidebar adapter against that distribution's GTK/Nautilus libraries.
+These checks do not emulate a complete GNOME/Wayland login, keyring or live cloud
+account. The real transfer/emblem test was performed separately on Ubuntu 26.04.1.
+
+The application retains its older ABI baselines for existing users. No OS upgrade
+is needed to install this release. After updating a native extension, finish any
+file copies and restart the file manager or log out and back in to load it.
+
+[Ubuntu 26.10 release notes](https://documentation.ubuntu.com/release-notes/26.10/)

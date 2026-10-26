@@ -15,8 +15,8 @@
   <url type="bugtracker">https://github.com/SigmaCodez/NeutronDrive/issues</url>
   <url type="vcs-browser">https://github.com/SigmaCodez/NeutronDrive</url>
   <screenshots>
-    <screenshot type="default"><caption>Files in the light theme</caption><image>https://raw.githubusercontent.com/SigmaCodez/NeutronDrive/v0.1.0-beta1/docs/demo.png</image></screenshot>
-    <screenshot><caption>Files in the dark theme</caption><image>https://raw.githubusercontent.com/SigmaCodez/NeutronDrive/v0.1.0-beta1/docs/demo-dark.png</image></screenshot>
+    <screenshot type="default"><caption>Files in the light theme</caption><image>https://raw.githubusercontent.com/SigmaCodez/NeutronDrive/v1.0.1/docs/previews/design-polish/light-grid.png</image></screenshot>
+    <screenshot><caption>Files in the dark theme</caption><image>https://raw.githubusercontent.com/SigmaCodez/NeutronDrive/v1.0.1/docs/previews/design-polish/dark-grid.png</image></screenshot>
   </screenshots>
   <provides><binary>neutrondrive</binary></provides>
   <content_rating type="oars-1.1"/>
