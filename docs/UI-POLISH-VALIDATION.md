@@ -40,4 +40,14 @@ existing sharing-window and instance-forwarding tests also pass.
 
 ## Limits
 
-The real-account test inspected provider status and file contents; it did not capture the live painted icons. No v1.0.1 store publication is claimed until its workflow completes. Dolphin's KIO adapter was updated but not built or exercised in a KDE desktop here. Synthetic fixtures and local kernel tests do not establish complete Windows/macOS feature parity or prove all real-account scenarios.
+The real-account test inspected provider status and file contents; the user additionally confirmed green checkmarks on the test file and folder. The blue phase was not screen-recorded. No v1.0.1 store publication is claimed until its workflow completes. Dolphin's KIO adapter was updated but not built or exercised in a KDE desktop here. Synthetic fixtures and local kernel tests do not establish complete Windows/macOS feature parity or prove all real-account scenarios.
+
+
+### ARM64 kernel-close ordering
+
+An ARM64 CI run exposed an asynchronous FUSE RELEASE race in the kernel test:
+`close(2)` returned before the server had removed the handle. The test now retries
+only EBUSY for at most five seconds after its own handle is closed, using the same
+bounded handling as cache eviction. It also explicitly asserts EBUSY while the
+handle remains open. The runtime's open-file protection is unchanged. All twelve
+local kernel FUSE tests pass with this synchronization.
