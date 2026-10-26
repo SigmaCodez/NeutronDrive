@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The current SDK bridge and application packages are published together in
-`v0.1.0-beta1`. Source builds are inspectable; bit-for-bit reproducibility
+`v1.0.0`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -38,8 +38,8 @@ minimum libc requirement. Building for an architecture does not test that CPU.
 Build recipes and CI are not a certification that every distro/desktop works.
 Account login, transfer round trips, interruption recovery, sandbox keyring access
 and long-running synchronization must be checked on real target installations.
-No account credentials are used by CI. CI uploads build artifacts; it does not
-publish releases, sign packages or submit to Flathub/Snap Store.
+No account credentials are used by CI. Package CI uploads build artifacts. The separate release workflow publishes
+verified release Snap assets to the Snap Store; it does not submit to Flathub.
 
 ## Qt runtime
 
