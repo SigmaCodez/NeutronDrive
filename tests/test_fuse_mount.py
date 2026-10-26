@@ -30,6 +30,18 @@ class KernelMountTests(unittest.TestCase):
         self.manager.unmount()
         self.temp.cleanup()
 
+    def after_kernel_release(self, operation):
+        # close(2) may return before the asynchronous FUSE RELEASE is handled.
+        # Only EBUSY is retryable, and a genuinely retained handle still fails.
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                return operation()
+            except OSError as exc:
+                if exc.errno != errno.EBUSY or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.02)
+
     def test_kernel_stat_read_pin_evict_and_offline_remount(self):
         self.manager.mount(self.mount)
         cloud = self.mount / 'hello.txt'
@@ -37,24 +49,20 @@ class KernelMountTests(unittest.TestCase):
         self.assertEqual(cloud.stat().st_size, 21)
         self.assertEqual(self.backend.downloads, 0)
         self.assertEqual(os.getxattr(cloud, 'user.neutrondrive.state'), b'online-only')
-        self.assertEqual(cloud.read_bytes(), b'hello from the cloud\n')
-        self.assertEqual(self.backend.downloads, 1)
-        self.manager.pin('hello.txt')
+        with cloud.open('rb') as opened:
+            self.assertEqual(opened.read(), b'hello from the cloud\n')
+            self.assertEqual(self.backend.downloads, 1)
+            with self.assertRaises(OSError) as busy:
+                self.manager.pin('hello.txt')
+            self.assertEqual(busy.exception.errno, errno.EBUSY)
+        self.after_kernel_release(lambda: self.manager.pin('hello.txt'))
         self.assertEqual(os.getxattr(cloud, 'user.neutrondrive.state'), b'pinned')
         self.manager.unmount()
         self.backend.online = False
         self.manager.mount(self.mount, offline=True)
         self.assertEqual(cloud.read_bytes(), b'hello from the cloud\n')
         self.manager.pin('hello.txt', False)
-        deadline = time.monotonic() + 5
-        while True:
-            try:
-                self.manager.evict('hello.txt')
-                break
-            except OSError as exc:
-                if exc.errno != errno.EBUSY or time.monotonic() >= deadline:
-                    raise
-                time.sleep(0.02)
+        self.after_kernel_release(lambda: self.manager.evict('hello.txt'))
         with self.assertRaises(OSError) as cm:
             cloud.read_bytes()
         self.assertEqual(cm.exception.errno, errno.ENETDOWN)
