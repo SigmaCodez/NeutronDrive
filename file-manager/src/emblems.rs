@@ -16,7 +16,7 @@ struct InfoApi {
     unreference: unsafe extern "C" fn(Ptr),
 }
 static INFO: OnceLock<InfoApi> = OnceLock::new();
-static FILES: LazyLock<Mutex<BTreeMap<usize, (String, bool)>>> =
+static FILES: LazyLock<Mutex<BTreeMap<usize, (String, u8)>>> =
     LazyLock::new(|| Mutex::new(BTreeMap::new()));
 static TIMER: AtomicU32 = AtomicU32::new(0);
 unsafe extern "C" fn gone(_: Ptr, file: Ptr) {
@@ -29,7 +29,7 @@ unsafe extern "C" fn tick(_: Ptr) -> c_int {
         {
             let mut files = FILES.lock().unwrap();
             for (file, (path, old)) in files.iter_mut() {
-                let now = availability::available(std::path::Path::new(path));
+                let now = availability::status(std::path::Path::new(path));
                 if now != *old {
                     *old = now;
                     changed.push((api.reference)(*file as Ptr));
@@ -74,8 +74,10 @@ unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *
         }) else {
             return 0;
         };
-        let complete = availability::available(std::path::Path::new(&path));
-        if complete {
+        let complete = availability::status(std::path::Path::new(&path));
+        if complete == 2 {
+            (info.add)(file, c"neutrondrive-syncing".as_ptr());
+        } else if complete == 1 {
             (info.add)(file, c"neutrondrive-available".as_ptr());
         }
         let mut files = FILES.lock().unwrap();

@@ -58,6 +58,7 @@ class NativePackagingTests(unittest.TestCase):
             self.assertEqual(list(destination.rglob('*.py')), [])
             self.assertTrue((destination / 'usr/share/neutrondrive/integrations/dolphin/CMakeLists.txt').is_file())
             self.assertTrue((destination / 'usr/share/icons/hicolor/scalable/emblems/neutrondrive-available.svg').is_file())
+            self.assertTrue((destination / 'usr/share/icons/hicolor/scalable/emblems/neutrondrive-syncing.svg').is_file())
             for libdir in ('lib', 'lib64', 'lib/x86_64-linux-gnu'):
                 for manager in ('nautilus/extensions-3.0','nautilus/extensions-4','nemo/extensions-3.0','caja/extensions-2.0','thunarx-3'):
                     link=destination/'usr'/libdir/manager/'libneutrondrive.so'

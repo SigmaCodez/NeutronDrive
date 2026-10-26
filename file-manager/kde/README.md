@@ -1,6 +1,6 @@
 # Dolphin integration addon
 
-This thin KIO adapter supplies green availability overlays and a **Proton Drive**
+This thin KIO adapter supplies blue download-progress and green availability overlays and a **Proton Drive**
 Places bookmark with the Neutron application icon. Existing Proton Drive entries
 created by the addon receive the updated icon without being duplicated. It hides the matching device entry without changing other
 volumes. Cache decisions and path validation remain in the Rust library.
@@ -20,7 +20,7 @@ sudo cmake --install /tmp/neutrondrive-kde
 Use `-DNEUTRONDRIVE_KF_MAJOR=5` for Dolphin 5. Distribution packages can install
 with `DESTDIR` instead of using sudo. Restart Dolphin after installation.
 The native NeutronDrive host package must provide
-`/usr/lib/neutrondrive/bin/libneutrondrive_file_manager.so` and the emblem icon.
+`/usr/lib/neutrondrive/bin/libneutrondrive_file_manager.so` and both emblem icons.
 This is an optional host addon, not a plugin injected from Flatpak/Snap/AppImage.
 
 KDE 6 has been compiled and exercised with a real KIO plugin loader. KDE 5 is a

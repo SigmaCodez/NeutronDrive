@@ -28,6 +28,24 @@ The built-in DEB/RPM updater safely restarts the app and previously running serv
 See [feature details and limitations](docs/DESKTOP-FEATURES.md#beta-01-takeout-computer-and-donations)
 and [update restart behavior](docs/DESKTOP-FEATURES.md#beta-01-update-restart).
 
+## Upcoming interface refinement
+
+Development previews of the updated Qt Quick interface: a clearer content area,
+consistent light/dark surfaces, roomier navigation and a wrapping file-action bar.
+These changes are not part of the published 1.0.0 packages yet.
+
+![Development interface in dark mode](docs/previews/design-polish/dark-grid.png)
+
+[Light mode](docs/previews/design-polish/light-grid.png) ·
+[Compact layout](docs/previews/design-polish/compact-files.png) ·
+[Capture provenance](docs/previews/design-polish/capture.json)
+
+Native file-manager integrations now support a **blue sync emblem** while
+**Keep on device** downloads a file or folder. The green checkmark is shown once
+content is available locally. Cancelled or failed transfers clear the progress
+indicator; process-instance validation prevents stale blue emblems after a crash.
+Snap and Flatpak still do not install native file-manager extensions.
+
 ## Light and dark appearance
 
 Existing captures of the **0.1 beta release GUI**, in English, using isolated

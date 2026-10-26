@@ -14,7 +14,7 @@ class NeutronDriveOverlay final : public KOverlayIconPlugin {
     QLibrary library{QStringLiteral(NEUTRONDRIVE_RUST_LIBRARY)};
     using Available = int (*)(const char *);
     Available available = nullptr;
-    QMap<QUrl, bool> seen;
+    QMap<QUrl, int> seen;
     using SyncRoot = size_t (*)(char *, size_t);
     SyncRoot syncRoot = nullptr;
     KFilePlacesModel *places = nullptr;
@@ -38,23 +38,23 @@ class NeutronDriveOverlay final : public KOverlayIconPlugin {
     }
 public:
     NeutronDriveOverlay() {
-        available = reinterpret_cast<Available>(library.resolve("neutrondrive_is_available"));
+        available = reinterpret_cast<Available>(library.resolve("neutrondrive_file_status"));
         syncRoot = reinterpret_cast<SyncRoot>(library.resolve("neutrondrive_sync_root"));
         places = new KFilePlacesModel(this);
         auto timer = new QTimer(this);
         connect(timer, &QTimer::timeout, this, [this] {
             updatePlaces();
             for (auto i = seen.begin(); i != seen.end(); ++i) {
-                bool current = check(i.key());
+                int current = check(i.key());
                 if (current != i.value()) { i.value() = current; emit overlaysChanged(i.key(), icons(current)); }
             }
         });
         timer->start(2000);
     }
-    bool check(const QUrl &url) const { return available && url.isLocalFile() && available(url.toLocalFile().toUtf8().constData()); }
-    static QStringList icons(bool value) { return value ? QStringList{QStringLiteral("neutrondrive-available")} : QStringList{}; }
+    int check(const QUrl &url) const { return available && url.isLocalFile() ? available(url.toLocalFile().toUtf8().constData()) : 0; }
+    static QStringList icons(int value) { return value == 2 ? QStringList{QStringLiteral("neutrondrive-syncing")} : value == 1 ? QStringList{QStringLiteral("neutrondrive-available")} : QStringList{}; }
     QStringList getOverlays(const QUrl &url) override {
-        bool value = check(url);
+        int value = check(url);
         if (seen.size() < 10000 || seen.contains(url)) seen.insert(url, value);
         return icons(value);
     }

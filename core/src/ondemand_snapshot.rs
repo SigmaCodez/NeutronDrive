@@ -18,6 +18,7 @@ pub(crate) struct Snapshot {
     pub writable: bool,
     pub blocked: bool,
     pub writers: BTreeSet<u64>,
+    pub downloading: BTreeSet<u64>,
 }
 impl Snapshot {
     pub fn answer(&self, action: &Action) -> Option<Value> {
@@ -87,15 +88,14 @@ impl Snapshot {
     }
     pub fn availability(&self) -> Value {
         let mut paths = BTreeMap::new();
+        let mut downloading = BTreeMap::new();
         let mut memo = BTreeMap::new();
         if !self.blocked {
             for e in self.entries.values() {
                 let folder = e.node["type"] == "folder";
-                if (folder && !self.tree.pinned.contains(&e.inode))
-                    || !self.complete(e.inode, &mut memo, &mut BTreeSet::new())
-                {
-                    continue;
-                }
+                let complete = self.complete(e.inode, &mut memo, &mut BTreeSet::new());
+                let available = complete && (!folder || self.tree.pinned.contains(&e.inode));
+                let mut active = self.downloading.contains(&e.inode);
                 let mut parts = Vec::new();
                 let mut current = e;
                 let mut visited = BTreeSet::new();
@@ -105,14 +105,26 @@ impl Snapshot {
                         break;
                     };
                     current = parent;
+                    active |= self.downloading.contains(&current.inode);
                 }
                 if current.inode == 1 {
                     parts.reverse();
-                    paths.insert(parts.join("/"), true);
+                    let path = parts.join("/");
+                    if active && (!complete || self.downloading.contains(&e.inode)) {
+                        downloading.insert(path, true);
+                    } else if available {
+                        paths.insert(path, true);
+                    }
                 }
             }
         }
-        json!({"version":1,"available":paths})
+        // Bind transient progress to this process instance, not just a reusable PID.
+        let owner_start = std::fs::read_to_string("/proc/self/stat")
+            .ok()
+            .and_then(|s| s.rsplit_once(") ").map(|(_, fields)| fields.to_owned()))
+            .and_then(|s| s.split_whitespace().nth(19).map(str::to_owned));
+        json!({"version":1,"available":paths,"downloading":downloading,
+            "owner_pid":std::process::id(),"owner_start":owner_start})
     }
 }
 
@@ -165,6 +177,11 @@ mod tests {
         for path in ["", "sub", "sub/file"] {
             assert_eq!(v["available"][path], true);
         }
+        s.downloading.insert(1);
+        let progress = s.availability();
+        assert_eq!(progress["downloading"][""], true);
+        assert_eq!(progress["available"]["sub/file"], true);
+        s.downloading.clear();
         s.writers.insert(3);
         assert!(s.availability()["available"]
             .as_object()
@@ -173,6 +190,17 @@ mod tests {
         s.writers.clear();
         std::fs::remove_file(object).unwrap();
         assert!(s.availability()["available"]
+            .as_object()
+            .unwrap()
+            .is_empty());
+        s.downloading.insert(1);
+        let progress = s.availability();
+        for path in ["", "sub", "sub/file"] {
+            assert_eq!(progress["downloading"][path], true);
+            assert_ne!(progress["available"][path], true);
+        }
+        s.blocked = true;
+        assert!(s.availability()["downloading"]
             .as_object()
             .unwrap()
             .is_empty());

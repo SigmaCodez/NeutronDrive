@@ -1,0 +1,13 @@
+{
+  "status": "Unreleased development preview based on v1.0.0; not a published package",
+  "language": "en",
+  "data": "Synthetic demo account and files; isolated offscreen Qt rendering",
+  "binary_sha256": "b5640d80e4df5477e0ddc18d04d910f33b3c0375d9f3263ef537e0c08c82e58f",
+  "images": {
+    "light-grid.png": "20653fc26c68fc3c020d3da54952c5c4fda6b7b617b6979c80261ae4b3c27e6c",
+    "compact-files.png": "a1796718a2c29b9b0ec6c79342e443ecbfee3142fb6d219ed679cf738e5a17b4",
+    "dark-settings.png": "4043465c7da7c0b739b5c4f54c973b3e3ee63a643494777f9f79bef21e4e7faa",
+    "dark-grid.png": "21283dcd61ee1a69f9791858617ee1bc11d022d39b4aa870f6cb7fe2ccb8bc8b",
+    "light-photos.png": "a68c7c68d7832dc560bda70c11ea2023ce94a1d397ac43674aadff058c3ce1d3"
+  }
+}
