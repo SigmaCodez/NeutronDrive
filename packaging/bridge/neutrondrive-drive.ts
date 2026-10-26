@@ -1,4 +1,5 @@
 /** NeutronDrive entry point; upstream auth, session, cache and commands retained. */
+import { flushOutput } from './flushOutput';
 import { FeatureFlags } from '@protontech/drive-sdk';
 import { applyDefaultCliOptions, run } from './cli';
 import { COMMANDS } from './commands';
@@ -22,4 +23,5 @@ await run([...COMMANDS, ...applyDefaultCliOptions([new CommandEventsPoll(), new 
     enableMetrics: false,
     flags: { [FeatureFlags.DriveSmallFileUpload]: true },
 });
+await flushOutput();
 process.exit(0);
