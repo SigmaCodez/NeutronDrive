@@ -1,14 +1,15 @@
 {
-  "status": "Unreleased development preview based on v1.0.0; not a published package",
+  "status": "Version 1.0.1 interface; captured from the release source before publication",
+  "version": "1.0.1",
   "language": "en",
   "data": "Synthetic demo account and files; isolated offscreen Qt rendering",
-  "binary_sha256": "b5640d80e4df5477e0ddc18d04d910f33b3c0375d9f3263ef537e0c08c82e58f",
+  "source_commit": "d030386a1faba4bd299e484c9987e7dc5724d2ba",
+  "binary_sha256": "4c63946b72f5b596ea99a27669d6aa672392f238bc7c2fa69971833f7ddde8f8",
   "images": {
-    "light-grid.png": "20653fc26c68fc3c020d3da54952c5c4fda6b7b617b6979c80261ae4b3c27e6c",
-    "compact-files.png": "a1796718a2c29b9b0ec6c79342e443ecbfee3142fb6d219ed679cf738e5a17b4",
-    "dark-settings.png": "4043465c7da7c0b739b5c4f54c973b3e3ee63a643494777f9f79bef21e4e7faa",
-    "dark-grid.png": "21283dcd61ee1a69f9791858617ee1bc11d022d39b4aa870f6cb7fe2ccb8bc8b",
-    "light-photos.png": "a68c7c68d7832dc560bda70c11ea2023ce94a1d397ac43674aadff058c3ce1d3"
-  },
-  "source_commit": "d845f61"
+    "light-grid.png": "9874a8076778a8d86cdfe68378658f189031db36fe9f7238b2b158c8eb91816d",
+    "compact-files.png": "25f12894ca4ed6fe82a24d18478384e9256e1ecda4a964b3c0da99baf4256ec0",
+    "dark-settings.png": "c4168cb0c7c855a043e972066f9685f6111c82809630941a75a8885fe6e069e6",
+    "dark-grid.png": "9e4b38e767e0caa1ae941065324e601212356fd7d16edccca44cbbf831770680",
+    "light-photos.png": "7e3a86bec5d2ceb5430055b06a6e4d6df0c07250cd298f621b1f4bef7f1e0710"
+  }
 }
