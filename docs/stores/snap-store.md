@@ -4,7 +4,7 @@ Status: preparation in progress; this document is not proof of Store approval or
 
 ## Listing
 
-Name: `neutrondrive` (availability must be checked when registering)
+Name: `neutrondrive` (registered by SigmaCodez)
 
 Title: NeutronDrive
 
@@ -45,6 +45,12 @@ Recapture the setup assistant after the store-mode changes before upload.
    test sign-in, folder sync, pause/resume, restart, autostart and sharing.
 6. Connect the keyring explicitly unless Store auto-connection has been approved:
    `sudo snap connect neutrondrive:password-manager-service`.
+   Safe folder synchronization also requires:
+   `sudo snap connect neutrondrive:mount-observe`.
+   This read-only interface exposes mount-table/quota information, including mount
+   arguments. It allows NeutronDrive to reject FUSE or nested mounts before sync;
+   it does not permit mounting or unmounting filesystems. Without this connection,
+   setup stops with “Linux mount information is unavailable” before adding a job.
    Connect `removable-media` only when needed for external media.
 7. After signing in with `snapcraft login`, run:
    `python3 scripts/publish-snap-beta PATH_TO_TESTED.snap`.
@@ -52,7 +58,8 @@ Recapture the setup assistant after the store-mode changes before upload.
    `sudo snap install neutrondrive --beta`.
 
 Keep `confinement: strict` and `grade: devel`. No classic-confinement exception is
-requested. Keyring auto-connection may require a separate Store review. Store
+requested. Keyring and mount-observe auto-connection require separate Store review; neither
+is assumed or requested automatically. Store
 updates are delivered by snapd, not the application's native DEB/RPM updater.
 The publication helper validates package metadata and only targets beta; it does
 not replace runtime testing or reserve the name.

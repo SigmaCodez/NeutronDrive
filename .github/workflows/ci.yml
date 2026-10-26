@@ -89,7 +89,7 @@ jobs:
           allowed = {b'.github/workflows/ci.yml', b'.github/workflows/portable-packages.yml',
                      b'scripts/build-snap', b'scripts/build-flatpak', b'scripts/prepare-native-arch',
                      b'packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json',
-                     b'packaging/rpm/neutrondrive.spec',
+                     b'packaging/rpm/neutrondrive.spec', b'packaging/snap/snapcraft.yaml',
                      b'packaging/backend-lock.json', b'packaging/aur/neutrondrive-bin/PKGBUILD',
                      b'packaging/aur/neutrondrive-bin/.SRCINFO'}
           changed = [p.decode() for p in paths if p and p not in allowed and not p.startswith(b'docs/') and not p.endswith(b'.md')]
@@ -285,6 +285,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb xauth
           sudo snap install --dangerous ./build/snap-project/*.snap
+          # Opening (not merely access/stat) mountinfo must work before sync can
+          # validate a folder. Keep this explicit, non-auto-connected permission.
+          if snap run --shell neutrondrive -c 'cat /proc/self/mountinfo >/dev/null'; then
+            echo 'Unexpected mount-observe access before explicit connection'
+            exit 1
+          fi
+          sudo snap connect neutrondrive:mount-observe
+          snap run --shell neutrondrive -c 'cat /proc/self/mountinfo >/dev/null'
           snap run neutrondrive --version
           snap run neutrondrive --diagnose
           # snap run itself needs the real session bus to create its cgroup.
