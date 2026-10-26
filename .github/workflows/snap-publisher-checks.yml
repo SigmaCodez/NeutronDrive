@@ -1,0 +1,24 @@
+name: Snap publisher checks
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-snap-store.yml'
+      - '.github/workflows/snap-publisher-checks.yml'
+      - 'scripts/validate-store-release.py'
+      - 'tests/test_store_release.py'
+  push:
+    paths:
+      - '.github/workflows/release-snap-store.yml'
+      - '.github/workflows/snap-publisher-checks.yml'
+      - 'scripts/validate-store-release.py'
+      - 'tests/test_store_release.py'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: python3 -W error tests/test_store_release.py

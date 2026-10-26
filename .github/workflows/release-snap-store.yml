@@ -1,0 +1,62 @@
+name: Publish Snap Store beta
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published GitHub beta release tag to upload or retry'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      SNAPCRAFT_STORE_CREDENTIALS:
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: snap-store-beta
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'SigmaCodez/NeutronDrive'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ND_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Test publisher validation
+        run: python3 tests/test_store_release.py
+      - name: Download published release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -c 'import os,re; assert re.fullmatch(r"v\d+\.\d+\.\d+-beta\.?\d+",os.environ["ND_TAG"]), "Only beta release tags are supported"'
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$ND_TAG" > "$RUNNER_TEMP/release.json"
+          gh release download "$ND_TAG" --repo "$GITHUB_REPOSITORY" --pattern '*_amd64.snap' --pattern SHA256SUMS --dir "$RUNNER_TEMP/package"
+      - name: Validate package metadata, version and checksum
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squashfs-tools python3-yaml
+          nd_package=$(python3 scripts/validate-store-release.py --release "$RUNNER_TEMP/release.json" --tag "$ND_TAG" --directory "$RUNNER_TEMP/package")
+          printf 'ND_PACKAGE=%s\n' "$nd_package" >> "$GITHUB_ENV"
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+      - name: Publish verified package to latest/beta
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          test -n "$SNAPCRAFT_STORE_CREDENTIALS" || { echo 'Missing SNAPCRAFT_STORE_CREDENTIALS repository secret'; exit 1; }
+          snapcraft upload --release=latest/beta "$ND_PACKAGE"
+          snapcraft status neutrondrive
+      - name: Record successful publication
+        run: |
+          printf 'Published GitHub release **%s** to Snap Store **latest/beta** (amd64).\n' "$ND_TAG" >> "$GITHUB_STEP_SUMMARY"
