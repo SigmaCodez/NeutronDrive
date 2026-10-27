@@ -7,11 +7,13 @@
   "data": "Synthetic example files and a fixture availability index, rendered by the exact 1.0.1 release Rust extension. No live Proton account or actual cloud download is depicted.",
   "extension_sha256": "7c941e9f8c01c3941a36254437ae660141bbd97bc88f6ef1cce05e4b8d4473db",
   "extension_source": "Extracted from the final NeutronDrive 1.0.1 amd64 DEB.",
-  "package_sha256": "bf229ce8aa0b923e3de89d656794fdde72b5a272ec89aedeab8d2751f4c1dceb",
+  "package_sha256": "5c742230b49ce1f9ea1d940f5aa21f98c4cd358f8cac4d365c1698424d116b28",
   "application_build_commit": "b4e0282a82c3559ee369790d18544bd43a0feb19",
   "capture": "Direct X11 pixel capture, no compositing or image edits.",
   "images": {
     "previews/file-manager-light.png": "5245b3d73b59d1eeffae117a93f51046f2a6e1da54209cdbc241c170345af084",
     "previews/file-manager-dark.png": "71d4de365de15bbeda828d7b0b409240fe7fcd5210d9df0275b4addbe426a905"
-  }
+  },
+  "package_build_commit": "1bd0ce395a41d65bcb3e7bd454a76871401b2ea0",
+  "package_build_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40427721685"
 }

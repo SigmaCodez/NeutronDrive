@@ -214,6 +214,7 @@ jobs:
         run: |
           python3 desktop/tests/check-staged-runtime.py /usr
           dbus-run-session -- xvfb-run -a env GTK_A11Y=none G_DEBUG=fatal-warnings \
+            GIO_USE_VFS=local GIO_USE_VOLUME_MONITOR=unix GSK_RENDERER=cairo \
             python3 file-manager/tests/check-sidebar.py /usr/lib/neutrondrive/bin/libneutrondrive_file_manager.so
 
   rpm:
