@@ -14,6 +14,14 @@ jobs:
           path: build/deb
       - name: Install the native package and packaging tools
         run: |
+          # The Azure mirror can stall a release for minutes per request. Keep
+          # Ubuntu signature verification and use its official archive instead.
+          for source in /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            if [ -f "$source" ]; then
+              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g; s|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' "$source"
+            fi
+          done
+          printf 'Acquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nAcquire::Retries "2";\n' | sudo tee /etc/apt/apt.conf.d/99-neutrondrive-ci-timeouts >/dev/null
           sudo apt-get update
           sudo apt-get install -y squashfs-tools desktop-file-utils zsync patchelf libssl3 file
           sudo apt-get install -y ./build/deb/*.deb
@@ -25,7 +33,7 @@ jobs:
         run: |
           mkdir build/appimage-test
           cd build/appimage-test
-          ../../dist/NeutronDrive-1.0.1-x86_64.AppImage --appimage-extract >/dev/null
+          ../../dist/NeutronDrive-1.0.2-x86_64.AppImage --appimage-extract >/dev/null
           export XDG_CACHE_HOME="$RUNNER_TEMP/nd-appimage-cache"
           export XDG_CONFIG_HOME="$RUNNER_TEMP/nd-appimage-config"
           export XDG_STATE_HOME="$RUNNER_TEMP/nd-appimage-state"

@@ -1,5 +1,6 @@
 //! Photo library orchestration: inventory first, bounded metadata/preview batches afterwards.
 use super::*;
+use std::collections::{HashMap, HashSet};
 impl Files {
     pub(super) fn photo_submit(&mut self, request: Value) -> Vec<Effect> {
         self.submit(
@@ -161,11 +162,22 @@ impl Files {
                     self.message("Invalid photo metadata", true);
                     return vec![];
                 };
+                if photos.len() > 48 {
+                    self.message("Invalid photo batch", true);
+                    return vec![];
+                }
+                // Validate before changing state; duplicate identities make a
+                // response ambiguous, including in thumbnail-only batches.
+                let by_id: HashMap<_, _> = photos.iter().map(|p| (text(p, "uid"), p)).collect();
+                if by_id.len() != photos.len() || by_id.contains_key("") {
+                    self.message("Invalid photo batch", true);
+                    return vec![];
+                }
                 if let Some(start) = request["previewStart"].as_u64() {
                     let Some(ids) = request["ids"].as_array() else {
                         return vec![];
                     };
-                    if photos.len() > 48 || photos.iter().any(|p| !ids.contains(&p["uid"])) {
+                    if photos.iter().any(|p| !ids.contains(&p["uid"])) {
                         self.message("Invalid photo batch", true);
                         return vec![];
                     }
@@ -179,7 +191,7 @@ impl Files {
                         {
                             old["thumbnail"] = json!("");
                             old["previewLoaded"] = json!(false);
-                        } else if let Some(p) = photos.iter().find(|p| p["uid"] == old["uid"]) {
+                        } else if let Some(p) = by_id.get(text(old, "uid")) {
                             old["thumbnail"] = checked_thumbnail(p);
                             old["previewLoaded"] = json!(true);
                         } else if ids.contains(&old["uid"]) {
@@ -194,8 +206,7 @@ impl Files {
                 let Some(ids) = request["ids"].as_array() else {
                     return vec![];
                 };
-                if photos.len() > 48
-                    || start != self.state["photoOffset"].as_u64().unwrap_or(0)
+                if start != self.state["photoOffset"].as_u64().unwrap_or(0)
                     || photos.iter().any(|p| !ids.contains(&p["uid"]))
                 {
                     self.message("Invalid photo batch", true);
@@ -205,10 +216,19 @@ impl Files {
                     Value::Array(items) => items,
                     _ => Vec::new(),
                 };
-                for mut p in photos.iter().cloned() {
-                    if current.iter().any(|old| old["uid"] == p["uid"]) {
+                // One inventory scan per page instead of one scan per photo.
+                // Keep the inventory's timeline order even if metadata arrives
+                // out of order, and skip missing entries without stalling paging.
+                let mut known: HashSet<String> =
+                    current.iter().map(|p| text(p, "uid").to_owned()).collect();
+                for id in ids.iter().filter_map(Value::as_str) {
+                    let Some(photo) = by_id.get(id) else {
+                        continue;
+                    };
+                    if !known.insert(id.to_owned()) {
                         continue;
                     }
+                    let mut p = (*photo).clone();
                     p["thumbnail"] = checked_thumbnail(&p);
                     p["previewLoaded"] = json!(true);
                     current.push(p);
@@ -337,6 +357,55 @@ mod tests {
             json!({"photos":[{"uid":"expected"}]}),
         );
         assert_eq!(m.state["photos"], json!([{"uid":"keep"}]));
+    }
+    #[test]
+    fn metadata_order_and_missing_entries_preserve_inventory_timeline() {
+        let mut m = model();
+        m.photo_index = vec!["a".into(), "missing".into(), "b".into(), "c".into()];
+        m.photo_result(
+            &json!({"action":"details","start":0,"ids":["a","missing","b","c"]}),
+            json!({"photos":[{"uid":"c"},{"uid":"a"},{"uid":"b"}]}),
+        );
+        let ids: Vec<_> = m.state["photos"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| text(p, "uid"))
+            .collect();
+        assert_eq!(ids, vec!["a", "b", "c"]);
+        assert_eq!(m.state["photoOffset"], 4);
+        assert_eq!(m.state["photosMore"], false);
+    }
+    #[test]
+    fn duplicate_metadata_is_rejected_without_changing_inventory_or_previews() {
+        for request in [
+            json!({"action":"details","start":0,"ids":["a"]}),
+            json!({"action":"details","previewStart":0,"ids":["a"]}),
+        ] {
+            let mut m = model();
+            let original = json!([{"uid":"a","thumbnail":"existing","previewLoaded":true}]);
+            m.state["photos"] = original.clone();
+            let revision = m.photos_revision;
+            m.photo_result(&request, json!({"photos":[{"uid":"a"},{"uid":"a"}]}));
+            assert_eq!(m.state["photos"], original);
+            assert_eq!(m.photos_revision, revision);
+            assert_eq!(m.state["photoOffset"], 0);
+        }
+    }
+    #[test]
+    fn large_inventory_append_retains_unique_entries() {
+        let mut m = model();
+        m.state["photos"] = json!((0..10000)
+            .map(|i| json!({"uid":format!("p{i}")}))
+            .collect::<Vec<_>>());
+        m.photo_result(
+            &json!({"action":"details","start":0,"ids":["p9999","new"]}),
+            json!({"photos":[{"uid":"new"},{"uid":"p9999"}]}),
+        );
+        let photos = m.state["photos"].as_array().unwrap();
+        assert_eq!(photos.len(), 10001);
+        assert_eq!(photos[9999]["uid"], "p9999");
+        assert_eq!(photos[10000]["uid"], "new");
     }
     #[test]
     fn preview_requests_only_missing_images_and_keeps_nearby_cache() {

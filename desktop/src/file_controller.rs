@@ -47,6 +47,9 @@ pub mod qobject {
         #[cxx_name = "windowKey"]
         fn window_key(self: &NativeFiles, key: i32, control: bool) -> bool;
         #[qinvokable]
+        #[cxx_name = "windowShiftKey"]
+        fn window_shift_key(self: &NativeFiles, key: i32) -> bool;
+        #[qinvokable]
         #[cxx_name = "clipboardText"]
         fn clipboard_text(self: &NativeFiles) -> QString;
         #[qinvokable]
@@ -132,7 +135,11 @@ impl qobject::NativeFiles {
     }
     fn window_key(&self, key: i32, control: bool) -> bool {
         (self.rust().demo || std::env::args().nth(1).as_deref() == Some("--check-window-fixture"))
-            && crate::platform::qt::window_key(&QString::from("mainWindow"), key, control)
+            && crate::platform::qt::window_key(&QString::from("mainWindow"), key, control, false)
+    }
+    fn window_shift_key(&self, key: i32) -> bool {
+        (self.rust().demo || std::env::args().nth(1).as_deref() == Some("--check-window-fixture"))
+            && crate::platform::qt::window_key(&QString::from("mainWindow"), key, false, true)
     }
     fn window_click(&self, x: f64, y: f64, double_click: bool) -> bool {
         (self.rust().demo || std::env::args().nth(1).as_deref() == Some("--check-window-fixture"))
