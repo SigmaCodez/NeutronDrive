@@ -61,6 +61,13 @@ Snap and Flatpak still do not install native file-manager extensions.
 The app follows your system's light/dark preference. **Settings → Appearance**
 also lets you choose System, Light or Dark manually. Theme changes apply immediately.
 
+[Setup: sign in](docs/previews/development/setup-sign-in-light.png) ·
+[Setup: choose folder, dark mode](docs/previews/development/setup-folder-dark.png) ·
+[Sync settings](docs/background-demo.png) ·
+[Computer backup](docs/previews/computer-backup-light.png) ·
+[Online drive](docs/ondemand-demo.png) ·
+[Sharing window](docs/previews/sharing-light.png)
+
 ## In your file manager
 
 ![Proton Drive bookmark with the Neutron icon and green offline checkmarks in GNOME Files, dark mode](docs/previews/file-manager-dark.png)
@@ -69,7 +76,7 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
 
 The **Proton Drive** bookmark uses NeutronDrive’s icon. A **green checkmark**
 means a file is available locally; a folder is marked when its contents are
-fully available offline. Use **Keep on device** to retain selected files or
+fully available offline. A **blue sync emblem** indicates an active download. Use **Keep on device** to retain selected files or
 folders and **Free up space** to remove eligible local cached copies. These
 actions do not open the main window. **Share** opens its separate sharing window.
 
