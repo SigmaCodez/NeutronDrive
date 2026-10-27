@@ -184,6 +184,7 @@ jobs:
   ubuntu_2610:
     name: Ubuntu 26.10 DEB (${{ matrix.architecture }})
     needs: deb
+    if: always() && needs.deb.result == 'success'
     strategy:
       fail-fast: false
       matrix:
