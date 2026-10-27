@@ -117,6 +117,7 @@ Item {
     function navigate(title,path){send("navigate",[title,path])}
     function crumb(index){send("crumb",[index])}
     function select_row(index,extend){send("select_row",[index,extend])}
+    function select_range(index){send("select_range",[index])}
     function move_selection(delta,extend){send("move_selection",[delta,extend])}
     function select_all(){send("select_all",[])}
     function row_activated(index){send("row_activated",[index])}
@@ -358,7 +359,16 @@ Item {
                     files.windowKey(Qt.Key_Home,false);controller.stage=1606;
                 }else if(controller.stage===1606){
                     if(controller.state.selection[0]!==0)throw new Error("Home did not select first file");
-                    console.log("NATIVE_FOLDER_SEARCH_SHORTCUTS_OK");
+                    files.windowShiftKey(Qt.Key_End);controller.stage=1607;
+                }else if(controller.stage===1607){
+                    if(controller.state.selection.length!==controller.fileEntries.length)throw new Error("Shift+End did not select the entire range");
+                    files.windowShiftKey(Qt.Key_Home);controller.stage=1608;
+                }else if(controller.stage===1608){
+                    if(JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Shift+Home did not shrink range to anchor");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=1609;
+                }else if(controller.stage===1609){
+                    if(controller.state.selection.length)throw new Error("Escape did not clear file selection");
+                    console.log("NATIVE_FOLDER_SEARCH_AND_RANGE_SELECTION_OK");
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileList");
                     if(!controller.checkedList)throw new Error("File list missing");
                     controller.checkedList.forceActiveFocus();
@@ -401,6 +411,12 @@ Item {
                     files.windowKey(Qt.Key_Home,false);controller.stage=2022;
                 }else if(controller.stage===2022){
                     if(controller.state.selection[0]!==0)throw new Error("Grid Home did not select first file");
+                    files.windowShiftKey(Qt.Key_Right);controller.stage=2023;
+                }else if(controller.stage===2023){
+                    if(JSON.stringify(controller.state.selection)!=="[0,1]")throw new Error("Grid Shift+Right range failed");
+                    files.windowShiftKey(Qt.Key_Left);controller.stage=2024;
+                }else if(controller.stage===2024){
+                    if(JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Grid reverse range did not shrink");
                     files.windowKey(Qt.Key_Right,false);controller.stage=203;
                 }else if(controller.stage===203){
                     if(JSON.stringify(controller.state.selection)!=="[1]")throw new Error("Grid arrow navigation failed");
