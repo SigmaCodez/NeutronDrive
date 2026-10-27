@@ -117,6 +117,7 @@ Item {
     function navigate(title,path){send("navigate",[title,path])}
     function crumb(index){send("crumb",[index])}
     function select_row(index,extend){send("select_row",[index,extend])}
+    function select_range(index){send("select_range",[index])}
     function move_selection(delta,extend){send("move_selection",[delta,extend])}
     function select_all(){send("select_all",[])}
     function row_activated(index){send("row_activated",[index])}
@@ -339,6 +340,35 @@ Item {
                     controller.view.show();controller.stage=152;
                 }else if(controller.stage===152){controller.capture("light-files.png",16);
                 }else if(controller.stage===16){
+                    files.windowKey(Qt.Key_F,true);controller.stage=1601;
+                }else if(controller.stage===1601){
+                    let search=controller.childNamed(controller.view.contentItem,"searchInput");
+                    if(!search.activeFocus)throw new Error("Find shortcut did not focus folder search");
+                    controller.edit("search","no-result-7b39c");controller.stage=1602;
+                }else if(controller.stage===1602){
+                    if(controller.fileEntries.length!==0)throw new Error("Folder filter did not apply");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=1603;
+                }else if(controller.stage===1603){
+                    if(controller.state.fields.search.value!=="" || !controller.fileEntries.length)throw new Error("Escape did not clear folder search");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=1604;
+                }else if(controller.stage===1604){
+                    if(!controller.childNamed(controller.view.contentItem,"fileList").activeFocus)throw new Error("Escape did not return to file list");
+                    files.windowKey(Qt.Key_End,false);controller.stage=1605;
+                }else if(controller.stage===1605){
+                    if(controller.state.selection[0]!==controller.fileEntries.length-1)throw new Error("End did not select last file");
+                    files.windowKey(Qt.Key_Home,false);controller.stage=1606;
+                }else if(controller.stage===1606){
+                    if(controller.state.selection[0]!==0)throw new Error("Home did not select first file");
+                    files.windowShiftKey(Qt.Key_End);controller.stage=1607;
+                }else if(controller.stage===1607){
+                    if(controller.state.selection.length!==controller.fileEntries.length)throw new Error("Shift+End did not select the entire range");
+                    files.windowShiftKey(Qt.Key_Home);controller.stage=1608;
+                }else if(controller.stage===1608){
+                    if(JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Shift+Home did not shrink range to anchor");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=1609;
+                }else if(controller.stage===1609){
+                    if(controller.state.selection.length)throw new Error("Escape did not clear file selection");
+                    console.log("NATIVE_FOLDER_SEARCH_AND_RANGE_SELECTION_OK");
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileList");
                     if(!controller.checkedList)throw new Error("File list missing");
                     controller.checkedList.forceActiveFocus();
@@ -375,6 +405,18 @@ Item {
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileGrid");
                     if(!controller.checkedList || !controller.checkedList.visible || JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Grid switch lost selection");
                     controller.checkedList.forceActiveFocus();
+                    files.windowKey(Qt.Key_End,false);controller.stage=2021;
+                }else if(controller.stage===2021){
+                    if(controller.state.selection[0]!==controller.fileEntries.length-1)throw new Error("Grid End did not select last file");
+                    files.windowKey(Qt.Key_Home,false);controller.stage=2022;
+                }else if(controller.stage===2022){
+                    if(controller.state.selection[0]!==0)throw new Error("Grid Home did not select first file");
+                    files.windowShiftKey(Qt.Key_Right);controller.stage=2023;
+                }else if(controller.stage===2023){
+                    if(JSON.stringify(controller.state.selection)!=="[0,1]")throw new Error("Grid Shift+Right range failed");
+                    files.windowShiftKey(Qt.Key_Left);controller.stage=2024;
+                }else if(controller.stage===2024){
+                    if(JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Grid reverse range did not shrink");
                     files.windowKey(Qt.Key_Right,false);controller.stage=203;
                 }else if(controller.stage===203){
                     if(JSON.stringify(controller.state.selection)!=="[1]")throw new Error("Grid arrow navigation failed");
@@ -437,8 +479,23 @@ Item {
                 }else if(controller.stage===21003){controller.capture("light-photo-viewer.png",21004);
                 }else if(controller.stage===21004){
                     let panel=controller.childNamed(controller.view.contentItem,"page-photos");
-                    panel.showPhoto(1);
-                    if(panel.viewerIndex!==1)throw new Error("Photo viewer navigation failed");
+                    let previewWindow=null;
+                    for(let item of panel.data)if(item.objectName==="photoViewer")previewWindow=item;
+                    if(!previewWindow)throw new Error("Photo preview missing");
+                    controller.childNamed(previewWindow.contentItem,"closePhotoPreview").forceActiveFocus();
+                    files.windowKey(Qt.Key_Right,false);controller.stage=210041;
+                }else if(controller.stage===210041){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    if(panel.viewerIndex!==1)throw new Error("Photo viewer keyboard navigation failed with toolbar focus");
+                    files.windowKey(Qt.Key_Plus,false);controller.stage=210042;
+                }else if(controller.stage===210042){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    if(panel.previewZoom!==1.5)throw new Error("Photo viewer keyboard zoom failed");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=210043;
+                }else if(controller.stage===210043){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    let grid=controller.childNamed(panel,"photoGrid");
+                    if(panel.viewerIndex!==-1 || grid.currentIndex!==1 || !grid.activeFocus)throw new Error("Closing preview did not return focus to the current photo");
                     panel.openAlbum("");
                     console.log("NATIVE_PHOTO_SELECTION_AND_VIEWER_OK");controller.stage=21005;
                 }else if(controller.stage===21005){
@@ -502,6 +559,27 @@ Item {
                 }else if(controller.stage===21026){
                     if(!photoBenchController.requests.some(request=>request.action==="previews" && request.start===2048))return;
                     console.log("NATIVE_PHOTO_AUTOMATIC_PAGING_AND_PREFETCH_OK");
+                    // Reordering after the first entry must invalidate index-based
+                    // actions even while scrolling; cached metadata alone must not.
+                    controller.photoBench.showPhoto(1000);
+                    controller.photoBench.zoomPreview(1);
+                    controller.photoBench.movePreview(1);
+                    if(controller.photoBench.viewerIndex!==1001 || controller.photoBench.previewZoom!==1)throw new Error("Photo navigation did not reset zoom");
+                    controller.photoBench.showPhoto(-1);
+                    controller.photoBench.showPhoto(99999);
+                    if(controller.photoBench.viewerIndex!==1001)throw new Error("Invalid photo navigation changed selection");
+                    controller.photoBench.zoomPreview(99);
+                    if(controller.photoBench.previewZoom!==4)throw new Error("Photo zoom upper bound failed");
+                    controller.photoBench.zoomPreview(-99);
+                    if(controller.photoBench.previewZoom!==1)throw new Error("Photo zoom lower bound failed");
+                    controller.photoBench.selectionMode=true;controller.photoBench.selected=[1000];
+                    controller.photoBench.scrolling=true;
+                    let reordered=photoBenchController.photoEntries.slice();
+                    let swap=reordered[1000];reordered[1000]=reordered[1001];reordered[1001]=swap;
+                    photoBenchController.photoEntries=reordered;
+                    if(controller.photoBench.selected.length || controller.photoBench.selectionMode || controller.photoBench.viewerIndex!==-1 || controller.photoBench.pendingPhotos)throw new Error("Changed photo identities retained stale selection or viewer");
+                    if(controller.photoBench.appliedPhotos[1000].uid!=="bench-1001")throw new Error("Photo reorder was deferred while scrolling");
+                    console.log("NATIVE_PHOTO_IDENTITY_AND_NAVIGATION_OK");
                     controller.photoBench.scrolling=true;photoBenchController.photoEntries=[];
                     if(controller.photoBench.pendingPhotos || controller.childNamed(controller.photoBench,"photoGrid").count!==0)throw new Error("Photo inventory reset left stale tiles during scrolling");
                     console.log("NATIVE_PHOTO_DEFERRED_UPDATES_OK");

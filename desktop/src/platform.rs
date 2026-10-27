@@ -64,7 +64,7 @@ pub mod qt {
         #[rust_name = "snapshot_window"]
         fn snapshotWindow(name: &QString, path: &QString) -> bool;
         #[rust_name = "window_key"]
-        fn windowKey(name: &QString, key: i32, control: bool) -> bool;
+        fn windowKey(name: &QString, key: i32, control: bool, shift: bool) -> bool;
         #[rust_name = "window_click"]
         fn windowClick(name: &QString, x: f64, y: f64, double_click: bool) -> bool;
     }

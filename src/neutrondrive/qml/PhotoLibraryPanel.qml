@@ -18,7 +18,16 @@ ColumnLayout {
         let items=photos;
         // Defer updates within the same inventory, but clear a refreshed or
         // replaced album immediately so old tiles cannot outlive its data.
-        let replaces=items.length<photoModel.count || (items.length>0 && appliedPhotos.length>0 && items[0].uid!==appliedPhotos[0].uid);
+        let replaces=items.length<photoModel.count;
+        for(let i=0;!replaces && i<Math.min(appliedPhotos.length,items.length);i++)
+            replaces=appliedPhotos[i].uid!==items[i].uid;
+        // Index-based actions must never survive a changed inventory identity.
+        // A metadata refresh or appended page keeps the selection intact.
+        if(replaces) {
+            leaveSelection(); viewer.close(); viewerIndex=-1;
+            photoModel.clear(); appliedPhotos=[];
+            previewAttempt=-1; moreAttempt=-1;
+        }
         if(scrolling && photoModel.count>0 && !replaces) {
             // Append new pages immediately so reaching the bottom never requires
             // releasing the wheel/touchpad. Existing tiles update after movement.
@@ -29,9 +38,6 @@ ColumnLayout {
         }
         pendingPhotos=false;
         // Keep delegates and scroll position alive across status updates and pages.
-        for(let i=0;i<Math.min(photoModel.count,items.length);i++) {
-            if(appliedPhotos[i].uid!==items[i].uid) { photoModel.clear(); break; }
-        }
         while(photoModel.count>items.length)photoModel.remove(photoModel.count-1);
         for(let i=0;i<items.length;i++) {
             if(i>=photoModel.count) { photoModel.append({entry:items[i]}); continue; }
@@ -54,8 +60,13 @@ ColumnLayout {
     property int viewerAttempt: -1
     readonly property var currentPhoto: viewerIndex >= 0 ? photos[viewerIndex] || ({}) : ({})
     function showPhoto(index) {
-        viewerIndex=index; viewerAttempt=-1; previewZoom=1; viewer.open();
+        if(index<0 || index>=photos.length)return;
+        viewerIndex=index; viewerAttempt=-1; previewZoom=1;
+        previewViewport.contentX=0; previewViewport.contentY=0;
+        viewer.open();
     }
+    function movePreview(delta) { showPhoto(viewerIndex+delta); }
+    function zoomPreview(delta) { previewZoom=Math.max(1,Math.min(4,previewZoom+delta)); }
     function leaveSelection() { selected=[]; selectionMode=false; }
     function dateText(value) {
         if(!value)return "";
@@ -220,7 +231,7 @@ ColumnLayout {
                     }
                     onDoubleClicked: if(!panel.selectionMode)panel.showPhoto(photo.index)
                 }
-                Rectangle { anchors.fill: parent; color: "transparent"; radius: 12; border.width: panel.selected.indexOf(photo.index)>=0 ? 3 : photoMouse.containsMouse ? 1 : 0; border.color: host.theme.accent }
+                Rectangle { anchors.fill: parent; color: "transparent"; radius: 12; border.width: panel.selected.indexOf(photo.index)>=0 ? 3 : (grid.activeFocus && grid.currentIndex===photo.index) ? 2 : photoMouse.containsMouse ? 1 : 0; border.color: host.theme.accent }
                 CheckBox {
                     id: photoCheck; objectName: "photoCheck-"+photo.index
                     anchors { top: parent.top; left: parent.left; margins: 10 }
@@ -255,11 +266,24 @@ ColumnLayout {
         width: parent ? parent.width-40 : 800; height: parent ? parent.height-40 : 600
         modal: true; focus: true; closePolicy: Popup.CloseOnEscape; padding: 20
         background: Rectangle { color: host.theme.canvas; radius: 18; border.color: host.theme.cardBorder }
-        onClosed: panel.previewZoom=1
+        onClosed: {
+            if(panel.viewerIndex>=0 && panel.viewerIndex<grid.count) {
+                grid.currentIndex=panel.viewerIndex;
+                grid.positionViewAtIndex(panel.viewerIndex,GridView.Contain);
+                grid.forceActiveFocus();
+            }
+            panel.previewZoom=1; panel.viewerIndex=-1;
+        }
         contentItem: ColumnLayout {
             spacing: 14; focus: true
-            Keys.onLeftPressed: if(panel.viewerIndex>0)panel.showPhoto(panel.viewerIndex-1)
-            Keys.onRightPressed: if(panel.viewerIndex<panel.photos.length-1)panel.showPhoto(panel.viewerIndex+1)
+            // Shortcuts keep working when a viewer toolbar button has keyboard focus.
+            Shortcut { sequence: "Left"; enabled: viewer.visible; onActivated: panel.movePreview(-1) }
+            Shortcut { sequence: "Right"; enabled: viewer.visible; onActivated: panel.movePreview(1) }
+            Shortcut { sequence: "Home"; enabled: viewer.visible; onActivated: panel.showPhoto(0) }
+            Shortcut { sequence: "End"; enabled: viewer.visible; onActivated: panel.showPhoto(panel.photos.length-1) }
+            Shortcut { sequences: ["+", "="]; enabled: viewer.visible; onActivated: panel.zoomPreview(0.5) }
+            Shortcut { sequence: "-"; enabled: viewer.visible; onActivated: panel.zoomPreview(-0.5) }
+            Shortcut { sequence: "0"; enabled: viewer.visible; onActivated: panel.previewZoom=1 }
             RowLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -268,7 +292,7 @@ ColumnLayout {
                 }
                 PhotoButton { text: host.tr("Download"); enabled: !panel.viewState.busy && Boolean(panel.currentPhoto.safe); onClicked: { let index=panel.viewerIndex; viewer.close(); controller.send("photo_download",[index]); } }
                 PhotoButton { text: host.tr("Map"); visible: Boolean(panel.currentPhoto.location); onClicked: panel.request({action:"map",index:panel.viewerIndex}) }
-                PhotoButton { text: "×"; Accessible.name: host.tr("Close preview"); onClicked: viewer.close() }
+                PhotoButton { objectName: "closePhotoPreview"; text: "×"; Accessible.name: host.tr("Close preview"); onClicked: viewer.close() }
             }
             Rectangle {
                 Layout.fillWidth: true; Layout.fillHeight: true; radius: 12; color: host.theme.sidebar; clip: true
@@ -277,19 +301,19 @@ ColumnLayout {
                     anchors.fill: parent; clip: true
                     contentWidth: width*panel.previewZoom; contentHeight: height*panel.previewZoom
                     boundsBehavior: Flickable.StopAtBounds
-                    Image { width: previewViewport.contentWidth; height: previewViewport.contentHeight; source: panel.currentPhoto.thumbnail || ""; fillMode: Image.PreserveAspectFit; cache: false; asynchronous: true }
+                    Image { width: previewViewport.contentWidth; height: previewViewport.contentHeight; source: panel.currentPhoto.thumbnail || ""; fillMode: Image.PreserveAspectFit; cache: true; asynchronous: true }
                 }
                 Label { anchors.centerIn: parent; visible: !panel.currentPhoto.thumbnail; text: panel.viewState.busy ? host.tr("Loading preview…") : host.tr("Preview unavailable. Download the original to view it."); color: host.theme.muted; width: parent.width-40; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap }
             }
             RowLayout {
-                PhotoButton { text: "‹"; Accessible.name: host.tr("Previous"); enabled: panel.viewerIndex>0 && !panel.viewState.busy; onClicked: panel.showPhoto(panel.viewerIndex-1) }
+                PhotoButton { text: "‹"; Accessible.name: host.tr("Previous"); enabled: panel.viewerIndex>0; onClicked: panel.movePreview(-1) }
                 Label { text: (panel.viewerIndex+1)+" / "+panel.photos.length; color: host.theme.text }
-                PhotoButton { text: "›"; Accessible.name: host.tr("Next"); enabled: panel.viewerIndex<panel.photos.length-1 && !panel.viewState.busy; onClicked: panel.showPhoto(panel.viewerIndex+1) }
+                PhotoButton { text: "›"; Accessible.name: host.tr("Next"); enabled: panel.viewerIndex<panel.photos.length-1; onClicked: panel.movePreview(1) }
                 Item { Layout.fillWidth: true }
                 Label { text: host.tr("Preview"); color: host.theme.muted }
-                PhotoButton { text: "−"; Accessible.name: host.tr("Zoom out"); enabled: panel.previewZoom>1; onClicked: panel.previewZoom=Math.max(1,panel.previewZoom-0.5) }
+                PhotoButton { text: "−"; Accessible.name: host.tr("Zoom out"); enabled: panel.previewZoom>1; onClicked: panel.zoomPreview(-0.5) }
                 Label { text: Math.round(panel.previewZoom*100)+"%"; color: host.theme.text }
-                PhotoButton { text: "+"; Accessible.name: host.tr("Zoom in"); enabled: panel.previewZoom<4; onClicked: panel.previewZoom=Math.min(4,panel.previewZoom+0.5) }
+                PhotoButton { text: "+"; Accessible.name: host.tr("Zoom in"); enabled: panel.previewZoom<4; onClicked: panel.zoomPreview(0.5) }
             }
         }
     }

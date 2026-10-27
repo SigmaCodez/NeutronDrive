@@ -123,6 +123,7 @@ pub struct Files {
     visible: Vec<Value>,
     photo_index: Vec<String>,
     selection: BTreeSet<usize>,
+    selection_anchor: Option<usize>,
     crumbs: Vec<(String, String)>,
     pending: Option<(u64, Answer)>,
     serial: u64,
@@ -203,6 +204,7 @@ impl Files {
             photo_index: vec![],
             photos_revision: 1,
             selection: BTreeSet::new(),
+            selection_anchor: None,
             crumbs: vec![(title, "/my-files".into())],
             pending: None,
             serial: 0,
@@ -299,10 +301,11 @@ impl Files {
         self.visible = self
             .nodes
             .iter()
-            .filter(|n| folded(text(n, "name")).contains(&query))
+            .filter(|n| query.is_empty() || folded(text(n, "name")).contains(&query))
             .cloned()
             .collect();
         self.selection.clear();
+        self.selection_anchor = None;
         self.state["focusIndex"] = 0.into();
         self.entries = json!(self.visible.iter().map(|n| {
             let folder = n["type"] == "folder";
@@ -336,12 +339,28 @@ impl Files {
             return;
         }
         self.state["focusIndex"] = index.into();
+        self.selection_anchor = Some(index);
         if !extend {
             self.selection.clear();
             self.selection.insert(index);
         } else if !self.selection.remove(&index) {
             self.selection.insert(index);
         }
+        self.update_actions();
+    }
+    fn select_range(&mut self, index: usize) {
+        if self.busy() || index >= self.visible.len() {
+            return;
+        }
+        let anchor = self
+            .selection_anchor
+            .unwrap_or_else(|| self.state["focusIndex"].as_u64().unwrap_or(0) as usize)
+            .min(self.visible.len() - 1);
+        self.selection_anchor = Some(anchor);
+        // Rebuild from the fixed anchor so reversing direction shrinks the
+        // range instead of toggling holes into it.
+        self.selection = (anchor.min(index)..=anchor.max(index)).collect();
+        self.state["focusIndex"] = index.into();
         self.update_actions();
     }
     fn submit(&mut self, title: &str, operation: Value, done: Done) -> Vec<Effect> {
@@ -1237,13 +1256,30 @@ impl Files {
                 self.field("background_remote", json!(args[1].as_str().unwrap_or("")))
             }
             "edit" if args[0] == "search" && !self.busy() => {
-                self.field("search", json!(args[1].as_str().unwrap_or("")));
-                self.render();
+                let next = args[1].as_str().unwrap_or("");
+                let changed =
+                    folded(text(&self.state["fields"]["search"], "value")) != folded(next);
+                self.field("search", json!(next));
+                // Equivalent Unicode queries have the same results. Preserve
+                // delegates, keyboard focus and selection instead of rebuilding.
+                if changed {
+                    self.render();
+                }
             }
             "select_row" => {
                 if let Some(index) = args[0].as_u64() {
                     self.select(index as usize, args[1] == true);
                 }
+            }
+            "select_range" => {
+                if let Some(index) = args[0].as_u64() {
+                    self.select_range(index as usize);
+                }
+            }
+            "clear_selection" if !self.busy() => {
+                self.selection.clear();
+                self.selection_anchor = None;
+                self.update_actions();
             }
             "move_selection" if !self.visible.is_empty() => {
                 let index = (self.state["focusIndex"]
@@ -1251,10 +1287,15 @@ impl Files {
                     .unwrap_or(0)
                     .saturating_add(args[0].as_i64().unwrap_or(0)))
                 .clamp(0, self.visible.len() as i64 - 1);
-                self.select(index as usize, args[1] == true);
+                if args[1] == true {
+                    self.select_range(index as usize);
+                } else {
+                    self.select(index as usize, false);
+                }
             }
             "select_all" if !self.busy() => {
                 self.selection = (0..self.visible.len()).collect();
+                self.selection_anchor = None;
                 self.update_actions();
             }
             "navigate" if !self.busy() => {
@@ -1612,6 +1653,66 @@ mod tests {
         m.dispatch("move_selection", &json!([i64::MAX, false]));
         assert_eq!(m.state["selection"], json!([0]));
         assert_eq!(m.state["actions"]["Freigabe"]["enabled"], true);
+    }
+    #[test]
+    fn range_selection_expands_shrinks_and_crosses_fixed_anchor() {
+        let mut m = loaded();
+        let revision = m.files_revision;
+        m.dispatch("select_row", &json!([1, false]));
+        m.dispatch("select_range", &json!([3]));
+        assert_eq!(m.state["selection"], json!([1, 2, 3]));
+        m.dispatch("move_selection", &json!([-1, true]));
+        assert_eq!(m.state["selection"], json!([1, 2]));
+        m.dispatch("select_range", &json!([0]));
+        assert_eq!(m.state["selection"], json!([0, 1]));
+        assert_eq!(m.files_revision, revision);
+        m.dispatch("select_row", &json!([3, true]));
+        assert_eq!(m.state["selection"], json!([0, 1, 3]));
+        m.dispatch("select_range", &json!([2]));
+        assert_eq!(m.state["selection"], json!([2, 3]));
+    }
+    #[test]
+    fn clearing_selection_keeps_focus_and_disables_file_actions() {
+        let mut m = loaded();
+        m.dispatch("select_row", &json!([2, false]));
+        m.dispatch("clear_selection", &json!([]));
+        assert_eq!(m.state["selection"], json!([]));
+        assert_eq!(m.state["focusIndex"], 2);
+        assert_eq!(m.state["actions"]["Download"]["enabled"], false);
+        m.dispatch("move_selection", &json!([-1, true]));
+        assert_eq!(m.state["selection"], json!([1, 2]));
+    }
+    #[test]
+    fn filtering_resets_range_anchor_and_invalid_ranges_do_nothing() {
+        let mut m = loaded();
+        m.dispatch("select_row", &json!([3, false]));
+        m.dispatch("edit", &json!(["search", "STRASSE"]));
+        m.dispatch("select_range", &json!([0]));
+        assert_eq!(m.state["selection"], json!([0]));
+        m.dispatch("select_range", &json!([-1]));
+        m.dispatch("select_range", &json!([100]));
+        assert_eq!(m.state["selection"], json!([0]));
+        m.dispatch("edit", &json!(["search", "no-match"]));
+        m.dispatch("select_range", &json!([0]));
+        assert_eq!(m.state["selection"], json!([]));
+    }
+    #[test]
+    fn equivalent_unicode_search_preserves_selection_and_model() {
+        let mut m = loaded();
+        m.dispatch("edit", &json!(["search", "Straße"]));
+        m.dispatch("select_row", &json!([0, false]));
+        let revision = m.files_revision;
+        let entries = m.entries.clone();
+        m.dispatch("edit", &json!(["search", "STRASSE"]));
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.entries, entries);
+        assert_eq!(m.state["selection"], json!([0]));
+        assert_eq!(m.state["fields"]["search"]["value"], "STRASSE");
+        m.dispatch("edit", &json!(["search", "no matching file"]));
+        assert!(m.entries.as_array().unwrap().is_empty());
+        assert_eq!(m.state["selection"], json!([]));
+        m.dispatch("edit", &json!(["search", ""]));
+        assert_eq!(m.entries.as_array().unwrap().len(), m.nodes.len());
     }
     #[test]
     fn dialog_token_and_captured_parent_survive_navigation() {
