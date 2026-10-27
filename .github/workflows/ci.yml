@@ -319,7 +319,7 @@ jobs:
       - name: Install and test strict Snap on the disposable runner
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb xauth
+          sudo apt-get install -y xvfb xauth openbox wmctrl
           sudo snap install --dangerous ./build/snap-project/*.snap
           # Opening (not merely access/stat) mountinfo must work before sync can
           # validate a folder. Keep this explicit, non-auto-connected permission.
@@ -343,8 +343,23 @@ jobs:
           # snap run itself needs the real session bus to create its cgroup.
           # Isolate the theme fixture only after entering the strict sandbox
           # and its normal command-chain, without disabling confinement.
-          if ! xvfb-run -a -f "$HOME/.Xauthority" snap run --shell neutrondrive -c \
-            'export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software; exec "$SNAP/usr/bin/neutrondrive" --check-window "$SNAP/usr/lib/neutrondrive/neutrondrive/locales"' \
+          # Window-scoped shortcuts need an active window. Bare Xvfb has no
+          # window manager to restore activation after the hide/reopen test.
+          # Keep the real X11 backend and every keyboard assertion enabled.
+          cat > "$RUNNER_TEMP/neutrondrive-snap-window-test.sh" <<'SH'
+          #!/bin/bash
+          set -euo pipefail
+          openbox --sm-disable > "$RUNNER_TEMP/neutrondrive-snap-wm.log" 2>&1 &
+          nd_wm_pid=$!
+          trap 'kill "$nd_wm_pid" 2>/dev/null || true' EXIT
+          for nd_attempt in {1..50}; do
+            if wmctrl -m >/dev/null 2>&1; then break; fi
+            sleep 0.1
+          done
+          wmctrl -m
+          snap run --shell neutrondrive -c 'export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent QT_QUICK_BACKEND=software; exec "$SNAP/usr/bin/neutrondrive" --check-window "$SNAP/usr/lib/neutrondrive/neutrondrive/locales"'
+          SH
+          if ! xvfb-run -a -f "$HOME/.Xauthority" bash "$RUNNER_TEMP/neutrondrive-snap-window-test.sh" \
             > "$RUNNER_TEMP/neutrondrive-snap-window.log" 2>&1; then
             cat "$RUNNER_TEMP/neutrondrive-snap-window.log"
             sudo journalctl --no-pager -n 80 -k
