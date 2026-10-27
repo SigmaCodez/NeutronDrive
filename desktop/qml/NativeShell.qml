@@ -106,6 +106,11 @@ Item {
         }
     }
     function send(method,args){if((updateAdapter.state.installing || updateAdapter.state.restartPending) && method!=="request_close")return;files.dispatch(method,JSON.stringify(args))}
+    function handleFileAction(value) {
+        // Availability changes stay in the background; only sharing needs a window.
+        if(value.action === "share")view.openShareLoading();
+        send("file_manager",[value]);
+    }
     function translate(source){let activeLanguage=preferences.language;let ready=initialized;return preferences.translate(source)}
     function edit(name,value){send("edit",[name,value])}
     function show_page(page){send("show_page",[page])}
@@ -150,7 +155,7 @@ Item {
     Timer { interval: 150; running: controller.initialized && !controller.smoke; repeat: true; onTriggered: {
         if(updateAdapter.state.installing || updateAdapter.state.restartPending || controller.state.busy || controller.view.dialogOpen)return;
         let request=startup.nextFileAction();
-        if(request){let value=JSON.parse(request);if(value.action==="share")controller.view.openShareLoading();else controller.reveal("");controller.send("file_manager",[value]);}
+        if(request)controller.handleFileAction(JSON.parse(request));
     } }
     Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:{let available=startup.trayAvailable();if(controller.trayAvailable && !available && controller.view && !controller.view.visible)controller.reveal("");controller.trayAvailable=available;controller.send("poll_services",[])}}
     // Some desktops publish their tray host after autostart applications.
@@ -307,7 +312,32 @@ Item {
                     controller.show_page("local-trash");controller.stage=4;
                 }else if(controller.stage===4){controller.show_page("activity");controller.stage=5;
                 }else if(controller.stage===5){controller.show_page("files");controller.stage=15;
-                }else if(controller.stage===15){controller.capture("light-files.png",16);
+                }else if(controller.stage===15){
+                    controller.view.width=900;controller.view.height=640;controller.stage=150;
+                }else if(controller.stage===150){
+                    let actions=controller.childNamed(controller.view.contentItem,"fileActionBar");
+                    let list=controller.childNamed(controller.view.contentItem,"fileList");
+                    if(!actions || !list || list.height<100)throw new Error("Compact layout hides the file browser: " + (list ? list.height : "missing list") + ", actions=" + Boolean(actions));
+                    for(let item of actions.children){
+                        if(!item.visible || item.width<=0)continue;
+                        if(item.x+item.width>actions.width+1 || item.y+item.height>actions.height+1)throw new Error("File action clipped in compact layout");
+                    }
+                    console.log("NATIVE_COMPACT_FILE_ACTIONS_OK");
+                    controller.capture("compact-files.png",151);
+                }else if(controller.stage===151){
+                    controller.view.width=1220;controller.view.height=820;
+                    controller.view.hide();
+                    // Empty selections exercise action routing without touching any files.
+                    controller.handleFileAction({action:"pin",paths:[]});controller.stage=1511;
+                }else if(controller.stage===1511){
+                    if(controller.view.visible)throw new Error("Pin unexpectedly opened the main window");
+                    controller.handleFileAction({action:"evict",paths:[]});controller.stage=1512;
+                }else if(controller.stage===1512){
+                    if(controller.view.visible)throw new Error("Evict unexpectedly opened the main window");
+                    console.log("NATIVE_FILE_ACTIONS_STAY_HIDDEN_OK");
+                    files.notify("",false);
+                    controller.view.show();controller.stage=152;
+                }else if(controller.stage===152){controller.capture("light-files.png",16);
                 }else if(controller.stage===16){
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileList");
                     if(!controller.checkedList)throw new Error("File list missing");

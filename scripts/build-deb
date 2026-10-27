@@ -24,7 +24,7 @@ deb_arch = json.loads(stage.backend.LOCK.read_text())["architectures"][arch]["de
 if not shutil.which("dpkg-deb"):
     parser.error("dpkg-deb is required; install the dpkg package")
 args.output_dir.mkdir(parents=True, exist_ok=True)
-output = args.output_dir.resolve() / f"neutrondrive_1.0.0-1_{deb_arch}.deb"
+output = args.output_dir.resolve() / f"neutrondrive_1.0.1-1_{deb_arch}.deb"
 with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
     root = Path(temporary)
     stage.stage(root, "/usr", arch, args.backend)
@@ -38,12 +38,12 @@ with tempfile.TemporaryDirectory(prefix="neutrondrive-deb-") as temporary:
     control.mkdir()
     size = sum(path.stat().st_size for path in (root / "usr").rglob("*") if path.is_file()) // 1024
     (control / "control").write_text(f'''Package: neutrondrive
-Version: 1:1.0.0-1
+Version: 1:1.0.1-1
 Section: net
 Priority: optional
 Architecture: {deb_arch}
 Maintainer: SigmaCodez <maintainers@users.noreply.github.com>
-Homepage: https://github.com/SigmaCodez/NeutronDrive
+Homepage: https://neutrondrive.sigmacodez.dev
 Installed-Size: {size}
 Depends: libsecret-1-0, libgssapi-krb5-2, libbrotli1, xdg-utils, ca-certificates, libc6 (>= {"2.39" if deb_arch == "arm64" else "2.34"}), libgcc-s1, libstdc++6, libatomic1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libegl1, libopengl0, libgl1, libxkbcommon-x11-0, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-xkb1, libxcb-randr0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-render0, libxcb-shape0, libxcb-glx0, libx11-6, libfontconfig1, libfreetype6, libdbus-1-3, libx11-xcb1, libsm6, libice6, libzstd1, fuse3
 Recommends: gnome-keyring

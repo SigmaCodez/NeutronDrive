@@ -1,6 +1,6 @@
 use crate::{availability, paths};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     os::fd::AsRawFd,
     os::unix::fs::OpenOptionsExt,
     path::PathBuf,
@@ -39,7 +39,13 @@ pub fn run(parent: u32) -> Result<(), String> {
             if bytes.len() > 16 * 1024 * 1024 {
                 return None;
             }
-            serde_json::from_slice::<BTreeSet<PathBuf>>(&bytes).ok()
+            serde_json::from_slice::<BTreeMap<PathBuf, u8>>(&bytes)
+                .ok()
+                .or_else(|| {
+                    serde_json::from_slice::<BTreeSet<PathBuf>>(&bytes)
+                        .ok()
+                        .map(|paths| paths.into_iter().map(|p| (p, 1)).collect())
+                })
         })
         .unwrap_or_default();
     let mut retry = Instant::now();
@@ -72,13 +78,14 @@ pub fn run(parent: u32) -> Result<(), String> {
                 }
             }
         }
-        let now = availability::all_available();
+        let now = availability::all_states();
         let reset = retry.elapsed() > Duration::from_secs(300);
-        let changed: Vec<_> = if reset {
-            now.union(&previous).cloned().collect()
-        } else {
-            now.symmetric_difference(&previous).cloned().collect()
-        };
+        let changed: BTreeSet<_> = now
+            .keys()
+            .chain(previous.keys())
+            .filter(|path| reset || now.get(*path) != previous.get(*path))
+            .cloned()
+            .collect();
         if reset {
             retry = Instant::now();
         }
@@ -86,10 +93,10 @@ pub fn run(parent: u32) -> Result<(), String> {
             if unsafe { libc::kill(parent as i32, 0) } != 0 {
                 return Ok(());
             }
-            let available = now.contains(&path);
+            let state = now.get(&path).copied().unwrap_or(0);
             let mut child = Command::new(&executable)
                 .arg("--apply-emblem")
-                .arg(if available { "1" } else { "0" })
+                .arg(state.to_string())
                 .arg(&path)
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
@@ -111,8 +118,8 @@ pub fn run(parent: u32) -> Result<(), String> {
                 }
             };
             if success {
-                if available {
-                    previous.insert(path);
+                if state != 0 {
+                    previous.insert(path, state);
                 } else {
                     previous.remove(&path);
                 }

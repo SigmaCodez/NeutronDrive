@@ -1,6 +1,6 @@
 Name:           neutrondrive
 Epoch:          1
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive
 License:        MIT
@@ -88,6 +88,7 @@ printf 'rpm-fedora\n' > %{buildroot}/usr/lib/neutrondrive/package-format
 /usr/share/metainfo/io.github.SigmaCodez.NeutronDrive.metainfo.xml
 /usr/share/icons/hicolor/scalable/apps/io.github.SigmaCodez.NeutronDrive.svg
 /usr/share/icons/hicolor/scalable/emblems/neutrondrive-available.svg
+/usr/share/icons/hicolor/scalable/emblems/neutrondrive-syncing.svg
 /usr/share/neutrondrive/integrations/dolphin/
 
 %changelog

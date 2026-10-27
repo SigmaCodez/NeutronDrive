@@ -4,7 +4,9 @@ Button {
     id: control
     required property var theme
     property bool primary: false
-    implicitHeight: 40; padding: 12; spacing: 8
+    implicitHeight: 40; leftPadding: 14; rightPadding: 14; topPadding: 10; bottomPadding: 10; spacing: 8
+    hoverEnabled: true
+    Accessible.name: text
     font.weight: Font.Medium
     contentItem: Text {
         text: control.text; textFormat: Text.PlainText; font: control.font
@@ -14,7 +16,7 @@ Button {
     }
     background: Rectangle {
         radius: 10
-        color: !control.enabled ? control.theme.disabled : control.primary ? (control.down || control.hovered ? control.theme.primaryHover : control.theme.accent) : control.down || control.highlighted ? control.theme.selected : control.hovered ? control.theme.hover : control.flat ? "transparent" : control.theme.canvas
+        color: !control.enabled ? (control.flat ? "transparent" : control.theme.disabled) : control.primary ? (control.down || control.hovered ? control.theme.primaryHover : control.theme.accent) : control.down || control.highlighted ? control.theme.selected : control.hovered ? control.theme.hover : control.flat ? "transparent" : control.theme.canvas
         border.width: control.visualFocus ? 2 : 1
         border.color: control.visualFocus || control.primary ? control.theme.accent : control.flat ? "transparent" : control.theme.border
         Behavior on color { ColorAnimation { duration: 100 } }

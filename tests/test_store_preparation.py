@@ -1,5 +1,7 @@
 """Store metadata and beta publication guardrails; no network or account needed."""
 import copy
+import re
+from urllib.parse import urlsplit
 import importlib.machinery
 import importlib.util
 from pathlib import Path
@@ -51,8 +53,19 @@ class StorePreparationTests(unittest.TestCase):
         metadata=ET.parse(ROOT/'data/io.github.SigmaCodez.NeutronDrive.metainfo.xml').getroot()
         self.assertEqual(metadata.findtext('summary'),'Unofficial Proton Drive client for Linux')
         self.assertEqual(metadata.find("url[@type='homepage']").text,'https://neutrondrive.sigmacodez.dev')
-        for image in metadata.findall('screenshots/screenshot/image'):
-            self.assertTrue((ROOT / image.text.split('/v0.1.0-beta1/',1)[1]).is_file())
+        version = re.search(r'^version = "([^"]+)"',
+                            (ROOT/'desktop/Cargo.toml').read_text(), re.M)[1]
+        tag = 'v' + version.replace('-beta.', '-beta').replace('-alpha.', '-alpha')
+        prefix = '/SigmaCodez/NeutronDrive/' + tag + '/'
+        images = metadata.findall('screenshots/screenshot/image')
+        self.assertTrue(images)
+        for image in images:
+            url = urlsplit(image.text)
+            self.assertEqual((url.scheme, url.netloc), ('https', 'raw.githubusercontent.com'))
+            self.assertTrue(url.path.startswith(prefix), 'Screenshot must match the current release')
+            relative = Path(url.path[len(prefix):])
+            self.assertNotIn('..', relative.parts)
+            self.assertTrue((ROOT / relative).is_file())
 
     def test_flatpak_has_no_native_host_service_permission(self):
         import json
