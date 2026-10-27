@@ -31,5 +31,4 @@ case folding of every filename when rendering a folder.
 
 For photo preview shortcuts, see [Photo viewer](PHOTO-VIEWER.md).
 
-These changes are on the development branch and are not yet included in the
-published 1.0.1 packages.
+Available in NeutronDrive 1.0.2.

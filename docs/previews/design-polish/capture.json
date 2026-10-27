@@ -1,22 +1,18 @@
 {
-  "preview_version": "1.0.1",
-  "published_release": "v1.0.1",
-  "binary_version": "NeutronDrive 1.0.1",
-  "application_build_commit": "b4e0282a82c3559ee369790d18544bd43a0feb19",
-  "binary_sha256": "8125ab50b2b6555b230496a90a7b212875e5aea9ebee683acd5d304aa3729f1e",
-  "package": "neutrondrive_1.0.1-1_amd64.deb",
-  "package_sha256": "5c742230b49ce1f9ea1d940f5aa21f98c4cd358f8cac4d365c1698424d116b28",
-  "captured_at": "2026-10-27T00:36:01.876775+00:00",
+  "preview_version": "1.0.2",
+  "published_release": "v1.0.2",
+  "binary_version": "NeutronDrive 1.0.2",
+  "binary_sha256": "8c0b4eda29df334045454d687bc8e478c1ed7c168535e5d9752d89281f411c22",
+  "source_manifest_sha256": "e97504ae6276776357f00ea28b86b2c527b98c48f669a6f594308161394177c1",
+  "captured_at": "2026-10-27T19:15:19.528839+00:00",
   "language": "en",
-  "environment": "Unmodified final 1.0.1 DEB executable and bundled Qt runtime; offscreen software rendering, isolated English profiles and private D-Bus sessions.",
-  "data": "Built-in synthetic English demo and sharing fixture data; no live account or personal files. Direct GUI captures, no image edits.",
+  "environment": "Local native 1.0.2 development build, offscreen Qt rendering, isolated HOME/XDG and private D-Bus. This capture is not from a published package.",
+  "data": "Synthetic demo data; direct GUI captures without edits or personal files.",
   "images": {
-    "light-grid.png": "9874a8076778a8d86cdfe68378658f189031db36fe9f7238b2b158c8eb91816d",
-    "dark-grid.png": "9e4b38e767e0caa1ae941065324e601212356fd7d16edccca44cbbf831770680",
-    "compact-files.png": "25f12894ca4ed6fe82a24d18478384e9256e1ecda4a964b3c0da99baf4256ec0",
-    "dark-settings.png": "c4168cb0c7c855a043e972066f9685f6111c82809630941a75a8885fe6e069e6",
-    "light-photos.png": "7e3a86bec5d2ceb5430055b06a6e4d6df0c07250cd298f621b1f4bef7f1e0710"
-  },
-  "package_build_commit": "1bd0ce395a41d65bcb3e7bd454a76871401b2ea0",
-  "package_build_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40427721685"
+    "light-grid.png": "b047923f0907b64098ddfcb70a963414e0515bafe7ebb58dccc68a4933cf8cb5",
+    "dark-grid.png": "2b6b45c04e7ad563734109b9f29b92ff049c8b0a5644f5c799e371fa1da9fbfe",
+    "compact-files.png": "f410fdc08e847386d0d92cb91b59733bd6f39b2b22110e7d452d08a21aa92dd6",
+    "dark-settings.png": "c5cff5fa7bc448b371dda52231419bc60fef98991aaab64e08c35226b82b255d",
+    "light-photos.png": "6d486bf7870bb8ea8147813b6a6a03fa9c2b4a094735cf3e0d4035680e134997"
+  }
 }
