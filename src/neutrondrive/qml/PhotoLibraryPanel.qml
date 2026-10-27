@@ -102,7 +102,7 @@ ColumnLayout {
     }
     RowLayout {
         Layout.fillWidth: true; spacing: 12
-        PhotoButton { objectName: "takeoutImportButton"; text: host.tr("Google Takeout import"); enabled: !panel.viewState.busy && panel.viewState.authenticated && !panel.viewState.demo; onClicked: panel.request({action:"takeout"}) }
+        PhotoButton { objectName: "takeoutImportButton"; text: host.tr("Google Takeout import"); enabled: !panel.viewState.busy && Boolean(panel.viewState.authenticated) && !panel.viewState.demo; onClicked: panel.request({action:"takeout"}) }
         Label { Layout.fillWidth: true; text: host.tr("Import photos and videos from an extracted Google Photos export."); wrapMode: Text.WordWrap; color: host.theme.muted; font.pixelSize: 12 }
     }
     RowLayout {

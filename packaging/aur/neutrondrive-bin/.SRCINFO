@@ -1,6 +1,6 @@
 pkgbase = neutrondrive-bin
-	pkgdesc = Independent Rust/Qt Quick client for Proton Drive with automatic sync (beta)
-	pkgver = 0.1.0beta1
+	pkgdesc = Independent Rust/Qt Quick client for Proton Drive with automatic sync
+	pkgver = 1.0.1
 	pkgrel = 1
 	epoch = 1
 	url = https://github.com/SigmaCodez/NeutronDrive
@@ -34,15 +34,15 @@ pkgbase = neutrondrive-bin
 	depends = krb5
 	depends = brotli
 	optdepends = gnome-keyring: Secret Service provider (or another compatible keyring)
-	provides = neutrondrive=1:0.1.0beta1
+	provides = neutrondrive=1:1.0.1
 	conflicts = neutrondrive
-	noextract = neutrondrive_0.1.0-beta1-1_amd64.deb
-	noextract = neutrondrive_0.1.0-beta1-1_arm64.deb
+	noextract = neutrondrive_1.0.1-1_amd64.deb
+	noextract = neutrondrive_1.0.1-1_arm64.deb
 	options = !strip
 	options = !debug
-	source_x86_64 = https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.1.0-beta1/neutrondrive_0.1.0-beta1-1_amd64.deb
-	sha256sums_x86_64 = 19bc4ca9a72f2a23cce641dc0b8fc1ae40ee1cdbf563ae055fb3c6af7b5381e1
-	source_aarch64 = https://github.com/SigmaCodez/NeutronDrive/releases/download/v0.1.0-beta1/neutrondrive_0.1.0-beta1-1_arm64.deb
-	sha256sums_aarch64 = 8f49d90638ee9d21a2254c44bd5796bf50c3ac09f6e047f2867d79804437bb92
+	source_x86_64 = https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.1/neutrondrive_1.0.1-1_amd64.deb
+	sha256sums_x86_64 = 5c742230b49ce1f9ea1d940f5aa21f98c4cd358f8cac4d365c1698424d116b28
+	source_aarch64 = https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.1/neutrondrive_1.0.1-1_arm64.deb
+	sha256sums_aarch64 = c24b41f82026428d0c0746b5e77768982ed9b517aca9c02cc91905f780844199
 
 pkgname = neutrondrive-bin

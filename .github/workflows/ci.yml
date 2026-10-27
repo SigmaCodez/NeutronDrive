@@ -181,6 +181,42 @@ jobs:
           path: dist/*.deb
           if-no-files-found: error
 
+  ubuntu_2610:
+    name: Ubuntu 26.10 DEB (${{ matrix.architecture }})
+    needs: deb
+    if: always() && needs.deb.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    runs-on: ${{ matrix.runner }}
+    container: ubuntu:26.10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: deb-${{ matrix.architecture }}
+          path: build/deb
+      - name: Install release DEB on Ubuntu 26.10
+        run: |
+          apt-get update
+          apt-get install -y python3 python3-gi gir1.2-gtk-4.0 dbus dbus-x11 xvfb xauth nautilus
+          apt-get install -y ./build/deb/*.deb
+          test "$(. /etc/os-release; echo "$VERSION_ID")" = 26.10
+          test "$(dpkg-query -W -f='${Version}' neutrondrive)" = 1:1.0.1-1
+          neutrondrive --version
+          neutrondrive --diagnose
+      - name: Test installed Qt interface and GNOME file-manager integration
+        run: |
+          python3 desktop/tests/check-staged-runtime.py /usr
+          dbus-run-session -- xvfb-run -a env GTK_A11Y=none G_DEBUG=fatal-warnings \
+            GIO_USE_VFS=local GIO_USE_VOLUME_MONITOR=unix GSK_RENDERER=cairo \
+            python3 file-manager/tests/check-sidebar.py /usr/lib/neutrondrive/bin/libneutrondrive_file_manager.so
+
   rpm:
     needs: [native, verified_native]
     if: always() && (needs.native.result == 'success' || needs.verified_native.result == 'success')

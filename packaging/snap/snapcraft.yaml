@@ -1,6 +1,6 @@
 name: neutrondrive
 base: core24
-version: '1.0.0'
+version: '1.0.1'
 summary: Unofficial Proton Drive client for Linux
 description: |
   Browse and transfer Proton Drive files with a native Qt interface and the

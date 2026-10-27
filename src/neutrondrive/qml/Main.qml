@@ -8,26 +8,26 @@ ApplicationWindow {
     id: window
     readonly property bool darkMode: controller.appearance.dark
     readonly property var theme: darkMode ? {
-        "canvas": "#1c1b27",
+        "canvas": "#191b24",
         "text": "#f1eef9",
         "accent": "#aa91ff",
-        "sidebar": "#171620",
-        "muted": "#b3adc4",
-        "border": "#464052",
+        "sidebar": "#12141c",
+        "muted": "#b0b6ca",
+        "border": "#44495b",
         "disabledText": "#817b91",
         "disabled": "#292635",
-        "hover": "#373047",
+        "hover": "#2c3040",
         "primaryHover": "#bba7ff",
-        "input": "#23202e",
-        "cardBorder": "#393446",
+        "input": "#20232e",
+        "cardBorder": "#303442",
         "accentText": "#c4b3ff",
         "secondaryText": "#c3bdd2",
         "selected": "#3a2e58",
-        "navHover": "#2e293c",
+        "navHover": "#252936",
         "badge": "#352a4d",
         "warning": "#4b3723",
         "rowSelected": "#3b3056",
-        "rowHover": "#2a2537",
+        "rowHover": "#232735",
         "fileTile": "#282d3b",
         "fileInk": "#acbadc",
         "body": "#d1cbdf",
@@ -37,15 +37,15 @@ ApplicationWindow {
         "canvas": "#ffffff",
         "text": "#252236",
         "accent": "#6d4aff",
-        "sidebar": "#f7f6fb",
-        "muted": "#706b80",
-        "border": "#dedbe7",
+        "sidebar": "#f4f5fa",
+        "muted": "#657087",
+        "border": "#d7dce8",
         "disabledText": "#9691a2",
         "disabled": "#f2f0f6",
         "hover": "#f2efff",
         "primaryHover": "#5935df",
-        "input": "#faf9fc",
-        "cardBorder": "#e7e4ed",
+        "input": "#f7f8fc",
+        "cardBorder": "#e3e6ef",
         "accentText": "#6140db",
         "secondaryText": "#575269",
         "selected": "#ebe5ff",
@@ -65,7 +65,7 @@ ApplicationWindow {
     minimumWidth: 900; minimumHeight: 640
     visible: true
     title: "NeutronDrive" + (s.demo ? " · DEMO" : "")
-    color: window.theme.canvas
+    color: window.theme.sidebar
     font.family: "Sans Serif"; font.pixelSize: 14
     palette.text: window.theme.text; palette.windowText: window.theme.text
     palette.buttonText: window.theme.text; palette.highlight: window.theme.accent
@@ -124,9 +124,9 @@ ApplicationWindow {
     component Card: Rectangle {
         color: window.theme.canvas; radius: 14; border.color: window.theme.cardBorder
         Layout.fillWidth: true
-        implicitHeight: cardContents.implicitHeight + 36
+        implicitHeight: cardContents.implicitHeight + 40
         default property alias contents: cardContents.data
-        ColumnLayout { id: cardContents; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 18 } spacing: 12 }
+        ColumnLayout { id: cardContents; anchors { left: parent.left; right: parent.right; top: parent.top; margins: 20 } spacing: 12 }
     }
     component Toggle: Check {
         property string field
@@ -238,7 +238,7 @@ ApplicationWindow {
     RowLayout {
         anchors.fill: parent; spacing: 0
         Rectangle {
-            Layout.preferredWidth: 238; Layout.fillHeight: true; color: window.theme.sidebar
+            Layout.preferredWidth: 248; Layout.fillHeight: true; color: window.theme.sidebar
             ColumnLayout {
                 anchors.fill: parent; anchors.margins: 18; spacing: 8
                 RowLayout {
@@ -274,14 +274,14 @@ ApplicationWindow {
                         property var modelData: navigationEntry.modelData
                         property bool selected: modelData.key.charAt(0)==="/" ? (s.page==="files" && ("/"+s.path.split("/")[1])===modelData.key || s.page==="computer-backup" && modelData.key==="/devices") : s.page===modelData.key
                         objectName: "nav-"+modelData.key
-                        Layout.fillWidth: true; implicitHeight: 36
+                        Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
                         onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photo_library",[{action:"index",album:""}])) : controller.show_page(modelData.key))
                         Accessible.name: text
                         contentItem: RowLayout {
                             spacing: 12
                             DriveIcon { symbol: nav.modelData.icon; ink: nav.selected ? window.theme.accentText : window.theme.muted; Layout.leftMargin: 10; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
-                            Label { text: nav.text; elide: Text.ElideRight; color: nav.selected ? window.theme.accentText : window.theme.secondaryText; font.pixelSize: 13; font.bold: nav.selected; Layout.fillWidth: true }
+                            Label { text: nav.text; elide: Text.ElideRight; color: nav.selected ? window.theme.accentText : window.theme.secondaryText; font.pixelSize: 14; font.bold: nav.selected; Layout.fillWidth: true }
                         }
                         background: Rectangle { radius: 9; color: nav.selected ? window.theme.selected : nav.hovered ? window.theme.navHover : "transparent"; border.color: nav.activeFocus ? window.theme.accent : "transparent" }
                         }
@@ -342,14 +342,18 @@ ApplicationWindow {
                 Action { objectName: "donationButton"; text: "♡  "+window.tr("Support on Ko-fi"); command: "donate"; flat: true; font.pixelSize: 12; Layout.fillWidth: true; Accessible.description: window.tr("Opens Ko-fi in your browser. Donations are optional.") }
             }
         }
+        Rectangle {
+            Layout.fillWidth: true; Layout.fillHeight: true
+            Layout.topMargin: 12; Layout.bottomMargin: 12; Layout.rightMargin: 12
+            radius: 18; color: window.theme.canvas; border.color: window.theme.cardBorder
         ColumnLayout {
-            Layout.fillWidth: true; Layout.fillHeight: true; Layout.margins: 28; spacing: 16
+            anchors.fill: parent; anchors.margins: window.width < 1050 ? 16 : 28; spacing: window.width < 1050 ? 12 : 16
             RowLayout {
                 Layout.fillWidth: true
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 5
-                    Copy { text: s.page==="files" ? window.tr("Dateien & Ordner") : window.tr("NeutronDrive für Linux"); font.pixelSize: 12 }
-                    Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
+                    Copy { visible: window.width >= 1050; text: s.page==="files" ? window.tr("Dateien & Ordner") : window.tr("NeutronDrive für Linux"); font.pixelSize: 12 }
+                    Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: window.width < 1050 ? 24 : 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
                 Rectangle { visible: s.demo; implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
                     Label { id: modeLabel; anchors.centerIn: parent; text: "Demo"; color: window.theme.accentText; font.pixelSize: 12 }
@@ -371,12 +375,13 @@ ApplicationWindow {
                 Action { visible: s.busy; text: window.tr("Abbrechen"); command: "cancel"; enabled: true }
             }
         }
+        }
     }
 
     Component {
         id: filesPage
         ColumnLayout {
-            objectName: "page-files"; spacing: 14
+            objectName: "page-files"; spacing: window.width < 1050 ? 10 : 14
             Card {
                 visible: s.path==="/devices"
                 Heading { text: window.tr("Back up this computer") }
@@ -410,7 +415,7 @@ ApplicationWindow {
                 Action { text: window.tr("Aktualisieren"); command: "refresh"; field: "refresh_button" }
             }
             Flow { Layout.fillWidth: true; spacing: 4
-                Repeater { model: s.crumbs; delegate: Action { required property string modelData; required property int index; text: modelData+"  ›"; flat: true; onClicked: controller.crumb(index) } }
+                Repeater { model: s.crumbs; delegate: Action { required property string modelData; required property int index; text: modelData+"  ›"; implicitHeight: window.width < 1050 ? 32 : 40; flat: true; onClicked: controller.crumb(index) } }
             }
             Rectangle {
                 Layout.fillHeight: true; Layout.fillWidth: true; radius: 12; color: window.theme.canvas; border.color: window.theme.cardBorder
@@ -420,8 +425,8 @@ ApplicationWindow {
                         visible: !window.gridView
                         Layout.fillWidth: true; Layout.margins: 10
                         Copy { text: window.tr("Name"); font.pixelSize: 12 }
-                        Label { text: window.tr("Größe"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 80 }
-                        Label { text: window.tr("Geändert"); color: window.muted; font.pixelSize: 10; Layout.preferredWidth: 90 }
+                        Label { text: window.tr("Größe"); color: window.muted; font.pixelSize: 12; Layout.preferredWidth: 80 }
+                        Label { text: window.tr("Geändert"); color: window.muted; font.pixelSize: 12; Layout.preferredWidth: 90 }
                     }
                     ListView {
                         id: fileList; objectName: "fileList"; visible: !window.gridView; Layout.fillWidth: true; Layout.fillHeight: true
@@ -517,12 +522,19 @@ ApplicationWindow {
                     }
                 }
             }
-            Flow { Layout.fillWidth: true; spacing: 8
-                Repeater { model: ["Download","Keep on device","Free up space","Umbenennen","Verschieben","Freigabe","Papierkorb","Wiederherstellen"]
-                    delegate: Action { required property string modelData; text: window.tr(modelData); command: modelData; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
+            Rectangle {
+                Layout.fillWidth: true; implicitHeight: fileActions.implicitHeight + 16
+                radius: 12; color: window.theme.sidebar; border.color: window.theme.cardBorder
+                Flow {
+                    id: fileActions; objectName: "fileActionBar"
+                    anchors { left: parent.left; right: parent.right; top: parent.top; margins: 8 }
+                    spacing: 6
+                    Repeater { model: ["Download","Keep on device","Free up space","Umbenennen","Verschieben","Freigabe","Papierkorb","Wiederherstellen"]
+                        delegate: Action { required property string modelData; text: window.tr(modelData); command: modelData; flat: true; implicitHeight: window.width < 1050 ? 34 : 40; enabled: s.actions[modelData].enabled; visible: s.actions[modelData].visible }
+                    }
+                    Action { text: window.tr("Version history"); command: "Versions"; flat: true; implicitHeight: window.width < 1050 ? 34 : 40; enabled: s.actions.Versions.enabled; visible: s.actions.Versions.visible }
                 }
             }
-            Action { text: window.tr("Version history"); command: "Versions"; enabled: s.actions.Versions.enabled; visible: s.actions.Versions.visible }
             Copy { text: window.f("count_label").value; font.pixelSize: 12 }
         }
     }
@@ -562,6 +574,7 @@ ApplicationWindow {
     component PageScroll: ScrollView {
         ScrollBar.vertical: DriveScrollBar { theme: window.theme; parent: scroll; x: scroll.width-width; y: scroll.topPadding; height: scroll.availableHeight }
         id: scroll
+        rightPadding: 14
         clip: true; contentWidth: availableWidth
         default property alias contents: pageColumn.data
         ColumnLayout { id: pageColumn; width: scroll.availableWidth; spacing: 16 }

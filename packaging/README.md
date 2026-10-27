@@ -16,7 +16,7 @@ python3 scripts/build-backend --help
 ```
 
 The current SDK bridge and application packages are published together in
-`v1.0.0`. Source builds are inspectable; bit-for-bit reproducibility
+`v1.0.1`. Source builds are inspectable; bit-for-bit reproducibility
 across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
@@ -146,7 +146,7 @@ an expendable Ubuntu 24.04 build environment; CI uses a disposable runner.
 
 ```sh
 python3 scripts/build-snap
-sudo snap install --dangerous dist/neutrondrive_1.0.0_amd64.snap
+sudo snap install --dangerous dist/neutrondrive_1.0.1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 neutrondrive
 ```
@@ -256,13 +256,13 @@ makepkg --syncdeps
 
 This recipe has no Python runtime dependencies and verifies the original DEB's
 frontend and SDK provenance before creating its local source/checksum entries.
-The published `packaging/aur/neutrondrive-bin` recipe pins the beta 0.1 native
+The published `packaging/aur/neutrondrive-bin` recipe pins the 1.0.1 native
 DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.
 
 ## Beta 0.1 version reset
 
-The public release line restarts at `0.1.0-beta1` (Rust `0.1.0-beta.1`). Keep
+The public version was reset at `0.1.0-beta1` (Rust `0.1.0-beta.1`). Keep
 **epoch 1** in all subsequent DEB, RPM and Arch package metadata: it makes the
 numerically lower beta a normal upgrade from the retired 0.6 alpha packages.
 Do not include the epoch in release asset filenames. Flatpak and Snap use their
@@ -274,7 +274,7 @@ Old release tags and downloads are retired; Git history remains.
 ## Store preparation
 
 The local Snap/Flatpak downloads are not Store listings. See
-[Snap beta publication](../docs/stores/snap-store.md) and
+[Snap Store publication](../docs/stores/snap-store.md) and
 [Flathub readiness and current blockers](../docs/stores/flathub-readiness.md).
 Store editions use ordinary downloaded-folder synchronization and explicitly
 exclude native FUSE/file-manager integration. The native DEB/RPM behavior is
@@ -282,7 +282,31 @@ unchanged. Publication requires runtime testing of the changed packages.
 
 ## Stable 1.0
 
-Application and distributable package versions are 1.0.0. Epoch 1 is retained for
+Application and distributable package versions are 1.0.1. Epoch 1 is retained for
 native package upgrades. Snap uses `grade: stable`; regular GitHub release tags
 publish to `latest/stable`, while beta tags continue to use `latest/beta`.
 See [Store automation](../docs/snap-store-automation.md).
+
+
+## Ubuntu 26.10 DEB validation
+
+Version 1.0.1 uses the same portable native DEB on Ubuntu 26.10; there is no
+separate Ubuntu-only application build. Choose `amd64` for Intel/AMD PCs or
+`arm64` for ARM64 systems:
+
+```sh
+sudo apt install ./neutrondrive_1.0.1-1_amd64.deb
+```
+
+CI installs the release DEB in an actual `ubuntu:26.10` userspace on both
+architectures, resolves dependencies through APT, checks the installed version,
+starts the Qt interface with isolated synthetic data, and exercises the native
+Nautilus sidebar adapter against that distribution's GTK/Nautilus libraries.
+These checks do not emulate a complete GNOME/Wayland login, keyring or live cloud
+account. The real transfer/emblem test was performed separately on Ubuntu 26.04.1.
+
+The application retains its older ABI baselines for existing users. No OS upgrade
+is needed to install this release. After updating a native extension, finish any
+file copies and restart the file manager or log out and back in to load it.
+
+[Ubuntu 26.10 release notes](https://documentation.ubuntu.com/release-notes/26.10/)

@@ -469,6 +469,26 @@ pub unsafe extern "C" fn neutrondrive_is_available(path: *const c_char) -> c_int
 }
 
 /// # Safety
+/// The caller supplies a readable NUL-terminated UTF-8 path.
+/// Returns 0 for online/unknown, 1 for locally available, 2 for downloading.
+#[no_mangle]
+pub unsafe extern "C" fn neutrondrive_file_status(path: *const c_char) -> c_int {
+    if path.is_null() {
+        return 0;
+    }
+    std::panic::catch_unwind(|| {
+        CStr::from_ptr(path)
+            .to_str()
+            .ok()
+            .filter(|p| p.len() <= 4096)
+            .map_or(0, |p| {
+                availability::status(std::path::Path::new(p)) as c_int
+            })
+    })
+    .unwrap_or(0)
+}
+
+/// # Safety
 /// `buffer` points to at least `capacity` writable bytes. Returns bytes including NUL, or zero.
 #[no_mangle]
 pub unsafe extern "C" fn neutrondrive_sync_root(buffer: *mut c_char, capacity: usize) -> usize {
