@@ -16,7 +16,7 @@ Prepared for v1.0.1. The design/emblem build was installed locally on Ubuntu 26.
 
 - Core: 190 unit tests plus integration tests passed; Clippy with warnings denied passed.
 - Desktop: 90 Rust tests, Clippy, actual Qt/QML window checks, all supported languages and English fallback, setup, compact layout, selection, photo paging/viewer, sharing fixture, clipboard, preferences, updater guards, background lifecycle and window recovery passed.
-- Regression suite: 349 passed; the 14 opt-in kernel FUSE and private D-Bus tests were then enabled and all passed (363 total).
+- Final 1.0.1 local regression: all 363 tests passed in one run with kernel FUSE, private D-Bus and actual Qt/language tests enabled; no skips.
 - Real Nautilus, Nemo, Caja and Thunar provider libraries passed. InfoProvider tests cover green -> no emblem -> blue -> green and invalidation.
 - Isolated GVfs tests cover blue -> green -> blue -> cleared while preserving unrelated user emblems.
 - Nautilus and Nemo sidebar integration tests passed with isolated profiles and a temporary X server. Missing host test libraries were extracted into /tmp; no system packages were installed.
