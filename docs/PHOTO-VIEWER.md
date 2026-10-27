@@ -29,8 +29,7 @@ photo at the same position. Missing metadata entries are skipped without blockin
 the next page. Returned metadata is displayed in inventory order; duplicate or
 foreign identities are rejected before changing the library.
 
-These changes are on the development branch and are not yet part of the published
-1.0.1 packages.
+Available in NeutronDrive 1.0.2.
 
 ## Validation
 
