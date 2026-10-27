@@ -102,6 +102,7 @@ with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PRE
   overlays, image viewer, albums and location links to OpenStreetMap. Incremental
   tiles preserve scroll position, retain nearby previews and load pages ahead;
   thumbnails are cached across sessions; first-time previews still depend on the network.
+  [Photo viewer controls and navigation](docs/PHOTO-VIEWER.md).
 - **Import Google Photos:** review an extracted Takeout export and upload photos/videos
   with matching date/location metadata. [Import guide and limits](docs/TAKEOUT-IMPORT.md).
 - **Manage your account:** the lower-left user menu opens Settings, the Proton
