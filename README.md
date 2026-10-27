@@ -12,7 +12,7 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.0.2](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.2).**
+**Version [1.0.3](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.3).**
 This update refines the light/dark interface, adds blue download progress emblems,
 and keeps file-manager offline actions in the background. Ubuntu 26.10 DEB
 installation and interface checks are part of the release test matrix.
@@ -85,14 +85,13 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.0.2
+## New in 1.0.3
 
-- Photo metadata follows inventory order, with less repeated searching while pages load.
-- Preview shortcuts, cached image reuse and focus return make photo browsing smoother.
-- Changed photo inventories clear stale selections before an album action can target a different image.
-- Ctrl+F, Escape and Home/End simplify folder navigation; equivalent Unicode searches preserve selection.
-- Shift-click and Shift-arrow keys select continuous ranges in both list and grid views.
-- FUSE regression tests now isolate their bookmarks from the user's desktop profile.
+- Automatic cloud events now refresh files and folders marked **Keep on device** through the Proton SDK.
+- Failed pinned refreshes retain their event cursor and retry automatically instead of being silently acknowledged.
+- Temporary cloud warnings clear after the affected operation recovers; pending updates and unsaved-write errors remain visible.
+- Removing an offline pin cancels its pending refresh warning.
+- Added real FUSE/D-Bus outage-and-recovery regression coverage. The previous photo browsing and keyboard improvements remain included.
 
 ## What you can do
 
@@ -146,7 +145,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.2 release assets**, not development artifacts.
+The commands below use the **1.0.3 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 | Format | Intended systems | Important details |
@@ -160,29 +159,29 @@ Packages are independent community builds, not official Proton packages or store
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.2-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.3-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.2-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.3-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.2-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.3-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.2-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.3-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.2_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.3_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.2-x86_64.AppImage
-./NeutronDrive-1.0.2-x86_64.AppImage
+chmod +x NeutronDrive-1.0.3-x86_64.AppImage
+./NeutronDrive-1.0.3-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.2-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.3-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
