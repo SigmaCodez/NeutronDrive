@@ -3,10 +3,9 @@
   "published_release": "v1.0.1",
   "binary_version": "NeutronDrive 1.0.1",
   "application_build_commit": "b4e0282a82c3559ee369790d18544bd43a0feb19",
-  "package_build_context": "Final 1.0.1 packaging with current SDK release checksums; documentation-only commits do not change package bytes.",
   "binary_sha256": "8125ab50b2b6555b230496a90a7b212875e5aea9ebee683acd5d304aa3729f1e",
   "package": "neutrondrive_1.0.1-1_amd64.deb",
-  "package_sha256": "bf229ce8aa0b923e3de89d656794fdde72b5a272ec89aedeab8d2751f4c1dceb",
+  "package_sha256": "5c742230b49ce1f9ea1d940f5aa21f98c4cd358f8cac4d365c1698424d116b28",
   "captured_at": "2026-10-27T00:36:01.876775+00:00",
   "language": "en",
   "environment": "Unmodified final 1.0.1 DEB executable and bundled Qt runtime; offscreen software rendering, isolated English profiles and private D-Bus sessions.",
@@ -17,5 +16,7 @@
     "compact-files.png": "25f12894ca4ed6fe82a24d18478384e9256e1ecda4a964b3c0da99baf4256ec0",
     "dark-settings.png": "c4168cb0c7c855a043e972066f9685f6111c82809630941a75a8885fe6e069e6",
     "light-photos.png": "7e3a86bec5d2ceb5430055b06a6e4d6df0c07250cd298f621b1f4bef7f1e0710"
-  }
+  },
+  "package_build_commit": "1bd0ce395a41d65bcb3e7bd454a76871401b2ea0",
+  "package_build_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40427721685"
 }
