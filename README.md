@@ -91,6 +91,7 @@ with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PRE
   in the first-run assistant; the default is `~/ProtonDrive`.
 - **Browse and transfer:** list/grid views, search within the current folder,
   upload/download, create folders, rename, move and recover trashed files.
+  [Keyboard navigation](docs/KEYBOARD-NAVIGATION.md).
 - **Use on-demand files:** cache directory metadata first; download file content
   when opened or marked **Keep on device**. Files and folders can be pinned
   recursively; **Free up space** removes eligible cached copies.

@@ -339,6 +339,26 @@ Item {
                     controller.view.show();controller.stage=152;
                 }else if(controller.stage===152){controller.capture("light-files.png",16);
                 }else if(controller.stage===16){
+                    files.windowKey(Qt.Key_F,true);controller.stage=1601;
+                }else if(controller.stage===1601){
+                    let search=controller.childNamed(controller.view.contentItem,"searchInput");
+                    if(!search.activeFocus)throw new Error("Find shortcut did not focus folder search");
+                    controller.edit("search","no-result-7b39c");controller.stage=1602;
+                }else if(controller.stage===1602){
+                    if(controller.fileEntries.length!==0)throw new Error("Folder filter did not apply");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=1603;
+                }else if(controller.stage===1603){
+                    if(controller.state.fields.search.value!=="" || !controller.fileEntries.length)throw new Error("Escape did not clear folder search");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=1604;
+                }else if(controller.stage===1604){
+                    if(!controller.childNamed(controller.view.contentItem,"fileList").activeFocus)throw new Error("Escape did not return to file list");
+                    files.windowKey(Qt.Key_End,false);controller.stage=1605;
+                }else if(controller.stage===1605){
+                    if(controller.state.selection[0]!==controller.fileEntries.length-1)throw new Error("End did not select last file");
+                    files.windowKey(Qt.Key_Home,false);controller.stage=1606;
+                }else if(controller.stage===1606){
+                    if(controller.state.selection[0]!==0)throw new Error("Home did not select first file");
+                    console.log("NATIVE_FOLDER_SEARCH_SHORTCUTS_OK");
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileList");
                     if(!controller.checkedList)throw new Error("File list missing");
                     controller.checkedList.forceActiveFocus();
@@ -375,6 +395,12 @@ Item {
                     controller.checkedList=controller.childNamed(controller.view.contentItem,"fileGrid");
                     if(!controller.checkedList || !controller.checkedList.visible || JSON.stringify(controller.state.selection)!=="[0]")throw new Error("Grid switch lost selection");
                     controller.checkedList.forceActiveFocus();
+                    files.windowKey(Qt.Key_End,false);controller.stage=2021;
+                }else if(controller.stage===2021){
+                    if(controller.state.selection[0]!==controller.fileEntries.length-1)throw new Error("Grid End did not select last file");
+                    files.windowKey(Qt.Key_Home,false);controller.stage=2022;
+                }else if(controller.stage===2022){
+                    if(controller.state.selection[0]!==0)throw new Error("Grid Home did not select first file");
                     files.windowKey(Qt.Key_Right,false);controller.stage=203;
                 }else if(controller.stage===203){
                     if(JSON.stringify(controller.state.selection)!=="[1]")throw new Error("Grid arrow navigation failed");

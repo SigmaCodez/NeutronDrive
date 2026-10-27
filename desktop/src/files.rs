@@ -299,7 +299,7 @@ impl Files {
         self.visible = self
             .nodes
             .iter()
-            .filter(|n| folded(text(n, "name")).contains(&query))
+            .filter(|n| query.is_empty() || folded(text(n, "name")).contains(&query))
             .cloned()
             .collect();
         self.selection.clear();
@@ -1237,8 +1237,15 @@ impl Files {
                 self.field("background_remote", json!(args[1].as_str().unwrap_or("")))
             }
             "edit" if args[0] == "search" && !self.busy() => {
-                self.field("search", json!(args[1].as_str().unwrap_or("")));
-                self.render();
+                let next = args[1].as_str().unwrap_or("");
+                let changed =
+                    folded(text(&self.state["fields"]["search"], "value")) != folded(next);
+                self.field("search", json!(next));
+                // Equivalent Unicode queries have the same results. Preserve
+                // delegates, keyboard focus and selection instead of rebuilding.
+                if changed {
+                    self.render();
+                }
             }
             "select_row" => {
                 if let Some(index) = args[0].as_u64() {
@@ -1612,6 +1619,24 @@ mod tests {
         m.dispatch("move_selection", &json!([i64::MAX, false]));
         assert_eq!(m.state["selection"], json!([0]));
         assert_eq!(m.state["actions"]["Freigabe"]["enabled"], true);
+    }
+    #[test]
+    fn equivalent_unicode_search_preserves_selection_and_model() {
+        let mut m = loaded();
+        m.dispatch("edit", &json!(["search", "Straße"]));
+        m.dispatch("select_row", &json!([0, false]));
+        let revision = m.files_revision;
+        let entries = m.entries.clone();
+        m.dispatch("edit", &json!(["search", "STRASSE"]));
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.entries, entries);
+        assert_eq!(m.state["selection"], json!([0]));
+        assert_eq!(m.state["fields"]["search"]["value"], "STRASSE");
+        m.dispatch("edit", &json!(["search", "no matching file"]));
+        assert!(m.entries.as_array().unwrap().is_empty());
+        assert_eq!(m.state["selection"], json!([]));
+        m.dispatch("edit", &json!(["search", ""]));
+        assert_eq!(m.entries.as_array().unwrap().len(), m.nodes.len());
     }
     #[test]
     fn dialog_token_and_captured_parent_survive_navigation() {
