@@ -447,7 +447,12 @@ ApplicationWindow {
                         Keys.onPressed: function(event) {
                             if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
                             else if (event.key===Qt.Key_Down || event.key===Qt.Key_Up) { controller.move_selection(event.key===Qt.Key_Down ? 1 : -1,Boolean(event.modifiers & Qt.ShiftModifier)); event.accepted=true }
-                            else if (event.key===Qt.Key_Home || event.key===Qt.Key_End) { controller.select_row(event.key===Qt.Key_Home ? 0 : controller.fileEntries.length-1,false); event.accepted=true }
+                            else if (event.key===Qt.Key_Home || event.key===Qt.Key_End) {
+                                let target=event.key===Qt.Key_Home ? 0 : controller.fileEntries.length-1;
+                                if(event.modifiers & Qt.ShiftModifier)controller.select_range(target);else controller.select_row(target,false);
+                                event.accepted=true;
+                            }
+                            else if (event.key===Qt.Key_Escape) { controller.send("clear_selection",[]); event.accepted=true }
                             else if (event.key===Qt.Key_Return || event.key===Qt.Key_Enter) { controller.row_activated(s.focusIndex); event.accepted=true }
                             else if (event.key===Qt.Key_Space) { controller.select_row(s.focusIndex,true); event.accepted=true }
                         }
@@ -478,7 +483,11 @@ ApplicationWindow {
                                 Label { text: fileRow.modelData.modified; color: window.muted; Layout.preferredWidth: 90; font.pixelSize: 12 }
                             }
                             MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
-                                onClicked: function(mouse) { fileList.forceActiveFocus(); controller.select_row(fileRow.index,Boolean(mouse.modifiers & (Qt.ControlModifier|Qt.ShiftModifier))) }
+                                onClicked: function(mouse) {
+                                    fileList.forceActiveFocus();
+                                    if(mouse.modifiers & Qt.ShiftModifier)controller.select_range(fileRow.index);
+                                    else controller.select_row(fileRow.index,Boolean(mouse.modifiers & Qt.ControlModifier));
+                                }
                                 onDoubleClicked: controller.row_activated(fileRow.index)
                             }
                         }
@@ -501,7 +510,12 @@ ApplicationWindow {
                                 let delta=event.key===Qt.Key_Left ? -1 : event.key===Qt.Key_Right ? 1 : event.key===Qt.Key_Up ? -columns : columns;
                                 controller.move_selection(delta,Boolean(event.modifiers & Qt.ShiftModifier)); event.accepted=true;
                             }
-                            else if (event.key===Qt.Key_Home || event.key===Qt.Key_End) { controller.select_row(event.key===Qt.Key_Home ? 0 : controller.fileEntries.length-1,false); event.accepted=true }
+                            else if (event.key===Qt.Key_Home || event.key===Qt.Key_End) {
+                                let target=event.key===Qt.Key_Home ? 0 : controller.fileEntries.length-1;
+                                if(event.modifiers & Qt.ShiftModifier)controller.select_range(target);else controller.select_row(target,false);
+                                event.accepted=true;
+                            }
+                            else if (event.key===Qt.Key_Escape) { controller.send("clear_selection",[]); event.accepted=true }
                             else if (event.key===Qt.Key_Return || event.key===Qt.Key_Enter) { controller.row_activated(s.focusIndex); event.accepted=true }
                             else if (event.key===Qt.Key_Space) { controller.select_row(s.focusIndex,true); event.accepted=true }
                         }
@@ -524,7 +538,11 @@ ApplicationWindow {
                                 }
                                 MouseArea {
                                     id: tileMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
-                                    onClicked: function(mouse) { fileGrid.forceActiveFocus(); controller.select_row(tile.index,Boolean(mouse.modifiers & (Qt.ControlModifier|Qt.ShiftModifier))) }
+                                    onClicked: function(mouse) {
+                                    fileGrid.forceActiveFocus();
+                                    if(mouse.modifiers & Qt.ShiftModifier)controller.select_range(tile.index);
+                                    else controller.select_row(tile.index,Boolean(mouse.modifiers & Qt.ControlModifier));
+                                }
                                     onDoubleClicked: controller.row_activated(tile.index)
                                 }
                                 ToolTip.visible: tileMouse.containsMouse

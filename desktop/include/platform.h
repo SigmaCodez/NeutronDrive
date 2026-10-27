@@ -63,10 +63,11 @@ inline bool snapshotWindow(const QString &name, const QString &path) {
 inline void setClipboard(const QString &text) { QGuiApplication::clipboard()->setText(text); }
 inline QString clipboardText() { return QGuiApplication::clipboard()->text(); }
 // Native UI regression input: deliver real Qt events to the same window as a user.
-inline bool windowKey(const QString &name, int key, bool control) {
+inline bool windowKey(const QString &name, int key, bool control, bool shift) {
     for (auto *window : QGuiApplication::allWindows()) {
         if (window->objectName() != name) continue;
-        auto modifiers = control ? Qt::ControlModifier : Qt::NoModifier;
+        Qt::KeyboardModifiers modifiers = control ? Qt::ControlModifier : Qt::NoModifier;
+        if (shift) modifiers |= Qt::ShiftModifier;
         QKeyEvent press(QEvent::KeyPress, key, modifiers);
         QKeyEvent release(QEvent::KeyRelease, key, modifiers);
         QCoreApplication::sendEvent(window, &press);
