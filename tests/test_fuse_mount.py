@@ -8,6 +8,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 from core_contract.fuse import MountManager, availability
 from test_ondemand import FakeBackend
@@ -21,14 +22,34 @@ class KernelMountTests(unittest.TestCase):
             self.fail(reason)  # Requested kernel testing must not silently skip.
         self.temp = tempfile.TemporaryDirectory(prefix='neutrondrive-fuse-kernel-')
         self.directory = Path(self.temp.name)
+        # The real Rust FUSE startup also registers desktop bookmarks. Isolate
+        # every user-profile path even when this test file runs on its own.
+        profile = {key: str(self.directory / suffix) for key, suffix in (
+            ('HOME', 'home'), ('XDG_CONFIG_HOME', 'config'),
+            ('XDG_STATE_HOME', 'user-state'), ('XDG_CACHE_HOME', 'cache'),
+            ('XDG_DATA_HOME', 'data'))}
+        for path in profile.values():
+            Path(path).mkdir(mode=0o700)
+        environment = patch.dict(os.environ, profile)
+        environment.start()
+        self.addCleanup(environment.stop)
         self.mount = self.directory / 'mount'
         self.backend = FakeBackend()
         self.manager = MountManager(self.backend, self.directory / 'state')
         self.addCleanup(self._cleanup)
 
     def _cleanup(self):
-        self.manager.unmount()
+        self.after_kernel_release(self.manager.unmount)
         self.temp.cleanup()
+
+    def test_kernel_bookmark_stays_in_isolated_profile(self):
+        self.manager.mount(self.mount)
+        bookmarks = self.directory / "config/gtk-3.0/bookmarks"
+        expected = self.mount.as_uri() + " Proton Drive\n"
+        self.assertEqual(bookmarks.read_text(), expected)
+        self.after_kernel_release(self.manager.unmount)
+        self.manager.mount(self.mount)
+        self.assertEqual(bookmarks.read_text(), expected)
 
     def after_kernel_release(self, operation):
         # close(2) may return before the asynchronous FUSE RELEASE is handled.
