@@ -121,3 +121,30 @@ container health/security headers, browser gallery/FAQ interaction.
 
 Deployment now uses host port 31219. Proxy and certificate setup are managed
 manually unless `--configure-proxy` is explicitly passed.
+
+### Release FAQ source
+
+`docs/website-content.json` contains five general FAQ rows per language: four
+project/platform questions followed by the contribution question. Do not keep a
+second copy of release-specific answers there. The publisher and server updater
+insert the three Q&A sections from `releaseNotes` between those rows.
+
+For each of en/de/fr/es/it, `releaseNotes` must contain exactly three sections
+separated by a blank line. Each starts with a question on its own line, followed
+by its answer: changes, upgrade instructions, and current limitations. The first
+two questions must name the exact release version without the leading `v`.
+Use actual newlines; legacy escaped newlines are normalized on ingestion.
+
+Before tagging, update the release identifier and review all five translations
+against the actual changes, current package availability and documented limits.
+CI and the release publisher reject missing, malformed or mismatched sections.
+The server also upgrades existing eight-row manifests and drops outdated release
+FAQ rows when their notes cannot be verified. New facts/translations still need
+review; this automation never invents them or merely changes version numbers.
+
+To correct copy for an already published release, run **Publish release website
+content** with its `tag` and `refresh_text: true` after merging the correction.
+This uses reviewed text from main only if it names that exact release, records
+`content_source_commit`, and still captures the GUI from the actual release
+package using the tagged fixtures. Normal new releases continue using tagged
+copy. The server's 15-minute timer picks up the resulting manifest automatically.
