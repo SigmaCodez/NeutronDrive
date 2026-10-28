@@ -149,6 +149,13 @@ mod tests {
         for code in &english.supported {
             let locale = load(code, json!({}), vec![]);
             assert!(!locale.translate("Meine Dateien").is_empty());
+            assert!(locale
+                .translated
+                .get("Abgebrochen")
+                .is_some_and(|v| v.as_str().is_some_and(|s| !s.is_empty())));
+            if code == "en" {
+                assert_eq!(locale.translate("Abgebrochen"), "Cancelled");
+            }
             assert_eq!(
                 locale.diagnostic("unchanged arbitrary filename.txt"),
                 "unchanged arbitrary filename.txt"

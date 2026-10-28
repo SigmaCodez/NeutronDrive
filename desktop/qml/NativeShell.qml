@@ -453,7 +453,7 @@ Item {
                     console.log("NATIVE_GRID_KEYBOARD_AND_MOUSE_OK");controller.stage=208;
                 }else if(controller.stage===208){
                     if(controller.fixture){controller.stage=21;return;}
-                    controller.show_page("photos");controller.send("photo_library",[{action:"index",album:""}]);controller.stage=209;
+                    controller.send("open_section",[controller.translate("Photos"),"photos"]);controller.stage=209;
                 }else if(controller.stage===209){
                     if(controller.state.photos.length!==2 || !controller.childNamed(controller.view.contentItem,"photoGrid"))throw new Error("Photo timeline failed");
                     let preview=controller.childNamed(controller.view.contentItem,"photoPreview-0");
@@ -612,6 +612,17 @@ Item {
                 }else if(controller.stage===24){
                     if(controller.lastDialog.kind!=="share" || !controller.view.sharingWindow.visible)throw new Error("Separate share window missing");
                     if(controller.view.visible)throw new Error("Sharing unexpectedly revealed main window");
+                    const shareRoot=controller.view.sharingWindow.contentItem;
+                    for(const name of ["shareLinkRole","sharePassword","shareExpiration","shareEditorsCanShare","saveShareSettings"]){
+                        if(!controller.childNamed(shareRoot,name))throw new Error("Missing link control: "+name);
+                    }
+                    const password=controller.childNamed(shareRoot,"sharePassword");
+                    if(password.echoMode!==TextInput.Password)throw new Error("Share password is not masked");
+                    const expiration=controller.childNamed(shareRoot,"shareExpiration");
+                    expiration.text="2099-01-01";
+                    if(controller.view.sharingWindow.expirationValue()!=="2099-01-01T23:59:59.000Z")throw new Error("Share date changed timezone");
+                    expiration.text="";
+
                     if(Qt.application.arguments.length>4 && !files.snapshotWindow("shareWindow",Qt.application.arguments[4]+"/share-window-light.png"))throw new Error("Share window capture failed");
                     controller.dialogChild("copyShareLink").clicked();controller.stage=25;
                 }else if(controller.stage===25){

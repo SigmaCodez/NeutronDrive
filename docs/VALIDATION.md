@@ -462,3 +462,45 @@ checks and asset origins are recorded in the release's `BUILD_INFO.json` and
 All published previews were freshly captured from the alpha11 AMD64 DEB
 executable in an isolated English profile and visually inspected.
 [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records binary and image hashes.
+
+## 1.0.5 — advanced public-link settings (2026-10-28)
+
+- 200 core unit tests and 21 compiled-runtime/integration tests passed, including
+  a fake SDK process that verifies passwords arrive only on stdin and never in
+  argv; oversized payloads are rejected.
+- 105 desktop Rust tests passed. Link changes require confirmation, retain the
+  captured file identity/settings and reload sharing state after completion.
+- Pinned SDK bridge: 26 tests passed; the additional identity-mismatch check was
+  then covered by rerunning the two sharing tests. TypeScript checking passed.
+  Fixtures verify password/expiry preservation, explicit removal, editor rights,
+  stale settings, wrong file identity and invalid/past dates without mutations.
+- Rust Clippy passed for core and desktop with warnings denied. 22 localization
+  and native-packaging contract tests passed. New labels are English/German;
+  other catalogs contain explicit English fallbacks.
+- The real offscreen Qt sharing window passed synthetic navigation, separate-window,
+  password masking, UTC-date conversion and clipboard checks. The generated light
+  screenshot was inspected; all controls fit at the default 600×700 size, with
+  scrolling available for smaller windows. Prior sidebar cancellation checks also
+  passed. No real account link was created or changed.
+
+GitHub native validation passed in run 40742118119; final package/install validation passed in run 40747333340. No local package installation was performed.
+Multi-account support, Docs/Sheets export, complete folder-deletion propagation
+and atomic cross-client sync remain unimplemented; see SHARING-AND-REMAINING-LIMITS.md.
+
+
+### FUSE test-profile isolation correction
+
+Two FUSE fixtures previously isolated state but inherited the real GTK configuration
+profile. Mounting their temporary folders therefore wrote bookmarks outside the
+test directories. Both fixtures now isolate configuration, cache and data as well.
+The service fixture supplies an outer bookmark sentinel and asserts that it remains
+byte-identical; repeated mounts must create exactly one bookmark in the inner
+profile. The owned-mount fixture also verifies the expected inner bookmark.
+
+The corrected runtime and desktop-service suites passed locally with real FUSE
+and private D-Bus enabled (17 tests), and Clippy passed. A separate SHA-256 check
+confirmed the real GTK bookmark file stayed unchanged. Stale favorites from these
+test directories were removed locally after backing up that file; the real sync
+favorite was retained. This change affects test infrastructure, not application
+runtime or release binaries. It was verified locally after the native CI build;
+release provenance records it among post-build changes.

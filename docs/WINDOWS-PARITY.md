@@ -1,4 +1,4 @@
-# Windows feature comparison — 2026-10-25
+# Windows feature comparison — 2026-10-28
 
 Reference scope: the official [Windows desktop guide](https://proton.me/support/proton-drive-windows-app),
 [folder synchronization](https://proton.me/support/proton-drive-windows-sync-folder)
@@ -17,7 +17,8 @@ This is a tracked comparison, not a claim of complete parity.
 | File-manager overlays/context menus | Alpha9 adds app and Dolphin availability actions. Alpha10 adds native Nautilus/Nemo/Caja/Thunar menus and sharing; see FILE-MANAGER-INTEGRATION.md. Alpha11 adds cache-aware overlays; see the per-file-manager support matrix |
 | Shared with me | Browsing/transfers exist; dedicated automatic shared-folder synchronization is not complete |
 | Version history and restore UI | Alpha8: lists historical revisions and requests restoration after confirmation and stale-baseline checks; server application is eventually consistent |
-| Proton Docs/Sheets desktop integration | Not complete |
+| Public-link settings | Viewer/editor, password, expiry and editor resharing in the separate sharing window; changes require confirmation and a fresh-state check |
+| Proton Docs/Sheets desktop integration | Native export unavailable in the pinned SDK; use the Proton web editor’s export menu |
 | Multiple account switching workflow | Not complete; pinned jobs reject account changes |
 | Bandwidth limits/exclusions | No full Windows-equivalent settings workflow |
 | Tray and sync overview | Alpha8: native Qt StatusNotifier/XEmbed integration, live job counts, service start/stop and window activation; host tray availability required |

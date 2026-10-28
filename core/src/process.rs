@@ -4,7 +4,7 @@
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs::{self, OpenOptions};
-use std::io::{ErrorKind, Read};
+use std::io::{ErrorKind, Read, Write};
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::process::CommandExt;
@@ -229,6 +229,9 @@ pub fn checked_json(output: &str) -> Result<Value> {
 pub fn friendly_error(stderr: &str) -> &'static str {
     let lower = stderr.to_lowercase();
     for (needles, message) in [
+        (&["sharing settings changed"][..], "Sharing settings changed. Refresh before saving."),
+        (&["file identity changed. reopen sharing"][..], "File identity changed. Reopen sharing before saving."),
+        (&["choose a future expiration date"][..], "Choose a future expiration date"),
         (&["not authenticated", "not logged in", "authentication required", "auth login", "log in first", "login first"][..], "Bitte zuerst über den Browser bei Proton anmelden."),
         (&["libsecret", "secret service", "keyring", "credentials store", "dbus"][..], "Der Linux-Schlüsselbund ist nicht erreichbar. GNOME Keyring oder KWallet entsperren und Secret-Service-Zugriff prüfen."),
         (&["429", "rate limit", "too many requests"][..], "Proton begrenzt gerade die Anfragen. Bitte später erneut versuchen."),
@@ -240,6 +243,18 @@ pub fn friendly_error(stderr: &str) -> &'static str {
 }
 
 pub fn run(request: Request, callback: &mut impl FnMut(Value) -> i32) -> Result<Value> {
+    run_with_input(request, None, callback)
+}
+
+/// Small private payloads travel over stdin, never in argv or temporary files.
+pub fn run_with_input(
+    request: Request,
+    input: Option<&str>,
+    callback: &mut impl FnMut(Value) -> i32,
+) -> Result<Value> {
+    if input.is_some_and(|value| value.len() > 4096) {
+        return Err("Private backend input exceeds limit".into());
+    }
     if request.version != 1
         || !request.timeout.is_finite()
         || request.timeout <= 0.0
@@ -309,7 +324,11 @@ pub fn run(request: Request, callback: &mut impl FnMut(Value) -> i32) -> Result<
         .env("NO_COLOR", "1")
         .env("PROTON_DRIVE_LOG_LEVEL", "WARNING")
         .env("PROTON_DRIVE_UNSAFE_CACHE", "false")
-        .stdin(Stdio::null())
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     // SAFETY: after fork this closure only invokes async-signal-safe setsid
@@ -330,6 +349,15 @@ pub fn run(request: Request, callback: &mut impl FnMut(Value) -> i32) -> Result<
         child,
         reaped: false,
     };
+    if let Some(input) = input {
+        owner
+            .child
+            .stdin
+            .take()
+            .ok_or("Missing backend input pipe")?
+            .write_all(input.as_bytes())
+            .map_err(|_| "Cannot send private backend input")?;
+    }
     let mut stdout = owner
         .child
         .stdout
@@ -387,5 +415,28 @@ pub fn run(request: Request, callback: &mut impl FnMut(Value) -> i32) -> Result<
         checked_json(&output)
     } else {
         Ok(json!(output.trim()))
+    }
+}
+
+#[cfg(test)]
+mod sharing_error_tests {
+    #[test]
+    fn sharing_errors_are_actionable_without_echoing_sdk_secrets() {
+        for (input, expected) in [
+            (
+                "Error: Sharing settings changed. Refresh before saving. secret",
+                "Sharing settings changed. Refresh before saving.",
+            ),
+            (
+                "Error: File identity changed. Reopen sharing before saving. secret",
+                "File identity changed. Reopen sharing before saving.",
+            ),
+            (
+                "Error: Choose a future expiration date secret",
+                "Choose a future expiration date",
+            ),
+        ] {
+            assert_eq!(super::friendly_error(input), expected);
+        }
     }
 }

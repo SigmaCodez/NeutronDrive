@@ -1,4 +1,5 @@
 {
+  "Abgebrochen": "Megszakítva",
   "\nNicht hochgeladene Änderungen im Wiederherstellungsspeicher: ": "\nA nem feltöltött módosítások a helyreállítási tárolóban: ",
   " · Demo ohne Dateizugriff": " · Demo fájlok nélkül",
   " · abgeschlossen": " · befejezett",
@@ -736,5 +737,17 @@
   "Übernehmen": "Alkalmazás",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Az átvitel(ek) sikertelenek, vagy az eredmény státusza érvénytelen. A sikeres részleges átutalások megmaradnak.",
   "Überwachter Ordner konnte nicht gelesen werden.": "A monitorozott mappát nem lehetett elolvasni.",
-  "Überwachter Ordner wurde verändert.": "Megváltozott a monitorozott fájl."
+  "Überwachter Ordner wurde verändert.": "Megváltozott a monitorozott fájl.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

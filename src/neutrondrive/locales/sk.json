@@ -1,4 +1,5 @@
 {
+  "Abgebrochen": "Zrušené",
   "\nNicht hochgeladene Änderungen im Wiederherstellungsspeicher: ": "\nZmeny, ktoré neboli nahrané, v úložisku obnovenia: ",
   " · Demo ohne Dateizugriff": " · Demo bez prístupu k súborom",
   " · abgeschlossen": " · Dokončené",
@@ -736,5 +737,17 @@
   "Übernehmen": "Použiť",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Transfer(y) zlyhali alebo stav výsledku je neplatný. Úspešné čiastočné prevody sú zachované.",
   "Überwachter Ordner konnte nicht gelesen werden.": "Monitorovaný priečinok sa nedá prečítať.",
-  "Überwachter Ordner wurde verändert.": "Monitorovaný priečinok sa zmenil."
+  "Überwachter Ordner wurde verändert.": "Monitorovaný priečinok sa zmenil.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

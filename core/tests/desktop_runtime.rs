@@ -18,6 +18,15 @@ fn isolated_native_service() {
     if std::env::var("NEUTRONDRIVE_DBUS_TEST").as_deref() != Ok("1") {
         return;
     }
+    // Deliberately give children an outer profile: the actual service fixture
+    // must select its own profile, leaving this sentinel byte-for-byte intact.
+    let profile =
+        Temp(std::env::temp_dir().join(format!("nd-native-outer-profile-{}", std::process::id())));
+    let bookmarks = profile.0.join("config/gtk-3.0/bookmarks");
+    std::fs::create_dir_all(bookmarks.parent().unwrap()).unwrap();
+    let sentinel =
+        "file:///fixture/Documents Documents\nfile:///fixture/ProtonDrive Proton Drive\n";
+    std::fs::write(&bookmarks, sentinel).unwrap();
     for case in ["native", "snap", "shutdown", "mount", "process"] {
         if case == "mount" && std::env::var("NEUTRONDRIVE_FUSE_TEST").as_deref() != Ok("1") {
             continue;
@@ -27,6 +36,9 @@ fn isolated_native_service() {
             .arg(std::env::current_exe().unwrap())
             .args(["--exact", "native_service_child", "--nocapture"])
             .env("ND_NATIVE_SERVICE_CASE", case)
+            .env("XDG_CONFIG_HOME", profile.0.join("config"))
+            .env("XDG_CACHE_HOME", profile.0.join("cache"))
+            .env("XDG_DATA_HOME", profile.0.join("data"))
             .env("PATH", "/nonexistent")
             .env_remove("FLATPAK_ID")
             .env_remove("SNAP")
@@ -48,6 +60,11 @@ fn isolated_native_service() {
             std::thread::sleep(Duration::from_millis(50));
         }
         let output = child.wait_with_output().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&bookmarks).unwrap(),
+            sentinel,
+            "Service test modified its inherited profile"
+        );
         assert!(
             output.status.success(),
             "{case}: {} {}",
@@ -87,6 +104,9 @@ fn native_service_child() {
     let root = Temp(std::env::temp_dir().join(format!("nd-native-server-{}", std::process::id())));
     std::fs::create_dir(&root.0).unwrap();
     std::env::set_var("XDG_STATE_HOME", root.0.join("state"));
+    std::env::set_var("XDG_CONFIG_HOME", root.0.join("config"));
+    std::env::set_var("XDG_CACHE_HOME", root.0.join("cache"));
+    std::env::set_var("XDG_DATA_HOME", root.0.join("data"));
     if case == "snap" {
         std::env::set_var("SNAP", "/snap/neutrondrive/test");
     }
@@ -310,6 +330,18 @@ printf '%s\n' "$file"
     if let Some(thread) = server.thread.take() {
         assert_eq!(thread.join().unwrap()["ok"], true);
     }
+    if case == "mount" {
+        let text = std::fs::read_to_string(root.0.join("config/gtk-3.0/bookmarks")).unwrap();
+        assert_eq!(
+            text.lines().count(),
+            1,
+            "Repeated mounts must not duplicate the favorite"
+        );
+        assert!(text.contains(&format!(
+            "file://{} Proton Drive",
+            root.0.join("mount").display()
+        )));
+    }
     assert!(!root.0.join("mount/data").exists());
     assert!(!std::fs::read_to_string("/proc/self/mountinfo")
         .unwrap()
@@ -332,6 +364,9 @@ fn native_process() {
     let mut child = Child(
         Command::new(env!("CARGO_BIN_EXE_neutrondrive-runtime"))
             .env("XDG_STATE_HOME", root.0.join("state"))
+            .env("XDG_CONFIG_HOME", root.0.join("config"))
+            .env("XDG_CACHE_HOME", root.0.join("cache"))
+            .env("XDG_DATA_HOME", root.0.join("data"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

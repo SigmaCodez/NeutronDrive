@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir build/appimage-test
           cd build/appimage-test
-          ../../dist/NeutronDrive-1.0.4-x86_64.AppImage --appimage-extract >/dev/null
+          ../../dist/NeutronDrive-1.0.5-x86_64.AppImage --appimage-extract >/dev/null
           export XDG_CACHE_HOME="$RUNNER_TEMP/nd-appimage-cache"
           export XDG_CONFIG_HOME="$RUNNER_TEMP/nd-appimage-config"
           export XDG_STATE_HOME="$RUNNER_TEMP/nd-appimage-state"
