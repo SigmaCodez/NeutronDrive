@@ -15,9 +15,11 @@ Build the backend (Bun 1.4.2 and network access required):
 python3 scripts/build-backend --help
 ```
 
-Application packages are published as `v1.0.5`. The SDK bridge is rebuilt from pinned upstream sources with the new private-input sharing command. Its upstream identifier remains
-pinned to `v1.0.1` and is also included in the current release assets. Source builds are inspectable; bit-for-bit reproducibility
-across arbitrary build hosts is not claimed.
+Application packages and the rebuilt SDK bridge are published in `v1.0.5`.
+The Proton upstream commit and Bun runtime remain pinned; NeutronDrive adds the
+private-input sharing command. SHA-512 download pins and source-build provenance
+identify the exact bridge for both architectures. Source builds are inspectable;
+bit-for-bit reproducibility across arbitrary build hosts is not claimed.
 
 ## Requirements and coverage
 
