@@ -3,7 +3,7 @@
 Source review: 2026-10-28, Proton SDK commit
 `8a44654aece1609f0f7218be51c205103945abd8` (the packaged SDK, not an unpinned latest version).
 
-## Implemented in the working branch
+## Implemented in 1.0.5
 
 The separate sharing window supports public-link viewer/editor permissions,
 password protection, expiry dates, and whether editors may reshare. Existing
@@ -41,4 +41,4 @@ Proton may already have applied part of a settings change.
   independent clients. Keep an independent backup.
 
 These are explicit remaining limitations, not features hidden behind a setting.
-The sharing changes are not a release or a local installation by themselves.
+These changes are included in release 1.0.5. Installing a release remains a separate action.

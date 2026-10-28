@@ -483,7 +483,7 @@ executable in an isolated English profile and visually inspected.
   scrolling available for smaller windows. Prior sidebar cancellation checks also
   passed. No real account link was created or changed.
 
-This is working-branch validation, not an installed package or published release.
+GitHub native validation passed in run 40742118119; final package/install validation passed in run 40747333340. No local package installation was performed.
 Multi-account support, Docs/Sheets export, complete folder-deletion propagation
 and atomic cross-client sync remain unimplemented; see SHARING-AND-REMAINING-LIMITS.md.
 

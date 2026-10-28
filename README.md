@@ -95,6 +95,8 @@ with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PRE
 - Developer FUSE tests use isolated configuration profiles, preventing temporary mount favorites from appearing in the real file manager.
 - Whole-folder deletion protection remains enabled. Multi-account support, native Docs/Sheets export and atomic conflict-free sync remain outside this release.
 
+[Preview the new sharing settings](docs/previews/design-polish/share-window-light.png).
+
 ## What you can do
 
 - **Set up Proton Drive:** sign in through your browser, then choose a sync folder

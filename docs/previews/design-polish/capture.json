@@ -1,19 +1,20 @@
 {
-  "preview_version": "1.0.4",
-  "published_release": "v1.0.4",
-  "binary_version": "NeutronDrive 1.0.4",
-  "binary_sha256": "257c0575c5ef8e3a340513b719e3cc6c4cf2abf298fbef10f7425878b79d4b91",
-  "package": "neutrondrive_1.0.4-1_amd64.deb",
-  "package_sha256": "151aa2bdee6e128e2e8bc08467196ee390c4b1f97c61719bc89a74cc8d34b843",
-  "captured_at": "2026-10-28T16:36:00.782236+00:00",
+  "preview_version": "1.0.5",
+  "published_release": "v1.0.5",
+  "binary_version": "NeutronDrive 1.0.5",
+  "binary_sha256": "d2d29275a8dc6c4e0c6b3de8f1d7aa6ef7bbf3151bf153c0dd06bdf7be224ae9",
+  "package": "neutrondrive_1.0.5-1_amd64.deb",
+  "package_sha256": "76cf8c3ead799a353ebd1509c67146adc7fb6e0eaa87f094d93ef4d2044a7df6",
+  "captured_at": "2026-10-28T19:13:25.031260+00:00",
   "language": "en",
-  "environment": "Unmodified GitHub-built 1.0.4 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
+  "environment": "Unmodified GitHub-built 1.0.5 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
   "data": "Synthetic English demo data; direct GUI captures, no image edits or personal files.",
   "images": {
-    "light-grid.png": "1874a72af5e2246a5e123631ff9906284304fb220e64e9be0209e2d345c9de7c",
-    "dark-grid.png": "5204bd4f63893b119d64b89a764038344713947a814a09f34807dc968d959b6e",
-    "compact-files.png": "cb4b4354ba6ddabad4a1e2f2dde35f43300c95dbdeba1e7c2bb26f83994e100b",
-    "dark-settings.png": "bcb1d5dcef33f864d4e8a7d0ae82fea761a4100b799050e5190e72153a8a5399",
-    "light-photos.png": "5ff5060d2d08c540c6d916f7b2d82ed0fca9c749747ae51d7a1f13a552e7d4a2"
+    "light-grid.png": "9aa64c0df8c2397b83d397fa2df7baf7279d787613c496fda19f024c809021a9",
+    "dark-grid.png": "a5603ce52599c21d082468f2603baf671bc062517d8fa8bba1f22fc715e16f15",
+    "compact-files.png": "be60cf450f7f7c253ea0d4d1d89b83eace607a261d7d9e3f70fe5fe9874dcf8e",
+    "dark-settings.png": "31e58fd9cb31f64468fc9a73a15dad6adbd115e2e7ddcb2673d70c2fd7275844",
+    "light-photos.png": "f25460a174e75c0a1a3007bea92fccaaf94d92dcf712a54eed331b30ad3a533c",
+    "share-window-light.png": "ca455ac29d97f6fd5c19f67573536506ac429d16159b4b7853e82fba19a1ed14"
   }
 }
