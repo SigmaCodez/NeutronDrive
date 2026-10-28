@@ -1,9 +1,9 @@
 name: Website release manifest checks
 on:
   push:
-    paths: ['docs/website-content.json', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
+    paths: ['docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
   pull_request:
-    paths: ['docs/website-content.json', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
+    paths: ['docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
 permissions:
   contents: read
 jobs:
@@ -24,4 +24,6 @@ jobs:
           module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
           path = Path('docs/website-content.json')
           module.reviewed_text(path, json.loads(path.read_text())['release'])
+          for correction in Path('docs/website-content-corrections').glob('*.json'):
+              module.reviewed_text(correction, correction.stem)
           PY

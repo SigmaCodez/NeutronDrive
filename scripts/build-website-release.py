@@ -70,7 +70,11 @@ def build(args):
     content_commit = args.content_commit or args.commit
     if bool(args.content_source) != bool(args.content_commit) or not re.fullmatch(r'[0-9a-f]{40}', content_commit):
         raise ValueError('Content override requires both a source path and resolved commit')
-    localized = reviewed_text(content_source/'docs/website-content.json', tag)
+    content_path = content_source/'docs/website-content.json'
+    correction = content_source/'docs/website-content-corrections'/f'{tag}.json'
+    if args.content_source and correction.exists():
+        content_path = correction
+    localized = reviewed_text(content_path, tag)
     package_hash = verify_package(args.deb, args.checksums)
     with tempfile.TemporaryDirectory(prefix='nd-release-capture-') as temporary:
         root = Path(temporary)

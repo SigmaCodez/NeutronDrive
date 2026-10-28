@@ -148,3 +148,7 @@ This uses reviewed text from main only if it names that exact release, records
 `content_source_commit`, and still captures the GUI from the actual release
 package using the tagged fixtures. Normal new releases continue using tagged
 copy. The server's 15-minute timer picks up the resulting manifest automatically.
+
+If main already targets a newer release, put a reviewed correction in
+`docs/website-content-corrections/<tag>.json`. Only the explicit
+`refresh_text` mode selects it; normal tagged releases are unaffected.

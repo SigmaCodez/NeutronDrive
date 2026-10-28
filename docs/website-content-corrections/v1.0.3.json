@@ -1,0 +1,431 @@
+{
+  "schema": 1,
+  "release": "v1.0.3",
+  "locales": {
+    "en": {
+      "description": "An unofficial, open-source Linux desktop client for Proton Drive, developed independently of Proton AG.",
+      "features": [
+        [
+          "Background sync",
+          "Connect local folders to your cloud. Pause jobs, retry transfers and keep track of conflicts."
+        ],
+        [
+          "Online, until you need it offline",
+          "Native DEB/RPM editions offer on-demand files and “Keep on device”. Snap and Flatpak download the synchronized files as ordinary local files; they do not provide online placeholders or native file-manager extensions."
+        ],
+        [
+          "A home for your photos",
+          "Timeline, image viewer and albums. Cached thumbnails stay available between sessions."
+        ],
+        [
+          "Feels like your desktop",
+          "Native Qt Quick interface, light and dark modes, tray and autostart. File-manager integration depends on your desktop."
+        ]
+      ],
+      "faq": [
+        [
+          "Is NeutronDrive an official Proton client?",
+          "No. NeutronDrive is an unofficial, open-source Proton Drive client, developed independently of Proton AG and not officially supported by Proton. You need a Proton account with access to Proton Drive."
+        ],
+        [
+          "Is NeutronDrive free?",
+          "Yes. The source code is MIT licensed. There is no NeutronDrive subscription. Proton’s own plans and terms apply to Proton storage and services."
+        ],
+        [
+          "Which desktops are supported?",
+          "NeutronDrive is built for Linux. File-manager integration and status icons depend on the desktop and its version. GNOME needs a suitable extension for a visible tray icon. Sandboxed packages have additional limitations."
+        ],
+        [
+          "How are files stored offline?",
+          "Native DEB/RPM editions offer on-demand files and “Keep on device”. Snap and Flatpak download the synchronized files as ordinary local files; they do not provide online placeholders or native file-manager extensions."
+        ],
+        [
+          "How can I help?",
+          "Report reproducible bugs through GitHub Issues, review translations or contribute code. Report security vulnerabilities through the private reporting process described in SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Unofficial. And open source.",
+          "An unofficial Proton Drive client developed as an independent community project under the MIT licence. Not affiliated with, endorsed by or officially supported by Proton AG."
+        ],
+        [
+          "Stable release, independent project.",
+          "Keep an independent backup. Not all features of the Windows and macOS clients are available. Packages are currently unsigned."
+        ],
+        [
+          "Local files remain local files.",
+          "Synchronised files and local caches are stored as plaintext on your device. Protect your user account and use disk encryption if needed."
+        ]
+      ],
+      "views": [
+        [
+          "Files",
+          "Everything in its place.",
+          "Your cloud files in a familiar interface. Grid or list, with search, upload and download."
+        ],
+        [
+          "Light mode",
+          "Fits your desktop.",
+          "Light, dark or following your system. Choose how NeutronDrive feels."
+        ],
+        [
+          "Photos",
+          "Memories. Well organised.",
+          "Scroll through your photo timeline, open images and organise your collection into albums."
+        ],
+        [
+          "Computer backup",
+          "Your computer, included.",
+          "Register your Linux computer and synchronise selected folders with the Computers section of Proton Drive."
+        ],
+        [
+          "Sharing",
+          "Share without detours.",
+          "Manage shares, create public links and send confirmed invitations in a dedicated window."
+        ]
+      ],
+      "releaseNotes": "What is new in 1.0.3?\nVersion 1.0.3 fixes automatic cloud refresh for files and folders marked “Keep on device” in the native on-demand filesystem. Failed refreshes are retried without losing their cloud events. Warnings clear when the affected operation recovers or its offline pin is removed. Photo and keyboard improvements from 1.0.2 remain included.\n\nHow do I update to 1.0.3?\nInstall the 1.0.3 package for your distribution and architecture; verify it against SHA256SUMS. DEB, RPM and Arch retain epoch 1. Keep an independent backup. The Snap is available as a download; Snap Store Stable publication is still awaiting manual review.\n\nWhat limitations remain?\nFull Windows/macOS feature parity and complete account-wide synchronization are not certified. Documented sharing, conflict, computer-sync, Takeout and sandbox limitations remain. Native DEB/RPM packages support online placeholders and file-manager integration; Snap and Flatpak use ordinary local-folder synchronization. Keep an independent backup."
+    },
+    "de": {
+      "description": "Ein inoffizieller Open-Source-Desktop-Client für Proton Drive unter Linux, unabhängig von Proton AG entwickelt.",
+      "features": [
+        [
+          "Synchronisiert im Hintergrund",
+          "Verbinde lokale Ordner mit deiner Cloud. Pausiere Jobs, starte sie erneut und behalte Konflikte im Blick."
+        ],
+        [
+          "Online, bis du es offline brauchst",
+          "Native DEB/RPM-Pakete bieten Dateien auf Abruf und „Auf Gerät behalten“. Snap und Flatpak laden synchronisierte Dateien als normale lokale Dateien herunter; sie bieten keine Online-Platzhalter oder nativen Dateimanager-Erweiterungen."
+        ],
+        [
+          "Ein Zuhause für deine Fotos",
+          "Timeline, Bildbetrachter und Alben. Zwischengespeicherte Vorschaubilder bleiben über Sitzungen hinweg erhalten."
+        ],
+        [
+          "Fühlt sich nach Desktop an",
+          "Native Qt-Quick-Oberfläche, Hell- und Dunkelmodus, Tray und Autostart. Dateimanager-Integration je nach Desktop."
+        ]
+      ],
+      "faq": [
+        [
+          "Ist NeutronDrive ein offizieller Proton-Client?",
+          "Nein. NeutronDrive ist ein inoffizieller Open-Source-Client für Proton Drive, unabhängig von Proton AG entwickelt und ohne offiziellen Support von Proton. Du benötigst ein Proton-Konto mit Zugriff auf Proton Drive."
+        ],
+        [
+          "Ist NeutronDrive kostenlos?",
+          "Ja. Der Quellcode steht unter der MIT-Lizenz. Ein NeutronDrive-Abonnement gibt es nicht. Für Speicherplatz und Leistungen von Proton gelten deren eigene Tarife und Bedingungen."
+        ],
+        [
+          "Welche Desktops werden unterstützt?",
+          "NeutronDrive ist für Linux entwickelt. Die Dateimanager-Integration und Statussymbole hängen vom Desktop und seiner Version ab. GNOME benötigt für ein sichtbares Tray-Symbol eine passende Erweiterung. Sandboxed Pakete haben zusätzliche Einschränkungen."
+        ],
+        [
+          "Wie werden Dateien offline gespeichert?",
+          "Native DEB/RPM-Pakete bieten Dateien auf Abruf und „Auf Gerät behalten“. Snap und Flatpak laden synchronisierte Dateien als normale lokale Dateien herunter; sie bieten keine Online-Platzhalter oder nativen Dateimanager-Erweiterungen."
+        ],
+        [
+          "Wie kann ich mithelfen?",
+          "Melde reproduzierbare Fehler über GitHub Issues, prüfe Übersetzungen oder arbeite am Code mit. Sicherheitslücken bitte über die in SECURITY.md beschriebene private Meldemöglichkeit weitergeben."
+        ]
+      ],
+      "trust": [
+        [
+          "Inoffiziell. Und Open Source.",
+          "Ein inoffizieller Proton-Drive-Client, entwickelt als unabhängiges Community-Projekt unter MIT-Lizenz. Nicht mit Proton AG verbunden, von Proton empfohlen oder offiziell unterstützt."
+        ],
+        [
+          "Stabile Version, unabhängiges Projekt.",
+          "Behalte ein unabhängiges Backup. Nicht alle Funktionen der Windows- und macOS-Clients sind verfügbar. Pakete sind derzeit nicht signiert."
+        ],
+        [
+          "Lokale Dateien bleiben lokale Dateien.",
+          "Synchronisierte Dateien und lokale Caches liegen im Klartext auf deinem Gerät. Schütze dein Benutzerkonto und nutze bei Bedarf Festplattenverschlüsselung."
+        ]
+      ],
+      "views": [
+        [
+          "Dateien",
+          "Alles an seinem Platz.",
+          "Deine Cloud-Dateien in einer vertrauten Oberfläche. Als Raster oder Liste, mit Suche, Upload und Download."
+        ],
+        [
+          "Light Mode",
+          "Passt sich deinem Desktop an.",
+          "Hell, dunkel oder automatisch wie dein System. Du entscheidest, wie sich NeutronDrive anfühlt."
+        ],
+        [
+          "Fotos",
+          "Erinnerungen. Gut sortiert.",
+          "Scrolle durch deine Fototimeline, öffne Bilder und organisiere deine Sammlung in Alben."
+        ],
+        [
+          "Computer-Backup",
+          "Dein Rechner, mitgedacht.",
+          "Registriere deinen Linux-Computer und synchronisiere ausgewählte Ordner mit dem Computer-Bereich von Proton Drive."
+        ],
+        [
+          "Teilen",
+          "Teilen, ohne Umwege.",
+          "Verwalte Freigaben, erstelle öffentliche Links und versende bestätigte Einladungen in einem eigenen Fenster."
+        ]
+      ],
+      "releaseNotes": "Was ist neu in 1.0.3?\nVersion 1.0.3 behebt die automatische Cloud-Aktualisierung für Dateien und Ordner mit „Auf Gerät behalten“ im nativen Dateisystem für Dateien auf Abruf. Fehlgeschlagene Aktualisierungen werden wiederholt, ohne Cloud-Ereignisse zu verlieren. Warnungen verschwinden, wenn der betroffene Vorgang wieder funktioniert oder die Offline-Markierung entfernt wird. Die Foto- und Tastaturverbesserungen aus 1.0.2 bleiben enthalten.\n\nWie aktualisiere ich auf 1.0.3?\nInstalliere das Paket 1.0.3 für deine Distribution und Architektur und prüfe es anhand von SHA256SUMS. DEB, RPM und Arch behalten Epoch 1. Bewahre ein unabhängiges Backup auf. Das Snap-Paket ist als Download verfügbar; die Veröffentlichung im Stable-Kanal des Snap Store wartet noch auf manuelle Prüfung.\n\nWelche Einschränkungen bleiben?\nVollständige Funktionsgleichheit mit Windows/macOS und ein kompletter kontoweiter Abgleich sind nicht bestätigt. Die dokumentierten Grenzen bei Freigaben, Konflikten, Computer-Sync, Takeout und Sandbox-Paketen bleiben bestehen. Native DEB/RPM-Pakete bieten Online-Platzhalter und Dateimanager-Integration; Snap und Flatpak synchronisieren normale lokale Ordner. Behalte ein unabhängiges Backup."
+    },
+    "fr": {
+      "description": "Un client de bureau Linux non officiel et open source pour Proton Drive, développé indépendamment de Proton AG.",
+      "features": [
+        [
+          "Synchronisation en arrière-plan",
+          "Reliez vos dossiers locaux au cloud. Mettez les tâches en pause, relancez les transferts et suivez les conflits."
+        ],
+        [
+          "En ligne, puis hors ligne au besoin",
+          "Les paquets DEB/RPM proposent les fichiers à la demande et la conservation sur l’appareil. Snap et Flatpak téléchargent les fichiers synchronisés comme fichiers locaux ordinaires, sans espaces réservés en ligne ni extensions natives du gestionnaire de fichiers."
+        ],
+        [
+          "Un espace pour vos photos",
+          "Chronologie, visionneuse et albums. Les miniatures en cache sont conservées entre les sessions."
+        ],
+        [
+          "Une vraie application de bureau",
+          "Interface native Qt Quick, modes clair et sombre, zone de notification et démarrage automatique. L’intégration au gestionnaire de fichiers dépend du bureau."
+        ]
+      ],
+      "faq": [
+        [
+          "NeutronDrive est-il un client officiel de Proton ?",
+          "Non. NeutronDrive est un client non officiel et open source de Proton Drive, développé indépendamment de Proton AG et sans assistance officielle de Proton. Un compte Proton avec accès à Proton Drive est nécessaire."
+        ],
+        [
+          "NeutronDrive est-il gratuit ?",
+          "Oui. Le code source est sous licence MIT. Il n’existe aucun abonnement NeutronDrive. Les offres et conditions de Proton s’appliquent à son stockage et à ses services."
+        ],
+        [
+          "Quels bureaux sont pris en charge ?",
+          "NeutronDrive est conçu pour Linux. L’intégration au gestionnaire de fichiers et les icônes d’état dépendent du bureau et de sa version. GNOME nécessite une extension adaptée pour afficher l’icône de notification. Les paquets isolés ont des limites supplémentaires."
+        ],
+        [
+          "Comment les fichiers sont-ils disponibles hors ligne ?",
+          "Les paquets DEB/RPM proposent les fichiers à la demande et la conservation sur l’appareil. Snap et Flatpak téléchargent les fichiers synchronisés comme fichiers locaux ordinaires, sans espaces réservés en ligne ni extensions natives du gestionnaire de fichiers."
+        ],
+        [
+          "Comment contribuer ?",
+          "Signalez les erreurs reproductibles dans GitHub Issues, relisez les traductions ou contribuez au code. Pour les vulnérabilités, utilisez la procédure de signalement privé décrite dans SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Non officiel. Et open source.",
+          "Un client non officiel de Proton Drive, développé comme projet communautaire indépendant sous licence MIT. Ni affilié à Proton AG, ni recommandé ou officiellement pris en charge par Proton AG."
+        ],
+        [
+          "Version stable, projet indépendant.",
+          "Conservez une sauvegarde indépendante. Toutes les fonctions des clients Windows et macOS ne sont pas disponibles. Les paquets ne sont pas encore signés."
+        ],
+        [
+          "Les fichiers locaux restent locaux.",
+          "Les fichiers synchronisés et les caches locaux sont stockés en clair sur votre appareil. Protégez votre compte utilisateur et chiffrez votre disque si nécessaire."
+        ]
+      ],
+      "views": [
+        [
+          "Fichiers",
+          "Chaque chose à sa place.",
+          "Vos fichiers cloud dans une interface familière. Grille ou liste, recherche, envoi et téléchargement."
+        ],
+        [
+          "Mode clair",
+          "En accord avec votre bureau.",
+          "Clair, sombre ou selon votre système. Choisissez l’apparence de NeutronDrive."
+        ],
+        [
+          "Photos",
+          "Des souvenirs bien organisés.",
+          "Parcourez la chronologie, ouvrez vos images et organisez votre collection en albums."
+        ],
+        [
+          "Sauvegarde du PC",
+          "Votre ordinateur aussi.",
+          "Enregistrez votre ordinateur Linux et synchronisez des dossiers avec la section Ordinateurs de Proton Drive."
+        ],
+        [
+          "Partage",
+          "Partagez sans détour.",
+          "Gérez les partages, créez des liens publics et envoyez des invitations confirmées dans une fenêtre dédiée."
+        ]
+      ],
+      "releaseNotes": "Quelles nouveautés dans la version 1.0.3 ?\nLa version 1.0.3 corrige l’actualisation automatique depuis le cloud des fichiers et dossiers marqués « Garder sur cet appareil » dans le système de fichiers natif à la demande. Les échecs sont réessayés sans perdre les événements cloud. Les avertissements disparaissent lorsque l’opération concernée reprend ou que le maintien hors ligne est désactivé. Les améliorations des photos et du clavier de la version 1.0.2 sont conservées.\n\nComment passer à la version 1.0.3 ?\nInstallez le paquet 1.0.3 adapté à votre distribution et à votre architecture et vérifiez-le avec SHA256SUMS. DEB, RPM et Arch conservent l’epoch 1. Gardez une sauvegarde indépendante. Le Snap est téléchargeable ; sa publication sur le canal Stable du Snap Store attend encore une validation manuelle.\n\nQuelles limitations subsistent ?\nLa parité complète avec Windows/macOS et la synchronisation intégrale du compte ne sont pas certifiées. Les limites documentées du partage, des conflits, de la synchronisation des ordinateurs, de Takeout et des paquets isolés restent applicables. Les paquets natifs DEB/RPM proposent des fichiers à la demande et l’intégration au gestionnaire de fichiers ; Snap et Flatpak synchronisent des dossiers locaux ordinaires. Gardez une sauvegarde indépendante."
+    },
+    "es": {
+      "description": "Un cliente de escritorio Linux no oficial y de código abierto para Proton Drive, desarrollado de forma independiente de Proton AG.",
+      "features": [
+        [
+          "Sincronización en segundo plano",
+          "Conecta carpetas locales a tu nube. Pausa tareas, reintenta transferencias y controla los conflictos."
+        ],
+        [
+          "En línea, hasta que lo necesites sin conexión",
+          "Los paquetes DEB/RPM ofrecen archivos bajo demanda y la opción de conservarlos en el dispositivo. Snap y Flatpak descargan los archivos sincronizados como archivos locales normales, sin marcadores en línea ni extensiones nativas del gestor de archivos."
+        ],
+        [
+          "Un hogar para tus fotos",
+          "Cronología, visor de imágenes y álbumes. Las miniaturas en caché se conservan entre sesiones."
+        ],
+        [
+          "Como parte de tu escritorio",
+          "Interfaz nativa Qt Quick, modos claro y oscuro, bandeja y arranque automático. La integración con el gestor de archivos depende del escritorio."
+        ]
+      ],
+      "faq": [
+        [
+          "¿Es NeutronDrive un cliente oficial de Proton?",
+          "No. NeutronDrive es un cliente no oficial y de código abierto de Proton Drive, desarrollado de forma independiente de Proton AG y sin soporte oficial de Proton. Necesitas una cuenta de Proton con acceso a Proton Drive."
+        ],
+        [
+          "¿Es gratuito NeutronDrive?",
+          "Sí. El código fuente tiene licencia MIT. No hay suscripción a NeutronDrive. Para el almacenamiento y los servicios de Proton se aplican sus propias tarifas y condiciones."
+        ],
+        [
+          "¿Qué escritorios son compatibles?",
+          "NeutronDrive está desarrollado para Linux. La integración con el gestor de archivos y los iconos de estado dependen del escritorio y su versión. GNOME necesita una extensión para mostrar el icono de bandeja. Los paquetes aislados tienen limitaciones adicionales."
+        ],
+        [
+          "¿Cómo se guardan los archivos sin conexión?",
+          "Los paquetes DEB/RPM ofrecen archivos bajo demanda y la opción de conservarlos en el dispositivo. Snap y Flatpak descargan los archivos sincronizados como archivos locales normales, sin marcadores en línea ni extensiones nativas del gestor de archivos."
+        ],
+        [
+          "¿Cómo puedo ayudar?",
+          "Informa de errores reproducibles en GitHub Issues, revisa traducciones o contribuye al código. Comunica vulnerabilidades mediante el proceso privado descrito en SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "No oficial. Y de código abierto.",
+          "Un cliente no oficial de Proton Drive, desarrollado como proyecto comunitario independiente bajo licencia MIT. Sin afiliación, respaldo ni soporte oficial de Proton AG."
+        ],
+        [
+          "Versión estable, proyecto independiente.",
+          "Conserva una copia de seguridad independiente. No están disponibles todas las funciones de los clientes de Windows y macOS. Los paquetes aún no están firmados."
+        ],
+        [
+          "Los archivos locales siguen siendo locales.",
+          "Los archivos sincronizados y las cachés locales se guardan sin cifrar en tu dispositivo. Protege tu cuenta de usuario y utiliza cifrado de disco si lo necesitas."
+        ]
+      ],
+      "views": [
+        [
+          "Archivos",
+          "Todo en su sitio.",
+          "Tus archivos en la nube, en una interfaz familiar. Cuadrícula o lista, búsqueda, carga y descarga."
+        ],
+        [
+          "Modo claro",
+          "Se adapta a tu escritorio.",
+          "Claro, oscuro o según tu sistema. Tú eliges el aspecto de NeutronDrive."
+        ],
+        [
+          "Fotos",
+          "Recuerdos bien organizados.",
+          "Recorre la cronología, abre imágenes y organiza tu colección en álbumes."
+        ],
+        [
+          "Copia del equipo",
+          "Tu ordenador también cuenta.",
+          "Registra tu equipo Linux y sincroniza carpetas con la sección Ordenadores de Proton Drive."
+        ],
+        [
+          "Compartir",
+          "Comparte sin rodeos.",
+          "Gestiona archivos compartidos, crea enlaces públicos y envía invitaciones confirmadas en una ventana propia."
+        ]
+      ],
+      "releaseNotes": "¿Qué novedades incluye la versión 1.0.3?\nLa versión 1.0.3 corrige la actualización automática desde la nube de archivos y carpetas marcados como «Mantener en el dispositivo» en el sistema de archivos nativo bajo demanda. Los fallos se reintentan sin perder eventos de la nube. Los avisos desaparecen cuando la operación afectada se recupera o se retira la selección sin conexión. Se mantienen las mejoras de fotos y teclado de 1.0.2.\n\n¿Cómo actualizo a la versión 1.0.3?\nInstala el paquete 1.0.3 para tu distribución y arquitectura y compruébalo con SHA256SUMS. DEB, RPM y Arch conservan epoch 1. Mantén una copia independiente. El Snap está disponible para descargar; su publicación en el canal Stable de Snap Store sigue pendiente de revisión manual.\n\n¿Qué limitaciones quedan?\nNo se certifican la equivalencia completa con Windows/macOS ni la sincronización completa de toda la cuenta. Siguen vigentes las limitaciones documentadas de uso compartido, conflictos, sincronización de equipos, Takeout y paquetes aislados. Los paquetes nativos DEB/RPM ofrecen archivos bajo demanda e integración con el gestor de archivos; Snap y Flatpak sincronizan carpetas locales normales. Mantén una copia independiente."
+    },
+    "it": {
+      "description": "Un client desktop Linux non ufficiale e open source per Proton Drive, sviluppato indipendentemente da Proton AG.",
+      "features": [
+        [
+          "Sincronizzazione in background",
+          "Collega le cartelle locali al cloud. Metti in pausa le attività, riprova i trasferimenti e tieni sotto controllo i conflitti."
+        ],
+        [
+          "Online, finché non serve offline",
+          "I pacchetti DEB/RPM offrono file su richiesta e la possibilità di conservarli sul dispositivo. Snap e Flatpak scaricano i file sincronizzati come normali file locali, senza segnaposto online o estensioni native del file manager."
+        ],
+        [
+          "Una casa per le tue foto",
+          "Cronologia, visualizzatore e album. Le miniature in cache restano disponibili tra una sessione e l’altra."
+        ],
+        [
+          "Parte del tuo desktop",
+          "Interfaccia nativa Qt Quick, temi chiaro e scuro, area di notifica e avvio automatico. L’integrazione con il gestore file dipende dal desktop."
+        ]
+      ],
+      "faq": [
+        [
+          "NeutronDrive è un client ufficiale di Proton?",
+          "No. NeutronDrive è un client non ufficiale e open source di Proton Drive, sviluppato indipendentemente da Proton AG e senza supporto ufficiale di Proton. Serve un account Proton con accesso a Proton Drive."
+        ],
+        [
+          "NeutronDrive è gratuito?",
+          "Sì. Il codice sorgente è sotto licenza MIT. Non esiste un abbonamento NeutronDrive. Per lo spazio e i servizi di Proton valgono le relative tariffe e condizioni."
+        ],
+        [
+          "Quali desktop sono supportati?",
+          "NeutronDrive è sviluppato per Linux. L’integrazione con il gestore file e le icone di stato dipendono dal desktop e dalla versione. GNOME richiede un’estensione adatta per l’icona nell’area di notifica. I pacchetti isolati hanno ulteriori limiti."
+        ],
+        [
+          "Come vengono salvati i file offline?",
+          "I pacchetti DEB/RPM offrono file su richiesta e la possibilità di conservarli sul dispositivo. Snap e Flatpak scaricano i file sincronizzati come normali file locali, senza segnaposto online o estensioni native del file manager."
+        ],
+        [
+          "Come posso contribuire?",
+          "Segnala errori riproducibili su GitHub Issues, rivedi le traduzioni o contribuisci al codice. Segnala le vulnerabilità attraverso la procedura privata descritta in SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Non ufficiale. E open source.",
+          "Un client non ufficiale di Proton Drive, sviluppato come progetto indipendente della comunità con licenza MIT. Non affiliato, approvato o supportato ufficialmente da Proton AG."
+        ],
+        [
+          "Versione stabile, progetto indipendente.",
+          "Conserva un backup indipendente. Non tutte le funzioni dei client Windows e macOS sono disponibili. I pacchetti non sono ancora firmati."
+        ],
+        [
+          "I file locali restano locali.",
+          "I file sincronizzati e le cache locali sono memorizzati in chiaro sul dispositivo. Proteggi il tuo account e usa la crittografia del disco se necessario."
+        ]
+      ],
+      "views": [
+        [
+          "File",
+          "Tutto al suo posto.",
+          "I tuoi file nel cloud in un’interfaccia familiare. Griglia o elenco, ricerca, caricamento e download."
+        ],
+        [
+          "Tema chiaro",
+          "Si adatta al tuo desktop.",
+          "Chiaro, scuro o come il sistema. Scegli l’aspetto di NeutronDrive."
+        ],
+        [
+          "Foto",
+          "Ricordi ben organizzati.",
+          "Scorri la cronologia, apri le immagini e organizza la raccolta in album."
+        ],
+        [
+          "Backup del computer",
+          "Anche il tuo computer conta.",
+          "Registra il tuo computer Linux e sincronizza le cartelle selezionate con la sezione Computer di Proton Drive."
+        ],
+        [
+          "Condivisione",
+          "Condividi senza giri.",
+          "Gestisci le condivisioni, crea link pubblici e invia inviti confermati in una finestra dedicata."
+        ]
+      ],
+      "releaseNotes": "Quali sono le novità della versione 1.0.3?\nLa versione 1.0.3 corregge l’aggiornamento automatico dal cloud di file e cartelle contrassegnati con «Mantieni sul dispositivo» nel filesystem nativo su richiesta. Gli aggiornamenti falliti vengono ritentati senza perdere gli eventi cloud. Gli avvisi scompaiono quando l’operazione interessata riprende o viene rimossa la selezione offline. Restano incluse le migliorie a foto e tastiera della versione 1.0.2.\n\nCome aggiorno alla versione 1.0.3?\nInstalla il pacchetto 1.0.3 adatto alla tua distribuzione e architettura e verificalo con SHA256SUMS. DEB, RPM e Arch mantengono epoch 1. Conserva un backup indipendente. Lo Snap è scaricabile; la pubblicazione nel canale Stable dello Snap Store attende ancora la revisione manuale.\n\nQuali limitazioni rimangono?\nNon sono certificate la piena equivalenza con Windows/macOS né la sincronizzazione completa dell’intero account. Restano validi i limiti documentati di condivisione, conflitti, sincronizzazione del computer, Takeout e pacchetti isolati. I pacchetti nativi DEB/RPM offrono file su richiesta e integrazione con il file manager; Snap e Flatpak sincronizzano normali cartelle locali. Conserva un backup indipendente."
+    }
+  }
+}
