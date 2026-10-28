@@ -1,4 +1,4 @@
-# Simpler desktop interface (unreleased)
+# Simpler desktop interface (1.0.6)
 
 This source change takes visual inspiration from
 [narrrl/proton-drive-linux](https://github.com/narrrl/proton-drive-linux): a focused
@@ -45,13 +45,12 @@ interface-only change.
 - UI checks use private configuration, data, cache and state directories and a
   private session bus. They do not modify the installed app or account.
 
-Release numbering, distribution packages and the installed application are
-unchanged by this development branch.
+These interface changes are included in version 1.0.6.
 
-## Development previews
+## Interface previews
 
 These captures come from the actual Qt application, with synthetic demo data.
-They show the unreleased interface, not a replacement for current release images.
+The packaged release captures are refreshed during release validation.
 
 ![Focused sign-in screen, dark mode](design/simple-login-dark.png)
 
