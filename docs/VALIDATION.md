@@ -462,3 +462,27 @@ checks and asset origins are recorded in the release's `BUILD_INFO.json` and
 All published previews were freshly captured from the alpha11 AMD64 DEB
 executable in an isolated English profile and visually inspected.
 [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records binary and image hashes.
+
+## Unreleased — advanced public-link settings (2026-10-28)
+
+- 200 core unit tests and 21 compiled-runtime/integration tests passed, including
+  a fake SDK process that verifies passwords arrive only on stdin and never in
+  argv; oversized payloads are rejected.
+- 105 desktop Rust tests passed. Link changes require confirmation, retain the
+  captured file identity/settings and reload sharing state after completion.
+- Pinned SDK bridge: 26 tests passed; the additional identity-mismatch check was
+  then covered by rerunning the two sharing tests. TypeScript checking passed.
+  Fixtures verify password/expiry preservation, explicit removal, editor rights,
+  stale settings, wrong file identity and invalid/past dates without mutations.
+- Rust Clippy passed for core and desktop with warnings denied. 22 localization
+  and native-packaging contract tests passed. New labels are English/German;
+  other catalogs contain explicit English fallbacks.
+- The real offscreen Qt sharing window passed synthetic navigation, separate-window,
+  password masking, UTC-date conversion and clipboard checks. The generated light
+  screenshot was inspected; all controls fit at the default 600×700 size, with
+  scrolling available for smaller windows. Prior sidebar cancellation checks also
+  passed. No real account link was created or changed.
+
+This is working-branch validation, not an installed package or published release.
+Multi-account support, Docs/Sheets export, complete folder-deletion propagation
+and atomic cross-client sync remain unimplemented; see SHARING-AND-REMAINING-LIMITS.md.

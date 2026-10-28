@@ -737,5 +737,17 @@
   "Übernehmen": "应用",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "转移(s)失败或结果状态无效。 成功的部分转移被保留。",
   "Überwachter Ordner konnte nicht gelesen werden.": "监控的文件夹无法读取。",
-  "Überwachter Ordner wurde verändert.": "监控的文件夹发生了变化。"
+  "Überwachter Ordner wurde verändert.": "监控的文件夹发生了变化。",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

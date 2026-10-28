@@ -246,12 +246,14 @@ moves by folder sync. Remote writes have no conditional revision operation in
 this CLI, so rechecks reduce races but cannot make updates atomic.
 
 Other limits include no multi-account UI, no Proton Docs/Sheets export, no embedded
-photo map and no complete advanced-link settings. FUSE does not support every
+photo map. Public-link settings now support viewer/editor access, passwords,
+expiration dates and editor resharing, with a fresh-state check before saving.
+These checks are not an atomic server-side compare-and-swap. FUSE does not support every
 filesystem operation (including `mmap`, hardlinks and arbitrary permissions).
 Sandboxed packages have host-integration restrictions. Availability icons and
 favorite decoration depend on the file manager and its version.
 
-[Feature comparison](docs/WINDOWS-PARITY.md) · [Security](SECURITY.md) ·
+[Feature comparison](docs/WINDOWS-PARITY.md) · [Sharing and remaining gaps](docs/SHARING-AND-REMAINING-LIMITS.md) · [Security](SECURITY.md) ·
 [Validation and known test limits](docs/VALIDATION.md) · [Updates](docs/UPDATES.md)
 
 ## Technology and the language chart

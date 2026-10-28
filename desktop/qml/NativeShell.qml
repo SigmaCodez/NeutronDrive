@@ -612,6 +612,17 @@ Item {
                 }else if(controller.stage===24){
                     if(controller.lastDialog.kind!=="share" || !controller.view.sharingWindow.visible)throw new Error("Separate share window missing");
                     if(controller.view.visible)throw new Error("Sharing unexpectedly revealed main window");
+                    const shareRoot=controller.view.sharingWindow.contentItem;
+                    for(const name of ["shareLinkRole","sharePassword","shareExpiration","shareEditorsCanShare","saveShareSettings"]){
+                        if(!controller.childNamed(shareRoot,name))throw new Error("Missing link control: "+name);
+                    }
+                    const password=controller.childNamed(shareRoot,"sharePassword");
+                    if(password.echoMode!==TextInput.Password)throw new Error("Share password is not masked");
+                    const expiration=controller.childNamed(shareRoot,"shareExpiration");
+                    expiration.text="2099-01-01";
+                    if(controller.view.sharingWindow.expirationValue()!=="2099-01-01T23:59:59.000Z")throw new Error("Share date changed timezone");
+                    expiration.text="";
+
                     if(Qt.application.arguments.length>4 && !files.snapshotWindow("shareWindow",Qt.application.arguments[4]+"/share-window-light.png"))throw new Error("Share window capture failed");
                     controller.dialogChild("copyShareLink").clicked();controller.stage=25;
                 }else if(controller.stage===25){

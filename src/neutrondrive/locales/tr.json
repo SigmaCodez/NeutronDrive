@@ -737,5 +737,17 @@
   "Übernehmen": "Uygula",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Transfer(ler) başarısız oldu veya sonuç durumu geçersiz. Başarılı kısmi transferler korunur.",
   "Überwachter Ordner konnte nicht gelesen werden.": "İzlenen dosya okunamadı.",
-  "Überwachter Ordner wurde verändert.": "İzlenen dosya değişti."
+  "Überwachter Ordner wurde verändert.": "İzlenen dosya değişti.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

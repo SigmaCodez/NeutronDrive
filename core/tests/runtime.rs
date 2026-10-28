@@ -739,3 +739,24 @@ fn native_autostart_respects_package_boundaries_without_python() {
     );
     std::fs::remove_dir_all(folder).unwrap();
 }
+
+#[test]
+fn link_settings_use_private_stdin_and_never_process_arguments() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("nd-private-link-{}", std::process::id()));
+    std::fs::create_dir(&root).unwrap();
+    let sdk = root.join("sdk");
+    std::fs::write(&sdk, "#!/bin/sh\n[ \"$#\" = 5 ] && [ \"$1\" = sharing ] && [ \"$2\" = configure ] && [ \"$3\" = --json ] && [ \"$4\" = -- ] && [ \"$5\" = /my-files/test ] || exit 7\nexec /bin/cat\n").unwrap();
+    std::fs::set_permissions(&sdk, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let settings = json!({"password":"not-in-argv-ä","role":"viewer"});
+    let (ok, reply) = request(
+        json!({"version":1,"op":"drive","executable":sdk,"operation":{"action":"set_link","path":"/my-files/test","settings":settings}}),
+    );
+    assert!(ok, "{reply}");
+    assert_eq!(reply["result"], settings);
+    let (ok, _) = request(
+        json!({"version":1,"op":"drive","executable":"/nonexistent","operation":{"action":"set_link","path":"/my-files/test","settings":{"password":"x".repeat(4096)}}}),
+    );
+    assert!(!ok);
+    std::fs::remove_dir_all(root).unwrap();
+}

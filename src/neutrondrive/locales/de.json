@@ -737,5 +737,17 @@
   "Übernehmen": "Übernehmen",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.",
   "Überwachter Ordner konnte nicht gelesen werden.": "Überwachter Ordner konnte nicht gelesen werden.",
-  "Überwachter Ordner wurde verändert.": "Überwachter Ordner wurde verändert."
+  "Überwachter Ordner wurde verändert.": "Überwachter Ordner wurde verändert.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Zugriff per Link oder E-Mail verwalten. Leere Passwort- und Datumsfelder entfernen diese Einschränkungen.",
+  "Link settings": "Link-Einstellungen",
+  "Link access": "Link-Berechtigung",
+  "Password (empty: no password)": "Passwort (leer: kein Passwort)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Ablaufdatum, Tagesende UTC (leer: unbegrenzt)",
+  "Editors can share": "Bearbeiter dürfen weiterfreigeben",
+  "Save link settings": "Link-Einstellungen speichern",
+  "Save link settings?": "Link-Einstellungen speichern?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Jeder mit dem Link erhält die ausgewählte Berechtigung. Leere Passwort- und Datumsfelder entfernen diese Einschränkungen.",
+  "Choose a future expiration date": "Bitte ein zukünftiges Ablaufdatum wählen",
+  "Sharing settings changed. Refresh before saving.": "Die Freigabe wurde inzwischen geändert. Bitte vor dem Speichern aktualisieren.",
+  "File identity changed. Reopen sharing before saving.": "Die Datei wurde inzwischen ersetzt. Bitte die Freigabe erneut öffnen."
 }

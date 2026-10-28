@@ -737,5 +737,17 @@
   "Übernehmen": "Bruk",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Overføringen(e) mislyktes eller resultatstatus er ugyldig. Vellykkede delvise overføringer bevares.",
   "Überwachter Ordner konnte nicht gelesen werden.": "Den overvåkede mappen kunne ikke leses.",
-  "Überwachter Ordner wurde verändert.": "Den overvåkede mappen endret seg."
+  "Überwachter Ordner wurde verändert.": "Den overvåkede mappen endret seg.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

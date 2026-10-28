@@ -737,5 +737,17 @@
   "Übernehmen": "Terapkan",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Transfer(s) gagal atau status hasil tidak valid. Transfer parsial yang berhasil disimpan.",
   "Überwachter Ordner konnte nicht gelesen werden.": "folder yang dipantau tidak dapat dibaca.",
-  "Überwachter Ordner wurde verändert.": "Folder yang dipantau berubah."
+  "Überwachter Ordner wurde verändert.": "Folder yang dipantau berubah.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

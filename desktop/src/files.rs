@@ -49,6 +49,11 @@ pub struct Work {
 }
 #[derive(Clone, Debug)]
 enum Answer {
+    LinkSettings {
+        node: Value,
+        value: Value,
+        settings: Value,
+    },
     TakeoutFolder,
     TakeoutImport(Value),
     Invite {
@@ -935,7 +940,7 @@ impl Files {
     fn share_dialog(&mut self, node: Value, value: Value) -> Vec<Effect> {
         let url = text(&value["urlAccess"], "url").to_string();
         let title = format!("{}{}", self.tr("Freigabe · "), text(&node, "name"));
-        self.dialog("share",&title,"Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.",json!({"url":url,"node":node}),Answer::Share{node,value})
+        self.dialog("share",&title,"Manage access by link or email. Empty password and expiration fields remove these restrictions.",json!({"url":url,"node":node,"linkSettings":{"uid":text(&value["urlAccess"],"uid"),"role":value["urlAccess"]["role"].as_str().unwrap_or("viewer"),"password":text(&value["urlAccess"],"customPassword"),"expiration":text(&value["urlAccess"],"expirationTime"),"editorsCanShare":value["editorsCanShare"].as_bool().unwrap_or(false)}}),Answer::Share{node,value})
     }
     fn local_paths(value: &Value) -> Vec<String> {
         value
@@ -959,9 +964,9 @@ impl Files {
         let (_, answer) = self.pending.take().unwrap();
         if !accepted {
             return match answer {
-                Answer::Invite { node, value, .. } | Answer::Revoke { node, value } => {
-                    self.share_dialog(node, value)
-                }
+                Answer::Invite { node, value, .. }
+                | Answer::Revoke { node, value }
+                | Answer::LinkSettings { node, value, .. } => self.share_dialog(node, value),
                 _ => vec![],
             };
         }
@@ -969,6 +974,7 @@ impl Files {
         let response = value.clone();
         match answer {
             Answer::Invite { node, email, role, .. } => self.submit("Share by email",json!({"action":"invite","path":node["path"],"email":email,"role":role}),Done::ShareReload(node)),
+            Answer::LinkSettings { node, settings, .. } => self.submit("Save link settings", json!({"action":"set_link","path":node["path"],"settings":settings}), Done::ShareReload(node)),
             Answer::TakeoutFolder => {
                 let Some(root)=Self::local_paths(value).into_iter().next() else { return vec![]; };
                 self.submit("Google Takeout import",json!({"action":"takeout_scan","root":root}),Done::TakeoutScan)
@@ -1031,6 +1037,13 @@ impl Files {
                 Done::ShareReload(node),
             ),
             Answer::Share { node, value } => {
+                if response["action"] == "settings" {
+                    let mut settings = response.clone();
+                    settings.as_object_mut().unwrap().remove("action");
+                    settings["nodeUid"] = node["uid"].clone();
+                    settings["expected"] = json!({"uid":text(&value["urlAccess"],"uid"),"role":value["urlAccess"]["role"].as_str().unwrap_or("viewer"),"password":text(&value["urlAccess"],"customPassword"),"expiration":text(&value["urlAccess"],"expirationTime"),"editorsCanShare":value["editorsCanShare"].as_bool().unwrap_or(false)});
+                    return self.dialog("confirm","Save link settings?","Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",json!({}),Answer::LinkSettings {node,value,settings});
+                }
                 if response["action"] == "invite" {
                     let email=text(&response,"email").trim().to_string();
                     let role=text(&response,"role").to_string();
@@ -1702,6 +1715,34 @@ mod tests {
         let w = work(m.refresh());
         m.complete(w.id, Ok(nodes()));
         m
+    }
+    #[test]
+    fn link_settings_capture_original_share_and_require_confirmation() {
+        let mut m = loaded();
+        for node in &mut m.nodes {
+            node["uid"] = json!(text(node, "path"));
+        }
+        m.render();
+        m.select(0, false);
+        let original = m.paths()[0].clone();
+        let request = work(m.action("Freigabe"));
+        let initial = json!({"urlAccess":{"uid":"link","url":"https://drive.proton.me/urls/test","role":"viewer","customPassword":"original","expirationTime":"2099-01-01T00:00:00.000Z"},"editorsCanShare":false});
+        let share = dialog(m.complete(request.id, Ok(initial)));
+        assert_eq!(share["linkSettings"]["password"], "original");
+        let confirmation = dialog(m.answer(share["token"].as_u64().unwrap(), true, &json!({"action":"settings","role":"editor","password":"new secret","expiration":"","editorsCanShare":true})));
+        assert!(!confirmation.to_string().contains("new secret"));
+        m.select(2, false);
+        let request = work(m.answer(confirmation["token"].as_u64().unwrap(), true, &Value::Null));
+        assert_eq!(request.operation["path"], original);
+        assert_eq!(
+            request.operation["settings"]["expected"]["password"],
+            "original"
+        );
+        assert_eq!(request.operation["settings"]["password"], "new secret");
+        assert_eq!(request.operation["settings"]["nodeUid"], original);
+        assert_eq!(request.operation["action"], "set_link");
+        let reload = work(m.complete(request.id, Ok(json!({}))));
+        assert_eq!(reload.operation["action"], "sharing");
     }
     #[test]
     fn sharing_invitation_uses_captured_node_and_requires_confirmation() {
