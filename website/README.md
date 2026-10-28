@@ -152,3 +152,32 @@ copy. The server's 15-minute timer picks up the resulting manifest automatically
 If main already targets a newer release, put a reviewed correction in
 `docs/website-content-corrections/<tag>.json`. Only the explicit
 `refresh_text` mode selects it; normal tagged releases are unaffected.
+
+### Immediate update after a release
+
+After uploading `neutrondrive-website.json`, the release workflow runs
+`website/scripts/trigger-release-sync.sh`. It starts the existing server updater
+and verifies the live release, source commit, all five localized text sets and
+screenshot hashes against the published bundle. Three attempts cover transient
+failures and overlap with a running timer. A failed immediate update fails the
+workflow visibly; the independent 15-minute server timer remains as fallback.
+The trigger waits for the new manifest and screenshots to be ready, rather than
+showing an incomplete release at the initial release-created event.
+
+One-time server setup (explicit administrator authorization required):
+create a dedicated Ed25519 key, then run
+`bash website/scripts/install-release-trigger.sh PUBLIC_KEY_FILE` as root on
+161.97.140.89. This creates the system identity `neutrondrive-release` with a
+root-owned authorized key using an OpenSSH forced command and `restrict`.
+Its only sudo permission is `/usr/bin/systemctl start neutrondrive-content.service`;
+the service itself still runs as the sandboxed `neutrondrive-content` user.
+No shell commands, forwarding, passwords or private keys are installed on the
+server. No deployment or general administrator SSH key is used by Actions.
+
+Store the dedicated private key in repository secret `ND_CONTENT_SYNC_SSH_KEY`
+and the server host-key line (verified through the existing trusted connection)
+in `ND_CONTENT_SYNC_KNOWN_HOSTS`. SSH host verification is mandatory. Private
+material is written to a runner temporary directory with restrictive permissions
+and removed on exit. Reusable-workflow callers must pass these two secrets.
+To revoke, remove the dedicated authorized key and these repository secrets;
+the fallback timer remains usable.
