@@ -8,7 +8,7 @@ export const liveLabels = {
 };
 export function contentCopy(base, content, language) {
  const label=liveLabels[language] || liveLabels.en;
- const t={...base, trust:base.trust.map((row,i)=>i===1?[label.status,label.safety]:row), faq:base.faq.filter((_,i)=>![4,5,6].includes(i))};
+ const t={...base, trust:base.trust.map((row,i)=>i===1?[label.status,label.safety]:row), faq:[...base.faq.slice(0,4), base.faq.at(-1)]};
  t.faq.splice(4,0,[label.limits,label.answer]);
  const localized={...content?.locales?.en,...content?.locales?.[language]};
  if (localized) for (const field of ['description','features','faq','trust','views']) if (localized[field]) t[field]=localized[field];

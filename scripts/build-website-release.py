@@ -31,6 +31,7 @@ def reviewed_text(path, tag):
     if set(clean) != set(validation.LANGUAGES):
         raise ValueError('Release website content requires en, de, fr, es and it')
     for language, fields in clean.items():
+        fields['faq'] = validation.release_faq(fields, tag, strict=True)
         if not {'description', 'features', 'faq', 'trust', 'views', 'releaseNotes'} <= fields.keys():
             raise ValueError(f'Incomplete homepage content: {language}')
         for key, value in fields.items():
@@ -65,7 +66,15 @@ def build(args):
         raise ValueError('Expected a version release tag')
     if not re.fullmatch(r'[0-9a-f]{40}', args.commit):
         raise ValueError('Expected resolved release commit')
-    localized = reviewed_text(args.source/'docs/website-content.json', tag)
+    content_source = args.content_source or args.source
+    content_commit = args.content_commit or args.commit
+    if bool(args.content_source) != bool(args.content_commit) or not re.fullmatch(r'[0-9a-f]{40}', content_commit):
+        raise ValueError('Content override requires both a source path and resolved commit')
+    content_path = content_source/'docs/website-content.json'
+    correction = content_source/'docs/website-content-corrections'/f'{tag}.json'
+    if args.content_source and correction.exists():
+        content_path = correction
+    localized = reviewed_text(content_path, tag)
     package_hash = verify_package(args.deb, args.checksums)
     with tempfile.TemporaryDirectory(prefix='nd-release-capture-') as temporary:
         root = Path(temporary)
@@ -102,7 +111,7 @@ def build(args):
             digest = hashlib.sha256(data).hexdigest()
             validation.png(data, digest)
             captured[name] = {'sha256':digest, 'base64':base64.b64encode(data).decode()}
-        bundle = {'schema':1,'release':tag,'source_commit':args.commit,'locales':localized,
+        bundle = {'schema':1,'release':tag,'source_commit':args.commit,'content_source_commit':content_commit,'locales':localized,
                   'previews':{'published_release':tag,'binary_version':version,
                     'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),
                     'package':args.deb.name,'package_sha256':package_hash,
@@ -122,6 +131,8 @@ if __name__ == '__main__':
     parser.add_argument('--tag',required=True)
     parser.add_argument('--commit',required=True)
     parser.add_argument('--source',type=Path,default=ROOT)
+    parser.add_argument('--content-source',type=Path,help='Reviewed text correction checkout; must match the same release tag')
+    parser.add_argument('--content-commit',help='Resolved commit of the reviewed text correction')
     parser.add_argument('--deb',type=Path,required=True)
     parser.add_argument('--checksums',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)

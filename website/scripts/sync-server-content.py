@@ -120,6 +120,35 @@ def text(value, limit=5000):
     return value
 
 
+
+def release_faq(fields, tag, strict=False):
+    """Schema 1: four general FAQs, three release FAQs, one contribution FAQ.
+
+    Sources may omit the three derived rows (five rows total). Legacy bundles
+    with eight rows are upgraded on ingestion. Release notes are the sole
+    source for changes, upgrades and limits; never relabel an old answer.
+    """
+    faq = fields.get('faq', [])
+    if len(faq) not in (5, 8):
+        if strict:
+            raise ValueError('Expected four general FAQs and one contribution FAQ')
+        return faq
+    general = faq[:4]
+    contribution = faq[-1:]
+    notes = fields.get('releaseNotes', '').replace('\\n', '\n').replace('\r\n', '\n').strip()
+    sections = [part.split('\n', 1) for part in re.split(r'\n\s*\n', notes)]
+    version = tag.removeprefix('v')
+    current = re.compile(r'(?<![\w.])' + re.escape(version) + r'(?![\w.])')
+    valid = (len(sections) == 3 and all(len(row) == 2 and row[0].strip().endswith('?')
+             and row[1].strip() for row in sections)
+             and all(current.search(row[0]) for row in sections[:2]))
+    if not valid:
+        if strict:
+            raise ValueError('Release notes need three Q&A sections; changes and upgrade headings must name the exact release')
+        return general + contribution
+    return general + [[text(q.strip()), text(a.strip())] for q, a in sections] + contribution
+
+
 def locales(document, tag):
     if document is None:
         return {}
@@ -145,6 +174,10 @@ def locales(document, tag):
                     clean[key].append([text(cell) for cell in row])
             else:
                 raise ValueError('Unknown homepage field')
+        if 'releaseNotes' in clean:
+            clean['releaseNotes'] = clean['releaseNotes'].replace('\\n', '\n')
+        if 'faq' in clean:
+            clean['faq'] = release_faq(clean, tag)
         result[language] = clean
     if 'en' not in result:
         raise ValueError('English content fallback is required')

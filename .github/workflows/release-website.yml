@@ -13,6 +13,10 @@ on:
         description: 'Existing published release tag to rebuild website content for'
         required: true
         type: string
+      refresh_text:
+        description: 'Use reviewed copy from main for this same release (records its commit)'
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -24,6 +28,7 @@ jobs:
     timeout-minutes: 15
     env:
       ND_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      ND_REFRESH_TEXT: ${{ inputs.refresh_text || false }}
     steps:
       # Trusted workflow tooling from the default branch; content and fixtures
       # below are pinned separately to the exact published release commit.
@@ -55,7 +60,11 @@ jobs:
           nd_packages=("$RUNNER_TEMP"/package/*amd64.deb)
           test "${#nd_packages[@]}" = 1
           nd_commit=$(git -C release-source rev-parse HEAD)
-          python3 scripts/build-website-release.py --tag "$ND_TAG" --commit "$nd_commit" --source "$GITHUB_WORKSPACE/release-source" --deb "${nd_packages[0]}" --checksums "$RUNNER_TEMP/package/SHA256SUMS" --output "$RUNNER_TEMP/website/neutrondrive-website.json"
+          nd_text_args=()
+          if [[ "$ND_REFRESH_TEXT" == true ]]; then
+            nd_text_args=(--content-source "$GITHUB_WORKSPACE" --content-commit "$(git rev-parse HEAD)")
+          fi
+          python3 scripts/build-website-release.py "${nd_text_args[@]}" --tag "$ND_TAG" --commit "$nd_commit" --source "$GITHUB_WORKSPACE/release-source" --deb "${nd_packages[0]}" --checksums "$RUNNER_TEMP/package/SHA256SUMS" --output "$RUNNER_TEMP/website/neutrondrive-website.json"
       - uses: actions/upload-artifact@v4
         with:
           name: website-release-content
