@@ -416,6 +416,9 @@ impl Mount {
     fn sync_pin_tree_inner(&mut self, root: u64, host: &mut impl Services) -> Result<()> {
         let mut pending = vec![root];
         let mut visited = BTreeSet::new();
+        // The mount mutation lock keeps handles stable throughout this traversal.
+        let open = self.open_inodes();
+        let mut deferred = false;
         while let Some(inode) = pending.pop() {
             host.poll()?;
             if !visited.insert(inode) {
@@ -438,14 +441,11 @@ impl Mount {
             } else {
                 // Never replace the identity of an open file or accept a path now
                 // pointing to a different cloud node.
-                if self.open_inodes().contains(&inode) {
-                    if !self.tree.pinned.contains(&inode) {
-                        return Err(fail(
-                            libc::EBUSY,
-                            "Close the file before keeping it on this device",
-                        ));
-                    }
-                    continue;
+                if open.contains(&inode) && !self.tree.pinned.contains(&inode) {
+                    return Err(fail(
+                        libc::EBUSY,
+                        "Close the file before keeping it on this device",
+                    ));
                 }
                 let current = if self.config.offline {
                     entry.node.clone()
@@ -459,6 +459,17 @@ impl Mount {
                     ));
                 }
                 tree::node(&current)?;
+                if open.contains(&inode) {
+                    // Preserve the open snapshot, but do not acknowledge an
+                    // event whose changed revision has not been hydrated yet.
+                    deferred |= revision(&current) != revision(&entry.node);
+                    continue;
+                }
+                // Persist the user's offline policy before downloading. A failed
+                // first transfer must remain eligible for refresh after restart.
+                if self.tree.pinned.insert(inode) {
+                    self.save()?;
+                }
                 self.downloading.insert(inode);
                 self.publish(true);
                 let hydrated = self.hydrate(&current, host);
@@ -473,6 +484,18 @@ impl Mount {
                 self.tree.pinned.insert(inode);
                 self.save()?;
             }
+        }
+        if deferred {
+            return Err(fail(
+                libc::EBUSY,
+                "Close changed offline files to finish their cloud refresh",
+            ));
+        }
+        if !self.config.offline {
+            // A successful parent traversal also completes former child-root
+            // refreshes. Do not clear errors outside the verified subtree.
+            self.cloud_errors
+                .retain(|(id, operation), _| *operation != "pin" || !visited.contains(id));
         }
         Ok(())
     }
@@ -949,6 +972,64 @@ impl Mount {
         result(&outcome)?;
         Ok(outcome["value"].clone())
     }
+    fn evict(&self, inode: u64) -> Result<()> {
+        // Validate the entire selection before removing any cached bytes.
+        // Index entries/handles once and scan the object directory only once,
+        // including all cached revisions of the selected files.
+        let entries: BTreeMap<_, _> = self.tree.entries.iter().map(|e| (e.inode, e)).collect();
+        let open = self.open_inodes();
+        let mut pending = vec![inode];
+        let mut visited = BTreeSet::new();
+        let mut prefixes = BTreeSet::new();
+        while let Some(id) = pending.pop() {
+            if !visited.insert(id) {
+                continue;
+            }
+            let entry = entries
+                .get(&id)
+                .ok_or_else(|| fail(libc::ENOENT, "Entry no longer exists"))?;
+            if self.tree.pinned.contains(&id) || open.contains(&id) {
+                return Err(fail(
+                    libc::EBUSY,
+                    "Unpin and close files before freeing storage",
+                ));
+            }
+            if entry.node["type"] == "folder" {
+                if let Some(children) = self.tree.children.get(&id) {
+                    pending.extend(children.values().copied());
+                }
+            } else {
+                prefixes.insert(format!(
+                    "{:x}-",
+                    Sha256::digest(field(&entry.node, "uid").as_bytes())
+                ));
+            }
+        }
+        if prefixes.is_empty() {
+            return Ok(());
+        }
+        for entry in std::fs::read_dir(&self.objects)? {
+            let path = entry?.path();
+            let name = path.file_name().unwrap().to_string_lossy();
+            if !name
+                .get(..65)
+                .is_some_and(|prefix| prefixes.contains(prefix))
+            {
+                continue;
+            }
+            if name.len() != 129
+                || !name.as_bytes()[65..]
+                    .iter()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
+                || path.is_symlink()
+            {
+                return Err(fail(libc::EACCES, "Unsafe cache entry"));
+            }
+            io::regular(&path, libc::O_RDONLY)?;
+            std::fs::remove_file(path)?;
+        }
+        Ok(())
+    }
     fn close(&mut self) {
         if self.closed {
             return;
@@ -978,22 +1059,30 @@ impl Mount {
                 self.loaded.clear();
                 // Cloud events keep pinned content current even when no file
                 // manager is browsing the directory.
-                let roots: Vec<_> = self
-                    .tree
-                    .pinned
-                    .iter()
-                    .copied()
-                    .filter(|id| {
-                        self.tree
-                            .entries
-                            .iter()
-                            .find(|e| e.inode == *id)
-                            .is_some_and(|e| e.inode == 1 || !self.tree.pinned.contains(&e.parent))
-                    })
-                    .collect();
+                // Scan metadata once instead of searching it again for every pin.
+                let mut roots: Vec<_> = if self.tree.pinned.is_empty() {
+                    Vec::new()
+                } else {
+                    self.tree
+                        .entries
+                        .iter()
+                        .filter(|entry| {
+                            self.tree.pinned.contains(&entry.inode)
+                                && (entry.inode == 1 || !self.tree.pinned.contains(&entry.parent))
+                        })
+                        .map(|entry| entry.inode)
+                        .collect()
+                };
+                roots.sort_unstable();
                 for inode in roots {
                     match self.sync_pin_tree(inode, host) {
                         Ok(()) => {}
+                        Err(Error::Fs(libc::EBUSY, message)) => {
+                            self.cloud_errors.insert(
+                                (inode, "pin"),
+                                format!("Pinned refresh is pending. {message}."),
+                            );
+                        }
                         Err(Error::Backend(error)) if !error.cancelled => {
                             // Invalidation must still succeed while disconnected;
                             // verified snapshots remain available for read-only opens.
@@ -1064,64 +1153,7 @@ impl Mount {
                 Value::Null
             }
             Action::Evict { inode } => {
-                if self.entry(inode)?.node["type"] == "folder" {
-                    let mut pending = vec![inode];
-                    let mut visited = BTreeSet::new();
-                    let mut files = Vec::new();
-                    while let Some(id) = pending.pop() {
-                        if !visited.insert(id) {
-                            continue;
-                        }
-                        if self.tree.pinned.contains(&id)
-                            || self.files.values().any(|f| f.inode == id)
-                        {
-                            return Err(fail(
-                                libc::EBUSY,
-                                "Unpin and close files before freeing folder storage",
-                            ));
-                        }
-                        if self.entry(id)?.node["type"] == "folder" {
-                            if let Some(children) = self.tree.children.get(&id) {
-                                pending.extend(children.values().copied());
-                            }
-                        } else {
-                            files.push(id);
-                        }
-                    }
-                    for id in files {
-                        self.apply(Action::Evict { inode: id }, host)?;
-                    }
-                    return Ok(Value::Null);
-                }
-                if self.tree.pinned.contains(&inode)
-                    || self.files.values().any(|f| f.inode == inode)
-                {
-                    return Err(fail(
-                        libc::EBUSY,
-                        "Unpin and close the file before freeing its cache",
-                    ));
-                }
-                let prefix = format!(
-                    "{:x}-",
-                    Sha256::digest(field(&self.entry(inode)?.node, "uid").as_bytes())
-                );
-                for entry in std::fs::read_dir(&self.objects)? {
-                    let path = entry?.path();
-                    let name = path.file_name().unwrap().to_string_lossy();
-                    if !name.starts_with(&prefix) {
-                        continue;
-                    }
-                    if name.len() != 129
-                        || !name.as_bytes()[65..]
-                            .iter()
-                            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(b))
-                        || path.is_symlink()
-                    {
-                        return Err(fail(libc::EACCES, "Unsafe cache entry"));
-                    }
-                    io::regular(&path, libc::O_RDONLY)?;
-                    std::fs::remove_file(path)?;
-                }
+                self.evict(inode)?;
                 Value::Null
             }
             Action::Open { inode, flags } => json!(self.open(inode, flags, host)?),
@@ -1420,6 +1452,7 @@ mod tests {
         revision: u64,
         online: bool,
         uploads: usize,
+        fail_download: bool,
     }
     impl Host {
         fn new() -> Self {
@@ -1428,6 +1461,7 @@ mod tests {
                 revision: 1,
                 online: true,
                 uploads: 0,
+                fail_download: false,
             }
         }
         fn node(&self) -> Value {
@@ -1450,6 +1484,9 @@ mod tests {
                 "info" => Ok(self.node()),
                 "list_nodes" => Ok(json!([self.node()])),
                 "download" => {
+                    if self.fail_download {
+                        return Err("synthetic download interruption".into());
+                    }
                     std::fs::write(
                         PathBuf::from(args["destination"].as_str().unwrap()).join("data"),
                         &self.content,
@@ -1476,6 +1513,110 @@ mod tests {
             metadata_ttl: 15.0,
         }
     }
+    #[test]
+    fn folder_eviction_preserves_busy_files_and_unrelated_cache() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        let mut sibling = host.node();
+        sibling["uid"] = json!("sibling");
+        sibling["name"] = json!("z-sibling");
+        sibling["path"] = json!("/my-files/z-sibling");
+        mount.tree = tree::reconcile(
+            mount.tree.clone(),
+            1,
+            vec![host.node(), sibling.clone()],
+            BTreeSet::new(),
+        )
+        .unwrap();
+        let sibling_path = mount.objects.join(io::key(&sibling).unwrap());
+        let current = mount.objects.join(io::key(&host.node()).unwrap());
+        let mut old = host.node();
+        old["revision"] = json!("older");
+        let old_path = mount.objects.join(io::key(&old).unwrap());
+        let mut unrelated = host.node();
+        unrelated["uid"] = json!("unrelated");
+        let unrelated_path = mount.objects.join(io::key(&unrelated).unwrap());
+        for path in [&old_path, &unrelated_path, &sibling_path] {
+            use std::os::unix::fs::OpenOptionsExt;
+            std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(path)
+                .unwrap();
+        }
+        assert!(matches!(
+            mount.apply(Action::Evict { inode: 1 }, &mut host),
+            Err(Error::Fs(libc::EBUSY, _))
+        ));
+        assert!(current.exists() && old_path.exists() && sibling_path.exists());
+        mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: false,
+                },
+                &mut host,
+            )
+            .unwrap();
+        let handle = mount.open(inode, libc::O_RDONLY, &mut host).unwrap();
+        assert!(matches!(
+            mount.apply(Action::Evict { inode: 1 }, &mut host),
+            Err(Error::Fs(libc::EBUSY, _))
+        ));
+        assert!(current.exists() && old_path.exists() && sibling_path.exists());
+        mount.release(handle).unwrap();
+        mount.apply(Action::Evict { inode: 1 }, &mut host).unwrap();
+        assert!(!current.exists() && !old_path.exists() && !sibling_path.exists());
+        assert!(unrelated_path.exists());
+        assert!(mount.entry(inode).is_ok());
+        assert_eq!(host.uploads, 0);
+    }
+
+    #[test]
+    fn interrupted_first_file_pin_survives_reopen_and_retries() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        host.fail_download = true;
+        assert!(mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: true
+                },
+                &mut host
+            )
+            .is_err());
+        assert!(mount.tree.pinned.contains(&inode));
+        assert!(!mount.objects.join(io::key(&host.node()).unwrap()).exists());
+        drop(mount);
+        host.fail_download = false;
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        assert!(mount.tree.pinned.contains(&inode));
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            false
+        );
+        assert_eq!(
+            std::fs::read(mount.objects.join(io::key(&host.node()).unwrap())).unwrap(),
+            b"abc"
+        );
+        assert_eq!(host.uploads, 0);
+    }
+
     #[test]
     fn metadata_outage_recovers_without_hiding_pending_pin_or_write_errors() {
         let temp = Temp::new();
@@ -1560,6 +1701,153 @@ mod tests {
             .cloud_errors
             .keys()
             .any(|(_, operation)| *operation == "pin"));
+    }
+
+    #[test]
+    fn changed_open_pin_is_retried_after_close_without_replacing_open_bytes() {
+        for flags in [libc::O_RDONLY, libc::O_RDWR] {
+            let temp = Temp::new();
+            let mut host = Host::new();
+            let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+            mount
+                .apply(
+                    Action::Pin {
+                        inode: 1,
+                        pinned: true,
+                    },
+                    &mut host,
+                )
+                .unwrap();
+            let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+            let handle = mount.open(inode, flags, &mut host).unwrap();
+            // An unchanged open snapshot must not cause a needless pending refresh.
+            assert_eq!(
+                mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+                false
+            );
+            host.content = b"new".to_vec();
+            host.revision = 2;
+            assert_eq!(
+                mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+                true
+            );
+            assert_eq!(mount.entry(inode).unwrap().node["revision"], "r1");
+            assert_eq!(
+                mount
+                    .apply(
+                        Action::Read {
+                            handle,
+                            offset: 0,
+                            size: 32
+                        },
+                        &mut host
+                    )
+                    .unwrap(),
+                "616263"
+            );
+            mount.release(handle).unwrap();
+            assert_eq!(
+                mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+                false
+            );
+            assert_eq!(mount.status()["last_error"], "");
+            assert_eq!(mount.entry(inode).unwrap().node["revision"], "r2");
+            let handle = mount.open(inode, libc::O_RDONLY, &mut host).unwrap();
+            assert_eq!(
+                mount
+                    .apply(
+                        Action::Read {
+                            handle,
+                            offset: 0,
+                            size: 32
+                        },
+                        &mut host
+                    )
+                    .unwrap(),
+                "6e6577"
+            );
+            mount.release(handle).unwrap();
+            assert_eq!(host.uploads, 0);
+        }
+    }
+
+    #[test]
+    fn parent_pin_recovery_clears_a_previously_failed_child_refresh() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        host.online = false;
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            true
+        );
+        host.online = true;
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        assert_eq!(mount.status()["last_error"], "");
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            false
+        );
+        assert_eq!(host.uploads, 0);
+    }
+
+    #[test]
+    fn successful_leaf_refresh_does_not_clear_pending_parent_refresh() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        host.online = false;
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            true
+        );
+        host.online = true;
+        mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        assert!(mount.status()["last_error"]
+            .as_str()
+            .unwrap()
+            .contains("pinned refresh is pending"));
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            false
+        );
+        assert_eq!(mount.status()["last_error"], "");
     }
 
     #[test]
