@@ -40,18 +40,6 @@
           "Native DEB/RPM editions offer on-demand files and “Keep on device”. Snap and Flatpak download the synchronized files as ordinary local files; they do not provide online placeholders or native file-manager extensions."
         ],
         [
-          "What is new in 1.0?",
-          "Stable 1.0 includes standalone background folder sync for Snap and Flatpak, a responsive account-storage refresh and automatic Snap Store releases. Native DEB/RPM editions retain online placeholders and file-manager integration."
-        ],
-        [
-          "How do I update to 1.0?",
-          "Install the current package for your distribution. DEB, RPM and Arch retain epoch 1. Keep an independent backup. Snap Store updates are managed by snapd."
-        ],
-        [
-          "What limitations remain?",
-          "Among other limits, there is no multi-account interface, no Proton Docs/Sheets export and no complete advanced-link settings. Whole-folder deletion propagation remains blocked. Concurrent changes can cause conflicts; keep an independent backup."
-        ],
-        [
           "How can I help?",
           "Report reproducible bugs through GitHub Issues, review translations or contribute code. Report security vulnerabilities through the private reporting process described in SECURITY.md."
         ]
@@ -135,18 +123,6 @@
         [
           "Wie werden Dateien offline gespeichert?",
           "Native DEB/RPM-Pakete bieten Dateien auf Abruf und „Auf Gerät behalten“. Snap und Flatpak laden synchronisierte Dateien als normale lokale Dateien herunter; sie bieten keine Online-Platzhalter oder nativen Dateimanager-Erweiterungen."
-        ],
-        [
-          "Was ist neu in 1.0?",
-          "Die stabile Version 1.0 bietet eigenständigen Hintergrund-Ordnerabgleich für Snap und Flatpak, eine nicht blockierende Kontospeicher-Abfrage und automatische Snap-Store-Veröffentlichungen. Native DEB/RPM-Pakete behalten Online-Platzhalter und Dateimanager-Integration."
-        ],
-        [
-          "Wie aktualisiere ich auf 1.0?",
-          "Installiere das aktuelle Paket für deine Distribution. DEB, RPM und Arch behalten Epoch 1. Bewahre ein unabhängiges Backup auf. Snap-Store-Updates verwaltet snapd."
-        ],
-        [
-          "Welche Einschränkungen bleiben?",
-          "Unter anderem gibt es keine Mehrkonten-Oberfläche, keinen Export von Proton Docs/Sheets und keine vollständigen erweiterten Link-Einstellungen. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können Konflikte verursachen; halte deshalb ein unabhängiges Backup bereit."
         ],
         [
           "Wie kann ich mithelfen?",
@@ -234,18 +210,6 @@
           "Les paquets DEB/RPM proposent les fichiers à la demande et la conservation sur l’appareil. Snap et Flatpak téléchargent les fichiers synchronisés comme fichiers locaux ordinaires, sans espaces réservés en ligne ni extensions natives du gestionnaire de fichiers."
         ],
         [
-          "Quelles nouveautés dans la version 1.0 ?",
-          "La version stable 1.0 ajoute la synchronisation autonome des dossiers en arrière-plan pour Snap et Flatpak, une actualisation du stockage du compte sans blocage et la publication automatique sur le Snap Store. Les paquets DEB/RPM conservent les fichiers à la demande et l’intégration au gestionnaire de fichiers."
-        ],
-        [
-          "Comment passer à la version 1.0 ?",
-          "Installez le paquet actuel pour votre distribution. DEB, RPM et Arch conservent l’epoch 1. Gardez une sauvegarde indépendante. snapd gère les mises à jour du Snap Store."
-        ],
-        [
-          "Quelles limitations subsistent ?",
-          "Il n’y a notamment pas d’interface multicomptes, d’export de Proton Docs/Sheets ni de réglages avancés complets des liens. La propagation de la suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante."
-        ],
-        [
           "Comment contribuer ?",
           "Signalez les erreurs reproductibles dans GitHub Issues, relisez les traductions ou contribuez au code. Pour les vulnérabilités, utilisez la procédure de signalement privé décrite dans SECURITY.md."
         ]
@@ -331,18 +295,6 @@
           "Los paquetes DEB/RPM ofrecen archivos bajo demanda y la opción de conservarlos en el dispositivo. Snap y Flatpak descargan los archivos sincronizados como archivos locales normales, sin marcadores en línea ni extensiones nativas del gestor de archivos."
         ],
         [
-          "¿Qué novedades incluye la versión 1.0?",
-          "La versión estable 1.0 incluye sincronización autónoma de carpetas en segundo plano para Snap y Flatpak, actualización del almacenamiento sin bloquear la interfaz y publicación automática en Snap Store. Los paquetes DEB/RPM conservan los archivos bajo demanda y la integración con el gestor de archivos."
-        ],
-        [
-          "¿Cómo actualizo a la versión 1.0?",
-          "Instala el paquete actual para tu distribución. DEB, RPM y Arch conservan epoch 1. Mantén una copia de seguridad independiente. snapd gestiona las actualizaciones de Snap Store."
-        ],
-        [
-          "¿Qué limitaciones quedan?",
-          "Entre otras, no hay interfaz multicuenta, exportación de Proton Docs/Sheets ni ajustes avanzados completos de enlaces. La propagación del borrado de carpetas completas sigue bloqueada. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente."
-        ],
-        [
           "¿Cómo puedo ayudar?",
           "Informa de errores reproducibles en GitHub Issues, revisa traducciones o contribuye al código. Comunica vulnerabilidades mediante el proceso privado descrito en SECURITY.md."
         ]
@@ -426,18 +378,6 @@
         [
           "Come vengono salvati i file offline?",
           "I pacchetti DEB/RPM offrono file su richiesta e la possibilità di conservarli sul dispositivo. Snap e Flatpak scaricano i file sincronizzati come normali file locali, senza segnaposto online o estensioni native del file manager."
-        ],
-        [
-          "Quali sono le novità della versione 1.0?",
-          "La versione stabile 1.0 include la sincronizzazione autonoma delle cartelle in background per Snap e Flatpak, l’aggiornamento dello spazio dell’account senza bloccare l’interfaccia e la pubblicazione automatica sullo Snap Store. I pacchetti DEB/RPM mantengono i file su richiesta e l’integrazione con il file manager."
-        ],
-        [
-          "Come aggiorno alla versione 1.0?",
-          "Installa il pacchetto corrente per la tua distribuzione. DEB, RPM e Arch mantengono epoch 1. Conserva un backup indipendente. snapd gestisce gli aggiornamenti dello Snap Store."
-        ],
-        [
-          "Quali limitazioni rimangono?",
-          "Tra gli altri, mancano l’interfaccia multi-account, l’esportazione di Proton Docs/Sheets e le impostazioni avanzate complete dei link. La propagazione dell’eliminazione di intere cartelle rimane bloccata. Le modifiche simultanee possono creare conflitti: conserva un backup indipendente."
         ],
         [
           "Come posso contribuire?",
