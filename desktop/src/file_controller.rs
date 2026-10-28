@@ -236,10 +236,6 @@ impl qobject::NativeFiles {
         if !arguments.is_array() {
             return;
         }
-        if method.to_string() == "action" && arguments[0] == "cancel" {
-            self.cancel();
-            return;
-        }
         let effects = match self.as_mut().rust_mut().model.as_mut() {
             Some(model) => model.dispatch(&method.to_string(), &arguments),
             None => return,

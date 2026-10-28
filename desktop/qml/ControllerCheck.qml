@@ -95,11 +95,12 @@ Item {
                     require(JSON.parse(cancelled.stateJson).page === "photos", "photo section changes immediately during slow listing");
                     cancelled.dispatch("open_section", '["Shared","/shared-with-me"]');
                     require(JSON.parse(cancelled.stateJson).path === "/shared-with-me", "new destination wins while cancelling");
-                    cancelled.dispatch("open_section", '["Activity","activity"]');
-                    require(JSON.parse(cancelled.stateJson).page === "activity", "local section remains responsive");
+                    cancelled.dispatch("show_page", '["settings"]');
+                    require(JSON.parse(cancelled.stateJson).page === "settings", "account settings override pending sidebar destination");
+                    cancelled.dispatch("action", '["cancel"]');
                     stage = 7;
                 } else if (stage === 7 && !JSON.parse(cancelled.stateJson).busy) {
-                    require(JSON.parse(cancelled.stateJson).page === "activity", "late result cannot restore old page");
+                    require(JSON.parse(cancelled.stateJson).page === "settings", "cancel and late results cannot restore old page");
                     require(!JSON.parse(cancelled.stateJson).noticeError, "obsolete read cancellation stays silent");
                     cancelled.dispatch("action", '["refresh"]');
                     workerStarted = Date.now(); stage = 8;

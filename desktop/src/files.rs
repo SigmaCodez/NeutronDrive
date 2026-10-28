@@ -113,6 +113,11 @@ pub enum Effect {
     Close,
     Hide,
 }
+enum Navigation {
+    Section(String, String),
+    Page(String),
+    Cancelled,
+}
 pub struct Files {
     pub locale: Localization,
     pub state: Value,
@@ -128,7 +133,7 @@ pub struct Files {
     pending: Option<(u64, Answer)>,
     serial: u64,
     active: Option<Work>,
-    navigation_pending: Option<(String, String)>,
+    navigation_pending: Option<Navigation>,
     next_work: u64,
     login_url: Option<String>,
     background_local: Option<String>,
@@ -648,12 +653,23 @@ impl Files {
         if self.closing {
             return vec![Effect::Close];
         }
-        if let Some((title, destination)) = self.navigation_pending.take() {
+        if let Some(destination) = self.navigation_pending.take() {
             // Superseded reads may finish successfully despite cancellation.
             // Their results must never replace the newly selected section.
             self.state["activity"][0]["status"] = self.tr("Abgebrochen").into();
             self.field("status_label", json!(self.tr("Bereit")));
-            return self.open_section(&title, &destination);
+            return match destination {
+                Navigation::Section(title, path) => self.open_section(&title, &path),
+                Navigation::Page(page) => match page.as_str() {
+                    "files" => self.refresh(),
+                    "photos" => self.photo_action(&json!({"action":"index", "album":""})),
+                    _ => self.dispatch("show_page", &json!([page])),
+                },
+                Navigation::Cancelled => {
+                    self.field("status_label", json!(self.tr("Abgebrochen")));
+                    vec![]
+                }
+            };
         }
         if work.done == Done::CloseStatus {
             return if result.is_ok_and(|value| value["running"] == true) {
@@ -1045,6 +1061,12 @@ impl Files {
             }
         }
     }
+    fn active_read(&self) -> bool {
+        self.active.as_ref().is_some_and(|work| {
+            matches!(work.done, Done::Loaded | Done::Photos | Done::TrashList)
+                || matches!(&work.done, Done::PhotoLibrary(request) if matches!(text(request, "action"), "index" | "details" | "albums"))
+        })
+    }
     fn open_section(&mut self, title: &str, destination: &str) -> Vec<Effect> {
         let file_section = [
             "/my-files",
@@ -1067,18 +1089,14 @@ impl Files {
         {
             return vec![];
         }
-        if let Some(work) = &self.active {
-            let read_only = matches!(work.done, Done::Loaded | Done::Photos | Done::TrashList)
-                || matches!(&work.done, Done::PhotoLibrary(request) if matches!(text(request, "action"), "index" | "details" | "albums"));
-            if !read_only {
-                // Uploads, deletes, login and other transactions keep their
-                // existing completion/confirmation semantics.
-                self.message(
-                    &self.tr("Es läuft bereits ein Vorgang. Bitte warten oder abbrechen."),
-                    false,
-                );
-                return vec![];
-            }
+        if self.busy() && !self.active_read() {
+            // Uploads, deletes, login and other transactions keep their
+            // existing completion/confirmation semantics.
+            self.message(
+                &self.tr("Es läuft bereits ein Vorgang. Bitte warten oder abbrechen."),
+                false,
+            );
+            return vec![];
         }
         self.message("", false);
         self.state["history"]["visible"] = json!(false);
@@ -1095,7 +1113,7 @@ impl Files {
         }
         if self.busy() {
             // One pending destination, not a queue of obsolete SDK requests.
-            self.navigation_pending = Some((title.into(), destination.into()));
+            self.navigation_pending = Some(Navigation::Section(title.into(), destination.into()));
             return vec![Effect::Cancel];
         }
         if file_section {
@@ -1213,6 +1231,14 @@ impl Files {
                     args[0].clone()
                 };
                 self.state["settingsSync"] = json!(args[0] == "background");
+                if self.active_read() {
+                    // Account-menu and internal page links participate in the
+                    // same latest-destination rule as sidebar navigation.
+                    self.navigation_pending =
+                        Some(Navigation::Page(args[0].as_str().unwrap().into()));
+                    self.message("", false);
+                    return vec![Effect::Cancel];
+                }
                 if args[0] == "local-trash" {
                     return self.refresh_trash();
                 }
@@ -1407,6 +1433,14 @@ impl Files {
             }
             "answer_dialog" => {
                 return self.answer(args[0].as_u64().unwrap_or(0), args[1] == true, &args[2])
+            }
+            "action" if args[0] == "cancel" => {
+                if self.navigation_pending.is_some() {
+                    // Still discard the obsolete response, but do not launch
+                    // the queued request after an explicit user cancellation.
+                    self.navigation_pending = Some(Navigation::Cancelled);
+                }
+                return vec![Effect::Cancel];
             }
             "action" => return self.action(args[0].as_str().unwrap_or("")),
             _ => {}
@@ -1832,6 +1866,80 @@ mod tests {
         assert!(!m.busy());
         assert_eq!(m.state["page"], "activity");
         assert_ne!(m.state["noticeError"], true);
+    }
+
+    #[test]
+    fn account_settings_override_a_pending_sidebar_destination() {
+        let mut m = loaded();
+        let old = work(m.refresh());
+        m.dispatch("open_section", &json!(["Photos", "photos"]));
+        m.dispatch("show_page", &json!(["settings"]));
+        assert_eq!(m.state["page"], "settings");
+        let effects = m.complete(old.id, Ok(json!([])));
+        assert_eq!(m.state["page"], "settings");
+        assert!(!effects.iter().any(|e| matches!(e, Effect::Work(_))));
+        assert!(!m.busy());
+    }
+
+    #[test]
+    fn explicit_cancel_does_not_start_a_queued_read_or_apply_a_late_response() {
+        for succeeded in [true, false] {
+            let mut m = loaded();
+            let old = work(m.refresh());
+            m.dispatch("open_section", &json!(["Shared", "/shared-with-me"]));
+            assert!(m
+                .dispatch("action", &json!(["cancel"]))
+                .iter()
+                .any(|e| matches!(e, Effect::Cancel)));
+            let result = if succeeded {
+                Ok(nodes())
+            } else {
+                Err(Failure {
+                    message: "cancelled".into(),
+                    cancelled: true,
+                })
+            };
+            assert!(m.complete(old.id, result).is_empty());
+            assert!(!m.busy());
+            assert!(m.nodes.is_empty());
+            assert_eq!(m.state["path"], "/shared-with-me");
+            assert!(m.navigation_pending.is_none());
+            assert_ne!(m.state["noticeError"], true);
+            let retry = work(m.refresh());
+            assert_eq!(retry.operation["path"], "/shared-with-me");
+        }
+    }
+
+    #[test]
+    fn queued_content_page_links_restart_the_required_read() {
+        for page in ["files", "photos"] {
+            let mut m = loaded();
+            let old = work(m.refresh());
+            m.dispatch("open_section", &json!(["Activity", "activity"]));
+            m.dispatch("show_page", &json!([page]));
+            let next = work(m.complete(old.id, Ok(nodes())));
+            assert_eq!(m.state["page"], page);
+            if page == "files" {
+                assert_eq!(next.operation, json!({"action":"list", "path":"/my-files"}));
+            } else {
+                assert_eq!(
+                    next.operation["request"],
+                    json!({"action":"index", "album":""})
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_new_navigation_after_cancel_can_still_load() {
+        let mut m = loaded();
+        let old = work(m.refresh());
+        m.dispatch("open_section", &json!(["Photos", "photos"]));
+        m.dispatch("action", &json!(["cancel"]));
+        m.dispatch("open_section", &json!(["Computer", "/devices"]));
+        let next = work(m.complete(old.id, Ok(nodes())));
+        assert_eq!(next.operation["path"], "/devices");
+        assert!(m.nodes.is_empty());
     }
 
     #[test]
