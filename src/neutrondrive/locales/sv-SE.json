@@ -749,5 +749,11 @@
   "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
   "Choose a future expiration date": "Choose a future expiration date",
   "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
-  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving.",
+  "Add files": "Lägg till",
+  "Advanced settings": "Avancerade inställningar",
+  "Additional sync folders": "Fler synkroniseringsmappar",
+  "Independent, open-source Proton Drive client for Linux. Not affiliated with Proton.": "Oberoende Proton Drive-klient med öppen källkod för Linux. Inte knuten till Proton.",
+  "Import photos": "Importera foton",
+  "View options": "Visningsalternativ"
 }

@@ -140,23 +140,24 @@ ApplicationWindow {
         property int step: 0
         visible: Boolean(s.setupNeeded); modal: true; closePolicy: Popup.NoAutoClose
         onOpened: step = 0
-        anchors.centerIn: parent; width: Math.min(680, window.width - 60)
-        padding: 28
+        anchors.centerIn: parent; width: Math.min(580, window.width - 48)
+        padding: 32
         background: Rectangle { radius: 18; color: window.theme.canvas; border.color: window.theme.cardBorder }
         header: Item { implicitHeight: 0 }
-        Overlay.modal: Rectangle { color: window.darkMode ? "#99000000" : "#66252236" }
+        Overlay.modal: Rectangle { color: window.theme.canvas }
         contentItem: ColumnLayout {
             spacing: 22
-            RowLayout {
-                spacing: 12
+            ColumnLayout {
+                Layout.fillWidth: true; spacing: 16
                 Rectangle {
-                    Layout.preferredWidth: 44; Layout.preferredHeight: 44; radius: 13; color: window.theme.accent
+                    Layout.alignment: Qt.AlignHCenter
+                    Layout.preferredWidth: 56; Layout.preferredHeight: 56; radius: 16; color: window.theme.accent
                     DriveIcon { anchors.centerIn: parent; symbol: "brand"; ink: window.theme.onAccent }
                 }
                 ColumnLayout {
                     spacing: 3
-                    Heading { text: window.tr("Welcome to NeutronDrive"); font.pixelSize: 22; wrapMode: Text.Wrap }
-                    Copy { text: window.tr("Your files, ready when you need them") }
+                    Heading { text: window.tr("Welcome to NeutronDrive"); font.pixelSize: 26; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter }
+                    Copy { text: window.tr("Your files, ready when you need them"); horizontalAlignment: Text.AlignHCenter }
                 }
             }
             RowLayout {
@@ -181,10 +182,9 @@ ApplicationWindow {
             Card {
                 visible: setupWizard.step === 0
                 color: window.theme.sidebar
-                Heading { text: window.tr("Sign in to Proton") }
                 Copy { text: window.tr("Die Anmeldung erfolgt bei Proton im Browser. Diese App ist unabhängig und wird nicht von Proton unterstützt.") }
                 Action {
-                    objectName: "setupSignIn"
+                    objectName: "setupSignIn"; Layout.fillWidth: true
                     text: s.authenticated ? window.tr("Verbunden") : window.tr("Sign in to Proton")
                     command: "login"; primary: !s.authenticated; enabled: !s.busy && !s.authenticated
                 }
@@ -248,7 +248,7 @@ ApplicationWindow {
                     }
                     Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: window.theme.text }
                 }
-                Copy { text: window.tr("Deine Dateien. Dein Speicher."); font.pixelSize: 12; Layout.bottomMargin: 12 }
+                Item { Layout.preferredHeight: 16 }
                 ScrollView {
                     id: sidebarScroll
                     Layout.fillWidth: true; Layout.fillHeight: true
@@ -257,22 +257,16 @@ ApplicationWindow {
                         width: sidebarScroll.availableWidth; spacing: 4
                 Repeater {
                     model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Shared by me"),key:"/shared-by-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
-                        {name:window.tr("Lokaler Papierkorb"),key:"local-trash",icon:"trash"},{name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
+                        {name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
                     delegate: ColumnLayout {
                         id: navigationEntry
                         required property var modelData
                         required property int index
                         Layout.fillWidth: true; spacing: 4
-                        Copy {
-                            visible: navigationEntry.index===0 || navigationEntry.index===6 || navigationEntry.index===7
-                            text: navigationEntry.index===0 ? window.tr("DATEIEN") : navigationEntry.index===6 ? window.tr("AUF DIESEM GERÄT") : window.tr("VERWALTEN")
-                            font.pixelSize: 10; font.letterSpacing: 1; font.bold: true
-                            Layout.topMargin: navigationEntry.index===0 ? 0 : 8; Layout.leftMargin: 12; Layout.bottomMargin: 4
-                        }
                         Button {
                         id: nav
                         property var modelData: navigationEntry.modelData
-                        property bool selected: modelData.key.charAt(0)==="/" ? (s.page==="files" && ("/"+s.path.split("/")[1])===modelData.key || s.page==="computer-backup" && modelData.key==="/devices") : s.page===modelData.key
+                        property bool selected: modelData.key.charAt(0)==="/" ? (s.page==="files" && ("/"+s.path.split("/")[1])===modelData.key || s.page==="computer-backup" && modelData.key==="/devices" || s.page==="local-trash" && modelData.key==="/trash") : s.page===modelData.key
                         objectName: "nav-"+modelData.key
                         Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
@@ -344,15 +338,14 @@ ApplicationWindow {
         }
         Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: true
-            Layout.topMargin: 12; Layout.bottomMargin: 12; Layout.rightMargin: 12
-            radius: 18; color: window.theme.canvas; border.color: window.theme.cardBorder
+            Layout.topMargin: 0; Layout.bottomMargin: 0; Layout.rightMargin: 0
+            color: window.theme.canvas
         ColumnLayout {
             anchors.fill: parent; anchors.margins: window.width < 1050 ? 16 : 28; spacing: window.width < 1050 ? 12 : 16
             RowLayout {
                 Layout.fillWidth: true
                 ColumnLayout {
                     Layout.fillWidth: true; spacing: 5
-                    Copy { visible: window.width >= 1050; text: s.page==="files" ? window.tr("Dateien & Ordner") : window.tr("NeutronDrive für Linux"); font.pixelSize: 12 }
                     Label { text: window.titles[s.page]; textFormat: Text.PlainText; font.pixelSize: window.width < 1050 ? 24 : 28; font.bold: true; color: window.theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
                 }
                 Rectangle { visible: s.demo; implicitWidth: modeLabel.implicitWidth+24; implicitHeight: 30; radius: 15; color: window.theme.badge
@@ -421,9 +414,19 @@ ApplicationWindow {
             }
             Flow {
                 Layout.fillWidth: true; spacing: 8
-                Action { visible: s.path!=="/devices"; text: window.tr("Dateien hochladen"); command: "upload"; field: "upload_button"; primary: true }
-                Action { visible: s.path!=="/devices"; text: window.tr("Ordner hochladen"); command: "uploadFolder"; field: "folder_upload_button" }
-                Action { visible: s.path!=="/devices"; text: window.tr("Neuer Ordner"); command: "mkdir"; field: "mkdir_button" }
+                Action {
+                    objectName: "addFilesButton"; visible: s.path!=="/devices" && s.path!=="/trash"
+                    text: "+ " + window.tr("Add files"); primary: true
+                    enabled: window.f("upload_button").enabled || window.f("folder_upload_button").enabled || window.f("mkdir_button").enabled
+                    onClicked: addFilesMenu.popup()
+                    DriveMenu {
+                        id: addFilesMenu; objectName: "addFilesMenu"; theme: window.theme
+                        DriveMenuItem { theme: window.theme; text: window.tr("Dateien hochladen"); enabled: window.f("upload_button").enabled; onTriggered: controller.action("upload") }
+                        DriveMenuItem { theme: window.theme; text: window.tr("Ordner hochladen"); enabled: window.f("folder_upload_button").enabled; onTriggered: controller.action("uploadFolder") }
+                        DriveMenuItem { theme: window.theme; text: window.tr("Neuer Ordner"); enabled: window.f("mkdir_button").enabled; onTriggered: controller.action("mkdir") }
+                    }
+                }
+                Action { objectName: "localTrashButton"; visible: s.path==="/trash"; text: window.tr("Lokaler Papierkorb"); onClicked: controller.show_page("local-trash") }
                 Action { text: window.tr("Aktualisieren"); command: "refresh"; field: "refresh_button" }
             }
             Flow { Layout.fillWidth: true; spacing: 4
@@ -555,6 +558,7 @@ ApplicationWindow {
                 }
             }
             Rectangle {
+                visible: s.selection.length > 0
                 Layout.fillWidth: true; implicitHeight: fileActions.implicitHeight + 16
                 radius: 12; color: window.theme.sidebar; border.color: window.theme.cardBorder
                 Flow {
@@ -612,6 +616,9 @@ ApplicationWindow {
         ColumnLayout { id: pageColumn; width: scroll.availableWidth; spacing: 16 }
     }
     component SyncSettings: ColumnLayout {
+            id: syncSettingsPanel
+            property bool additionalFolders: false
+            property bool advanced: false
             Layout.fillWidth: true; spacing: 16; objectName: "syncSettings"
             Card {
                 Heading { text: window.tr("Your sync folder") }
@@ -620,15 +627,17 @@ ApplicationWindow {
                 Copy { text: s.sandboxed ? window.tr("This store edition synchronizes downloaded files. Online placeholders and native file-manager extensions are unavailable.") : window.tr("Files appear as online placeholders. Use Keep on device in the file menu to keep selected files or folders available offline.") }
                 Flow { Layout.fillWidth: true; spacing: 8
                     Action { text: window.tr("Set up sync folder"); onClicked: controller.send("setup_open",[]); primary: true }
-                    Action { visible: !s.sandboxed; text: window.tr("Sync settings / online drive only"); onClicked: controller.show_page("ondemand") }
-                    Action { visible: !s.sandboxed; text: window.tr("Refresh sync status"); command: "mountStatus" }
+                    Action { visible: syncSettingsPanel.advanced && !s.sandboxed; text: window.tr("Sync settings / online drive only"); onClicked: controller.show_page("ondemand") }
+                    Action { visible: syncSettingsPanel.advanced && !s.sandboxed; text: window.tr("Refresh sync status"); command: "mountStatus" }
                 }
             }
             Card {
                 Heading { text: window.f("background_status").value }
-                RowLayout { Action { text: window.tr("Dienst starten"); command: "start" } Action { text: window.tr("Dienst stoppen"); command: "stop" } Action { objectName: "restartSyncButton"; text: window.tr("Restart sync service"); command: "restart"; enabled: !s.busy && !(s.syncSummary && s.syncSummary.syncing>0) } }
+                RowLayout { Action { visible: syncSettingsPanel.advanced; text: window.tr("Dienst starten"); command: "start" } Action { visible: syncSettingsPanel.advanced; text: window.tr("Dienst stoppen"); command: "stop" } Action { objectName: "restartSyncButton"; text: window.tr("Restart sync service"); command: "restart"; enabled: !s.busy && !(s.syncSummary && s.syncSummary.syncing>0) } }
             }
+            Action { objectName: "advancedSyncButton"; text: (syncSettingsPanel.advanced ? "▾ " : "▸ ") + window.tr("Advanced settings"); enabled: true; onClicked: syncSettingsPanel.advanced = !syncSettingsPanel.advanced }
             Card {
+                objectName: "syncOverview"; visible: syncSettingsPanel.advanced
                 Heading { text: window.tr("Sync overview") }
                 Copy { text: window.f("background_status").value }
                 GridLayout {
@@ -645,7 +654,9 @@ ApplicationWindow {
                 }
             }
             Copy { text: window.tr("Änderungen automatisch abgleichen – auch nach dem Schließen des Fensters.") }
+            Action { visible: syncSettingsPanel.advanced; text: (syncSettingsPanel.additionalFolders ? "▾ " : "▸ ") + window.tr("Additional sync folders"); enabled: true; onClicked: syncSettingsPanel.additionalFolders = !syncSettingsPanel.additionalFolders }
             Card {
+                visible: syncSettingsPanel.advanced && syncSettingsPanel.additionalFolders
                 Heading { text: window.tr("Ordner automatisch synchronisieren") }
                 Copy { text: window.f("background_local_label").value }
                 Action { text: window.tr("Lokalen Ordner wählen"); command: "chooseBackground" }
@@ -727,6 +738,7 @@ ApplicationWindow {
         id: trashPage
         PageScroll {
             objectName: "page-local-trash"
+            Action { text: "‹ " + window.tr("Cloud-Papierkorb"); onClicked: controller.navigate(window.tr("Cloud-Papierkorb"),"/trash") }
             Copy { text: window.tr("Nach Cloud-Löschung lokal gesicherte Dateien. Wiederherstellen überschreibt keine vorhandenen Dateien.") }
             Action { text: window.tr("Aktualisieren"); command: "refreshTrash" }
             Copy { text: window.f("local_trash_status").value }
@@ -761,6 +773,7 @@ ApplicationWindow {
         PageScroll {
             id: settingsScroll; objectName: "page-settings"
             property bool syncTab: s.settingsSync===true
+            property bool advanced: false
             RowLayout {
                 Action { text: window.tr("Einstellungen"); primary: !settingsScroll.syncTab; onClicked: settingsScroll.syncTab=false }
                 Action { text: window.tr("Automatischer Sync"); primary: settingsScroll.syncTab; onClicked: settingsScroll.syncTab=true }
@@ -770,12 +783,6 @@ ApplicationWindow {
                 Layout.fillWidth: true; spacing: 16
                 visible: !settingsScroll.syncTab
 
-            Card {
-                Heading { text: window.tr("Konto & Verbindung") }
-                Copy { text: window.f("backend_label").value }
-                RowLayout { Action { text: window.tr("Backend prüfen"); command: "version" } Action { text: window.tr("Anmelden"); command: "login" } Action { text: window.tr("Abmelden"); command: "logout" } }
-                Copy { text: window.tr("Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Flatpak kann einen eigenen Kontospeicher verwenden.") }
-            }
             Card {
                 Heading { text: window.tr("Erscheinungsbild") }
                 Copy { text: window.tr("Erscheinungsbild") }
@@ -818,12 +825,6 @@ ApplicationWindow {
                     onToggled: controller.updates.setOption("automatic", checked)
                 }
                 Check {
-                    text: window.tr("Vorabversionen einschließen")
-                    checked: controller.updates.previews
-                    enabled: !controller.updates.busy
-                    onToggled: controller.updates.setOption("previews", checked)
-                }
-                Check {
                     text: window.tr("Updates automatisch herunterladen")
                     visible: ["deb", "rpm-fedora", "rpm-opensuse"].indexOf(controller.updates.packageFormat) >= 0
                     checked: controller.updates.autoDownload
@@ -846,12 +847,27 @@ ApplicationWindow {
                 Action { text: window.tr("App und Dienste neu starten"); visible: controller.updates.state.restartPending === true; enabled: !controller.updates.busy && !s.busy; onClicked: controller.updates.restartUpdate() }
                 Copy { visible: ["deb", "rpm-fedora", "rpm-opensuse"].indexOf(controller.updates.packageFormat) >= 0; text: window.tr("Nach erfolgreicher Installation werden App und Dienste automatisch neu gestartet. Offene Dateien und laufende Synchronisationen vorher abschließen.") }
             }
+            Action { objectName: "advancedSettingsButton"; text: (settingsScroll.advanced ? "▾ " : "▸ ") + window.tr("Advanced settings"); enabled: true; onClicked: settingsScroll.advanced = !settingsScroll.advanced }
+            Card {
+                objectName: "connectionDiagnostics"; visible: settingsScroll.advanced
+                Check {
+                    visible: settingsScroll.advanced
+                    text: window.tr("Vorabversionen einschließen")
+                    checked: controller.updates.previews
+                    enabled: !controller.updates.busy
+                    onToggled: controller.updates.setOption("previews", checked)
+                }
+                Heading { text: window.tr("Konto & Verbindung") }
+                Copy { text: window.f("backend_label").value }
+                RowLayout { Action { text: window.tr("Backend prüfen"); command: "version" } Action { text: window.tr("Anmelden"); command: "login" } Action { text: window.tr("Abmelden"); command: "logout" } }
+                Copy { text: window.tr("Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Flatpak kann einen eigenen Kontospeicher verwenden.") }
+            }
             Card {
                 Heading { text: "NeutronDrive "+s.version }
-                Copy { text: "Qt Quick · QML · Rust · Open Source" }
+                Copy { visible: settingsScroll.advanced; text: "Qt Quick · QML · Rust · Open Source" }
                 Action { text: window.tr("Projekt & Installation ↗"); command: "project" }
-                Action { text: window.tr("Offizielle Proton CLI ↗"); command: "cli" }
-                Copy { text: window.tr("Alpha: keine vollständige Windows/macOS-Funktionsparität. Versionsverwaltung und Proton Docs/Sheets sind nicht integriert. Das Proton SDK übernimmt Konto, Verschlüsselung und Übertragungen.") }
+                Action { visible: settingsScroll.advanced; text: window.tr("Offizielle Proton CLI ↗"); command: "cli" }
+                Copy { text: window.tr("Independent, open-source Proton Drive client for Linux. Not affiliated with Proton.") }
             }
             }
         }

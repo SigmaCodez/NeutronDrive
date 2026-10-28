@@ -749,5 +749,11 @@
   "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Jeder mit dem Link erhält die ausgewählte Berechtigung. Leere Passwort- und Datumsfelder entfernen diese Einschränkungen.",
   "Choose a future expiration date": "Bitte ein zukünftiges Ablaufdatum wählen",
   "Sharing settings changed. Refresh before saving.": "Die Freigabe wurde inzwischen geändert. Bitte vor dem Speichern aktualisieren.",
-  "File identity changed. Reopen sharing before saving.": "Die Datei wurde inzwischen ersetzt. Bitte die Freigabe erneut öffnen."
+  "File identity changed. Reopen sharing before saving.": "Die Datei wurde inzwischen ersetzt. Bitte die Freigabe erneut öffnen.",
+  "Add files": "Hinzufügen",
+  "Advanced settings": "Erweiterte Einstellungen",
+  "Additional sync folders": "Weitere Sync-Ordner",
+  "Independent, open-source Proton Drive client for Linux. Not affiliated with Proton.": "Unabhängiger Open-Source-Client für Proton Drive unter Linux. Kein offizielles Produkt von Proton.",
+  "Import photos": "Fotos importieren",
+  "View options": "Ansicht anpassen"
 }
