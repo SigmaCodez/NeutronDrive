@@ -12,11 +12,11 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.0.3](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.3).**
-This maintenance update restores automatic cloud refresh for files and folders
-marked **Keep on device**, retries failed refreshes, and clears temporary warnings
-after recovery. Ubuntu 26.10 DEB installation and interface checks remain part of
-the release test matrix.
+**Version [1.0.4](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.4).**
+This maintenance update preserves cloud changes while offline files are open,
+keeps offline selections after interrupted first downloads, clears recovered
+subtree warnings, and scans the cache only once when freeing a folder's storage.
+Ubuntu 26.10 DEB installation and interface checks remain part of the release test matrix.
 Keep an independent backup of important files. Complete Windows/macOS feature
 parity has not been reached.
 
@@ -86,7 +86,7 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.0.3
+## New in 1.0.4
 
 - Automatic cloud events now refresh files and folders marked **Keep on device** through the Proton SDK.
 - Failed pinned refreshes retain their event cursor and retry automatically instead of being silently acknowledged.
@@ -146,7 +146,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.3 release assets**, not development artifacts.
+The commands below use the **1.0.4 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 Snap Store publication is automated, but availability currently awaits Canonical’s
@@ -165,29 +165,29 @@ Store revision.
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.3-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.4-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.3-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.4-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.3-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.4-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.3-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.4-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.3_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.4_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.3-x86_64.AppImage
-./NeutronDrive-1.0.3-x86_64.AppImage
+chmod +x NeutronDrive-1.0.4-x86_64.AppImage
+./NeutronDrive-1.0.4-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.3-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.4-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
