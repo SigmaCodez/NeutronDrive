@@ -416,6 +416,9 @@ impl Mount {
     fn sync_pin_tree_inner(&mut self, root: u64, host: &mut impl Services) -> Result<()> {
         let mut pending = vec![root];
         let mut visited = BTreeSet::new();
+        // The mount mutation lock keeps handles stable throughout this traversal.
+        let open = self.open_inodes();
+        let mut deferred = false;
         while let Some(inode) = pending.pop() {
             host.poll()?;
             if !visited.insert(inode) {
@@ -438,14 +441,11 @@ impl Mount {
             } else {
                 // Never replace the identity of an open file or accept a path now
                 // pointing to a different cloud node.
-                if self.open_inodes().contains(&inode) {
-                    if !self.tree.pinned.contains(&inode) {
-                        return Err(fail(
-                            libc::EBUSY,
-                            "Close the file before keeping it on this device",
-                        ));
-                    }
-                    continue;
+                if open.contains(&inode) && !self.tree.pinned.contains(&inode) {
+                    return Err(fail(
+                        libc::EBUSY,
+                        "Close the file before keeping it on this device",
+                    ));
                 }
                 let current = if self.config.offline {
                     entry.node.clone()
@@ -459,6 +459,12 @@ impl Mount {
                     ));
                 }
                 tree::node(&current)?;
+                if open.contains(&inode) {
+                    // Preserve the open snapshot, but do not acknowledge an
+                    // event whose changed revision has not been hydrated yet.
+                    deferred |= revision(&current) != revision(&entry.node);
+                    continue;
+                }
                 self.downloading.insert(inode);
                 self.publish(true);
                 let hydrated = self.hydrate(&current, host);
@@ -473,6 +479,18 @@ impl Mount {
                 self.tree.pinned.insert(inode);
                 self.save()?;
             }
+        }
+        if deferred {
+            return Err(fail(
+                libc::EBUSY,
+                "Close changed offline files to finish their cloud refresh",
+            ));
+        }
+        if !self.config.offline {
+            // A successful parent traversal also completes former child-root
+            // refreshes. Do not clear errors outside the verified subtree.
+            self.cloud_errors
+                .retain(|(id, operation), _| *operation != "pin" || !visited.contains(id));
         }
         Ok(())
     }
@@ -978,22 +996,30 @@ impl Mount {
                 self.loaded.clear();
                 // Cloud events keep pinned content current even when no file
                 // manager is browsing the directory.
-                let roots: Vec<_> = self
-                    .tree
-                    .pinned
-                    .iter()
-                    .copied()
-                    .filter(|id| {
-                        self.tree
-                            .entries
-                            .iter()
-                            .find(|e| e.inode == *id)
-                            .is_some_and(|e| e.inode == 1 || !self.tree.pinned.contains(&e.parent))
-                    })
-                    .collect();
+                // Scan metadata once instead of searching it again for every pin.
+                let mut roots: Vec<_> = if self.tree.pinned.is_empty() {
+                    Vec::new()
+                } else {
+                    self.tree
+                        .entries
+                        .iter()
+                        .filter(|entry| {
+                            self.tree.pinned.contains(&entry.inode)
+                                && (entry.inode == 1 || !self.tree.pinned.contains(&entry.parent))
+                        })
+                        .map(|entry| entry.inode)
+                        .collect()
+                };
+                roots.sort_unstable();
                 for inode in roots {
                     match self.sync_pin_tree(inode, host) {
                         Ok(()) => {}
+                        Err(Error::Fs(libc::EBUSY, message)) => {
+                            self.cloud_errors.insert(
+                                (inode, "pin"),
+                                format!("Pinned refresh is pending. {message}."),
+                            );
+                        }
                         Err(Error::Backend(error)) if !error.cancelled => {
                             // Invalidation must still succeed while disconnected;
                             // verified snapshots remain available for read-only opens.
@@ -1560,6 +1586,153 @@ mod tests {
             .cloud_errors
             .keys()
             .any(|(_, operation)| *operation == "pin"));
+    }
+
+    #[test]
+    fn changed_open_pin_is_retried_after_close_without_replacing_open_bytes() {
+        for flags in [libc::O_RDONLY, libc::O_RDWR] {
+            let temp = Temp::new();
+            let mut host = Host::new();
+            let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+            mount
+                .apply(
+                    Action::Pin {
+                        inode: 1,
+                        pinned: true,
+                    },
+                    &mut host,
+                )
+                .unwrap();
+            let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+            let handle = mount.open(inode, flags, &mut host).unwrap();
+            // An unchanged open snapshot must not cause a needless pending refresh.
+            assert_eq!(
+                mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+                false
+            );
+            host.content = b"new".to_vec();
+            host.revision = 2;
+            assert_eq!(
+                mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+                true
+            );
+            assert_eq!(mount.entry(inode).unwrap().node["revision"], "r1");
+            assert_eq!(
+                mount
+                    .apply(
+                        Action::Read {
+                            handle,
+                            offset: 0,
+                            size: 32
+                        },
+                        &mut host
+                    )
+                    .unwrap(),
+                "616263"
+            );
+            mount.release(handle).unwrap();
+            assert_eq!(
+                mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+                false
+            );
+            assert_eq!(mount.status()["last_error"], "");
+            assert_eq!(mount.entry(inode).unwrap().node["revision"], "r2");
+            let handle = mount.open(inode, libc::O_RDONLY, &mut host).unwrap();
+            assert_eq!(
+                mount
+                    .apply(
+                        Action::Read {
+                            handle,
+                            offset: 0,
+                            size: 32
+                        },
+                        &mut host
+                    )
+                    .unwrap(),
+                "6e6577"
+            );
+            mount.release(handle).unwrap();
+            assert_eq!(host.uploads, 0);
+        }
+    }
+
+    #[test]
+    fn parent_pin_recovery_clears_a_previously_failed_child_refresh() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        host.online = false;
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            true
+        );
+        host.online = true;
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        assert_eq!(mount.status()["last_error"], "");
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            false
+        );
+        assert_eq!(host.uploads, 0);
+    }
+
+    #[test]
+    fn successful_leaf_refresh_does_not_clear_pending_parent_refresh() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        host.online = false;
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            true
+        );
+        host.online = true;
+        mount
+            .apply(
+                Action::Pin {
+                    inode,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        assert!(mount.status()["last_error"]
+            .as_str()
+            .unwrap()
+            .contains("pinned refresh is pending"));
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            false
+        );
+        assert_eq!(mount.status()["last_error"], "");
     }
 
     #[test]
