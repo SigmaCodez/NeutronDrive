@@ -13,9 +13,10 @@ cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
 **Version [1.0.3](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.3).**
-This update refines the light/dark interface, adds blue download progress emblems,
-and keeps file-manager offline actions in the background. Ubuntu 26.10 DEB
-installation and interface checks are part of the release test matrix.
+This maintenance update restores automatic cloud refresh for files and folders
+marked **Keep on device**, retries failed refreshes, and clears temporary warnings
+after recovery. Ubuntu 26.10 DEB installation and interface checks remain part of
+the release test matrix.
 Keep an independent backup of important files. Complete Windows/macOS feature
 parity has not been reached.
 
@@ -147,6 +148,11 @@ These container checks do not replace a full GNOME/Wayland desktop-session test.
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
 The commands below use the **1.0.3 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
+
+Snap Store publication is automated, but availability currently awaits Canonical’s
+manual review of the application’s D-Bus interfaces. The downloadable Snap is
+available with the GitHub release; a queued Store upload is not yet an installable
+Store revision.
 
 | Format | Intended systems | Important details |
 | --- | --- | --- |
