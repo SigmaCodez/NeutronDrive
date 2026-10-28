@@ -12,7 +12,7 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.0.4](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.4).**
+**Version [1.0.5](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.5).**
 This maintenance update preserves cloud changes while offline files are open,
 keeps offline selections after interrupted first downloads, clears recovered
 subtree warnings, and scans the cache only once when freeing a folder's storage.
@@ -86,13 +86,13 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.0.4
+## New in 1.0.5
 
-- Cloud changes to open offline files remain pending until they can be refreshed safely, preserving the bytes seen by existing readers.
-- Interrupted first downloads retain **Keep on device** selections across mount restarts and can retry automatically.
-- Successful parent refreshes clear recovered child warnings without hiding unresolved parent refreshes or unsaved-write errors.
-- Freeing folder storage scans the object cache once, preserving pinned/open files and unrelated cached content.
-- Pinned-root selection avoids repeated full-metadata searches. The fixes and features from 1.0.3 remain included.
+- Sidebar navigation stays responsive during slow cloud reads. Only the latest selected destination is loaded; transfers and other writes keep their existing safeguards.
+- Settings navigation and explicit cancellation are respected even when an older request completes late.
+- The separate sharing window now supports link passwords, expiry dates, viewer/editor permissions and editor resharing.
+- Sharing changes require confirmation and fresh file-identity/settings checks. Passwords travel over private stdin, not process arguments.
+- Whole-folder deletion protection remains enabled. Multi-account support, native Docs/Sheets export and atomic conflict-free sync remain outside this release.
 
 ## What you can do
 
@@ -146,7 +146,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.4 release assets**, not development artifacts.
+The commands below use the **1.0.5 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 Snap Store publication is automated, but availability currently awaits Canonical’s
@@ -165,29 +165,29 @@ Store revision.
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.4-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.5-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.4-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.5-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.4-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.5-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.4-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.5-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.4_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.5_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.4-x86_64.AppImage
-./NeutronDrive-1.0.4-x86_64.AppImage
+chmod +x NeutronDrive-1.0.5-x86_64.AppImage
+./NeutronDrive-1.0.5-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.4-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.5-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
