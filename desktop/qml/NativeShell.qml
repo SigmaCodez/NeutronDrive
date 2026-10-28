@@ -453,7 +453,7 @@ Item {
                     console.log("NATIVE_GRID_KEYBOARD_AND_MOUSE_OK");controller.stage=208;
                 }else if(controller.stage===208){
                     if(controller.fixture){controller.stage=21;return;}
-                    controller.show_page("photos");controller.send("photo_library",[{action:"index",album:""}]);controller.stage=209;
+                    controller.send("open_section",[controller.translate("Photos"),"photos"]);controller.stage=209;
                 }else if(controller.stage===209){
                     if(controller.state.photos.length!==2 || !controller.childNamed(controller.view.contentItem,"photoGrid"))throw new Error("Photo timeline failed");
                     let preview=controller.childNamed(controller.view.contentItem,"photoPreview-0");

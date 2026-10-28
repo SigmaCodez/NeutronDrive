@@ -128,6 +128,7 @@ pub struct Files {
     pending: Option<(u64, Answer)>,
     serial: u64,
     active: Option<Work>,
+    navigation_pending: Option<(String, String)>,
     next_work: u64,
     login_url: Option<String>,
     background_local: Option<String>,
@@ -209,6 +210,7 @@ impl Files {
             pending: None,
             serial: 0,
             active: None,
+            navigation_pending: None,
             next_work: 0,
             login_url: None,
             background_local: None,
@@ -646,6 +648,13 @@ impl Files {
         if self.closing {
             return vec![Effect::Close];
         }
+        if let Some((title, destination)) = self.navigation_pending.take() {
+            // Superseded reads may finish successfully despite cancellation.
+            // Their results must never replace the newly selected section.
+            self.state["activity"][0]["status"] = self.tr("Abgebrochen").into();
+            self.field("status_label", json!(self.tr("Bereit")));
+            return self.open_section(&title, &destination);
+        }
         if work.done == Done::CloseStatus {
             return if result.is_ok_and(|value| value["running"] == true) {
                 vec![Effect::Hide]
@@ -1036,6 +1045,67 @@ impl Files {
             }
         }
     }
+    fn open_section(&mut self, title: &str, destination: &str) -> Vec<Effect> {
+        let file_section = [
+            "/my-files",
+            "/shared-with-me",
+            "/shared-by-me",
+            "/devices",
+            "/trash",
+        ]
+        .contains(&destination);
+        if !file_section
+            && ![
+                "photos",
+                "local-trash",
+                "activity",
+                "settings",
+                "computer-backup",
+                "ondemand",
+            ]
+            .contains(&destination)
+        {
+            return vec![];
+        }
+        if let Some(work) = &self.active {
+            let read_only = matches!(work.done, Done::Loaded | Done::Photos | Done::TrashList)
+                || matches!(&work.done, Done::PhotoLibrary(request) if matches!(text(request, "action"), "index" | "details" | "albums"));
+            if !read_only {
+                // Uploads, deletes, login and other transactions keep their
+                // existing completion/confirmation semantics.
+                self.message(
+                    &self.tr("Es läuft bereits ein Vorgang. Bitte warten oder abbrechen."),
+                    false,
+                );
+                return vec![];
+            }
+        }
+        self.message("", false);
+        self.state["history"]["visible"] = json!(false);
+        self.state["page"] = json!(if file_section { "files" } else { destination });
+        self.state["settingsSync"] = json!(false);
+        if file_section {
+            self.crumbs = vec![(title.into(), destination.into())];
+            self.state["path"] = json!(destination);
+            self.state["crumbs"] = json!([title]);
+            self.field("files_title", json!(title));
+            self.field("search", json!(""));
+            self.nodes.clear();
+            self.render();
+        }
+        if self.busy() {
+            // One pending destination, not a queue of obsolete SDK requests.
+            self.navigation_pending = Some((title.into(), destination.into()));
+            return vec![Effect::Cancel];
+        }
+        if file_section {
+            self.refresh()
+        } else if destination == "photos" {
+            self.photo_action(&json!({"action":"index", "album":""}))
+        } else {
+            self.dispatch("show_page", &json!([destination]))
+        }
+    }
     fn navigate(&mut self) -> Vec<Effect> {
         let (title, path) = self.crumbs.last().unwrap().clone();
         self.state["path"] = path.into();
@@ -1056,6 +1126,12 @@ impl Files {
             return vec![];
         }
         match method {
+            "open_section" => {
+                return self.open_section(
+                    args[0].as_str().unwrap_or(""),
+                    args[1].as_str().unwrap_or(""),
+                )
+            }
             "request_close" => {
                 if args[0] == true {
                     self.message(
@@ -1714,6 +1790,65 @@ mod tests {
         m.dispatch("edit", &json!(["search", ""]));
         assert_eq!(m.entries.as_array().unwrap().len(), m.nodes.len());
     }
+    #[test]
+    fn sidebar_navigation_keeps_latest_destination_and_discards_old_listing() {
+        let mut m = loaded();
+        let old = work(m.refresh());
+        let effects = m.dispatch("open_section", &json!(["Photos", "photos"]));
+        assert!(effects.iter().any(|e| matches!(e, Effect::Cancel)));
+        assert_eq!(m.state["page"], "photos");
+        m.dispatch("open_section", &json!(["Shared", "/shared-with-me"]));
+        assert_eq!(m.state["path"], "/shared-with-me");
+        assert_eq!(m.state["page"], "files");
+        let next = work(m.complete(old.id, Ok(json!([{"name":"stale"}]))));
+        assert_eq!(
+            next.operation,
+            json!({"action":"list","path":"/shared-with-me"})
+        );
+        assert!(m.nodes.is_empty());
+        assert!(m.complete(old.id, Ok(json!([]))).is_empty());
+        m.complete(next.id, Ok(json!([])));
+        assert!(!m.busy());
+        assert_eq!(m.state["path"], "/shared-with-me");
+    }
+
+    #[test]
+    fn sidebar_photo_load_is_atomic_and_can_be_left_while_loading() {
+        let mut m = loaded();
+        let photo = work(m.dispatch("open_section", &json!(["Photos", "photos"])));
+        assert_eq!(m.state["page"], "photos");
+        assert_eq!(photo.operation["request"]["action"], "index");
+        m.dispatch("open_section", &json!(["Activity", "activity"]));
+        assert_eq!(m.state["page"], "activity");
+        assert!(m
+            .complete(
+                photo.id,
+                Err(Failure {
+                    message: "cancelled read".into(),
+                    cancelled: true
+                })
+            )
+            .is_empty());
+        assert!(!m.busy());
+        assert_eq!(m.state["page"], "activity");
+        assert_ne!(m.state["noticeError"], true);
+    }
+
+    #[test]
+    fn sidebar_navigation_does_not_cancel_a_mutation() {
+        let mut m = loaded();
+        let transfer = work(m.submit("Upload", json!({"action":"upload"}), Done::Refresh));
+        assert!(m
+            .dispatch("open_section", &json!(["Photos", "photos"]))
+            .is_empty());
+        assert_eq!(m.active.as_ref().unwrap().id, transfer.id);
+        assert_eq!(m.state["page"], "files");
+        assert!(!m.state["fields"]["notice_label"]["value"]
+            .as_str()
+            .unwrap()
+            .is_empty());
+    }
+
     #[test]
     fn dialog_token_and_captured_parent_survive_navigation() {
         let mut m = loaded();

@@ -87,7 +87,7 @@ while read -r nd_child_pid; do
     fi
     nd_children=$((nd_children + 1))
 done < "$nd_check_config/sdk.pids"
-[[ $nd_children == 2 ]]
+[[ $nd_children == 3 ]]
 echo NATIVE_CONTROLLER_CHILDREN_REAPED
 timeout 30 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" -- \
     /bin/bash "$nd_root/desktop/tests/check-services.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"

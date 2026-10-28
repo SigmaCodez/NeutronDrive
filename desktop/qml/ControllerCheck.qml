@@ -90,7 +90,21 @@ Item {
                     cancelled.dispatch("action", '["refresh"]');
                     workerStarted = Date.now(); stage = 6;
                 } else if (stage === 6 && Date.now() - workerStarted >= 1500) {
-                    require(JSON.parse(cancelled.stateJson).busy, "second live backend before shutdown");
+                    require(JSON.parse(cancelled.stateJson).busy, "slow listing before navigation");
+                    cancelled.dispatch("open_section", '["Photos","photos"]');
+                    require(JSON.parse(cancelled.stateJson).page === "photos", "photo section changes immediately during slow listing");
+                    cancelled.dispatch("open_section", '["Shared","/shared-with-me"]');
+                    require(JSON.parse(cancelled.stateJson).path === "/shared-with-me", "new destination wins while cancelling");
+                    cancelled.dispatch("open_section", '["Activity","activity"]');
+                    require(JSON.parse(cancelled.stateJson).page === "activity", "local section remains responsive");
+                    stage = 7;
+                } else if (stage === 7 && !JSON.parse(cancelled.stateJson).busy) {
+                    require(JSON.parse(cancelled.stateJson).page === "activity", "late result cannot restore old page");
+                    require(!JSON.parse(cancelled.stateJson).noticeError, "obsolete read cancellation stays silent");
+                    cancelled.dispatch("action", '["refresh"]');
+                    workerStarted = Date.now(); stage = 8;
+                } else if (stage === 8 && Date.now() - workerStarted >= 1500) {
+                    require(JSON.parse(cancelled.stateJson).busy, "live backend before shutdown");
                     cancelled.shutdown(); cancelled.shutdown();
                     require(!cancelled.workerRunning(), "shutdown joins and reaps in-flight backend");
                     console.log("NATIVE_CONTROLLER_OK"); finish(0);
@@ -98,5 +112,5 @@ Item {
             } catch (error) { console.error(error); finish(1); }
         }
     }
-    Timer { interval: 10000; running: true; onTriggered: finish(2) }
+    Timer { interval: 15000; running: true; onTriggered: finish(2) }
 }

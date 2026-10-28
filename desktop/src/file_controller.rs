@@ -209,7 +209,8 @@ impl qobject::NativeFiles {
         let photos = (self.rust().photos_revision != photos_revision)
             .then(|| QString::from(model.state["photos"].to_string()));
         let revision = model.files_revision;
-        let entries = QString::from(model.entries.to_string());
+        let entries = (self.rust().files_revision != revision)
+            .then(|| QString::from(model.entries.to_string()));
         if let Some(photos) = photos {
             self.as_mut().rust_mut().photos_revision = photos_revision;
             self.as_mut().rust_mut().photos_json = photos;
@@ -219,7 +220,7 @@ impl qobject::NativeFiles {
             self.as_mut().rust_mut().state_json = state;
             self.as_mut().state_json_changed();
         }
-        if self.rust().files_revision != revision {
+        if let Some(entries) = entries {
             self.as_mut().rust_mut().files_revision = revision;
             self.as_mut().rust_mut().files_json = entries;
             self.files_json_changed();
