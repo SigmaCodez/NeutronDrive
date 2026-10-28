@@ -151,6 +151,7 @@ struct Mount {
     observed: BTreeMap<String, Value>,
     downloading: BTreeSet<u64>,
     error: String,
+    cloud_errors: BTreeMap<(u64, &'static str), String>,
     blocked: bool,
     closed: bool,
     #[cfg(test)]
@@ -285,6 +286,7 @@ impl Mount {
             observed: BTreeMap::new(),
             downloading: BTreeSet::new(),
             error: String::new(),
+            cloud_errors: BTreeMap::new(),
             blocked: false,
             closed: false,
             #[cfg(test)]
@@ -292,7 +294,22 @@ impl Mount {
         })
     }
     fn status(&self) -> Value {
-        json!({"last_error":self.error,"account_blocked":self.blocked,"writable":self.config.writable,"offline":self.config.offline,"root_uid":self.tree.entries.iter().find(|e|e.inode==1).map(|e|field(&e.node,"uid")).unwrap_or("")})
+        json!({"last_error":if self.error.is_empty() { self.cloud_errors.values().next().map(String::as_str).unwrap_or("") } else { &self.error },"account_blocked":self.blocked,"writable":self.config.writable,"offline":self.config.offline,"root_uid":self.tree.entries.iter().find(|e|e.inode==1).map(|e|field(&e.node,"uid")).unwrap_or("")})
+    }
+    // A successful operation may only clear the warning for the work it
+    // completed, not another pinned subtree or an unsaved-write error.
+    fn cloud_failure(
+        &mut self,
+        inode: u64,
+        operation: &'static str,
+        context: &str,
+        error: &Failure,
+    ) {
+        self.cloud_errors
+            .insert((inode, operation), format!("{context} {}", error.message));
+    }
+    fn cloud_recovered(&mut self, inode: u64, operation: &'static str) {
+        self.cloud_errors.remove(&(inode, operation));
     }
     fn entry(&self, inode: u64) -> Result<Entry> {
         self.tree
@@ -389,6 +406,9 @@ impl Mount {
         self.downloading.insert(root);
         self.publish(true);
         let result = self.sync_pin_tree_inner(root, host);
+        if result.is_ok() && !self.config.offline {
+            self.cloud_recovered(root, "pin");
+        }
         self.downloading.remove(&root);
         self.publish(true);
         result
@@ -444,6 +464,9 @@ impl Mount {
                 let hydrated = self.hydrate(&current, host);
                 self.downloading.remove(&inode);
                 hydrated?;
+                if !self.config.offline {
+                    self.cloud_recovered(inode, "content");
+                }
                 if let Some(saved) = self.tree.entries.iter_mut().find(|e| e.inode == inode) {
                     saved.node = current;
                 }
@@ -490,6 +513,9 @@ impl Mount {
         }
         self.loaded.insert(inode, Instant::now());
         self.save()?;
+        self.cloud_recovered(inode, "metadata");
+        self.cloud_errors
+            .retain(|(id, _), _| self.tree.entries.iter().any(|entry| entry.inode == *id));
         self.listdir(inode, false, host)
     }
     fn listdir(&mut self, inode: u64, refresh: bool, host: &mut impl Services) -> Result<Value> {
@@ -512,9 +538,12 @@ impl Mount {
                 {
                     // Avoid retrying the same failed network request for every stat/lookup.
                     self.loaded.insert(inode, Instant::now());
-                    self.error =
-                        "Cloud unavailable; showing saved metadata. Pinned files remain readable."
-                            .into();
+                    self.cloud_failure(
+                        inode,
+                        "metadata",
+                        "Cloud unavailable; showing saved metadata. Pinned files remain readable.",
+                        &error,
+                    );
                 }
                 Err(e) => return Err(e),
             }
@@ -630,6 +659,7 @@ impl Mount {
         } else if self.files.values().any(|f| f.inode == inode && f.writable) {
             return Err(fail(libc::EBUSY, "A writer already has this file open"));
         }
+        let mut cloud_confirmed = false;
         if !self.config.offline && !entry.local {
             let current = (|| -> Result<Value> {
                 self.check_root(host)?;
@@ -638,14 +668,29 @@ impl Mount {
                 Ok(n)
             })();
             match current {
-                Err(Error::Backend(_)) if !writable && self.tree.pinned.contains(&inode) => {
-                    self.error = "Cloud unavailable; opening the verified pinned snapshot.".into();
+                Err(Error::Backend(error))
+                    if !error.cancelled && !writable && self.tree.pinned.contains(&inode) =>
+                {
+                    self.cloud_failure(
+                        inode,
+                        "content",
+                        "Cloud unavailable; opening the verified pinned snapshot.",
+                        &error,
+                    );
                 }
                 Err(e) => return Err(e),
                 Ok(current) => {
+                    cloud_confirmed = true;
                     if revision(&current) != revision(&entry.node) {
                         if self.tree.pinned.contains(&inode) {
-                            match self.hydrate(&current,host){Ok(_)=>entry.node=current,Err(Error::Backend(_)) if !writable=>self.error="New cloud revision unavailable; using the verified pinned snapshot.".into(),Err(e)=>return Err(e)}
+                            match self.hydrate(&current, host) {
+                                Ok(_) => entry.node = current,
+                                Err(Error::Backend(error)) if !error.cancelled && !writable => {
+                                    cloud_confirmed = false;
+                                    self.cloud_failure(inode, "content", "New cloud revision unavailable; using the verified pinned snapshot.", &error);
+                                }
+                                Err(e) => return Err(e),
+                            }
                         } else {
                             entry.node = current;
                         }
@@ -659,6 +704,9 @@ impl Mount {
             return Err(fail(libc::EBUSY, "The new file is already being created"));
         }
         let source = self.hydrate(&entry.node, host)?;
+        if cloud_confirmed {
+            self.cloud_recovered(inode, "content");
+        }
         self.observed
             .insert(field(&entry.node, "uid").into(), entry.node.clone());
         let native = if writable {
@@ -949,12 +997,12 @@ impl Mount {
                         Err(Error::Backend(error)) if !error.cancelled => {
                             // Invalidation must still succeed while disconnected;
                             // verified snapshots remain available for read-only opens.
-                            self.error = "Cloud unavailable; pinned refresh is pending. Verified files remain readable.".into();
+                            self.cloud_failure(inode, "pin", "Cloud unavailable; pinned refresh is pending. Verified files remain readable.", &error);
                         }
                         Err(error) => return Err(error),
                     }
                 }
-                Value::Null
+                json!({"pending":self.cloud_errors.keys().any(|(_, operation)| *operation == "pin")})
             }
             Action::BlockAccount => {
                 self.blocked = true;
@@ -1006,6 +1054,7 @@ impl Mount {
                             continue;
                         }
                         self.tree.pinned.remove(&id);
+                        self.cloud_recovered(id, "pin");
                         if let Some(children) = self.tree.children.get(&id) {
                             pending.extend(children.values().copied());
                         }
@@ -1427,6 +1476,135 @@ mod tests {
             metadata_ttl: 15.0,
         }
     }
+    #[test]
+    fn metadata_outage_recovers_without_hiding_pending_pin_or_write_errors() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        host.online = false;
+        mount.apply(Action::Invalidate, &mut host).unwrap();
+        mount.listdir(1, true, &mut host).unwrap();
+        assert!(mount.status()["last_error"]
+            .as_str()
+            .unwrap()
+            .contains("synthetic network outage"));
+        host.online = true;
+        mount.refresh_snapshot(1, &mut host).unwrap();
+        // Listing metadata alone has not verified the pinned file revisions.
+        assert!(mount.status()["last_error"]
+            .as_str()
+            .unwrap()
+            .contains("pinned refresh is pending"));
+        host.content = b"changed during outage".to_vec();
+        host.revision = 2;
+        mount.apply(Action::Invalidate, &mut host).unwrap();
+        assert_eq!(mount.status()["last_error"], "");
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        assert_eq!(mount.entry(inode).unwrap().node["revision"], "r2");
+        let file = io::verified(
+            &mount.objects.join(io::key(&host.node()).unwrap()),
+            &host.node(),
+        )
+        .unwrap();
+        assert_eq!(file.metadata().unwrap().len(), host.content.len() as u64);
+        mount.error = WRITE_FAILED.into();
+        mount.apply(Action::Invalidate, &mut host).unwrap();
+        assert_eq!(mount.status()["last_error"], WRITE_FAILED);
+        assert_eq!(host.uploads, 0);
+    }
+
+    #[test]
+    fn unpin_clears_only_the_cancelled_pin_refresh_warning() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        host.online = false;
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            true
+        );
+        mount.error = WRITE_FAILED.into();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: false,
+                },
+                &mut host,
+            )
+            .unwrap();
+        assert_eq!(
+            mount.apply(Action::Invalidate, &mut host).unwrap()["pending"],
+            false
+        );
+        assert_eq!(mount.status()["last_error"], WRITE_FAILED);
+        assert!(!mount
+            .cloud_errors
+            .keys()
+            .any(|(_, operation)| *operation == "pin"));
+    }
+
+    #[test]
+    fn cached_metadata_warning_clears_after_its_directory_recovers() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount.listdir(1, true, &mut host).unwrap();
+        host.online = false;
+        mount.loaded.clear();
+        mount.listdir(1, true, &mut host).unwrap();
+        assert!(!mount.status()["last_error"].as_str().unwrap().is_empty());
+        host.online = true;
+        mount.refresh_snapshot(1, &mut host).unwrap();
+        assert_eq!(mount.status()["last_error"], "");
+    }
+
+    #[test]
+    fn verified_cached_read_warning_recovers_after_online_read() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let mut mount = Mount::new(config(&temp, false), &mut host).unwrap();
+        mount
+            .apply(
+                Action::Pin {
+                    inode: 1,
+                    pinned: true,
+                },
+                &mut host,
+            )
+            .unwrap();
+        let inode = mount.lookup(1, "data", &mut host).unwrap().inode;
+        host.online = false;
+        let file = mount.open(inode, libc::O_RDONLY, &mut host).unwrap();
+        mount.release(file).unwrap();
+        assert!(mount.status()["last_error"]
+            .as_str()
+            .unwrap()
+            .contains("verified pinned snapshot"));
+        host.online = true;
+        let file = mount.open(inode, libc::O_RDONLY, &mut host).unwrap();
+        mount.release(file).unwrap();
+        assert_eq!(mount.status()["last_error"], "");
+    }
+
     #[test]
     fn cached_browsing_does_not_wait_for_sdk_lock() {
         let temp = Temp::new();

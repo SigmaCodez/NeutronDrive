@@ -95,6 +95,7 @@ fn native_service_child() {
 for last do :; done
 if [ "$1" = "auth" ]; then echo $$ > "$SDK_PID_FILE"; exec /bin/sleep 60; fi
 if [ "$1" = "events" ]; then printf '%s\n' '{"protocol":1,"type":"batch","roots":[{"path":"/my-files","uid":"root","scopeId":"scope"}],"events":[],"cursors":{"scope":"next"},"resets":[]}'; exit 0; fi
+if [ "$2" = "info" ] && [ "$last" != "/my-files" ] && [ -f "$SDK_FAIL_FILE" ]; then printf 'network synthetic outage\n' >&2; exit 1; fi
 file='{"uid":"data","name":{"ok":true,"value":"data"},"type":"file","activeRevision":{"uid":"r1","claimedSize":3,"claimedDigests":{"sha1":"a9993e364706816aba3e25717850c26c9cd0d89d","sha1Verified":true}}}'
 if [ "$2" = "download" ]; then printf abc > "$last/data"; printf '%s\n' '{}'; exit 0; fi
 if [ "$2" = "list" ]; then printf '[%s]\n' "$file"; exit 0; fi
@@ -104,6 +105,8 @@ printf '%s\n' "$file"
     std::fs::set_permissions(&sdk, std::fs::Permissions::from_mode(0o700)).unwrap();
     let pidfile = root.0.join("sdk.pid");
     std::env::set_var("SDK_PID_FILE", &pidfile);
+    let failfile = root.0.join("sdk-offline");
+    std::env::set_var("SDK_FAIL_FILE", &failfile);
     if case == "mount" {
         let helpers = root.0.join("helpers");
         std::fs::create_dir(&helpers).unwrap();
@@ -208,6 +211,45 @@ printf '%s\n' "$file"
         assert_eq!(still_live["result"]["events"]["state"], "ready");
         drop(held);
         assert_eq!(request(json!({"action":"pin","path":"data"}))["ok"], true);
+        assert_eq!(request(json!({"action":"unmount"}))["ok"], true);
+        // The persisted pin is refreshed by the real event->SDK path on remount.
+        // A failed download/info must retain the event for automatic retry.
+        std::fs::write(&failfile, b"offline").unwrap();
+        assert_eq!(
+            request(json!({"action":"mount","mountpoint":point}))["ok"],
+            true
+        );
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            let status = request(json!({"action":"status"}));
+            if status["result"]["events"]["state"] == "error" {
+                assert!(status["result"]["error"]
+                    .as_str()
+                    .unwrap()
+                    .contains("pinned refresh is pending"));
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "Failed pin was incorrectly acknowledged: {status}"
+            );
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        std::fs::remove_file(&failfile).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(50);
+        loop {
+            let status = request(json!({"action":"status"}));
+            if status["result"]["events"]["state"] == "ready" {
+                assert_eq!(status["result"]["error"], "", "{status}");
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "Cloud refresh did not recover: {status}"
+            );
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert_eq!(std::fs::read(point.join("data")).unwrap(), b"abc");
         assert_eq!(request(json!({"action":"unmount"}))["ok"], true);
         assert_eq!(
             request(json!({"action":"status"}))["result"]["events"]["state"],

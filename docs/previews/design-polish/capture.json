@@ -1,19 +1,19 @@
 {
-  "preview_version": "1.0.2",
-  "published_release": "v1.0.2",
-  "binary_version": "NeutronDrive 1.0.2",
-  "binary_sha256": "5f682dc450a05f22d93845a0931e49b3c60663ed16d7cdf5b788858e593002fe",
-  "package": "neutrondrive_1.0.2-1_amd64.deb",
-  "package_sha256": "35f6a3b7eb65c3a50006f8167d9800761bab4696cc546405cb234f135768d9bb",
-  "captured_at": "2026-10-27T19:47:55.019317+00:00",
+  "preview_version": "1.0.3",
+  "published_release": "v1.0.3",
+  "binary_version": "NeutronDrive 1.0.3",
+  "binary_sha256": "cab193bc70a1a7e84ce668898b1dfb6c19872eed7947618adb9911505c30a519",
+  "package": "neutrondrive_1.0.3-1_amd64.deb",
+  "package_sha256": "c165ed8355e93e56375b3551e39b3b92d557a4e26d1350d4856125f6452b4cc3",
+  "captured_at": "2026-10-28T00:06:05.680311+00:00",
   "language": "en",
-  "environment": "Unmodified GitHub-built 1.0.2 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated HOME/XDG.",
+  "environment": "Unmodified GitHub-built 1.0.3 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
   "data": "Synthetic English demo data; direct GUI captures, no image edits or personal files.",
   "images": {
-    "light-grid.png": "b047923f0907b64098ddfcb70a963414e0515bafe7ebb58dccc68a4933cf8cb5",
-    "dark-grid.png": "2b6b45c04e7ad563734109b9f29b92ff049c8b0a5644f5c799e371fa1da9fbfe",
-    "compact-files.png": "f410fdc08e847386d0d92cb91b59733bd6f39b2b22110e7d452d08a21aa92dd6",
-    "dark-settings.png": "c5cff5fa7bc448b371dda52231419bc60fef98991aaab64e08c35226b82b255d",
-    "light-photos.png": "6d486bf7870bb8ea8147813b6a6a03fa9c2b4a094735cf3e0d4035680e134997"
+    "light-grid.png": "e9d8644c98b3e5ea2e1b99ecf2eed14b036868572bff41208f4c61021c05e76f",
+    "dark-grid.png": "436b6c55bb9d6abdc01e483dff4887dd34edc67ad57452b8fcbaf352f5cbb7fe",
+    "compact-files.png": "a554fdae29a4b1fd08c96283f3a3e60b310a1a050f64a4d00cee9e92639e038e",
+    "dark-settings.png": "ca57170b4ef85141c45041a4c8c11eb299eac1466057e4e93f479fef20ae2fed",
+    "light-photos.png": "88fbeda40c6bd562b62c3a0448b6a79d282139f82ca1c416af3c4a4ccb532789"
   }
 }
