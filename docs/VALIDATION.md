@@ -463,7 +463,7 @@ All published previews were freshly captured from the alpha11 AMD64 DEB
 executable in an isolated English profile and visually inspected.
 [GUI-PREVIEWS.json](GUI-PREVIEWS.json) records binary and image hashes.
 
-## Unreleased — advanced public-link settings (2026-10-28)
+## 1.0.5 — advanced public-link settings (2026-10-28)
 
 - 200 core unit tests and 21 compiled-runtime/integration tests passed, including
   a fake SDK process that verifies passwords arrive only on stdin and never in
@@ -486,3 +486,21 @@ executable in an isolated English profile and visually inspected.
 This is working-branch validation, not an installed package or published release.
 Multi-account support, Docs/Sheets export, complete folder-deletion propagation
 and atomic cross-client sync remain unimplemented; see SHARING-AND-REMAINING-LIMITS.md.
+
+
+### FUSE test-profile isolation correction
+
+Two FUSE fixtures previously isolated state but inherited the real GTK configuration
+profile. Mounting their temporary folders therefore wrote bookmarks outside the
+test directories. Both fixtures now isolate configuration, cache and data as well.
+The service fixture supplies an outer bookmark sentinel and asserts that it remains
+byte-identical; repeated mounts must create exactly one bookmark in the inner
+profile. The owned-mount fixture also verifies the expected inner bookmark.
+
+The corrected runtime and desktop-service suites passed locally with real FUSE
+and private D-Bus enabled (17 tests), and Clippy passed. A separate SHA-256 check
+confirmed the real GTK bookmark file stayed unchanged. Stale favorites from these
+test directories were removed locally after backing up that file; the real sync
+favorite was retained. This change affects test infrastructure, not application
+runtime or release binaries. It was verified locally after the native CI build;
+release provenance records it among post-build changes.

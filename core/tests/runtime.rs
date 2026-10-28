@@ -13,6 +13,9 @@ fn request(value: Value) -> (bool, Value) {
     std::fs::create_dir(&state).unwrap();
     let mut child = Command::new(env!("CARGO_BIN_EXE_neutrondrive-runtime"))
         .env("XDG_STATE_HOME", &state)
+        .env("XDG_CONFIG_HOME", state.join("config"))
+        .env("XDG_CACHE_HOME", state.join("cache"))
+        .env("XDG_DATA_HOME", state.join("data"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -521,6 +524,11 @@ fn owned_mount_lifecycle_uses_native_sdk_without_python() {
             worker.join().unwrap();
             assert_eq!(read.unwrap(), b"abc");
             request(json!({"action":"forget","id":id}));
+            let bookmarks = std::fs::read_to_string(root.join("config/gtk-3.0/bookmarks")).unwrap();
+            assert_eq!(
+                bookmarks,
+                format!("file://{} Proton Drive\n", root.join("kernel").display())
+            );
         }
         return;
     }
@@ -549,6 +557,9 @@ printf '%s\n' "$file"
         ])
         .env("ND_MOUNT_NATIVE_WORKER", &root)
         .env("XDG_STATE_HOME", root.join("state"))
+        .env("XDG_CONFIG_HOME", root.join("config"))
+        .env("XDG_CACHE_HOME", root.join("cache"))
+        .env("XDG_DATA_HOME", root.join("data"))
         .env("PATH", &helpers)
         .output()
         .unwrap();

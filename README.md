@@ -92,6 +92,7 @@ with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PRE
 - Settings navigation and explicit cancellation are respected even when an older request completes late.
 - The separate sharing window now supports link passwords, expiry dates, viewer/editor permissions and editor resharing.
 - Sharing changes require confirmation and fresh file-identity/settings checks. Passwords travel over private stdin, not process arguments.
+- Developer FUSE tests use isolated configuration profiles, preventing temporary mount favorites from appearing in the real file manager.
 - Whole-folder deletion protection remains enabled. Multi-account support, native Docs/Sheets export and atomic conflict-free sync remain outside this release.
 
 ## What you can do
