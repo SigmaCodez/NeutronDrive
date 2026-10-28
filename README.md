@@ -88,11 +88,11 @@ with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PRE
 
 ## New in 1.0.4
 
-- Automatic cloud events now refresh files and folders marked **Keep on device** through the Proton SDK.
-- Failed pinned refreshes retain their event cursor and retry automatically instead of being silently acknowledged.
-- Temporary cloud warnings clear after the affected operation recovers; pending updates and unsaved-write errors remain visible.
-- Removing an offline pin cancels its pending refresh warning.
-- Added real FUSE/D-Bus outage-and-recovery regression coverage. The previous photo browsing and keyboard improvements remain included.
+- Cloud changes to open offline files remain pending until they can be refreshed safely, preserving the bytes seen by existing readers.
+- Interrupted first downloads retain **Keep on device** selections across mount restarts and can retry automatically.
+- Successful parent refreshes clear recovered child warnings without hiding unresolved parent refreshes or unsaved-write errors.
+- Freeing folder storage scans the object cache once, preserving pinned/open files and unrelated cached content.
+- Pinned-root selection avoids repeated full-metadata searches. The fixes and features from 1.0.3 remain included.
 
 ## What you can do
 
