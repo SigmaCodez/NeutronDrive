@@ -1,6 +1,6 @@
 Name:           neutrondrive
 Epoch:          1
-Version:        1.0.4
+Version:        1.0.5
 Release:        1%{?dist}
 Summary:        Independent Qt client for Proton Drive
 License:        MIT

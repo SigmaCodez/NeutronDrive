@@ -1,6 +1,6 @@
 {
-  "version": "0.2.0-alpha5",
-  "published": "2026-10-27",
+  "version": "1.0.5",
+  "published": "2026-10-28",
   "source_repository": "https://github.com/ProtonDriveApps/sdk.git",
   "source_commit": "8a44654aece1609f0f7218be51c205103945abd8",
   "source_lock": "packaging/bridge/source-lock.json",
@@ -8,21 +8,21 @@
   "sdk_version": "0.22.2+8a44654aece1",
   "architectures": {
     "x86_64": {
-      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.1/proton-drive-linux-x64",
-      "sha512": "e1af4ed42461d5d2d989d3007103ef665059bc281254dee2d725183666b70d9917340ba0e03a7224250a50f5a56032f985ad93b3fdceabd9e50ba83291499da3",
-      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.1/proton-drive-linux-x64.provenance.json",
+      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.5/proton-drive-linux-x64",
+      "sha512": "edbc1f33c9da75c384a56541d2e49f2ef075f5b9b73ccbcb0f6f1e46cd15bb50c47ef2d3f603ae3a9384ecc4b7d5077fba0bdb7e749f0779a628c8e7fb89b166",
+      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.5/proton-drive-linux-x64.provenance.json",
       "target": "bun-linux-x64-baseline",
       "debian": "amd64",
       "rpm": "x86_64"
     },
     "aarch64": {
-      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.1/proton-drive-linux-arm64",
-      "sha512": "23e5bdc1e6b34ad9b7f4fd7a5a496d0f282ea62d008e832b17568e35996b3b0d8235e3712b87b2a03a6bd1015130068fca70286ed065a302932810d4da66596c",
-      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.1/proton-drive-linux-arm64.provenance.json",
+      "url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.5/proton-drive-linux-arm64",
+      "sha512": "bb9fc0ec2ff831e6df96abc55f8c6e230c17a834f007b39305bdee0f23f8d1c33d85bb077ac5097f1dc7ab9eaab6c84dc9ab6aec21c386301b082e299df13f17",
+      "provenance_url": "https://github.com/SigmaCodez/NeutronDrive/releases/download/v1.0.5/proton-drive-linux-arm64.provenance.json",
       "target": "bun-linux-arm64",
       "debian": "arm64",
       "rpm": "aarch64"
     }
   },
-  "application_release": "v1.0.1"
+  "application_release": "v1.0.5"
 }

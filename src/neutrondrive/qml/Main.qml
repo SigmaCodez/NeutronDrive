@@ -276,7 +276,7 @@ ApplicationWindow {
                         objectName: "nav-"+modelData.key
                         Layout.fillWidth: true; implicitHeight: 42
                         text: modelData.name
-                        onClicked: modelData.key.charAt(0)==="/" ? controller.navigate(modelData.name,modelData.key) : (modelData.key==="photos" ? (controller.show_page("photos"),controller.send("photo_library",[{action:"index",album:""}])) : controller.show_page(modelData.key))
+                        onClicked: controller.send("open_section",[modelData.name,modelData.key])
                         Accessible.name: text
                         contentItem: RowLayout {
                             spacing: 12

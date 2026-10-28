@@ -49,6 +49,11 @@ pub struct Work {
 }
 #[derive(Clone, Debug)]
 enum Answer {
+    LinkSettings {
+        node: Value,
+        value: Value,
+        settings: Value,
+    },
     TakeoutFolder,
     TakeoutImport(Value),
     Invite {
@@ -113,6 +118,11 @@ pub enum Effect {
     Close,
     Hide,
 }
+enum Navigation {
+    Section(String, String),
+    Page(String),
+    Cancelled,
+}
 pub struct Files {
     pub locale: Localization,
     pub state: Value,
@@ -128,6 +138,7 @@ pub struct Files {
     pending: Option<(u64, Answer)>,
     serial: u64,
     active: Option<Work>,
+    navigation_pending: Option<Navigation>,
     next_work: u64,
     login_url: Option<String>,
     background_local: Option<String>,
@@ -209,6 +220,7 @@ impl Files {
             pending: None,
             serial: 0,
             active: None,
+            navigation_pending: None,
             next_work: 0,
             login_url: None,
             background_local: None,
@@ -646,6 +658,24 @@ impl Files {
         if self.closing {
             return vec![Effect::Close];
         }
+        if let Some(destination) = self.navigation_pending.take() {
+            // Superseded reads may finish successfully despite cancellation.
+            // Their results must never replace the newly selected section.
+            self.state["activity"][0]["status"] = self.tr("Abgebrochen").into();
+            self.field("status_label", json!(self.tr("Bereit")));
+            return match destination {
+                Navigation::Section(title, path) => self.open_section(&title, &path),
+                Navigation::Page(page) => match page.as_str() {
+                    "files" => self.refresh(),
+                    "photos" => self.photo_action(&json!({"action":"index", "album":""})),
+                    _ => self.dispatch("show_page", &json!([page])),
+                },
+                Navigation::Cancelled => {
+                    self.field("status_label", json!(self.tr("Abgebrochen")));
+                    vec![]
+                }
+            };
+        }
         if work.done == Done::CloseStatus {
             return if result.is_ok_and(|value| value["running"] == true) {
                 vec![Effect::Hide]
@@ -910,7 +940,7 @@ impl Files {
     fn share_dialog(&mut self, node: Value, value: Value) -> Vec<Effect> {
         let url = text(&value["urlAccess"], "url").to_string();
         let title = format!("{}{}", self.tr("Freigabe · "), text(&node, "name"));
-        self.dialog("share",&title,"Jeder mit diesem Link erhält Lesezugriff. Passwort, Ablaufdatum und Mitgliederverwaltung sind in der Proton-Web-App verfügbar.",json!({"url":url,"node":node}),Answer::Share{node,value})
+        self.dialog("share",&title,"Manage access by link or email. Empty password and expiration fields remove these restrictions.",json!({"url":url,"node":node,"linkSettings":{"uid":text(&value["urlAccess"],"uid"),"role":value["urlAccess"]["role"].as_str().unwrap_or("viewer"),"password":text(&value["urlAccess"],"customPassword"),"expiration":text(&value["urlAccess"],"expirationTime"),"editorsCanShare":value["editorsCanShare"].as_bool().unwrap_or(false)}}),Answer::Share{node,value})
     }
     fn local_paths(value: &Value) -> Vec<String> {
         value
@@ -934,9 +964,9 @@ impl Files {
         let (_, answer) = self.pending.take().unwrap();
         if !accepted {
             return match answer {
-                Answer::Invite { node, value, .. } | Answer::Revoke { node, value } => {
-                    self.share_dialog(node, value)
-                }
+                Answer::Invite { node, value, .. }
+                | Answer::Revoke { node, value }
+                | Answer::LinkSettings { node, value, .. } => self.share_dialog(node, value),
                 _ => vec![],
             };
         }
@@ -944,6 +974,7 @@ impl Files {
         let response = value.clone();
         match answer {
             Answer::Invite { node, email, role, .. } => self.submit("Share by email",json!({"action":"invite","path":node["path"],"email":email,"role":role}),Done::ShareReload(node)),
+            Answer::LinkSettings { node, settings, .. } => self.submit("Save link settings", json!({"action":"set_link","path":node["path"],"settings":settings}), Done::ShareReload(node)),
             Answer::TakeoutFolder => {
                 let Some(root)=Self::local_paths(value).into_iter().next() else { return vec![]; };
                 self.submit("Google Takeout import",json!({"action":"takeout_scan","root":root}),Done::TakeoutScan)
@@ -1006,6 +1037,13 @@ impl Files {
                 Done::ShareReload(node),
             ),
             Answer::Share { node, value } => {
+                if response["action"] == "settings" {
+                    let mut settings = response.clone();
+                    settings.as_object_mut().unwrap().remove("action");
+                    settings["nodeUid"] = node["uid"].clone();
+                    settings["expected"] = json!({"uid":text(&value["urlAccess"],"uid"),"role":value["urlAccess"]["role"].as_str().unwrap_or("viewer"),"password":text(&value["urlAccess"],"customPassword"),"expiration":text(&value["urlAccess"],"expirationTime"),"editorsCanShare":value["editorsCanShare"].as_bool().unwrap_or(false)});
+                    return self.dialog("confirm","Save link settings?","Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",json!({}),Answer::LinkSettings {node,value,settings});
+                }
                 if response["action"] == "invite" {
                     let email=text(&response,"email").trim().to_string();
                     let role=text(&response,"role").to_string();
@@ -1036,6 +1074,69 @@ impl Files {
             }
         }
     }
+    fn active_read(&self) -> bool {
+        self.active.as_ref().is_some_and(|work| {
+            matches!(work.done, Done::Loaded | Done::Photos | Done::TrashList)
+                || matches!(&work.done, Done::PhotoLibrary(request) if matches!(text(request, "action"), "index" | "details" | "albums"))
+        })
+    }
+    fn open_section(&mut self, title: &str, destination: &str) -> Vec<Effect> {
+        let file_section = [
+            "/my-files",
+            "/shared-with-me",
+            "/shared-by-me",
+            "/devices",
+            "/trash",
+        ]
+        .contains(&destination);
+        if !file_section
+            && ![
+                "photos",
+                "local-trash",
+                "activity",
+                "settings",
+                "computer-backup",
+                "ondemand",
+            ]
+            .contains(&destination)
+        {
+            return vec![];
+        }
+        if self.busy() && !self.active_read() {
+            // Uploads, deletes, login and other transactions keep their
+            // existing completion/confirmation semantics.
+            self.message(
+                &self.tr("Es läuft bereits ein Vorgang. Bitte warten oder abbrechen."),
+                false,
+            );
+            return vec![];
+        }
+        self.message("", false);
+        self.state["history"]["visible"] = json!(false);
+        self.state["page"] = json!(if file_section { "files" } else { destination });
+        self.state["settingsSync"] = json!(false);
+        if file_section {
+            self.crumbs = vec![(title.into(), destination.into())];
+            self.state["path"] = json!(destination);
+            self.state["crumbs"] = json!([title]);
+            self.field("files_title", json!(title));
+            self.field("search", json!(""));
+            self.nodes.clear();
+            self.render();
+        }
+        if self.busy() {
+            // One pending destination, not a queue of obsolete SDK requests.
+            self.navigation_pending = Some(Navigation::Section(title.into(), destination.into()));
+            return vec![Effect::Cancel];
+        }
+        if file_section {
+            self.refresh()
+        } else if destination == "photos" {
+            self.photo_action(&json!({"action":"index", "album":""}))
+        } else {
+            self.dispatch("show_page", &json!([destination]))
+        }
+    }
     fn navigate(&mut self) -> Vec<Effect> {
         let (title, path) = self.crumbs.last().unwrap().clone();
         self.state["path"] = path.into();
@@ -1056,6 +1157,12 @@ impl Files {
             return vec![];
         }
         match method {
+            "open_section" => {
+                return self.open_section(
+                    args[0].as_str().unwrap_or(""),
+                    args[1].as_str().unwrap_or(""),
+                )
+            }
             "request_close" => {
                 if args[0] == true {
                     self.message(
@@ -1137,6 +1244,14 @@ impl Files {
                     args[0].clone()
                 };
                 self.state["settingsSync"] = json!(args[0] == "background");
+                if self.active_read() {
+                    // Account-menu and internal page links participate in the
+                    // same latest-destination rule as sidebar navigation.
+                    self.navigation_pending =
+                        Some(Navigation::Page(args[0].as_str().unwrap().into()));
+                    self.message("", false);
+                    return vec![Effect::Cancel];
+                }
                 if args[0] == "local-trash" {
                     return self.refresh_trash();
                 }
@@ -1331,6 +1446,14 @@ impl Files {
             }
             "answer_dialog" => {
                 return self.answer(args[0].as_u64().unwrap_or(0), args[1] == true, &args[2])
+            }
+            "action" if args[0] == "cancel" => {
+                if self.navigation_pending.is_some() {
+                    // Still discard the obsolete response, but do not launch
+                    // the queued request after an explicit user cancellation.
+                    self.navigation_pending = Some(Navigation::Cancelled);
+                }
+                return vec![Effect::Cancel];
             }
             "action" => return self.action(args[0].as_str().unwrap_or("")),
             _ => {}
@@ -1594,6 +1717,34 @@ mod tests {
         m
     }
     #[test]
+    fn link_settings_capture_original_share_and_require_confirmation() {
+        let mut m = loaded();
+        for node in &mut m.nodes {
+            node["uid"] = json!(text(node, "path"));
+        }
+        m.render();
+        m.select(0, false);
+        let original = m.paths()[0].clone();
+        let request = work(m.action("Freigabe"));
+        let initial = json!({"urlAccess":{"uid":"link","url":"https://drive.proton.me/urls/test","role":"viewer","customPassword":"original","expirationTime":"2099-01-01T00:00:00.000Z"},"editorsCanShare":false});
+        let share = dialog(m.complete(request.id, Ok(initial)));
+        assert_eq!(share["linkSettings"]["password"], "original");
+        let confirmation = dialog(m.answer(share["token"].as_u64().unwrap(), true, &json!({"action":"settings","role":"editor","password":"new secret","expiration":"","editorsCanShare":true})));
+        assert!(!confirmation.to_string().contains("new secret"));
+        m.select(2, false);
+        let request = work(m.answer(confirmation["token"].as_u64().unwrap(), true, &Value::Null));
+        assert_eq!(request.operation["path"], original);
+        assert_eq!(
+            request.operation["settings"]["expected"]["password"],
+            "original"
+        );
+        assert_eq!(request.operation["settings"]["password"], "new secret");
+        assert_eq!(request.operation["settings"]["nodeUid"], original);
+        assert_eq!(request.operation["action"], "set_link");
+        let reload = work(m.complete(request.id, Ok(json!({}))));
+        assert_eq!(reload.operation["action"], "sharing");
+    }
+    #[test]
     fn sharing_invitation_uses_captured_node_and_requires_confirmation() {
         let mut m = loaded();
         m.select(0, false);
@@ -1714,6 +1865,139 @@ mod tests {
         m.dispatch("edit", &json!(["search", ""]));
         assert_eq!(m.entries.as_array().unwrap().len(), m.nodes.len());
     }
+    #[test]
+    fn sidebar_navigation_keeps_latest_destination_and_discards_old_listing() {
+        let mut m = loaded();
+        let old = work(m.refresh());
+        let effects = m.dispatch("open_section", &json!(["Photos", "photos"]));
+        assert!(effects.iter().any(|e| matches!(e, Effect::Cancel)));
+        assert_eq!(m.state["page"], "photos");
+        m.dispatch("open_section", &json!(["Shared", "/shared-with-me"]));
+        assert_eq!(m.state["path"], "/shared-with-me");
+        assert_eq!(m.state["page"], "files");
+        let next = work(m.complete(old.id, Ok(json!([{"name":"stale"}]))));
+        assert_eq!(
+            next.operation,
+            json!({"action":"list","path":"/shared-with-me"})
+        );
+        assert!(m.nodes.is_empty());
+        assert!(m.complete(old.id, Ok(json!([]))).is_empty());
+        m.complete(next.id, Ok(json!([])));
+        assert!(!m.busy());
+        assert_eq!(m.state["path"], "/shared-with-me");
+    }
+
+    #[test]
+    fn sidebar_photo_load_is_atomic_and_can_be_left_while_loading() {
+        let mut m = loaded();
+        let photo = work(m.dispatch("open_section", &json!(["Photos", "photos"])));
+        assert_eq!(m.state["page"], "photos");
+        assert_eq!(photo.operation["request"]["action"], "index");
+        m.dispatch("open_section", &json!(["Activity", "activity"]));
+        assert_eq!(m.state["page"], "activity");
+        assert!(m
+            .complete(
+                photo.id,
+                Err(Failure {
+                    message: "cancelled read".into(),
+                    cancelled: true
+                })
+            )
+            .is_empty());
+        assert!(!m.busy());
+        assert_eq!(m.state["page"], "activity");
+        assert_ne!(m.state["noticeError"], true);
+    }
+
+    #[test]
+    fn account_settings_override_a_pending_sidebar_destination() {
+        let mut m = loaded();
+        let old = work(m.refresh());
+        m.dispatch("open_section", &json!(["Photos", "photos"]));
+        m.dispatch("show_page", &json!(["settings"]));
+        assert_eq!(m.state["page"], "settings");
+        let effects = m.complete(old.id, Ok(json!([])));
+        assert_eq!(m.state["page"], "settings");
+        assert!(!effects.iter().any(|e| matches!(e, Effect::Work(_))));
+        assert!(!m.busy());
+    }
+
+    #[test]
+    fn explicit_cancel_does_not_start_a_queued_read_or_apply_a_late_response() {
+        for succeeded in [true, false] {
+            let mut m = loaded();
+            let old = work(m.refresh());
+            m.dispatch("open_section", &json!(["Shared", "/shared-with-me"]));
+            assert!(m
+                .dispatch("action", &json!(["cancel"]))
+                .iter()
+                .any(|e| matches!(e, Effect::Cancel)));
+            let result = if succeeded {
+                Ok(nodes())
+            } else {
+                Err(Failure {
+                    message: "cancelled".into(),
+                    cancelled: true,
+                })
+            };
+            assert!(m.complete(old.id, result).is_empty());
+            assert!(!m.busy());
+            assert!(m.nodes.is_empty());
+            assert_eq!(m.state["path"], "/shared-with-me");
+            assert!(m.navigation_pending.is_none());
+            assert_ne!(m.state["noticeError"], true);
+            let retry = work(m.refresh());
+            assert_eq!(retry.operation["path"], "/shared-with-me");
+        }
+    }
+
+    #[test]
+    fn queued_content_page_links_restart_the_required_read() {
+        for page in ["files", "photos"] {
+            let mut m = loaded();
+            let old = work(m.refresh());
+            m.dispatch("open_section", &json!(["Activity", "activity"]));
+            m.dispatch("show_page", &json!([page]));
+            let next = work(m.complete(old.id, Ok(nodes())));
+            assert_eq!(m.state["page"], page);
+            if page == "files" {
+                assert_eq!(next.operation, json!({"action":"list", "path":"/my-files"}));
+            } else {
+                assert_eq!(
+                    next.operation["request"],
+                    json!({"action":"index", "album":""})
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_new_navigation_after_cancel_can_still_load() {
+        let mut m = loaded();
+        let old = work(m.refresh());
+        m.dispatch("open_section", &json!(["Photos", "photos"]));
+        m.dispatch("action", &json!(["cancel"]));
+        m.dispatch("open_section", &json!(["Computer", "/devices"]));
+        let next = work(m.complete(old.id, Ok(nodes())));
+        assert_eq!(next.operation["path"], "/devices");
+        assert!(m.nodes.is_empty());
+    }
+
+    #[test]
+    fn sidebar_navigation_does_not_cancel_a_mutation() {
+        let mut m = loaded();
+        let transfer = work(m.submit("Upload", json!({"action":"upload"}), Done::Refresh));
+        assert!(m
+            .dispatch("open_section", &json!(["Photos", "photos"]))
+            .is_empty());
+        assert_eq!(m.active.as_ref().unwrap().id, transfer.id);
+        assert_eq!(m.state["page"], "files");
+        assert!(!m.state["fields"]["notice_label"]["value"]
+            .as_str()
+            .unwrap()
+            .is_empty());
+    }
+
     #[test]
     fn dialog_token_and_captured_parent_survive_navigation() {
         let mut m = loaded();

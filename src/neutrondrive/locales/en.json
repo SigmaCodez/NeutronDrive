@@ -1,4 +1,5 @@
 {
+  "Abgebrochen": "Cancelled",
   "\nNicht hochgeladene Änderungen im Wiederherstellungsspeicher: ": "\nChanges not uploaded, in recovery storage: ",
   " · Demo ohne Dateizugriff": " · Demo without file access",
   " · abgeschlossen": " · completed",
@@ -736,5 +737,17 @@
   "Übernehmen": "Apply",
   "Übertragung(en) fehlgeschlagen oder ungültiger Ergebnisstatus. Erfolgreiche Teilübertragungen bleiben erhalten.": "Transfer(s) failed or the result status is invalid. Successful partial transfers are preserved.",
   "Überwachter Ordner konnte nicht gelesen werden.": "The monitored folder could not be read.",
-  "Überwachter Ordner wurde verändert.": "The monitored folder changed."
+  "Überwachter Ordner wurde verändert.": "The monitored folder changed.",
+  "Manage access by link or email. Empty password and expiration fields remove these restrictions.": "Manage access by link or email. Empty password and expiration fields remove these restrictions.",
+  "Link settings": "Link settings",
+  "Link access": "Link access",
+  "Password (empty: no password)": "Password (empty: no password)",
+  "Expiration date, end of day UTC (empty: no expiration)": "Expiration date, end of day UTC (empty: no expiration)",
+  "Editors can share": "Editors can share",
+  "Save link settings": "Save link settings",
+  "Save link settings?": "Save link settings?",
+  "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
+  "Choose a future expiration date": "Choose a future expiration date",
+  "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
 }

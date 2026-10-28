@@ -91,6 +91,10 @@ pub enum Operation {
     Sharing {
         path: String,
     },
+    SetLink {
+        path: String,
+        settings: Value,
+    },
     CreateLink {
         path: String,
     },
@@ -179,6 +183,26 @@ fn run_uncached(
     operation: Operation,
     callback: &mut impl FnMut(Value) -> i32,
 ) -> Result<Value> {
+    if let Operation::SetLink { path, settings } = &operation {
+        backend::remote(path)?;
+        let input = settings.to_string();
+        if !settings.is_object() || input.len() > 4096 {
+            return Err("Invalid link settings".into());
+        }
+        return process::run_with_input(
+            process::Request {
+                version: 1,
+                executable,
+                args: command(&["sharing", "configure", "--json", "--", path]),
+                timeout: 120.,
+                parse: true,
+                login: false,
+                max_output: 1024 * 1024,
+            },
+            Some(&input),
+            callback,
+        );
+    }
     execute(
         operation,
         callback,
@@ -483,6 +507,7 @@ where
             optional = true;
             command(&["sharing", "remove-url", "--json", "--", &path])
         }
+        Operation::SetLink { .. } => return Err("Link settings require private transport".into()),
         Operation::CreateLink { path } => {
             backend::remote(&path)?;
             command(&[
