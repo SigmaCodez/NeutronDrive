@@ -250,30 +250,44 @@ impl Services for Native {
                 });
                 self.events(Events::Start { id: event_id })?;
                 let executable = shared.config.executable.clone();
+                let event_shared = shared.clone();
                 match thread::Builder::new()
                     .name("neutrondrive-events".into())
                     .spawn(move || {
                         let _ = event_source::run(
                             Events::Run { id: event_id },
-                            Some(executable),
-                            false,
+                            Some(executable.clone()),
+                            true,
                             &mut |value| {
-                                if value["kind"] == "remote_event"
-                                    && value["event"]["kind"] != "error"
-                                {
-                                    let event = &value["event"];
-                                    if mount(
-                                        Mount::Invalidate {
-                                            id,
-                                            root_uid: event["root_uid"].as_str().map(String::from),
-                                            kind: event["kind"].as_str().unwrap_or("").into(),
-                                        },
-                                        None,
-                                        &mut |_| 0,
-                                    )
-                                    .is_err()
-                                    {
-                                        return 1;
+                                if value["kind"] == "host_request" && value["method"] == "event_accept" {
+                                    let request_id = value["id"].as_u64().unwrap();
+                                    let event = &value["arguments"];
+                                    let result = if event["kind"] == "error" {
+                                        Ok(Value::Null)
+                                    } else {
+                                        // Delivery follows the SDK query and its lock release.
+                                        // Pinned refreshes need a real SDK, not an empty callback.
+                                        mount(
+                                            Mount::Invalidate {
+                                                id,
+                                                root_uid: event["root_uid"].as_str().map(String::from),
+                                                kind: event["kind"].as_str().unwrap_or("").into(),
+                                            },
+                                            Some(executable.clone()),
+                                            &mut |_| i32::from(event_shared.stopping.load(Ordering::Acquire)),
+                                        ).and_then(|result| {
+                                            if result["pending"] == true {
+                                                Err("Pinned refresh is pending; retry this cloud event.".into())
+                                            } else {
+                                                Ok(result)
+                                            }
+                                        })
+                                    };
+                                    // Failed refreshes retain their cursor and are retried;
+                                    // returning cancellation here would stop the watcher.
+                                    match result {
+                                        Ok(result) => { let _ = crate::host::reply(request_id, result); }
+                                        Err(error) => { let _ = crate::host::fail(request_id, error.message, error.cancelled); }
                                     }
                                 }
                                 0
