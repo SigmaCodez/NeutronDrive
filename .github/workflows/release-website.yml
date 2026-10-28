@@ -5,11 +5,6 @@ on:
       tag:
         required: true
         type: string
-    secrets:
-      ND_CONTENT_SYNC_SSH_KEY:
-        required: true
-      ND_CONTENT_SYNC_KNOWN_HOSTS:
-        required: true
   release:
     types: [published]
   workflow_dispatch:
@@ -79,9 +74,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$ND_TAG" "$RUNNER_TEMP/website/neutrondrive-website.json" --repo "$GITHUB_REPOSITORY" --clobber
-      - name: Refresh the homepage immediately and verify published content
-        timeout-minutes: 6
-        env:
-          ND_CONTENT_SYNC_SSH_KEY: ${{ secrets.ND_CONTENT_SYNC_SSH_KEY }}
-          ND_CONTENT_SYNC_KNOWN_HOSTS: ${{ secrets.ND_CONTENT_SYNC_KNOWN_HOSTS }}
-        run: bash website/scripts/trigger-release-sync.sh "$RUNNER_TEMP/website/neutrondrive-website.json"
