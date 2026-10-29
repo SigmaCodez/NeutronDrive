@@ -657,10 +657,11 @@ fn run_with_hook(
         pending: tree(&plan["_pending_deletions"])?.clone(),
         expected: tree(&plan["_remote"])?.clone(),
     };
-    for action in plan["actions"]
+    let actions = plan["actions"]
         .as_array()
-        .ok_or("Invalid execution actions")?
-    {
+        .ok_or("Invalid execution actions")?;
+    for (index, action) in actions.iter().enumerate() {
+        host.progress(json!({"kind":"progress","unit":"items","completed":index,"total":actions.len(),"path":action["relative_path"],"operation":action["kind"]}));
         host.poll()?;
         let relative = text(action, "relative_path")?;
         if under(relative, &execution.failed) {
@@ -696,6 +697,7 @@ fn run_with_hook(
             }
         }
     }
+    host.progress(json!({"kind":"progress","unit":"items","completed":actions.len(),"total":actions.len(),"path":"","operation":"finalizing"}));
     match execution.settle(host, hook) {
         Ok(()) => {}
         Err(e) if e.failure.cancelled => return Err(e),

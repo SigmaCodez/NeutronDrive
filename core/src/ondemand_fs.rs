@@ -43,6 +43,7 @@ pub struct Config {
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     Snapshot,
+    DrainDeletes,
     Invalidate,
     BlockAccount,
     SetError {
@@ -139,6 +140,8 @@ struct OpenFile {
 }
 struct Mount {
     snapshot: Arc<RwLock<crate::ondemand_snapshot::Snapshot>>,
+    deletions: crate::ondemand_delete::Shared,
+    mutation: Arc<Mutex<()>>,
     generation: u64,
     config: Config,
     objects: PathBuf,
@@ -272,7 +275,16 @@ impl Mount {
                 tree.clone(),
             )?;
         }
+        let deletions = crate::ondemand_delete::Queue::load(
+            &config.cache,
+            field(
+                &tree.entries.iter().find(|e| e.inode == 1).unwrap().node,
+                "uid",
+            ),
+        )?;
         Ok(Self {
+            deletions,
+            mutation: Arc::new(Mutex::new(())),
             snapshot: Arc::new(RwLock::new(crate::ondemand_snapshot::Snapshot::default())),
             generation: 0,
             config,
@@ -294,7 +306,7 @@ impl Mount {
         })
     }
     fn status(&self) -> Value {
-        json!({"last_error":if self.error.is_empty() { self.cloud_errors.values().next().map(String::as_str).unwrap_or("") } else { &self.error },"account_blocked":self.blocked,"writable":self.config.writable,"offline":self.config.offline,"root_uid":self.tree.entries.iter().find(|e|e.inode==1).map(|e|field(&e.node,"uid")).unwrap_or("")})
+        json!({"downloads":self.downloading.iter().filter_map(|id|self.tree.entries.iter().find(|e|e.inode==*id).map(|e|e.node["name"].clone())).collect::<Vec<_>>(),"deletions":self.deletions.lock().unwrap().status(),"last_error":if self.error.is_empty() { self.cloud_errors.values().next().map(String::as_str).unwrap_or("") } else { &self.error },"account_blocked":self.blocked,"writable":self.config.writable,"offline":self.config.offline,"root_uid":self.tree.entries.iter().find(|e|e.inode==1).map(|e|field(&e.node,"uid")).unwrap_or("")})
     }
     // A successful operation may only clear the warning for the work it
     // completed, not another pinned subtree or an unsaved-write error.
@@ -315,7 +327,7 @@ impl Mount {
         self.tree
             .entries
             .iter()
-            .find(|e| e.inode == inode)
+            .find(|e| e.inode == inode && !self.deletions.lock().unwrap().hidden(&e.node))
             .cloned()
             .ok_or_else(|| fail(libc::ENOENT, "Entry no longer exists"))
     }
@@ -342,6 +354,8 @@ impl Mount {
     fn publish(&self, persist: bool) {
         let snapshot = crate::ondemand_snapshot::Snapshot {
             generation: self.generation,
+            deletions: Some(self.deletions.clone()),
+            open: self.open_inodes(),
             downloading: self.downloading.clone(),
             entries: self
                 .tree
@@ -352,6 +366,7 @@ impl Mount {
             tree: self.tree.clone(),
             objects: self.objects.clone(),
             writable: self.config.writable,
+            offline: self.config.offline,
             blocked: self.blocked,
             writers: self
                 .files
@@ -430,6 +445,15 @@ impl Mount {
                     "Pinned folder exceeds the supported entry limit",
                 ));
             }
+            if self
+                .tree
+                .entries
+                .iter()
+                .find(|e| e.inode == inode)
+                .is_some_and(|e| self.deletions.lock().unwrap().hidden(&e.node))
+            {
+                continue;
+            }
             let entry = self.entry(inode)?;
             if entry.node["type"] == "folder" {
                 self.tree.pinned.insert(inode);
@@ -475,6 +499,14 @@ impl Mount {
                 let hydrated = self.hydrate(&current, host);
                 self.downloading.remove(&inode);
                 hydrated?;
+                // A local unlink may complete while the read-only download is in flight.
+                // Keep the deletion visible and discard the newly finished cache object.
+                if self.deletions.lock().unwrap().hidden(&current) {
+                    let _ = std::fs::remove_file(self.objects.join(io::key(&current)?));
+                    self.tree.pinned.remove(&inode);
+                    self.save()?;
+                    continue;
+                }
                 if !self.config.offline {
                     self.cloud_recovered(inode, "content");
                 }
@@ -522,6 +554,12 @@ impl Mount {
         }
         self.check_root(host)?;
         let nodes = host.request("list_nodes", json!({"path":entry.node["path"]}))?;
+        self.deletions.lock().unwrap().forget_confirmed(
+            inode,
+            nodes
+                .as_array()
+                .ok_or_else(|| fail(libc::EIO, "Invalid cloud directory response"))?,
+        )?;
         self.tree = tree::reconcile(
             self.tree.clone(),
             inode,
@@ -580,6 +618,15 @@ impl Mount {
         let mut values = Vec::new();
         if let Some(children) = self.tree.children.get(&inode) {
             for id in children.values() {
+                if self
+                    .tree
+                    .entries
+                    .iter()
+                    .find(|e| e.inode == *id)
+                    .is_some_and(|e| self.deletions.lock().unwrap().hidden(&e.node))
+                {
+                    continue;
+                }
                 values.push(self.entry(*id)?);
             }
         }
@@ -1198,6 +1245,17 @@ impl Mount {
                 self.release(handle)?;
                 Value::Null
             }
+            Action::DrainDeletes => {
+                if !self.blocked && !self.config.offline {
+                    crate::ondemand_delete::drain(
+                        &self.deletions,
+                        &self.config.remote_root,
+                        &self.objects,
+                        host,
+                    )?;
+                }
+                Value::Null
+            }
             Action::Recovery => self.recovery()?,
             Action::Mkdir { parent, name } => {
                 let id = self
@@ -1311,6 +1369,21 @@ fn envelope(result: Result<Value>, mount: Option<&mut Mount>) -> Value {
     value
 }
 pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Result<Value, Failure> {
+    if let Operation::Call {
+        id,
+        operation:
+            Action::Unlink {
+                parent,
+                name,
+                directory,
+            },
+    } = &operation
+    {
+        return Ok(envelope(
+            enqueue_delete(*id, *parent, name, *directory),
+            None,
+        ));
+    }
     Ok(match operation {
         Operation::Create { config } => match Mount::new(config, host) {
             Ok(mount) => {
@@ -1318,6 +1391,7 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
                 let status = mount.status();
                 let id = NEXT.fetch_add(1, Ordering::Relaxed);
                 SNAPSHOTS.lock().unwrap().insert(id, mount.snapshot.clone());
+                MUTATIONS.lock().unwrap().insert(id, mount.mutation.clone());
                 MOUNTS
                     .lock()
                     .unwrap()
@@ -1328,6 +1402,7 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
         },
         Operation::Close { id } => {
             SNAPSHOTS.lock().unwrap().remove(&id);
+            MUTATIONS.lock().unwrap().remove(&id);
             let mount = MOUNTS.lock().unwrap().remove(&id);
             match mount {
                 Some(mount) => {
@@ -1367,6 +1442,24 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
                             | Action::Listdir { .. }
                             | Action::Lookup { .. }
                     );
+                    let gate = mount.mutation.clone();
+                    let _guard = if matches!(
+                        operation,
+                        Action::Open { .. }
+                            | Action::Create { .. }
+                            | Action::Rename { .. }
+                            | Action::Mkdir { .. }
+                            | Action::Write { .. }
+                            | Action::Truncate { .. }
+                            | Action::Flush { .. }
+                            | Action::Release { .. }
+                            | Action::BlockAccount
+                            | Action::SetWritable { .. }
+                    ) {
+                        Some(gate.lock().unwrap())
+                    } else {
+                        None
+                    };
                     let result = mount.apply(operation, host);
                     if publish {
                         mount.publish(true);
@@ -1376,6 +1469,90 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
             }
         }
     })
+}
+
+static MUTATIONS: LazyLock<Mutex<BTreeMap<u64, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(BTreeMap::new()));
+pub(crate) fn enqueue_delete(id: u64, parent: u64, name: &str, directory: bool) -> Result<Value> {
+    tree::name(name)?;
+    let gate = MUTATIONS
+        .lock()
+        .unwrap()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| fail(libc::EBADF, "Unknown mount"))?;
+    let _guard = gate.try_lock().map_err(|_| {
+        fail(
+            libc::EBUSY,
+            "A file change is in progress; retry deletion shortly",
+        )
+    })?;
+    let mirror = SNAPSHOTS
+        .lock()
+        .unwrap()
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| fail(libc::EBADF, "Unknown mount"))?;
+    let s = mirror.read().unwrap();
+    if s.blocked || !s.writable {
+        return Err(fail(libc::EROFS, "Mount is read-only"));
+    }
+    let inode = s
+        .tree
+        .children
+        .get(&parent)
+        .and_then(|c| c.get(name))
+        .ok_or_else(|| fail(libc::ENOENT, "No such file"))?;
+    let entry = s
+        .entries
+        .get(inode)
+        .ok_or_else(|| fail(libc::ENOENT, "No such file"))?;
+    if entry.local || s.open.contains(inode) {
+        return Err(fail(libc::EBUSY, "Close this file before deleting it"));
+    }
+    if directory != (entry.node["type"] == "folder") {
+        return Err(fail(
+            if directory {
+                libc::ENOTDIR
+            } else {
+                libc::EISDIR
+            },
+            "Wrong entry type",
+        ));
+    }
+    let queue = s
+        .deletions
+        .as_ref()
+        .ok_or_else(|| fail(libc::EIO, "Deletion queue unavailable"))?;
+    let mut q = queue.lock().unwrap();
+    if directory
+        && (!s.tree.listed.contains(inode)
+            || s.tree.children.get(inode).is_some_and(|c| {
+                c.values()
+                    .any(|id| s.entries.get(id).is_none_or(|e| !q.hidden(&e.node)))
+            }))
+    {
+        return Err(fail(
+            libc::ENOTEMPTY,
+            "Directory is not empty or has not been listed",
+        ));
+    }
+    q.enqueue(
+        entry.clone(),
+        field(
+            &s.entries
+                .get(&parent)
+                .ok_or_else(|| fail(libc::ENOENT, "Parent missing"))?
+                .node,
+            "path",
+        )
+        .into(),
+    )?;
+    drop(q);
+    if let Ok(key) = io::key(&entry.node) {
+        let _ = std::fs::remove_file(s.objects.join(key));
+    }
+    Ok(Value::Null)
 }
 
 // Readers never acquire the mount/SDK lock. A cloud timeout cannot block cached browsing.
@@ -1399,11 +1576,37 @@ pub(crate) fn absent(id: u64, action: &Action) -> bool {
     };
     let s = snapshot.read().unwrap();
     !s.blocked
-        && s.tree.listed.contains(parent)
-        && s.tree
+        && (s
+            .tree
             .children
             .get(parent)
-            .is_none_or(|c| !c.contains_key(name))
+            .and_then(|c| c.get(name))
+            .and_then(|id| s.entries.get(id))
+            .is_some_and(|e| s.hidden(&e.node))
+            || (s.tree.listed.contains(parent)
+                && s.tree
+                    .children
+                    .get(parent)
+                    .is_none_or(|c| !c.contains_key(name))))
+}
+pub(crate) fn deletions_ready(id: u64) -> bool {
+    let Some(mirror) = SNAPSHOTS.lock().unwrap().get(&id).cloned() else {
+        return false;
+    };
+    let snapshot = mirror.read().unwrap();
+    !snapshot.blocked
+        && !snapshot.offline
+        && snapshot
+            .deletions
+            .as_ref()
+            .is_some_and(|q| q.lock().unwrap().ready())
+}
+pub(crate) fn activity(id: u64) -> Value {
+    let Some(mirror) = SNAPSHOTS.lock().unwrap().get(&id).cloned() else {
+        return json!({});
+    };
+    let snapshot = mirror.read().unwrap();
+    json!({"deletions":snapshot.deletions.as_ref().map(|q|q.lock().unwrap().status()).unwrap_or(json!({})),"downloads":snapshot.downloading.iter().filter_map(|id|snapshot.entries.get(id).map(|e|e.node["name"].clone())).collect::<Vec<_>>()})
 }
 pub(crate) fn generation(id: u64) -> u64 {
     let Some(snapshot) = SNAPSHOTS.lock().unwrap().get(&id).cloned() else {
@@ -1420,7 +1623,7 @@ pub(crate) fn folders(id: u64) -> Vec<u64> {
     let mut folders: Vec<_> = s
         .entries
         .values()
-        .filter(|e| e.node["type"] == "folder")
+        .filter(|e| e.node["type"] == "folder" && !s.hidden(&e.node))
         .map(|e| e.inode)
         .collect();
     folders.sort_by_key(|id| (s.tree.listed.contains(id), *id));
@@ -1512,6 +1715,118 @@ mod tests {
             offline,
             metadata_ttl: 15.0,
         }
+    }
+    #[test]
+    fn local_delete_does_not_wait_for_mount_or_sdk_and_survives_restart() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let id = run(
+            Operation::Create {
+                config: config(&temp, false),
+            },
+            &mut host,
+        )
+        .unwrap()["value"]
+            .as_u64()
+            .unwrap();
+        run(
+            Operation::Call {
+                id,
+                operation: Action::Listdir {
+                    inode: 1,
+                    refresh: true,
+                },
+            },
+            &mut host,
+        )
+        .unwrap();
+        // A successful list must publish the latest mirror for the fast path.
+        let mount = MOUNTS.lock().unwrap().get(&id).unwrap().clone();
+        let guard = mount.lock().unwrap();
+        guard.publish(false);
+        let started = Instant::now();
+        enqueue_delete(id, 1, "data", false).unwrap();
+        assert!(started.elapsed().as_secs_f64() < 1.0);
+        assert!(absent(
+            id,
+            &Action::Lookup {
+                parent: 1,
+                name: "data".into()
+            }
+        ));
+        assert_eq!(
+            cached(
+                id,
+                &Action::Listdir {
+                    inode: 1,
+                    refresh: false
+                }
+            )
+            .unwrap(),
+            json!([])
+        );
+        drop(guard);
+        drop(mount);
+        run(Operation::Close { id }, &mut host).unwrap();
+        let id = run(
+            Operation::Create {
+                config: config(&temp, false),
+            },
+            &mut host,
+        )
+        .unwrap()["value"]
+            .as_u64()
+            .unwrap();
+        assert!(absent(
+            id,
+            &Action::Lookup {
+                parent: 1,
+                name: "data".into()
+            }
+        ));
+        run(Operation::Close { id }, &mut host).unwrap();
+    }
+    #[test]
+    fn open_file_rejects_delete_without_creating_a_journal_entry() {
+        let temp = Temp::new();
+        let mut host = Host::new();
+        let id = run(
+            Operation::Create {
+                config: config(&temp, false),
+            },
+            &mut host,
+        )
+        .unwrap()["value"]
+            .as_u64()
+            .unwrap();
+        let entry = run(
+            Operation::Call {
+                id,
+                operation: Action::Lookup {
+                    parent: 1,
+                    name: "data".into(),
+                },
+            },
+            &mut host,
+        )
+        .unwrap()["value"]
+            .clone();
+        run(
+            Operation::Call {
+                id,
+                operation: Action::Open {
+                    inode: entry["inode"].as_u64().unwrap(),
+                    flags: libc::O_RDONLY,
+                },
+            },
+            &mut host,
+        )
+        .unwrap();
+        assert!(matches!(
+            enqueue_delete(id, 1, "data", false),
+            Err(Error::Fs(libc::EBUSY, _))
+        ));
+        run(Operation::Close { id }, &mut host).unwrap();
     }
     #[test]
     fn folder_eviction_preserves_busy_files_and_unrelated_cache() {

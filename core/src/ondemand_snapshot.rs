@@ -12,15 +12,23 @@ use std::{
 #[derive(Default)]
 pub(crate) struct Snapshot {
     pub generation: u64,
+    pub deletions: Option<crate::ondemand_delete::Shared>,
+    pub open: BTreeSet<u64>,
     pub tree: Tree,
     pub entries: BTreeMap<u64, Entry>,
     pub objects: PathBuf,
     pub writable: bool,
+    pub offline: bool,
     pub blocked: bool,
     pub writers: BTreeSet<u64>,
     pub downloading: BTreeSet<u64>,
 }
 impl Snapshot {
+    pub fn hidden(&self, node: &Value) -> bool {
+        self.deletions
+            .as_ref()
+            .is_some_and(|q| q.lock().unwrap().hidden(node))
+    }
     pub fn answer(&self, action: &Action) -> Option<Value> {
         if self.blocked {
             return None;
@@ -31,6 +39,9 @@ impl Snapshot {
                     return None;
                 }
                 let e = self.entries.get(inode)?;
+                if self.hidden(&e.node) {
+                    return None;
+                }
                 Some(
                     json!({"inode":inode,"folder":e.node["type"]=="folder","size":e.node["size"].as_u64().unwrap_or(0),"mtime_ns":crate::ondemand_fs::timestamp(e.node["modified"].as_str().unwrap_or("")),"cached":self.cached(e),"pinned":self.tree.pinned.contains(inode),"writable":self.writable}),
                 )
@@ -41,13 +52,20 @@ impl Snapshot {
                     ".." => self.entries.get(parent)?.parent,
                     _ => *self.tree.children.get(parent)?.get(name)?,
                 };
-                Some(json!(self.entries.get(&id)?))
+                let e = self.entries.get(&id)?;
+                if self.hidden(&e.node) {
+                    return None;
+                }
+                Some(json!(e))
             }
             Action::Listdir { inode, .. } if self.tree.listed.contains(inode) => {
                 let mut result = Vec::new();
                 if let Some(children) = self.tree.children.get(inode) {
                     for id in children.values() {
-                        result.push(self.entries.get(id)?);
+                        let e = self.entries.get(id)?;
+                        if !self.hidden(&e.node) {
+                            result.push(e);
+                        }
                     }
                 }
                 Some(json!(result))
@@ -72,6 +90,9 @@ impl Snapshot {
             return false;
         }
         let result = self.entries.get(&id).is_some_and(|e| {
+            if self.hidden(&e.node) {
+                return true;
+            }
             if e.node["type"] != "folder" {
                 return self.cached(e);
             }
@@ -89,9 +110,13 @@ impl Snapshot {
     pub fn availability(&self) -> Value {
         let mut paths = BTreeMap::new();
         let mut downloading = BTreeMap::new();
+        let mut shared = BTreeMap::new();
         let mut memo = BTreeMap::new();
         if !self.blocked {
             for e in self.entries.values() {
+                if self.hidden(&e.node) {
+                    continue;
+                }
                 let folder = e.node["type"] == "folder";
                 let complete = self.complete(e.inode, &mut memo, &mut BTreeSet::new());
                 let available = complete && (!folder || self.tree.pinned.contains(&e.inode));
@@ -110,6 +135,9 @@ impl Snapshot {
                 if current.inode == 1 {
                     parts.reverse();
                     let path = parts.join("/");
+                    if folder && e.node["shared"] == true {
+                        shared.insert(path.clone(), true);
+                    }
                     if active && (!complete || self.downloading.contains(&e.inode)) {
                         downloading.insert(path, true);
                     } else if available {
@@ -123,7 +151,7 @@ impl Snapshot {
             .ok()
             .and_then(|s| s.rsplit_once(") ").map(|(_, fields)| fields.to_owned()))
             .and_then(|s| s.split_whitespace().nth(19).map(str::to_owned));
-        json!({"version":1,"available":paths,"downloading":downloading,
+        json!({"version":1,"available":paths,"downloading":downloading,"shared":shared,
             "owner_pid":std::process::id(),"owner_start":owner_start})
     }
 }

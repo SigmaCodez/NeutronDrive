@@ -137,6 +137,7 @@ impl Shared {
                 "last_sync",
                 "error",
                 "completed",
+                "progress",
                 "reasons",
             ] {
                 value[key] = job.runtime[key].clone();
@@ -157,7 +158,7 @@ impl Shared {
             jobs.push(value);
         }
         Ok(
-            json!({"version":1,"running":state.running&&!self.stopped.load(Ordering::Acquire),"pid":std::process::id(),"updated_at":timestamp,"event_source":state.event_status,"rust_core":policy_call(json!({"op":"info"}))?,"unresolved_events":state.events,"jobs":jobs}),
+            json!({"version":1,"current":state.current,"running":state.running&&!self.stopped.load(Ordering::Acquire),"pid":std::process::id(),"updated_at":timestamp,"event_source":state.event_status,"rust_core":policy_call(json!({"op":"info"}))?,"unresolved_events":state.events,"jobs":jobs}),
         )
     }
     fn persist(&self, state: &State) -> Result<()> {
@@ -491,6 +492,17 @@ impl Services for Sdk<'_> {
 }
 struct Cached<'a>(&'a Shared);
 impl Services for Cached<'_> {
+    fn progress(&mut self, value: Value) {
+        if let Ok(mut state) = self.0.lock() {
+            if let Some(id) = state.current.clone() {
+                if let Some(job) = state.jobs.get_mut(&id) {
+                    job.runtime["progress"] = value;
+                }
+            }
+            let _ = self.0.persist(&state);
+        }
+    }
+
     fn poll(&mut self) -> Result<()> {
         Sdk {
             shared: self.0,
@@ -881,6 +893,9 @@ impl Shared {
             }
             let id = text(&decision, "id").to_owned();
             state.current = Some(id.clone());
+            if let Some(job) = state.jobs.get_mut(&id) {
+                job.runtime["progress"] = Value::Null;
+            }
             self.transition(
                 state.jobs.get_mut(&id).ok_or("Selected job disappeared")?,
                 json!({"action":"begin"}),

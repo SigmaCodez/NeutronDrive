@@ -470,7 +470,8 @@ pub unsafe extern "C" fn neutrondrive_is_available(path: *const c_char) -> c_int
 
 /// # Safety
 /// The caller supplies a readable NUL-terminated UTF-8 path.
-/// Returns 0 for online/unknown, 1 for locally available, 2 for downloading.
+/// Low two bits: 0 online/unknown, 1 locally available, 2 downloading.
+/// Flag 0x04 marks a directly shared folder and can coexist with availability.
 #[no_mangle]
 pub unsafe extern "C" fn neutrondrive_file_status(path: *const c_char) -> c_int {
     if path.is_null() {

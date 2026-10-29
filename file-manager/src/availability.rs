@@ -17,6 +17,7 @@ struct Index {
     root: PathBuf,
     available: BTreeSet<String>,
     downloading: BTreeSet<String>,
+    shared: BTreeSet<String>,
 }
 static INDEX: LazyLock<Mutex<Index>> = LazyLock::new(|| Mutex::new(Index::default()));
 fn json(path: &Path, limit: u64) -> Option<Value> {
@@ -45,6 +46,7 @@ pub fn status(path: &Path) -> u8 {
         index.checked = Some(Instant::now());
         index.available.clear();
         index.downloading.clear();
+        index.shared.clear();
         index.root = PathBuf::new();
         if let Some(state) = paths::state_directory() {
             if let Some(config) = json(&state.join("ondemand-service/mount.json"), 16384) {
@@ -65,6 +67,7 @@ pub fn status(path: &Path) -> u8 {
                         16 * 1024 * 1024,
                     ) {
                         if data["version"] == 1 {
+                            index.shared = true_paths(&data["shared"]);
                             if owner_alive(&data) {
                                 index.downloading = true_paths(&data["downloading"]);
                             }
@@ -82,18 +85,18 @@ pub fn status(path: &Path) -> u8 {
         }
     }
     paths::relative(&index.root, path).map_or(0, |p| {
-        if index.downloading.contains(&p) {
+        (if index.downloading.contains(&p) {
             2
         } else if index.available.contains(&p) {
             1
         } else {
             0
-        }
+        }) | if index.shared.contains(&p) { 4 } else { 0 }
     })
 }
 
 pub fn available(path: &Path) -> bool {
-    status(path) == 1
+    status(path) & 3 == 1
 }
 fn true_paths(value: &Value) -> BTreeSet<String> {
     value
@@ -132,16 +135,27 @@ pub fn all_states() -> std::collections::BTreeMap<PathBuf, u8> {
     index
         .available
         .iter()
-        .map(|p| (p, 1))
-        .chain(index.downloading.iter().map(|p| (p, 2)))
-        .filter(|(p, _)| {
+        .chain(index.downloading.iter())
+        .chain(index.shared.iter())
+        .filter(|p| {
             !p.is_empty()
                 && !Path::new(p).is_absolute()
                 && Path::new(p)
                     .components()
                     .all(|c| matches!(c, std::path::Component::Normal(_)))
         })
-        .map(|(p, state)| (index.root.join(p), state))
+        .map(|p| {
+            (
+                index.root.join(p),
+                (if index.downloading.contains(p) {
+                    2
+                } else if index.available.contains(p) {
+                    1
+                } else {
+                    0
+                }) | if index.shared.contains(p) { 4 } else { 0 },
+            )
+        })
         .collect()
 }
 #[cfg(test)]

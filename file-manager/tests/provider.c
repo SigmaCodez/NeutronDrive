@@ -8,7 +8,7 @@ static int emblem_adds=0,emblem_invalidations=0;
 static const char *expected_emblem="neutrondrive-available";
 static const char *emblem_uri="file:///tmp/nd-menu-sync/complete";
 static char *file_uri(void *file){return g_strdup(file==emblem_file?emblem_uri:file);}
-static void add_emblem(void *file,const char *name){g_assert(file==emblem_file);g_assert_cmpstr(name,==,expected_emblem);emblem_adds++;}
+static void add_emblem(void *file,const char *name){g_assert(file==emblem_file);g_assert(name && (strcmp(name,expected_emblem)==0 || (strcmp(expected_emblem,"both")==0 && (strcmp(name,"neutrondrive-available")==0 || strcmp(name,"neutrondrive-shared")==0))));emblem_adds++;}
 #define INFO_STUB(prefix) void prefix##_file_info_add_emblem(void *f,const char *n){add_emblem(f,n);} void prefix##_file_info_invalidate_extension_info(void *f){g_assert(f==emblem_file);emblem_invalidations++;}
 INFO_STUB(nautilus) INFO_STUB(nemo) INFO_STUB(caja)
 // Isolated fake file-info payloads; menu provider/types/items come from the real host libraries.
@@ -108,6 +108,11 @@ int main(int argc,char **argv){
   while(emblem_invalidations==before&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
   g_assert_cmpint(emblem_invalidations,>,before);g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,4);
   // Moving outside the sync root must stop tracking the old path.
+  g_file_set_contents(index,"{\"version\":1,\"available\":{\"renamed\":true},\"shared\":{\"renamed\":true}}",-1,NULL);
+  before=emblem_invalidations;end=g_get_monotonic_time()+5000000;
+  while(emblem_invalidations==before&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
+  expected_emblem="both";int adds_before=emblem_adds;
+  g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,adds_before+2);
   emblem_uri="file:///tmp/nd-outside/renamed";
   g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);
   g_file_set_contents(index,"{\"version\":1,\"available\":{}}",-1,NULL);

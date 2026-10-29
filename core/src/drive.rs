@@ -19,6 +19,10 @@ pub enum Operation {
     PhotoImport {
         request: Value,
     },
+    ComputerRemove {
+        uid: String,
+        root_uid: String,
+    },
     ComputerCreate {
         name: String,
     },
@@ -236,6 +240,11 @@ where
     let mut list_path = None;
     let mut optional = false;
     let args = match operation {
+        Operation::ComputerRemove { uid, root_uid } => {
+            backend::name(&uid)?;
+            backend::name(&root_uid)?;
+            command(&["computers", "remove", "--json", "--", &uid, &root_uid])
+        }
         Operation::ComputerCreate { name } => {
             backend::name(&name)?;
             command(&["computers", "create", "--json", "--", &name])

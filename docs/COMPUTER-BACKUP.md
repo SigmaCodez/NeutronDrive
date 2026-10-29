@@ -7,7 +7,7 @@ through the pinned official Proton SDK and adds selected local folders under
 **Computers** in Proton Drive. Device registration and all encryption use the
 SDK; no private API or reimplemented cryptography is involved.
 
-Select a local folder, choose **Add folder to computer backup**, and confirm.
+Choose **Add folder…**, select a local folder and confirm.
 The confirmation explains that this is bidirectional folder synchronization,
 including guarded trash propagation after a common baseline. It is not a system
 image or an immutable backup. This matches the scope of Proton's Windows folder
@@ -21,8 +21,17 @@ paused, then pinned to their remote/account identities, then enabled. If setup
 fails after a remote folder was created, that folder is retained for review;
 setup never deletes cloud data to roll back an error.
 
-Manage running jobs using the existing pause/resume/remove controls. Removing a
-job stops synchronization; it does not delete the computer's cloud files.
+Manage running jobs using pause/resume and these distinct removal actions:
+
+- **Stop syncing…** removes the local job and keeps both local and cloud files.
+- **Remove backup…** stops the job and moves its verified cloud folder to the
+  Proton trash. Local original files are retained.
+- **Remove computer…** removes the selected device through Proton's SDK after
+  confirming its device/root identity. This may permanently remove its cloud
+  backup; the confirmation explicitly warns about this. Local files are retained.
+
+An active transfer must finish before cloud removal can proceed. Failed cloud
+removal retains the paused job for review or retry.
 Different accounts or replaced/renamed computers require explicit review and
 are blocked. No automatic reassociation is performed. Folder deletion remains
 blocked when the SDK cannot prove all trashed children; individual-file trash

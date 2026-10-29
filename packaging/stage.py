@@ -63,6 +63,7 @@ def stage(destination, prefix, arch, binary, portal_browser=False, host_services
         (ROOT / "data" / f"{APP_ID}.desktop", f"share/applications/{APP_ID}.desktop"),
         (ROOT / "data" / f"{APP_ID}.metainfo.xml", f"share/metainfo/{APP_ID}.metainfo.xml"),
         (ROOT / "data" / f"{APP_ID}.svg", f"share/icons/hicolor/scalable/apps/{APP_ID}.svg"),
+        (ROOT / "data/neutrondrive-shared.svg", "share/icons/hicolor/scalable/emblems/neutrondrive-shared.svg"),
         (ROOT / "data/neutrondrive-available.svg", "share/icons/hicolor/scalable/emblems/neutrondrive-available.svg"),
         (ROOT / "data/neutrondrive-syncing.svg", "share/icons/hicolor/scalable/emblems/neutrondrive-syncing.svg"),
         (ROOT / "LICENSE", "share/licenses/neutrondrive/LICENSE"),

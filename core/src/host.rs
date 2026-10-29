@@ -30,6 +30,7 @@ fn respond(id: u64, value: Result<Value>) -> Result<Value> {
     })
 }
 pub trait Services {
+    fn progress(&mut self, _value: Value) {}
     fn request(&mut self, method: &str, arguments: Value) -> Result<Value>;
     fn poll(&mut self) -> Result<()>;
     fn execution_started(&mut self) -> Result<()> {
@@ -38,6 +39,9 @@ pub trait Services {
 }
 pub struct Callback<'a, F: FnMut(Value) -> i32>(pub &'a mut F);
 impl<F: FnMut(Value) -> i32> Services for Callback<'_, F> {
+    fn progress(&mut self, value: Value) {
+        (self.0)(value);
+    }
     fn execution_started(&mut self) -> Result<()> {
         if (self.0)(json!({"kind":"sync_started"})) != 0 {
             return Err(Failure {
