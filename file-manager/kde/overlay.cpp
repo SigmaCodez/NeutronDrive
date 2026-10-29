@@ -52,7 +52,7 @@ public:
         timer->start(2000);
     }
     int check(const QUrl &url) const { return available && url.isLocalFile() ? available(url.toLocalFile().toUtf8().constData()) : 0; }
-    static QStringList icons(int value) { return value == 2 ? QStringList{QStringLiteral("neutrondrive-syncing")} : value == 1 ? QStringList{QStringLiteral("neutrondrive-available")} : QStringList{}; }
+    static QStringList icons(int value) { QStringList result; if ((value & 3) == 2) result << QStringLiteral("neutrondrive-syncing"); else if ((value & 3) == 1) result << QStringLiteral("neutrondrive-available"); if (value & 4) result << QStringLiteral("neutrondrive-shared"); return result; }
     QStringList getOverlays(const QUrl &url) override {
         int value = check(url);
         if (seen.size() < 10000 || seen.contains(url)) seen.insert(url, value);

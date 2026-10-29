@@ -10,6 +10,9 @@ pub struct Sdk<'a, F: FnMut(Value) -> i32> {
     pub callback: &'a mut F,
 }
 impl<F: FnMut(Value) -> i32> Services for Sdk<'_, F> {
+    fn progress(&mut self, value: Value) {
+        (self.callback)(value);
+    }
     fn poll(&mut self) -> Result<()> {
         crate::filesystem::poll(self.callback)
     }

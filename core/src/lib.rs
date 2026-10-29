@@ -30,6 +30,7 @@ mod jobs;
 mod localization;
 mod metadata_cache;
 mod mount_manager;
+mod ondemand_delete;
 mod ondemand_fs;
 mod ondemand_handles;
 mod ondemand_io;

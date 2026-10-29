@@ -27,3 +27,18 @@ export class CommandComputerInfo implements Command {
         console.log(JSON.stringify({ uid: device.uid, rootFolderUid: device.rootFolderUid, name: device.name.value }));
     }
 }
+
+/** Explicit user-confirmed removal; never resolve a device by display name. */
+export class CommandComputerRemove implements Command {
+    group = 'computers';
+    name = 'remove';
+    help = 'Remove a computer and its cloud backup after verifying its root identity.';
+    args = ['uid', 'rootFolderUid'];
+    async action({ sdk, args: [uid, rootFolderUid] }: ActionArgs) {
+        if (!uid || !rootFolderUid) throw new Error('Missing computer identity');
+        const device = await sdk.getDevice(uid);
+        if (device.uid !== uid || device.rootFolderUid !== rootFolderUid) throw new Error('Computer identity changed');
+        await sdk.deleteDevice(uid);
+        console.log(JSON.stringify({ removed: uid }));
+    }
+}

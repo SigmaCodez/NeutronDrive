@@ -59,21 +59,25 @@ pub fn apply(path: &str, state: u8) -> Result<(), String> {
                 let s = CStr::from_ptr(*values.add(i));
                 if s.to_bytes() != b"neutrondrive-available"
                     && s.to_bytes() != b"neutrondrive-syncing"
+                    && s.to_bytes() != b"neutrondrive-shared"
                 {
                     names.push(s.to_owned())
                 }
                 i += 1;
             }
         }
-        if state == 1 || state == 2 {
+        if state & 3 == 1 || state & 3 == 2 {
             names.push(
-                CString::new(if state == 2 {
+                CString::new(if state & 3 == 2 {
                     "neutrondrive-syncing"
                 } else {
                     "neutrondrive-available"
                 })
                 .unwrap(),
             )
+        }
+        if state & 4 != 0 {
+            names.push(CString::new("neutrondrive-shared").unwrap());
         }
         let mut argv: Vec<*const c_char> = names.iter().map(|s| s.as_ptr()).collect();
         argv.push(ptr::null());

@@ -62,6 +62,7 @@ class Node:
     raw: dict = dataclasses.field(default_factory=dict, compare=False, repr=False)
     safe: bool = True
     media_type: str = ""
+    shared: bool = False
 
     @classmethod
     def parse(cls, item: dict, parent: str) -> Node:
@@ -161,6 +162,8 @@ def service_call(backend, operation_name, operation, *, on_poll=None, on_started
     """Synchronous bindings for Rust-owned SDK orchestration."""
     from . import rust_core
     def event(value):
+        if value['kind'] == 'progress':
+            return
         if value['kind'] == 'fuse_status' and on_status is not None:
             on_status(value['status'])
             return

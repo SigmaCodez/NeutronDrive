@@ -29,8 +29,18 @@ fn execute(
 ) -> Result<Value, Failure> {
     let action = operation["action"].as_str().unwrap_or("");
     if ![
-        "status", "start", "stop", "restart", "remove", "pause", "resume", "sync", "add",
+        "status",
+        "start",
+        "stop",
+        "restart",
+        "remove",
+        "pause",
+        "resume",
+        "sync",
+        "add",
         "computer",
+        "remove_backup",
+        "remove_computer",
     ]
     .contains(&action)
     {
@@ -76,6 +86,120 @@ fn execute(
         }
         "stop" => {
             call(service(json!({"action":"stop"})))?;
+        }
+        "remove_backup" | "remove_computer" => {
+            let jobs = call(
+                json!({"op":"jobs","state":state,"planned":[],"operation":{"action":"list"}}),
+            )?;
+            let all = jobs
+                .as_array()
+                .ok_or_else(|| failure("Invalid sync job list"))?;
+            let selected: Vec<Value> = if action == "remove_backup" {
+                let job = all
+                    .iter()
+                    .find(|j| j["id"] == operation["id"])
+                    .ok_or_else(|| failure("Backup job no longer exists"))?;
+                if !job["remote_root"]
+                    .as_str()
+                    .unwrap_or("")
+                    .starts_with("/devices/")
+                {
+                    return Err(failure("Not a computer backup"));
+                }
+                vec![job.clone()]
+            } else {
+                let prefix = operation["path"]
+                    .as_str()
+                    .filter(|p| p.starts_with("/devices/") && p.matches('/').count() == 2)
+                    .ok_or_else(|| failure("Invalid computer path"))?;
+                // A cloud rename must not leave the original local backup job running.
+                let record = call(
+                    json!({"op":"store_read","path":root.join("computer.json"),"default":null,"limit":1048576,"private":true}),
+                )?;
+                let saved_prefix = if record["uid"] == operation["uid"] {
+                    record["path"]
+                        .as_str()
+                        .filter(|p| p.starts_with("/devices/") && p.matches('/').count() == 2)
+                } else {
+                    None
+                };
+                all.iter()
+                    .filter(|j| {
+                        j["remote_root"].as_str().is_some_and(|p| {
+                            std::iter::once(prefix)
+                                .chain(saved_prefix)
+                                .any(|base| p == base || p.starts_with(&format!("{base}/")))
+                        })
+                    })
+                    .cloned()
+                    .collect()
+            };
+            let running = call(status.clone())?["running"] == true;
+            for job in &selected {
+                if running {
+                    call(command("pause", job["id"].clone()))?;
+                } else {
+                    call(
+                        json!({"op":"jobs","state":state,"planned":[],"operation":{"action":"update","id":job["id"],"name":null,"paused":true}}),
+                    )?;
+                }
+            }
+            let latest = call(status.clone())?;
+            if running && latest.get("current").is_none() {
+                return Err(failure("Restart the sync service before removing backups."));
+            }
+            if selected.iter().any(|j| latest["current"] == j["id"])
+                || latest["jobs"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|j| j["state"] == "syncing" && selected.iter().any(|v| v["id"] == j["id"]))
+            {
+                return Err(failure("Backup is stopping. Wait for the current transfer to finish, then remove it again."));
+            }
+            if action == "remove_backup" {
+                let job = &selected[0];
+                let root = call(
+                    json!({"op":"drive","executable":executable,"operation":{"action":"info","path":"/my-files"}}),
+                )?;
+                let node = call(
+                    json!({"op":"drive","executable":executable,"operation":{"action":"info","path":job["remote_root"]}}),
+                )?;
+                if root["uid"] != job["account_root_uid"]
+                    || node["uid"] != job["remote_uid"]
+                    || node["type"] != "folder"
+                {
+                    return Err(failure(
+                        "Backup identity changed; cloud files were not removed.",
+                    ));
+                }
+                call(
+                    json!({"op":"drive","executable":executable,"operation":{"action":"trash","paths":[job["remote_root"]]}}),
+                )?;
+            } else {
+                call(
+                    json!({"op":"drive","executable":executable,"operation":{"action":"computer_remove","uid":operation["uid"],"root_uid":operation["root_uid"]}}),
+                )?;
+                // A subsequent setup must register a fresh device, not reuse a removed UID.
+                let record = call(
+                    json!({"op":"store_read","path":root.join("computer.json"),"default":null,"limit":1048576,"private":true}),
+                );
+                if let Ok(record) = record {
+                    if record["uid"] == operation["uid"] {
+                        call(
+                            json!({"op":"store_write","path":root.join("computer.json"),"value":null}),
+                        )?;
+                    }
+                }
+            }
+            for job in &selected {
+                call(
+                    json!({"op":"jobs","state":state,"planned":[],"operation":{"action":"remove","id":job["id"]}}),
+                )?;
+            }
+            if running {
+                call(command("reload", Value::Null))?;
+            }
         }
         "remove" => {
             let id = operation["id"]
@@ -136,6 +260,83 @@ fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn backup_removal_waits_for_active_worker_and_verifies_identity() {
+        for (active, changed) in [(true, false), (false, true), (false, false)] {
+            let mut calls = Vec::new();
+            let job = json!({"id":"job","remote_root":"/devices/PC/docs","remote_uid":"folder","account_root_uid":"account"});
+            let result = execute(
+                "sdk",
+                &json!({"action":"remove_backup","id":"job"}),
+                Path::new("/app"),
+                false,
+                &mut |r| {
+                    calls.push(r.clone());
+                    if r["op"] == "data_dir" {
+                        return Ok(json!("/tmp/nd-backup-test"));
+                    }
+                    if r["op"] == "jobs" && r["operation"]["action"] == "list" {
+                        return Ok(json!([job]));
+                    }
+                    if r["op"] == "service_controller" {
+                        return Ok(
+                            json!({"running":true,"current":if active {json!("job")}else{Value::Null},"jobs":[]}),
+                        );
+                    }
+                    if r["op"] == "drive" && r["operation"]["action"] == "info" {
+                        return Ok(if r["operation"]["path"] == "/my-files" {
+                            json!({"uid":"account"})
+                        } else {
+                            json!({"uid":if changed{"other"}else{"folder"},"type":"folder"})
+                        });
+                    }
+                    Ok(Value::Null)
+                },
+            );
+            assert_eq!(result.is_ok(), !active && !changed);
+            assert_eq!(
+                calls
+                    .iter()
+                    .filter(|r| r["operation"]["action"] == "trash")
+                    .count(),
+                usize::from(!active && !changed)
+            );
+            assert_eq!(
+                calls
+                    .iter()
+                    .filter(|r| r["op"] == "jobs" && r["operation"]["action"] == "remove")
+                    .count(),
+                usize::from(!active && !changed)
+            );
+        }
+    }
+    #[test]
+    fn renamed_computer_removal_pauses_original_job_before_cloud_delete() {
+        let mut calls = Vec::new();
+        let result = execute(
+            "sdk",
+            &json!({"action":"remove_computer","path":"/devices/New","uid":"device","root_uid":"root"}),
+            Path::new("/app"),
+            false,
+            &mut |r| {
+                calls.push(r.clone());
+                Ok(match r["op"].as_str().unwrap_or("") {
+                    "data_dir" => json!("/tmp/nd-backup-test"),
+                    "jobs" if r["operation"]["action"] == "list" => {
+                        json!([{"id":"old-job","remote_root":"/devices/Old/docs"}])
+                    }
+                    "store_read" => json!({"uid":"device","path":"/devices/Old"}),
+                    "service_controller" => json!({"running":true,"current":"old-job","jobs":[]}),
+                    _ => Value::Null,
+                })
+            },
+        );
+        assert!(result.is_err());
+        assert!(calls.iter().any(|r| r["op"] == "control_command"
+            && r["action"] == "pause"
+            && r["job_id"] == "old-job"));
+        assert!(!calls.iter().any(|r| r["op"] == "drive"));
+    }
     #[test]
     fn restart_waits_for_confirmed_stop_and_refuses_active_sync() {
         for (syncing, stop_fails) in [(true, false), (false, true), (false, false)] {

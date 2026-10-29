@@ -101,6 +101,8 @@ enum Answer {
     },
     Logout,
     BackgroundFolder,
+    ComputerFolder,
+    BackgroundRemoval(Value),
     MountFolder,
     ActivateBackground {
         local: String,
@@ -408,6 +410,7 @@ impl Files {
         {
             self.folder_cache.clear();
         }
+        self.state["progress"] = Value::Null;
         self.next_work += 1;
         let title = self.tr(title);
         let work = Work {
@@ -457,6 +460,9 @@ impl Files {
         }
     }
     fn render_background(&mut self, value: &Value) {
+        self.state["deletions"] = value["mount"]["deletions"].clone();
+        self.state["downloads"] = value["mount"]["downloads"].clone();
+        self.state["mountOperation"] = value["mount"]["operation"].clone();
         self.state["backgroundRunning"] = json!(value["running"] == true);
         let error = value["error"]
             .as_str()
@@ -483,8 +489,8 @@ impl Files {
             let label=match state {"idle"=>"Aktuell","syncing"=>"Wird synchronisiert","paused"=>"Pausiert","conflicts"|"conflict"=>"Konflikt","blocked"=>"Blockiert","offline"=>"Offline","error"=>"Failed","stopped"=>"Dienst ist gestoppt",""|"waiting"=>"Waiting",other=>other};
             let conflicts=job["conflicts"].as_array().into_iter().flatten().take(5).map(|v|self.locale.diagnostic(v.as_str().unwrap_or(""))).collect::<Vec<_>>().join("; ");
             json!({"id":job["id"],"name":job["name"].as_str().filter(|v|!v.is_empty()).unwrap_or(text(job,"local_root")),
-                "computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
-                "status":format!("{} · {} {}",self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts)})
+                "state":state,"progress":job["progress"],"completed":job["completed"],"lastSync":job["last_sync"],"retryAt":job["retry_at"],"conflicts":job["conflicts"],"skipped":job["skipped"],"computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
+                "status":([self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts].into_iter().filter(|part|!part.trim().is_empty()).collect::<Vec<_>>().join(" · "))})
         }).collect::<Vec<_>>());
     }
     fn activate_background(&mut self, computer: bool) -> Vec<Effect> {
@@ -657,6 +663,17 @@ impl Files {
             Done::Loaded,
         )
     }
+    pub fn progress(&mut self, id: u64, event: Value) {
+        if self.active.as_ref().is_some_and(|w| w.id == id) {
+            self.state["progress"] = event.clone();
+            if let Some(record) = self.state["activity"]
+                .as_array_mut()
+                .and_then(|a| a.first_mut())
+            {
+                record["progress"] = event;
+            }
+        }
+    }
     pub fn login_ready(&mut self, id: u64, url: String) {
         if self
             .active
@@ -794,6 +811,9 @@ impl Files {
                     }
                     Done::Background => {
                         self.render_background(&value);
+                        if work.operation["action"] == "remove_computer" {
+                            return self.refresh();
+                        }
                         vec![]
                     }
                     Done::Versions(path) => {
@@ -1042,6 +1062,8 @@ impl Files {
             Answer::TakeoutImport(plan) => self.submit("Google Takeout import",json!({"action":"takeout_import","plan":plan}),Done::TakeoutImport),
             Answer::Close => {self.closing=true;self.field("status_label",json!(self.tr("Vorgang wird beendet …")));if self.busy(){vec![Effect::Cancel]}else{vec![Effect::Close]}},
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
+            Answer::ComputerFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.background_local=Some(path);return self.activate_background(true);}vec![]},
+            Answer::BackgroundRemoval(operation) => self.submit_background("Remove backup",operation),
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
             Answer::ActivateBackground{local,remote,computer}=>self.submit_background(if computer {"Computersicherung einrichten"} else {"Hintergrund-Sync aktivieren"},json!({"action":if computer {"computer"} else {"add"},"local":local,"remote":remote})),
             Answer::PhotoLibrary(request) => {
@@ -1394,8 +1416,14 @@ impl Files {
                     if !self.restore_folder() {
                         effects.extend(self.refresh());
                     }
-                } else if ["background", "settings", "computer-backup", "ondemand"]
-                    .contains(&args[0].as_str().unwrap_or(""))
+                } else if [
+                    "background",
+                    "settings",
+                    "computer-backup",
+                    "ondemand",
+                    "activity",
+                ]
+                .contains(&args[0].as_str().unwrap_or(""))
                 {
                     effects.extend(self.dispatch("poll_services", &json!([])));
                 }
@@ -1499,6 +1527,27 @@ impl Files {
                     .filter(|entry| entry["state"] == "superseded")
                 {
                     return self.dialog("confirm","Restore this version?","The selected historical version will become the current file. Concurrent cloud edits require reloading the history.",json!({}),Answer::RestoreVersion{path:text(&history,"path").into(),revision:text(entry,"uid").into(),expected:text(&history,"active").into()});
+                }
+            }
+            "remove_computer" => {
+                if let Some(node) = self
+                    .selected()
+                    .first()
+                    .cloned()
+                    .filter(|n| self.path() == "/devices" && n["safe"] == true)
+                {
+                    return self.dialog("confirm","Remove this computer?","Stop its backup jobs and remove this computer and its cloud backup from Proton Drive. This may permanently delete the cloud copy. Local original files remain on this computer.",json!({}),Answer::BackgroundRemoval(json!({"action":"remove_computer","path":node["path"],"uid":node["raw"]["uid"],"root_uid":node["raw"]["rootFolderUid"]})));
+                }
+            }
+            "job_action" if args[0] == "remove_backup" || args[0] == "remove" => {
+                if let Some(job) = self.state["jobs"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|j| j["id"] == args[1])
+                    .cloned()
+                {
+                    return self.dialog("confirm",if args[0]=="remove_backup" {"Remove backup?"}else{"Stop syncing this folder?"},if args[0]=="remove_backup" {"Stop syncing and move this folder's cloud copy to Proton Drive trash. Local original files are kept."}else{"Stop syncing this folder. Local files and the cloud copy are kept."},json!({}),Answer::BackgroundRemoval(json!({"action":args[0],"id":job["id"]})));
                 }
             }
             "job_action"
@@ -1636,6 +1685,7 @@ impl Files {
             "refreshTrash"=>self.refresh_trash(),
             "chooseBackground"=>self.dialog("folder","Sync-Ordner wählen","",json!({"multiple":false}),Answer::BackgroundFolder),
             "addJob"=>self.activate_background(false),
+            "chooseComputerFolder"=>self.dialog("folder","Choose a folder to back up","",json!({}),Answer::ComputerFolder),
             "addComputerFolder"=>self.activate_background(true),
             "start"|"stop"|"restart"=>self.submit_background("Hintergrund-Sync",json!({"action":name})),
             "login" => {
@@ -1735,6 +1785,34 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn stale_progress_cannot_change_the_current_operation() {
+        let mut m = loaded();
+        let next = work(m.dispatch("action", &json!(["version"])));
+        m.progress(next.id + 1, json!({"total":10,"completed":9}));
+        assert!(m.state["progress"].is_null());
+        m.progress(
+            next.id,
+            json!({"total":10,"completed":3,"path":"example.txt"}),
+        );
+        assert_eq!(m.state["progress"]["completed"], 3);
+        m.complete(next.id, Ok(json!("1.0.7")));
+        m.progress(next.id, json!({"total":10,"completed":9}));
+        assert_eq!(m.state["activity"][0]["progress"]["completed"], 3);
+    }
+    #[test]
+    fn computer_removal_requires_confirmation_and_captures_identity() {
+        let mut m = loaded();
+        m.state["path"] = json!("/devices");
+        m.nodes = vec![
+            json!({"safe":true,"uid":"device","raw":{"uid":"device","rootFolderUid":"root"},"name":"PC","path":"/devices/PC","type":"folder"}),
+        ];
+        m.visible = m.nodes.clone();
+        m.selection.insert(0);
+        m.update_actions();
+        let effects = m.dispatch("remove_computer", &json!([]));
+        assert!(matches!(effects.first(), Some(Effect::Dialog(_))));
+    }
     #[test]
     fn close_waits_for_confirmed_cancellation_and_rejects_stale_answers() {
         let mut m = model();

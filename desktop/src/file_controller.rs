@@ -308,11 +308,12 @@ impl qobject::NativeFiles {
                             json!({"op":"drive","executable":executable,"operation":{"action":"account_storage"}}),
                             &mut callback,
                         ),
-                        Target::Background => crate::background::run(
-                            &executable,
-                            &json!({"action":"status"}),
-                            &mut callback,
-                        ),
+                        Target::Background => {
+                            let mut value=crate::background::run(&executable,&json!({"action":"status"}),&mut callback)?;
+                            // Status only: never launch a mount service from a polling timer.
+                            if let Ok(mount)=runtime::call(json!({"op":"desktop_bus","operation":{"action":"request","request":{"action":"status"},"launcher":null}}),&mut callback){value["mount"]=mount;}
+                            Ok(value)
+                        },
                         Target::Mount => runtime::call(
                             crate::headless::desktop_request(
                                 &executable,
@@ -366,6 +367,10 @@ impl qobject::NativeFiles {
             let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut callback=|event:Value| {
                     if cancel.load(Ordering::Acquire) {return 1;}
+                    if event["kind"] == "progress" {
+                        let event=event.clone();
+                        if qt.queue(move |object| object.progress(id,event)).is_err(){return 1;}
+                    }
                     if event["kind"] == "login" {
                         if let Some(url)=event["url"].as_str() {
                             let url=url.to_string();
@@ -409,6 +414,15 @@ impl qobject::NativeFiles {
                 }),
             ),
         }
+    }
+    fn progress(mut self: Pin<&mut Self>, id: u64, event: Value) {
+        if self.rust().closed {
+            return;
+        }
+        if let Some(model) = self.as_mut().rust_mut().model.as_mut() {
+            model.progress(id, event);
+        }
+        self.publish();
     }
     fn login_ready(mut self: Pin<&mut Self>, id: u64, url: String) {
         if self.rust().closed {

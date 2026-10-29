@@ -94,6 +94,7 @@ timeout 30 dbus-run-session --config-file="$nd_root/desktop/tests/session.conf" 
 if [[ ${NEUTRONDRIVE_FUSE_TEST:-0} == 1 ]]; then
     timeout 30 /bin/bash "$nd_root/desktop/tests/check-foreground-mount.sh" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
     timeout 60 python3 "$nd_root/desktop/tests/check-cached-browsing.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
+    timeout 60 python3 "$nd_root/desktop/tests/check-local-delete.py" "$CARGO_TARGET_DIR/debug/neutrondrive-qt"
 fi
 
 mkdir "$nd_check_config/local"

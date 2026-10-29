@@ -20,6 +20,8 @@ pub struct Runtime {
     conflicts: Vec<String>,
     skipped: Vec<String>,
     completed: usize,
+    #[serde(default)]
+    progress: Value,
     rebuild_watch: bool,
     local_snapshot: Value,
     snapshot_ready: bool,
@@ -93,6 +95,7 @@ pub fn transition(mut runtime: Runtime, outcome: Outcome, context: Context) -> R
     match outcome {
         Outcome::Begin => {
             runtime.state = "syncing".into();
+            runtime.progress = Value::Null;
             runtime.pending = false;
             runtime.paths.clear();
             runtime.reasons.clear();

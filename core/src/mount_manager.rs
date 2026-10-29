@@ -424,8 +424,9 @@ impl Manager {
             }
         }
         let s = self.state.lock().unwrap();
+        let activity = s.fs.map(ondemand_fs::activity).unwrap_or(json!({}));
         Ok(
-            json!({"status":if s.phase==Phase::Mounted{"mounted"}else{"stopped"},"mounted":s.phase==Phase::Mounted,"mountpoint":s.point,"error":if s.error.is_empty(){s.status["last_error"].as_str().unwrap_or("")}else{&s.error},"read_only":s.status["writable"]!=true||s.status["account_blocked"]==true,"cache_dir":s.cache,"remote_root":s.remote_root,"offline":s.status["offline"]==true,"recovery":s.recovery}),
+            json!({"deletions":activity["deletions"],"downloads":activity["downloads"],"status":if s.phase==Phase::Mounted{"mounted"}else{"stopped"},"mounted":s.phase==Phase::Mounted,"mountpoint":s.point,"error":if s.error.is_empty(){s.status["last_error"].as_str().unwrap_or("")}else{&s.error},"read_only":s.status["writable"]!=true||s.status["account_blocked"]==true,"cache_dir":s.cache,"remote_root":s.remote_root,"offline":s.status["offline"]==true,"recovery":s.recovery}),
         )
     }
     fn finish(&self, result: std::result::Result<Value, Failure>) {

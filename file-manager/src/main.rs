@@ -27,7 +27,7 @@ fn main() {
             let valid = neutrondrive_file_manager::paths::configured_root().is_some_and(|r| {
                 neutrondrive_file_manager::paths::relative(&r, std::path::Path::new(path)).is_some()
             });
-            if !valid || !["0", "1", "2"].contains(&keep.as_str()) {
+            if !valid || !["0", "1", "2", "4", "5", "6"].contains(&keep.as_str()) {
                 std::process::exit(2)
             }
             std::process::exit(

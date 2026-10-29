@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { CommandComputerCreate, CommandComputerInfo } from './computerCommands';
+import { CommandComputerCreate, CommandComputerInfo, CommandComputerRemove } from './computerCommands';
 
 function context(name: string, existing: string[] = []) {
     const calls: unknown[] = [];
@@ -33,4 +33,14 @@ describe('computer registration', () => {
         await new CommandComputerInfo().action(ctx);
         expect(calls).toEqual(['device']);
     });
+});
+
+test('computer removal verifies the exact root before SDK deletion', async () => {
+    for (const root of ['root', 'replacement']) {
+        const calls: string[] = [];
+        const ctx: any = {args:['device','root'],sdk:{getDevice:async()=>({uid:'device',rootFolderUid:root}),deleteDevice:async(uid:string)=>{calls.push(uid);}}};
+        if (root === 'root') await new CommandComputerRemove().action(ctx);
+        else await expect(new CommandComputerRemove().action(ctx)).rejects.toThrow('identity changed');
+        expect(calls).toEqual(root === 'root' ? ['device'] : []);
+    }
 });

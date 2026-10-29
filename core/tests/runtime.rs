@@ -30,10 +30,18 @@ fn request(value: Value) -> (bool, Value) {
     let result = child.wait_with_output().unwrap();
     std::fs::remove_dir_all(&state).unwrap();
     assert!(result.stderr.is_empty());
-    (
-        result.status.success(),
-        serde_json::from_slice(&result.stdout).unwrap(),
-    )
+    let messages: Vec<Value> = serde_json::Deserializer::from_slice(&result.stdout)
+        .into_iter::<Value>()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    for event in &messages[..messages.len() - 1] {
+        assert!(
+            event.get("event").is_some(),
+            "Unexpected runtime message: {event}"
+        );
+        assert_ne!(event["event"]["kind"], "host_request");
+    }
+    (result.status.success(), messages.last().unwrap().clone())
 }
 #[test]
 fn native_entry_point_validates_requests() {

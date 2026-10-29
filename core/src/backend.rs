@@ -495,7 +495,7 @@ pub(crate) fn node(item: Value, parent: &str) -> Result<Value> {
     Ok(
         json!({"uid":id,"name":label,"type":kind,"size":size,"modified":string(modified)?,
         "revision":string(revision.get("uid"))?,"sha1":string(digests.get("sha1"))?,"path":path,
-        "raw":raw,"safe":safe,"media_type":string(item.get("mediaType"))?}),
+        "shared":item["isShared"]==true || item["isSharedByUrl"]==true,"raw":raw,"safe":safe,"media_type":string(item.get("mediaType"))?}),
     )
 }
 

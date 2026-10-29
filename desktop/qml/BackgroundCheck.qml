@@ -36,7 +36,13 @@ Item {
                     job=state.jobs[0].id;send("job_action",["pause",job]);stage=2;
                 }else if(stage===2){
                     require(state.jobs[0].paused,"pause reflected in native status");
-                    send("job_action",["remove",job]);stage=3;
+                    send("job_action",["remove",job]);
+                    require(dialog.kind==="confirm" && !state.busy,"removal waits for confirmation");
+                    send("answer_dialog",[dialog.token,false,""]);
+                    require(state.jobs.length===1,"cancelled removal retains job");
+                    send("job_action",["remove",job]);
+                    require(dialog.kind==="confirm","removal can be retried");
+                    send("answer_dialog",[dialog.token,true,""]);stage=3;
                 }else if(stage===3){
                     require(state.jobs.length===0,"removed job not retained");
                     send("action",["stop"]);stage=4;
