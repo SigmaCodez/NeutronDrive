@@ -33,7 +33,7 @@ claimed by these development tests.
 
 ## Results (2026-10-29)
 
-- Core: 209 unit tests and 21 integration tests passed; full native runtime build
+- Core: 210 unit tests and 21 integration tests passed; full native runtime build
   passed after clearing stale shared build artifacts.
 - Desktop: 128 Rust tests passed; Clippy passed for core, desktop and all
   file-manager features with warnings denied.
@@ -64,3 +64,9 @@ The 128 desktop tests and full offscreen Qt smoke passed after these changes.
 Additional assertions verify Settings remains in the navigation viewport and
 long progress text cannot push cancellation outside the compact window. Light,
 dark and compact screenshots were inspected. No local installation was changed.
+
+The first 1.0.8 CI attempt exposed a short mutation-lock collision when unlink
+immediately followed a file close on both runners. Deletion now allows a bounded
+250 ms local handoff; it still refuses a busy write rather than waiting for its
+cloud request. A dedicated lock test covers short release and bounded failure;
+five repeated real FUSE runs passed locally before restarting architecture CI.

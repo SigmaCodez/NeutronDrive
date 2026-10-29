@@ -1473,6 +1473,28 @@ pub fn run(operation: Operation, host: &mut impl Services) -> std::result::Resul
 
 static MUTATIONS: LazyLock<Mutex<BTreeMap<u64, Arc<Mutex<()>>>>> =
     LazyLock::new(|| Mutex::new(BTreeMap::new()));
+// RELEASE and other short local mutations can overlap a kernel unlink. Allow
+// that handoff to finish, but never wait indefinitely for a cloud-backed write.
+fn deletion_guard(gate: &Mutex<()>) -> Result<std::sync::MutexGuard<'_, ()>> {
+    let started = Instant::now();
+    loop {
+        match gate.try_lock() {
+            Ok(guard) => return Ok(guard),
+            Err(std::sync::TryLockError::Poisoned(_)) => {
+                return Err(fail(libc::EIO, "File mutation lock unavailable"))
+            }
+            Err(std::sync::TryLockError::WouldBlock) => {
+                if started.elapsed() >= std::time::Duration::from_millis(250) {
+                    return Err(fail(
+                        libc::EBUSY,
+                        "A file change is in progress; retry deletion shortly",
+                    ));
+                }
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+        }
+    }
+}
 pub(crate) fn enqueue_delete(id: u64, parent: u64, name: &str, directory: bool) -> Result<Value> {
     tree::name(name)?;
     let gate = MUTATIONS
@@ -1481,12 +1503,7 @@ pub(crate) fn enqueue_delete(id: u64, parent: u64, name: &str, directory: bool) 
         .get(&id)
         .cloned()
         .ok_or_else(|| fail(libc::EBADF, "Unknown mount"))?;
-    let _guard = gate.try_lock().map_err(|_| {
-        fail(
-            libc::EBUSY,
-            "A file change is in progress; retry deletion shortly",
-        )
-    })?;
+    let _guard = deletion_guard(&gate)?;
     let mirror = SNAPSHOTS
         .lock()
         .unwrap()
@@ -1715,6 +1732,27 @@ mod tests {
             offline,
             metadata_ttl: 15.0,
         }
+    }
+    #[test]
+    fn deletion_waits_for_brief_close_handoff_but_bounds_busy_writes() {
+        let gate = Arc::new(Mutex::new(()));
+        let worker_gate = gate.clone();
+        let (ready, started) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let _guard = worker_gate.lock().unwrap();
+            ready.send(()).unwrap();
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        });
+        started.recv().unwrap();
+        drop(deletion_guard(&gate).unwrap());
+        worker.join().unwrap();
+        let _guard = gate.lock().unwrap();
+        let start = Instant::now();
+        assert!(matches!(
+            deletion_guard(&gate),
+            Err(Error::Fs(libc::EBUSY, _))
+        ));
+        assert!(start.elapsed().as_secs_f64() < 1.0);
     }
     #[test]
     fn local_delete_does_not_wait_for_mount_or_sdk_and_survives_restart() {
