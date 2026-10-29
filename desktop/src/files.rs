@@ -855,12 +855,18 @@ impl Files {
                     Done::Loaded => {
                         if let Some(nodes) = value.as_array() {
                             self.state["authenticated"] = json!(true);
-                            self.nodes = nodes.clone();
-                            self.nodes.sort_by_cached_key(|n| {
+                            let mut sorted = nodes.clone();
+                            sorted.sort_by_cached_key(|n| {
                                 (n["type"] != "folder", folded(text(n, "name")))
                             });
+                            let changed = self.files_revision == 0 || self.nodes != sorted;
+                            self.nodes = sorted;
                             self.cache_folder();
-                            self.render();
+                            // Unchanged metadata must not recreate delegates or
+                            // discard the user's keyboard focus and selection.
+                            if changed {
+                                self.render();
+                            }
                         } else {
                             self.message("Invalid native file list", true);
                         }
@@ -974,6 +980,17 @@ impl Files {
             .is_none_or(|(current, _)| *current != token)
         {
             return vec![];
+        }
+        if accepted
+            && self.active_read()
+            && !matches!(self.pending.as_ref(), Some((_, Answer::Close)))
+        {
+            // A dialog captures its target before navigation. Let its confirmed
+            // action supersede a read instead of consuming the answer while
+            // submit() is still busy and silently losing the requested action.
+            let mut effects = self.abandon_read();
+            effects.extend(self.answer(token, accepted, value));
+            return effects;
         }
         let (_, answer) = self.pending.take().unwrap();
         if !accepted {
@@ -2148,6 +2165,74 @@ mod tests {
             .as_str()
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn unchanged_refresh_preserves_selection_focus_and_model_revision() {
+        let mut m = loaded();
+        m.dispatch("select_row", &json!([2, false]));
+        let entries = m.entries.clone();
+        let revision = m.files_revision;
+        let selected = m.state["selection"].clone();
+        let focused = m.state["focusIndex"].clone();
+        let w = work(m.refresh());
+        m.complete(w.id, Ok(nodes()));
+        assert_eq!(m.entries, entries);
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.state["selection"], selected);
+        assert_eq!(m.state["focusIndex"], focused);
+        assert!(!m.busy());
+    }
+
+    #[test]
+    fn changed_refresh_still_invalidates_index_selection_and_empty_first_load_renders() {
+        let mut m = loaded();
+        m.dispatch("select_row", &json!([2, false]));
+        let revision = m.files_revision;
+        let w = work(m.refresh());
+        m.complete(w.id, Ok(json!([])));
+        assert!(m.files_revision > revision);
+        assert_eq!(m.state["selection"], json!([]));
+        let mut m = model();
+        let w = work(m.refresh());
+        m.complete(w.id, Ok(json!([])));
+        assert!(m.files_revision > 0);
+        assert!(!text(&m.state["fields"]["count_label"], "value").is_empty());
+    }
+
+    #[test]
+    fn accepted_dialog_interrupts_read_and_keeps_original_destination() {
+        let mut m = loaded();
+        let d = dialog(m.dispatch("action", &json!(["mkdir"])));
+        let old = work(m.dispatch("navigate", &json!(["Other", "/my-files/Other"])));
+        let effects = m.dispatch("answer_dialog", &json!([d["token"], true, "New folder"]));
+        assert!(effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::Cancel)));
+        let next = work(effects);
+        assert_eq!(
+            next.operation,
+            json!({"action":"mkdir","parent":"/my-files","name":"New folder"})
+        );
+        assert!(m.complete(old.id, Ok(json!([]))).is_empty());
+        assert_eq!(m.active.as_ref().unwrap().id, next.id);
+        assert!(m
+            .dispatch("answer_dialog", &json!([d["token"], true, "duplicate"]))
+            .is_empty());
+    }
+
+    #[test]
+    fn rejected_or_stale_dialog_does_not_cancel_a_current_read() {
+        for stale in [true, false] {
+            let mut m = loaded();
+            let d = dialog(m.dispatch("action", &json!(["mkdir"])));
+            let old = work(m.refresh());
+            let token = d["token"].as_u64().unwrap() + u64::from(stale);
+            assert!(m
+                .dispatch("answer_dialog", &json!([token, stale, "unused"]))
+                .is_empty());
+            assert_eq!(m.active.as_ref().unwrap().id, old.id);
+        }
     }
 
     #[test]

@@ -27,3 +27,12 @@ A subsequent review reproduced three additional failures before fixing them:
 - Successful album membership changes refreshed only the album list. Changes to the currently open album now invalidate its photo inventory and reload it after the album list. Deleting that album returns to the timeline. Cancelling a follow-up cannot restore removed photos; changes to another album preserve the current gallery.
 
 Validation after these fixes: 113 desktop Rust tests, Clippy with warnings denied, real Qt main-window and slow-controller checks. The three original reproductions failed before their fixes; two additional tests cover cancelled follow-ups and unrelated album changes. No real cloud files were changed.
+
+## Refresh and dialog races
+
+Two further reproductions failed before correction:
+
+- An unchanged folder refresh rebuilt the model and cleared selection/focus. Identical sorted metadata now only renews the cache; changed metadata still rebuilds the model and invalidates index-based selection. The first empty response still renders the empty state.
+- A confirmed dialog could be consumed while an unrelated navigation read was busy, causing its action to be lost. A valid confirmation now cancels that read and submits the action with the originally captured destination. Stale tokens and rejected dialogs cannot cancel the read, and explicit close confirmation retains its shutdown behavior.
+
+Validation: 117 desktop tests, Clippy with warnings denied, full Qt window checks (including file-delegate identity and selection across Refresh), and the slow-backend controller check with child-process cleanup. No live-account writes were used.
