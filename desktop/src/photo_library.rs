@@ -3,9 +3,14 @@ use super::*;
 use std::collections::{HashMap, HashSet};
 impl Files {
     pub(super) fn photo_submit(&mut self, request: Value) -> Vec<Effect> {
+        let mut operation_request = request.clone();
+        if let Some(fields) = operation_request.as_object_mut() {
+            fields.remove("preserve");
+            fields.remove("reloadAlbum");
+        }
         self.submit(
             "Photos",
-            json!({"action":"photo_library","request":request}),
+            json!({"action":"photo_library","request":operation_request}),
             Done::PhotoLibrary(request),
         )
     }
@@ -33,7 +38,11 @@ impl Files {
                     "https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=14/{lat}/{lon}"
                 ))]
             }
-            "index" => self.photo_submit(json!({"action":"index","album":text(request,"album")})),
+            "index" => {
+                let mut next = json!({"action":"index","album":text(request,"album")});
+                if request["preserve"] == true { next["preserve"] = json!(true); }
+                self.photo_submit(next)
+            },
             "albums" => self.photo_submit(json!({"action":"albums"})),
             "previews" => {
                 let start = request["start"].as_u64().unwrap_or(0) as usize;
@@ -147,6 +156,20 @@ impl Files {
                     self.message("Duplicate photo inventory identity", true);
                     return vec![];
                 }
+                self.photo_checked = Some(Instant::now());
+                // Refresh an unchanged inventory without discarding decoded
+                // previews, pagination or the user's current scroll position.
+                if request["preserve"] == true
+                    && self.state["photoTotal"].is_u64()
+                    && self.photo_index == ids
+                    && self.state["photoAlbum"] == request["album"]
+                {
+                    return if self.state["photos"].as_array().is_some_and(Vec::is_empty) {
+                        self.photo_action(&json!({"action":"more"}))
+                    } else {
+                        vec![]
+                    };
+                }
                 self.photo_index = ids;
                 self.state["photoTotal"] = json!(self.photo_index.len());
                 self.state["photos"] = json!([]);
@@ -185,21 +208,41 @@ impl Files {
                         Value::Array(items) => items,
                         _ => Vec::new(),
                     };
+                    let mut changed = false;
                     for (index, old) in current.iter_mut().enumerate() {
                         if index < (start as usize).saturating_sub(48)
                             || index >= start as usize + 96
                         {
+                            changed |= old["thumbnail"] != "" || old["previewLoaded"] != false;
                             old["thumbnail"] = json!("");
                             old["previewLoaded"] = json!(false);
                         } else if let Some(p) = by_id.get(text(old, "uid")) {
-                            old["thumbnail"] = checked_thumbnail(p);
-                            old["previewLoaded"] = json!(true);
+                            // Metadata may have changed since this tile was
+                            // cached, including location, name or access state.
+                            let mut updated = (*p).clone();
+                            updated["thumbnail"] = checked_thumbnail(p);
+                            updated["previewLoaded"] = json!(true);
+                            if *old != updated {
+                                *old = updated;
+                                changed = true;
+                            }
                         } else if ids.contains(&old["uid"]) {
+                            // Deleted or inaccessible items must not retain an
+                            // old image or remain actionable after a fresh read.
+                            changed |= old["thumbnail"] != ""
+                                || old["safe"] != false
+                                || !old["location"].is_null()
+                                || old["previewLoaded"] != true;
+                            old["thumbnail"] = json!("");
+                            old["safe"] = json!(false);
+                            old["location"] = Value::Null;
                             old["previewLoaded"] = json!(true);
                         }
                     }
                     self.state["photos"] = Value::Array(current);
-                    self.photos_revision += 1;
+                    if changed {
+                        self.photos_revision += 1;
+                    }
                     return vec![];
                 }
                 let start = request["start"].as_u64().unwrap_or(u64::MAX);
@@ -216,6 +259,7 @@ impl Files {
                     Value::Array(items) => items,
                     _ => Vec::new(),
                 };
+                let mut changed = false;
                 // One inventory scan per page instead of one scan per photo.
                 // Keep the inventory's timeline order even if metadata arrives
                 // out of order, and skip missing entries without stalling paging.
@@ -232,14 +276,18 @@ impl Files {
                     p["thumbnail"] = checked_thumbnail(&p);
                     p["previewLoaded"] = json!(true);
                     current.push(p);
+                    changed = true;
                 }
                 let keep_from = current.len().saturating_sub(96);
                 for photo in current.iter_mut().take(keep_from) {
+                    changed |= photo["thumbnail"] != "" || photo["previewLoaded"] != false;
                     photo["thumbnail"] = json!("");
                     photo["previewLoaded"] = json!(false);
                 }
                 self.state["photos"] = Value::Array(current);
-                self.photos_revision += 1;
+                if changed {
+                    self.photos_revision += 1;
+                }
                 let next = start + ids.len() as u64;
                 self.state["photoOffset"] = json!(next);
                 self.state["photosMore"] = json!((next as usize) < self.photo_index.len());
@@ -248,6 +296,9 @@ impl Files {
             "albums" => {
                 if value["albums"].as_array().is_some_and(|a| a.len() <= 10000) {
                     self.state["photoAlbums"] = value["albums"].clone();
+                    if let Some(album) = request["reloadAlbum"].as_str() {
+                        return self.photo_action(&json!({"action":"index","album":album}));
+                    }
                 } else {
                     self.message("Invalid album list", true);
                 }
@@ -258,7 +309,30 @@ impl Files {
                     self.message("Invalid album operation result", true);
                     return vec![];
                 }
-                self.photo_submit(json!({"action":"albums"}))
+                let mut next = json!({"action":"albums"});
+                if matches!(text(request, "action"), "add" | "remove" | "delete")
+                    && !text(request, "album").is_empty()
+                    && self.state["photoAlbum"] == request["album"]
+                {
+                    let album = if request["action"] == "delete" {
+                        ""
+                    } else {
+                        text(request, "album")
+                    };
+                    next["reloadAlbum"] = json!(album);
+                    self.state["photoAlbum"] = json!(album);
+                    // Clear invalidated membership immediately, even if the
+                    // follow-up fetch is cancelled or fails.
+                    self.state["photoTotal"] = Value::Null;
+                    self.state["photos"] = json!([]);
+                    self.state["photoOffset"] = json!(0);
+                    self.state["photosMore"] = json!(false);
+                    self.state["photoSelection"] = json!([]);
+                    self.photo_index.clear();
+                    self.photo_checked = None;
+                    self.photos_revision += 1;
+                }
+                self.photo_submit(next)
             }
             _ => vec![],
         }
@@ -289,6 +363,153 @@ mod tests {
             false,
         )
     }
+    #[test]
+    fn automatic_inventory_refresh_retains_pages_but_manual_refresh_reloads() {
+        let mut m = model();
+        m.photo_index = vec!["a".into()];
+        m.state["photoTotal"] = json!(1);
+        m.state["photoAlbum"] = json!("");
+        m.state["photoOffset"] = json!(1);
+        m.state["photos"] = json!([{"uid":"a","thumbnail":"cached","previewLoaded":true}]);
+        m.photo_checked = Some(Instant::now() - Duration::from_secs(31));
+        let effects = m.enter_photos();
+        let Effect::Work(w) = &effects[0] else {
+            panic!("index refresh expected")
+        };
+        assert!(w.operation["request"].get("preserve").is_none());
+        m.complete(w.id, Ok(json!({"items":[{"uid":"a"}],"total":1})));
+        assert_eq!(m.state["photos"][0]["thumbnail"], "cached");
+        assert_eq!(m.state["photoOffset"], 1);
+        let effects = m.photo_action(&json!({"action":"index","album":""}));
+        let Effect::Work(w) = &effects[0] else {
+            panic!("manual refresh expected")
+        };
+        let next = m.complete(w.id, Ok(json!({"items":[{"uid":"a"}],"total":1})));
+        assert!(m.state["photos"].as_array().unwrap().is_empty());
+        assert!(matches!(&next[0], Effect::Work(w) if w.operation["request"]["action"]=="details"));
+    }
+
+    #[test]
+    fn preview_refresh_replaces_changed_metadata_and_clears_missing_photo() {
+        let mut m = model();
+        m.state["photos"] = json!([
+            {"uid":"a","name":"old","safe":true,"location":{"latitude":1},"thumbnail":"old-image"},
+            {"uid":"b","safe":true,"location":{"latitude":1},"thumbnail":"deleted-image"}
+        ]);
+        m.photo_result(&json!({"action":"details","previewStart":0,"ids":["a","b"]}),
+            json!({"photos":[{"uid":"a","name":"new","safe":true,"revision":"r2","thumbnail":"data:image/jpeg;base64,/9g="}]}));
+        assert_eq!(m.state["photos"][0]["name"], "new");
+        assert_eq!(m.state["photos"][0]["revision"], "r2");
+        assert!(m.state["photos"][0]["location"].is_null());
+        assert_eq!(m.state["photos"][1]["thumbnail"], "");
+        assert_eq!(m.state["photos"][1]["safe"], false);
+        assert!(m.state["photos"][1]["location"].is_null());
+        assert!(m.dispatch("photo_download", &json!([1])).is_empty());
+    }
+
+    #[test]
+    fn album_membership_changes_reload_active_inventory_after_album_list() {
+        for action in ["add", "remove", "delete"] {
+            let mut m = model();
+            m.state["photoAlbum"] = json!("album-a");
+            m.state["photoTotal"] = json!(1);
+            m.state["photos"] = json!([{"uid":"old"}]);
+            let expected = if action == "delete" { "" } else { "album-a" };
+            let effects = m.photo_result(
+                &json!({"action":action,"album":"album-a"}),
+                json!({"accepted":true}),
+            );
+            let Effect::Work(w) = &effects[0] else {
+                panic!("albums expected")
+            };
+            assert_eq!(w.operation["request"], json!({"action":"albums"}));
+            let effects = m.complete(w.id, Ok(json!({"albums":[]})));
+            let Effect::Work(w) = &effects[0] else {
+                panic!("index expected")
+            };
+            assert_eq!(
+                w.operation["request"],
+                json!({"action":"index","album":expected})
+            );
+        }
+    }
+
+    #[test]
+    fn cancelled_album_followup_resumes_correct_album_without_stale_photos() {
+        let mut m = model();
+        m.state["photoAlbum"] = json!("album-a");
+        m.state["photoTotal"] = json!(1);
+        m.state["photos"] = json!([{"uid":"removed"}]);
+        let effects = m.photo_result(
+            &json!({"action":"remove","album":"album-a"}),
+            json!({"accepted":true}),
+        );
+        let Effect::Work(old) = &effects[0] else {
+            panic!("albums expected")
+        };
+        m.dispatch("show_page", &json!(["settings"]));
+        assert!(m.state["photos"].as_array().unwrap().is_empty());
+        m.complete(old.id, Ok(json!({"albums":[]})));
+        let effects = m.dispatch("open_section", &json!(["Photos", "photos"]));
+        let Effect::Work(next) = &effects[0] else {
+            panic!("index expected")
+        };
+        assert_eq!(
+            next.operation["request"],
+            json!({"action":"index","album":"album-a"})
+        );
+    }
+
+    #[test]
+    fn unrelated_album_change_preserves_visible_gallery() {
+        let mut m = model();
+        m.state["photoAlbum"] = json!("album-a");
+        m.state["photoTotal"] = json!(1);
+        let photos = json!([{"uid":"keep"}]);
+        m.state["photos"] = photos.clone();
+        let effects = m.photo_result(
+            &json!({"action":"delete","album":"album-b"}),
+            json!({"accepted":true}),
+        );
+        let Effect::Work(w) = &effects[0] else {
+            panic!("albums expected")
+        };
+        assert!(m.complete(w.id, Ok(json!({"albums":[]}))).is_empty());
+        assert_eq!(m.state["photos"], photos);
+        assert_eq!(m.state["photoAlbum"], "album-a");
+    }
+
+    #[test]
+    fn unchanged_preview_does_not_republish_whole_photo_payload() {
+        let mut m = model();
+        let photo = json!({"uid":"a","safe":true,"thumbnail":"data:image/jpeg;base64,/9g=","previewLoaded":true});
+        m.state["photos"] = json!([photo.clone()]);
+        let revision = m.photos_revision;
+        m.photo_result(
+            &json!({"action":"details","previewStart":0,"ids":["a"]}),
+            json!({"photos":[photo]}),
+        );
+        assert_eq!(m.photos_revision, revision);
+    }
+
+    #[test]
+    fn empty_page_advances_offset_without_republishing_existing_photos() {
+        let mut m = model();
+        let photos = json!([{"uid":"a","previewLoaded":true}]);
+        m.state["photos"] = photos.clone();
+        m.state["photoOffset"] = json!(1);
+        m.photo_index = vec!["a".into(), "missing".into(), "next".into()];
+        let revision = m.photos_revision;
+        m.photo_result(
+            &json!({"action":"details","start":1,"ids":["missing"]}),
+            json!({"photos":[]}),
+        );
+        assert_eq!(m.photos_revision, revision);
+        assert_eq!(m.state["photos"], photos);
+        assert_eq!(m.state["photoOffset"], 2);
+        assert_eq!(m.state["photosMore"], true);
+    }
+
     #[test]
     fn inventory_is_atomic_and_first_batch_is_bounded() {
         let mut m = model();

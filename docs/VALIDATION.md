@@ -1,5 +1,31 @@
 # Validation record
 
+## Release 1.0.7 validation (2026-10-29)
+
+The [final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40934042229)
+passed for `38759d1830c1b302b481b655560618724684bd95`: DEB amd64/arm64,
+Ubuntu 26.10 installation tests on both architectures, Fedora/openSUSE RPM,
+Flatpak, strict Snap, AppImage and Arch package checks.
+Both native architecture jobs in the [source run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40929691125)
+passed at `cf5ac42b4b21f3c93f6c26eabfbe4339beadd257`. That run was stopped after
+native success to replace SDK download pins before packaging. The final run
+verifies unchanged native and SDK source fingerprints. Its first attempt stopped
+because the source run had not yet finished cancellation; the retry passed.
+
+Local checks passed: 201 core, 124 desktop and 2 file-manager Rust tests; Clippy
+with warnings denied; 364 Python contract tests (19 environment-dependent skips).
+Both native CI jobs also passed the opt-in Qt, service, FUSE and native provider
+checks, including renamed/out-of-root file-info regression coverage.
+The final amd64 DEB passed isolated actual Qt window and separate sharing-window
+checks. English light/dark previews were captured from this package with synthetic
+data and visually checked; GUI-PREVIEWS.json records package, executable and image
+hashes. File-manager previews retain their separately recorded capture provenance.
+Six-language website tests passed. Final post-test changes are documentation,
+previews and AUR download checksums only; shipped native source remains unchanged.
+
+These checks do not certify full-account sync, every desktop session or a physical
+machine reboot. No live-account files were modified for this release validation.
+
 ## Beta 0.1 validation (2026-10-25)
 
 The [complete package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40239359051)

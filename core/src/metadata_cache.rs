@@ -157,10 +157,15 @@ pub fn run(operation: Operation, host: &mut impl Services) -> Result<Value> {
                 .ok_or("Unknown metadata cache")?;
             match operation {
                 Operation::Info { path, .. } => {
+                    let generation = lock(&cache)?.generation;
                     let node = host.request("info", json!({"path":path}))?;
                     let uid = string(&node, "uid")?.to_owned();
                     let actual = string(&node, "path")?.to_owned();
                     let mut cache = lock(&cache)?;
+                    // Do not overwrite cache state refreshed after a cloud event.
+                    if cache.generation != generation {
+                        return Ok(node);
+                    }
                     cache.uid_paths.insert(uid.clone(), actual.clone());
                     cache.aliases.insert(path, actual.clone());
                     let parents = cache.parents.get(&uid).cloned().unwrap_or_default();
@@ -337,6 +342,43 @@ mod tests {
     fn node() -> Value {
         json!({"uid":"file","name":"data","type":"file","path":"/root/file","revision":"old","raw":{}})
     }
+    #[test]
+    fn info_started_before_invalidation_cannot_overwrite_new_listing() {
+        let id = create();
+        listing(id, &mut Host(|_: &str, _: Value| Ok(json!([node()])))).unwrap();
+        let mut latest = node();
+        latest["revision"] = json!("new");
+        let expected = latest.clone();
+        run(
+            Operation::Info {
+                id,
+                path: "/root/file".into(),
+            },
+            &mut Host(|_: &str, _: Value| {
+                run(
+                    Operation::Invalidate {
+                        id,
+                        path: "/root".into(),
+                    },
+                    &mut Host(|_: &str, _: Value| panic!("no SDK")),
+                )?;
+                listing(
+                    id,
+                    &mut Host(|_: &str, _: Value| Ok(json!([latest.clone()]))),
+                )?;
+                Ok(node())
+            }),
+        )
+        .unwrap();
+        let result = listing(
+            id,
+            &mut Host(|_: &str, _: Value| panic!("new listing must remain cached")),
+        )
+        .unwrap();
+        assert_eq!(result, json!([expected]));
+        release(id);
+    }
+
     #[test]
     fn event_during_fetch_prevents_stale_repopulation() {
         let id = create();

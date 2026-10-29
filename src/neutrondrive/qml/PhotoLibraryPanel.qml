@@ -19,8 +19,11 @@ ColumnLayout {
         // Defer updates within the same inventory, but clear a refreshed or
         // replaced album immediately so old tiles cannot outlive its data.
         let replaces=items.length<photoModel.count;
-        for(let i=0;!replaces && i<Math.min(appliedPhotos.length,items.length);i++)
+        let revoked=[];
+        for(let i=0;!replaces && i<Math.min(appliedPhotos.length,items.length);i++) {
             replaces=appliedPhotos[i].uid!==items[i].uid;
+            if(appliedPhotos[i].safe===true && items[i].safe!==true)revoked.push(i);
+        }
         // Index-based actions must never survive a changed inventory identity.
         // A metadata refresh or appended page keeps the selection intact.
         if(replaces) {
@@ -28,7 +31,12 @@ ColumnLayout {
             photoModel.clear(); appliedPhotos=[];
             previewAttempt=-1; moreAttempt=-1;
         }
+        // Access changes take effect immediately, including during a flick.
+        // Keep valid selections but never show a revoked tile as actionable.
+        let available=selected.filter(index=>items[index]?.safe===true);
+        if(available.length!==selected.length)selected=available;
         if(scrolling && photoModel.count>0 && !replaces) {
+            for(let index of revoked)photoModel.setProperty(index,"entry",items[index]);
             // Append new pages immediately so reaching the bottom never requires
             // releasing the wheel/touchpad. Existing tiles update after movement.
             let added=[];
@@ -47,6 +55,10 @@ ColumnLayout {
         appliedPhotos=items;
     }
     onPhotosChanged: updatePhotos()
+    onVisibleChanged: {
+        if(!visible) { viewer.close(); grid.focus=false; }
+        else { previewRetryAt=0; retryAt=0; }
+    }
     Component.onCompleted: updatePhotos()
     property bool albumsVisible: false
     property var selected: []
@@ -55,9 +67,11 @@ ColumnLayout {
     property int viewerIndex: -1
     property real previewZoom: 1
     property int previewAttempt: -1
+    property double previewRetryAt: 0
     property int moreAttempt: -1
     property double retryAt: 0
     property int viewerAttempt: -1
+    property double viewerRetryAt: 0
     readonly property var currentPhoto: viewerIndex >= 0 ? photos[viewerIndex] || ({}) : ({})
     function showPhoto(index) {
         if(index<0 || index>=photos.length)return;
@@ -213,7 +227,7 @@ ColumnLayout {
         Keys.onReturnPressed: if(currentIndex>=0)panel.showPhoto(currentIndex)
         Keys.onSpacePressed: if(panel.selectionMode && currentIndex>=0)panel.toggle(currentIndex)
         ScrollBar.vertical: DriveScrollBar { theme: host.theme }
-        onContentYChanged: if(!panel.restoring) { panel.savedScroll=Math.max(0,contentY); panel.previewAttempt=-1; panel.moreAttempt=-1; }
+        onContentYChanged: if(!panel.restoring) { panel.savedScroll=Math.max(0,contentY); }
         delegate: Item {
             id: photo; required property var entry; required property int index
             width: grid.cellWidth; height: grid.cellHeight
@@ -324,24 +338,40 @@ ColumnLayout {
             }
         }
     }
-    Timer {
-        interval: 300; repeat: true; running: viewer.visible
-        onTriggered: if(!panel.viewState.busy && panel.viewerIndex>=0 && !panel.currentPhoto.previewLoaded && panel.viewerAttempt!==panel.viewerIndex) {
-            panel.viewerAttempt=panel.viewerIndex;
-            panel.request({action:"previews",start:panel.viewerIndex});
+    // Failure retries have a cooldown; moving the viewport must not turn a
+    // failed request into a tight loop. New visible ranges still load promptly.
+    function loadViewerPreview() {
+        if(!viewer.visible || panel.viewState.busy || panel.viewerIndex<0 || panel.currentPhoto.previewLoaded)return;
+        if(panel.viewerAttempt===panel.viewerIndex && Date.now()<panel.viewerRetryAt)return;
+        panel.viewerAttempt=panel.viewerIndex; panel.viewerRetryAt=Date.now()+15000;
+        panel.request({action:"previews",start:panel.viewerIndex});
+    }
+    function loadVisiblePhotos() {
+        if(!panel.visible || panel.viewState.busy || panel.albumsVisible || panel.restoring || viewer.visible)return;
+        let columns=Math.max(1,Math.floor(grid.width/panel.tileSize));
+        let first=Math.max(0,Math.floor(grid.contentY/grid.cellHeight)*columns);
+        let end=Math.min(grid.count,panel.photos.length,first+columns*(Math.ceil(grid.height/grid.cellHeight)+2));
+        let missing=-1;
+        for(let i=first;i<end;i++)if(!panel.photos[i].previewLoaded){missing=i;break;}
+        if(missing>=0 && (panel.previewAttempt!==missing || Date.now()>=panel.previewRetryAt)) {
+            panel.previewAttempt=missing; panel.previewRetryAt=Date.now()+15000;
+            panel.request({action:"previews",start:missing}); return;
+        }
+        // A batch can contain no accessible photos. Its inventory offset still
+        // advances, so grid.count alone must not suppress the next page.
+        let offset=Number.isFinite(panel.viewState.photoOffset) ? panel.viewState.photoOffset : grid.count;
+        if(panel.viewState.photosMore && (panel.moreAttempt!==offset || Date.now()>=panel.retryAt)
+                && grid.contentY+grid.height>=grid.contentHeight-grid.height*2) {
+            panel.moreAttempt=offset; panel.retryAt=Date.now()+15000;
+            panel.request({action:"more"});
         }
     }
     Timer {
+        interval: 300; repeat: true; running: viewer.visible
+        onTriggered: panel.loadViewerPreview()
+    }
+    Timer {
         id: loadTimer; interval: 120; repeat: true; running: panel.visible && !panel.albumsVisible && !viewer.visible
-        onTriggered: {
-            if(panel.viewState.busy || panel.albumsVisible || panel.restoring || viewer.visible)return;
-            let first=Math.max(0,Math.floor(grid.contentY/grid.cellHeight)*Math.max(1,Math.floor(grid.width/panel.tileSize)));
-            let columns=Math.max(1,Math.floor(grid.width/panel.tileSize));
-            let end=Math.min(grid.count,panel.photos.length,first+columns*(Math.ceil(grid.height/grid.cellHeight)+2));
-            let missing=-1;
-            for(let i=first;i<end;i++)if(!panel.photos[i].previewLoaded){missing=i;break;}
-            if(missing>=0 && panel.previewAttempt!==missing) { panel.previewAttempt=missing; panel.request({action:"previews",start:missing}); return; }
-            if(panel.viewState.photosMore && (panel.moreAttempt!==grid.count || Date.now()>panel.retryAt) && grid.contentY+grid.height>=grid.contentHeight-grid.height*2) { panel.moreAttempt=grid.count; panel.retryAt=Date.now()+15000; panel.request({action:"more"}); }
-        }
+        onTriggered: panel.loadVisiblePhotos()
     }
 }

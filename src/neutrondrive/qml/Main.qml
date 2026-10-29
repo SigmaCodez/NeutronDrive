@@ -117,7 +117,7 @@ ApplicationWindow {
     component Input: Field {
         property string field
         text: window.f(field).value
-        enabled: window.f(field).enabled && !s.busy
+        enabled: window.f(field).enabled && (!s.busy || (field==="search" && Boolean(s.reading)))
         Layout.fillWidth: true
         onTextEdited: controller.edit(field, text)
     }
@@ -368,8 +368,28 @@ ApplicationWindow {
                 Copy { id: notice; anchors { left: parent.left; right: parent.right; margins: 12; verticalCenter: parent.verticalCenter } text: window.f("notice_label").value; color: window.theme.text }
             }
             Action { visible: window.f("login_button").visible; text: window.tr("Anmeldung im Browser öffnen"); command: "openLogin" }
-            Loader { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
-                sourceComponent: s.page==="files" ? filesPage : s.page==="photos" ? photosPage : s.page==="computer-backup" ? computerBackupPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
+            Item { id: pageLoader; objectName: "pageLoader"; Layout.fillWidth: true; Layout.fillHeight: true
+                // Keep the gallery's model, scroll position and decoded previews
+                // alive between sections. Logout destroys the retained page.
+                property bool photosVisited: false
+                readonly property var item: s.page==="photos" ? photoLoader.item : sectionLoader.item
+                Connections {
+                    target: controller
+                    function onStateChanged() {
+                        if(!s.authenticated && !s.demo)pageLoader.photosVisited=false;
+                        else if(s.page==="photos")pageLoader.photosVisited=true;
+                    }
+                }
+                Loader { id: photoLoader; anchors.fill: parent
+                    active: s.page==="photos" || pageLoader.photosVisited
+                    visible: s.page==="photos"
+                    sourceComponent: photosPage
+                    onLoaded: pageLoader.photosVisited=true
+                }
+                Loader { id: sectionLoader; anchors.fill: parent
+                    active: s.page!=="photos"; visible: active
+                    sourceComponent: s.page==="files" ? filesPage : s.page==="computer-backup" ? computerBackupPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
+                }
             }
             RowLayout {
                 Layout.fillWidth: true
@@ -387,7 +407,7 @@ ApplicationWindow {
             objectName: "page-files"; spacing: window.width < 1050 ? 10 : 14
             Shortcut {
                 sequences: [StandardKey.Find]
-                enabled: s.page==="files" && !s.busy && !window.dialogOpen
+                enabled: s.page==="files" && (!s.busy || Boolean(s.reading)) && !window.dialogOpen
                 onActivated: { folderSearch.forceActiveFocus(); folderSearch.selectAll(); }
             }
             Card {
@@ -495,7 +515,7 @@ ApplicationWindow {
                                 Label { text: fileRow.modelData.size; color: window.muted; Layout.preferredWidth: 80; font.pixelSize: 12 }
                                 Label { text: fileRow.modelData.modified; color: window.muted; Layout.preferredWidth: 90; font.pixelSize: 12 }
                             }
-                            MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
+                            MouseArea { id: rowMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy || Boolean(s.reading)
                                 onClicked: function(mouse) {
                                     fileList.forceActiveFocus();
                                     if(mouse.modifiers & Qt.ShiftModifier)controller.select_range(fileRow.index);
@@ -550,7 +570,7 @@ ApplicationWindow {
                                     Label { text: tile.modelData.safe ? tile.modelData.size : window.tr("Nicht eindeutig · gesperrt"); textFormat: Text.PlainText; color: window.muted; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; font.pixelSize: 11 }
                                 }
                                 MouseArea {
-                                    id: tileMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy
+                                    id: tileMouse; anchors.fill: parent; hoverEnabled: true; enabled: !s.busy || Boolean(s.reading)
                                     onClicked: function(mouse) {
                                     fileGrid.forceActiveFocus();
                                     if(mouse.modifiers & Qt.ShiftModifier)controller.select_range(tile.index);

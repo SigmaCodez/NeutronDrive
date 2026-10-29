@@ -84,6 +84,8 @@ pub struct Controller {
     demo: bool,
     closed: bool,
     worker: Option<JoinHandle<()>>,
+    worker_id: Option<u64>,
+    queued_work: Option<Work>,
     status_worker: Option<JoinHandle<()>>,
     status_pending: bool,
     status_cancel: Arc<AtomicBool>,
@@ -102,6 +104,8 @@ impl Default for Controller {
             demo: false,
             closed: false,
             worker: None,
+            worker_id: None,
+            queued_work: None,
             status_worker: None,
             status_pending: false,
             status_cancel: Arc::new(AtomicBool::new(false)),
@@ -114,6 +118,7 @@ impl Default for Controller {
 impl Controller {
     fn stop(&mut self) {
         self.closed = true;
+        self.queued_work = None;
         self.cancel.store(true, Ordering::Release);
         self.status_cancel.store(true, Ordering::Release);
         if let Some(worker) = self.status_worker.take() {
@@ -345,8 +350,11 @@ impl qobject::NativeFiles {
         }
     }
     fn start(mut self: Pin<&mut Self>, work: Work) {
-        if let Some(worker) = self.as_mut().rust_mut().worker.take() {
-            let _ = worker.join();
+        // Cancellation is asynchronous. Keep only the latest requested work;
+        // never join a still-running SDK reader on the Qt event thread.
+        if self.rust().worker_id.is_some() {
+            self.as_mut().rust_mut().queued_work = Some(work);
+            return;
         }
         let id = work.id;
         let cancel = Arc::new(AtomicBool::new(false));
@@ -389,7 +397,10 @@ impl qobject::NativeFiles {
             let _=qt.queue(move |object| object.complete(id,result));
         });
         match worker {
-            Ok(worker) => self.as_mut().rust_mut().worker = Some(worker),
+            Ok(worker) => {
+                self.as_mut().rust_mut().worker_id = Some(id);
+                self.as_mut().rust_mut().worker = Some(worker);
+            }
             Err(_) => self.complete(
                 id,
                 Err(Failure {
@@ -412,6 +423,15 @@ impl qobject::NativeFiles {
         if self.rust().closed {
             return;
         }
+        let queued = if self.rust().worker_id == Some(id) {
+            self.as_mut().rust_mut().worker_id = None;
+            // The worker has posted its final result; dropping its handle does
+            // not block Qt while that thread returns from queue().
+            self.as_mut().rust_mut().worker.take();
+            self.as_mut().rust_mut().queued_work.take()
+        } else {
+            None
+        };
         let effects = self
             .as_mut()
             .rust_mut()
@@ -420,10 +440,22 @@ impl qobject::NativeFiles {
             .map(|m| m.complete(id, result))
             .unwrap_or_default();
         self.as_mut().publish();
-        self.effects(effects);
+        self.as_mut().effects(effects);
+        if let Some(work) = queued {
+            self.start(work);
+        }
     }
-    fn cancel(self: Pin<&mut Self>) {
+    fn cancel(mut self: Pin<&mut Self>) {
         self.rust().cancel.store(true, Ordering::Release);
+        if let Some(work) = self.as_mut().rust_mut().queued_work.take() {
+            self.complete(
+                work.id,
+                Err(Failure {
+                    message: "Cancelled".into(),
+                    cancelled: true,
+                }),
+            );
+        }
     }
     fn shutdown(mut self: Pin<&mut Self>) {
         self.as_mut().rust_mut().stop();
