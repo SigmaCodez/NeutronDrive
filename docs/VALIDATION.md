@@ -504,3 +504,22 @@ test directories were removed locally after backing up that file; the real sync
 favorite was retained. This change affects test infrastructure, not application
 runtime or release binaries. It was verified locally after the native CI build;
 release provenance records it among post-build changes.
+
+## 1.0.6 — simplified desktop and resilient setup layout (2026-10-29)
+
+The interface retains the Rust controllers and Proton SDK while reducing default
+controls. Add/upload actions, optional photo sizing, advanced settings and local
+trash navigation are exercised in the actual Qt window.
+
+Cross-distribution package tests exposed setup overflow from larger default fonts
+and unusually wide fallback fonts in minimal RPM/Arch environments. The wizard
+now bounds its height, scrolls its body and reserves a full-width completion row.
+Local actual-window checks passed with normal fonts and an empty fontconfig
+profile, and in all 25 catalogs plus the English fallback. The regression checks
+verify completion control bounds as well as scrollability.
+
+The final native build/test source is `521e21c402ca0173b05cd9a1902bdd73a229421e`.
+The release assets include the final CI results and exact source/provenance hashes;
+English previews are captured from the packaged DEB, using synthetic data and
+isolated configuration directories. No live-account cloud mutation was performed
+for this interface release.
