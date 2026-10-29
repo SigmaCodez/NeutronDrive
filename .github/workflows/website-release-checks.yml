@@ -15,7 +15,7 @@ jobs:
           persist-credentials: false
       - name: Test publisher and consumer contracts
         run: python3 -m unittest discover -s website/tests -p 'test_*.py'
-      - name: Require complete release copy in all five languages
+      - name: Require complete release copy in all six languages
         run: |
           python3 - <<'PY'
           import importlib.util, json
