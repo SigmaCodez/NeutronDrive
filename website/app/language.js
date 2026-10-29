@@ -25,5 +25,5 @@ export function LanguageProvider({ children }) {
 export const useLanguage = () => useContext(LanguageContext);
 export function LanguageSelector() {
   const { preference, choose, t } = useLanguage();
-  return <label className="language-picker"><span aria-hidden="true">◎</span><span className="sr-only">{t.language}</span><select aria-label={t.language} value={preference} onChange={e => choose(e.target.value)}><option value="auto">{t.automatic}</option><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="es">Español</option><option value="it">Italiano</option></select></label>;
+  return <label className="language-picker"><span aria-hidden="true">◎</span><span className="sr-only">{t.language}</span><select aria-label={t.language} value={preference} onChange={e => choose(e.target.value)}><option value="auto">{t.automatic}</option><option value="en">English</option><option value="de">Deutsch</option><option value="fr">Français</option><option value="es">Español</option><option value="it">Italiano</option><option value="pt">Português</option></select></label>;
 }

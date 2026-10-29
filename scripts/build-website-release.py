@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture the shipped DEB and bundle reviewed homepage copy in five languages."""
+"""Capture the shipped DEB and bundle reviewed homepage copy in six languages."""
 import argparse
 import base64
 import hashlib
@@ -29,7 +29,7 @@ def reviewed_text(path, tag):
     document = json.loads(path.read_text())
     clean = validation.locales(document, tag)
     if set(clean) != set(validation.LANGUAGES):
-        raise ValueError('Release website content requires en, de, fr, es and it')
+        raise ValueError('Release website content requires en, de, fr, es, it and pt')
     for language, fields in clean.items():
         fields['faq'] = validation.release_faq(fields, tag, strict=True)
         if not {'description', 'features', 'faq', 'trust', 'views', 'releaseNotes'} <= fields.keys():
@@ -124,7 +124,7 @@ def build(args):
             raise ValueError('Website bundle exceeds server size limit')
         validation.validate_bundle(bundle,tag,args.commit)
         args.output.write_text(payload)
-        print(f'Generated {args.output}: five languages, five fresh verified PNGs, {version}')
+        print(f'Generated {args.output}: six languages, five fresh verified PNGs, {version}')
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser()

@@ -1,3 +1,4 @@
+import portuguese from './portuguese.js';
 export const copy = {
 en: {
  downloadUi:{variant:'Package variant',download:'Download package',loading:'Loading packages…',unavailable:'No matching package is available for the current release.'},
@@ -88,3 +89,5 @@ const betaFaq = {
 for (const [language, questions] of Object.entries(betaFaq)) {
  copy[language].faq.splice(4, 0, ...questions);
 }
+
+copy.pt = portuguese;
