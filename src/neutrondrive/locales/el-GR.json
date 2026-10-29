@@ -749,5 +749,11 @@
   "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
   "Choose a future expiration date": "Choose a future expiration date",
   "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
-  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving.",
+  "Add files": "Προσθήκη",
+  "Advanced settings": "Σύνθετες ρυθμίσεις",
+  "Additional sync folders": "Πρόσθετοι φάκελοι συγχρονισμού",
+  "Independent, open-source Proton Drive client for Linux. Not affiliated with Proton.": "Ανεξάρτητος πελάτης Proton Drive ανοικτού κώδικα για Linux. Δεν συνδέεται με την Proton.",
+  "Import photos": "Εισαγωγή φωτογραφιών",
+  "View options": "Επιλογές προβολής"
 }

@@ -93,6 +93,7 @@ ColumnLayout {
         if(at>=0)items.splice(at,1);else if(items.length<48)items.push(index);
         selected=items;
     }
+    property bool displayOptions: false
     function selectedAlbum() { return (panel.viewState.photoAlbums || [])[albumIndex]; }
     function changeAlbum(action) {
         let album=selectedAlbum();
@@ -108,20 +109,26 @@ ColumnLayout {
             highlighted: panel.selectionMode
             onClicked: { if(panel.selectionMode)panel.leaveSelection(); else { panel.selectionMode=true; if(!panel.viewState.busy && !(panel.viewState.photoAlbums || []).length)panel.request({action:"albums"}); } }
         }
-        Label { text: panel.viewState.photoTotal===null ? "" : host.tr("Total photos")+": "+panel.viewState.photoTotal; color: host.theme.text }
         PhotoButton { text: host.tr("Refresh"); enabled: !panel.viewState.busy; onClicked: panel.albumsVisible ? panel.request({action:"albums"}) : panel.openAlbum(panel.viewState.photoAlbum || "") }
     }
     RowLayout {
-        Layout.fillWidth: true; spacing: 12
-        PhotoButton { objectName: "takeoutImportButton"; text: host.tr("Google Takeout import"); enabled: !panel.viewState.busy && Boolean(panel.viewState.authenticated) && !panel.viewState.demo; onClicked: panel.request({action:"takeout"}) }
-        Label { Layout.fillWidth: true; text: host.tr("Import photos and videos from an extracted Google Photos export."); wrapMode: Text.WordWrap; color: host.theme.muted; font.pixelSize: 12 }
+        Layout.fillWidth: true; spacing: 8
+        Label { text: panel.viewState.photoTotal===null ? "" : host.tr("Total photos")+": "+panel.viewState.photoTotal; color: host.theme.muted; Layout.fillWidth: true }
+        PhotoButton {
+            objectName: "takeoutImportButton"; text: host.tr("Import photos")
+            enabled: !panel.viewState.busy && Boolean(panel.viewState.authenticated) && !panel.viewState.demo
+            onClicked: panel.request({action:"takeout"})
+            ToolTip.visible: hovered; ToolTip.text: host.tr("Import photos and videos from an extracted Google Photos export.")
+            Accessible.description: host.tr("Google Takeout import")
+        }
+        PhotoButton { objectName: "photoDisplayButton"; visible: !panel.albumsVisible; text: host.tr("View options"); highlighted: panel.displayOptions; onClicked: panel.displayOptions = !panel.displayOptions }
     }
     RowLayout {
-        visible: !panel.albumsVisible; spacing: 12
+        objectName: "photoDisplayOptions"; visible: !panel.albumsVisible && (panel.displayOptions || Boolean(panel.viewState.photoAlbum)); spacing: 12
         Label { text: panel.viewState.photoAlbum ? ((panel.viewState.photoAlbums || []).find(a=>a.uid===panel.viewState.photoAlbum)?.name || host.tr("Albums")) : host.tr("Your photo library"); color: host.theme.muted; Layout.fillWidth: true; elide: Text.ElideRight }
-        Label { text: host.tr("Thumbnail size"); color: host.theme.muted }
+        Label { visible: panel.displayOptions; text: host.tr("Thumbnail size"); color: host.theme.muted }
         Slider {
-            id: sizeSlider; from: 150; to: 300; value: panel.tileSize; stepSize: 25
+            id: sizeSlider; visible: panel.displayOptions; from: 150; to: 300; value: panel.tileSize; stepSize: 25
             Layout.preferredWidth: 130; Accessible.name: host.tr("Thumbnail size"); onMoved: panel.tileSize=value
             background: Rectangle {
                 x: sizeSlider.leftPadding; y: sizeSlider.topPadding+sizeSlider.availableHeight/2-height/2
@@ -211,8 +218,8 @@ ColumnLayout {
             id: photo; required property var entry; required property int index
             width: grid.cellWidth; height: grid.cellHeight
             Rectangle {
-                anchors.fill: parent; anchors.margins: 4
-                color: host.theme.fileTile; radius: 12; clip: true
+                anchors.fill: parent; anchors.margins: 2
+                color: host.theme.fileTile; radius: 6; clip: true
                 DriveIcon { anchors.centerIn: parent; symbol: "photo"; ink: host.theme.fileInk; visible: preview.status!==Image.Ready }
                 Image {
                     id: preview; objectName: "photoPreview-"+photo.index

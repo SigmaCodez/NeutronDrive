@@ -1,20 +1,20 @@
 {
-  "preview_version": "1.0.5",
-  "published_release": "v1.0.5",
-  "binary_version": "NeutronDrive 1.0.5",
-  "binary_sha256": "d2d29275a8dc6c4e0c6b3de8f1d7aa6ef7bbf3151bf153c0dd06bdf7be224ae9",
-  "package": "neutrondrive_1.0.5-1_amd64.deb",
-  "package_sha256": "76cf8c3ead799a353ebd1509c67146adc7fb6e0eaa87f094d93ef4d2044a7df6",
-  "captured_at": "2026-10-28T19:13:25.031260+00:00",
+  "preview_version": "1.0.6",
+  "published_release": "v1.0.6",
+  "binary_version": "NeutronDrive 1.0.6",
+  "binary_sha256": "762ef66b600c768e1f30a77906973a31a72a1af5350040c0ae6441b330c0c0f7",
+  "package": "neutrondrive_1.0.6-1_amd64.deb",
+  "package_sha256": "fe3e53455dd21dac2c0d57f595d548e2f0681375fde778e52f762b527f989d4f",
+  "captured_at": "2026-10-29T01:47:55.447791+00:00",
   "language": "en",
-  "environment": "Unmodified GitHub-built 1.0.5 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
+  "environment": "Unmodified GitHub-built 1.0.6 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
   "data": "Synthetic English demo data; direct GUI captures, no image edits or personal files.",
   "images": {
-    "light-grid.png": "9aa64c0df8c2397b83d397fa2df7baf7279d787613c496fda19f024c809021a9",
-    "dark-grid.png": "a5603ce52599c21d082468f2603baf671bc062517d8fa8bba1f22fc715e16f15",
-    "compact-files.png": "be60cf450f7f7c253ea0d4d1d89b83eace607a261d7d9e3f70fe5fe9874dcf8e",
-    "dark-settings.png": "31e58fd9cb31f64468fc9a73a15dad6adbd115e2e7ddcb2673d70c2fd7275844",
-    "light-photos.png": "f25460a174e75c0a1a3007bea92fccaaf94d92dcf712a54eed331b30ad3a533c",
-    "share-window-light.png": "ca455ac29d97f6fd5c19f67573536506ac429d16159b4b7853e82fba19a1ed14"
+    "light-grid.png": "8e6b6fd7051cbd4a796adbfae1c68e2862f3f66056ccb34ec706c99da0ce07fe",
+    "dark-grid.png": "a82c2663ccd499bca93aa4da3cae0a53c4a326bbfe77a7fd6c735f55d44958cc",
+    "compact-files.png": "fffd2cc83d13d5ae8d8abf9e7b567e18bc7cdf158d4555d2e95e879938cc80d8",
+    "dark-settings.png": "6ec01ecc69d4d5985f28a18aa23dce2dee73e536d47d7d0292f42c4c62d47c5d",
+    "light-photos.png": "eab1255047ed6754c340400a6912a3327cc65324e91ce86441212cffcde1e2a6",
+    "share-window-light.png": "34db22958085720c5345d0185214c840d66be7e507ef7ebbc8f0b8d3fbc1d9cf"
   }
 }

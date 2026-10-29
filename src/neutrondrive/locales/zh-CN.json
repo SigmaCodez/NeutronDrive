@@ -749,5 +749,11 @@
   "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.": "Anyone with the link receives the selected access. Empty password and expiration fields remove these restrictions.",
   "Choose a future expiration date": "Choose a future expiration date",
   "Sharing settings changed. Refresh before saving.": "Sharing settings changed. Refresh before saving.",
-  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving."
+  "File identity changed. Reopen sharing before saving.": "File identity changed. Reopen sharing before saving.",
+  "Add files": "添加",
+  "Advanced settings": "高级设置",
+  "Additional sync folders": "其他同步文件夹",
+  "Independent, open-source Proton Drive client for Linux. Not affiliated with Proton.": "适用于 Linux 的独立开源 Proton Drive 客户端。与 Proton 无关联。",
+  "Import photos": "导入照片",
+  "View options": "显示选项"
 }

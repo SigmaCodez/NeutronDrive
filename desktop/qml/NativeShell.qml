@@ -5,6 +5,7 @@ import NeutronDrive.Native
 Item {
     id: controller
     property var view: null
+    property var setupOriginalFont: null
     property bool initialized: false
     property bool allowClose: false
     property bool explicitQuit: false
@@ -212,6 +213,7 @@ Item {
                     controller.checkedWizard=Array.from(controller.view.contentData).find(item=>item.objectName==="setupWizard");
                     if(!controller.checkedWizard)throw new Error("Setup wizard missing");
                     controller.view.width=900;controller.view.height=640;
+                    controller.setupOriginalFont=controller.view.font;
                     controller.setAppearancePreference("light");controller.stage=901;
                 }else if(controller.stage===901){
                     let wizard=controller.checkedWizard;
@@ -249,12 +251,37 @@ Item {
                     if(wizard.step!==0)throw new Error("Setup Back failed");
                     controller.childNamed(wizard.contentItem,"setupNext").clicked();
                     if(path.text!=="/tmp/NeutronDrive-setup-preview")throw new Error("Back lost selected folder");
+                    controller.view.font.pixelSize=20;
+                    controller.view.s=Object.assign({},controller.view.s,{sandboxed:true});
+                    controller.stage=910;
+                }else if(controller.stage===910){
+                    let wizard=controller.checkedWizard;
+                    let finish=controller.childNamed(wizard.contentItem,"setupFinish");
+                    let scroll=controller.childNamed(wizard.contentItem,"setupScroll");
+                    let position=finish.mapToItem(controller.view.contentItem,0,0);
+                    if(wizard.height>controller.view.height-30 || position.y<0 || position.y+finish.height>controller.view.height || position.x<0 || position.x+finish.width>controller.view.width)throw new Error("Large-font setup hides completion controls: dialog="+wizard.width+"x"+wizard.height+", window="+controller.view.width+"x"+controller.view.height+", finish="+position.x+","+position.y+" "+finish.width+"x"+finish.height);
+                    if(!scroll || scroll.contentHeight<=scroll.availableHeight)throw new Error("Long store setup must remain scrollable");
+                    scroll.contentItem.contentY=scroll.contentHeight-scroll.availableHeight;
+                    if(scroll.contentItem.contentY<=0)throw new Error("Setup content cannot scroll");
+                    console.log("NATIVE_SETUP_LARGE_FONT_SCROLL_OK");
+                    controller.capture("setup-folder-large-font.png",911);
+                }else if(controller.stage===911){
+                    controller.view.font=controller.setupOriginalFont;
                     controller.view.s=Qt.binding(function(){return controller.state});
                     controller.view.width=1220;controller.view.height=820;
                     console.log("NATIVE_SETUP_STEPS_AND_THEMES_OK");controller.stage=0;
                 }else if(controller.stage===0){
                     if(!controller.view.visible)throw new Error("Main window is not visible");
                     if(controller.fileEntries.length===0)throw new Error("Demo files missing");
+                    let add=controller.childNamed(controller.view.contentItem,"addFilesButton");
+                    if(!add || !add.visible)throw new Error("Compact file creation menu missing");
+                    let addMenu=Array.from(add.data).find(item=>item.objectName==="addFilesMenu");
+                    if(!addMenu || addMenu.count!==3)throw new Error("Upload file, upload folder and new folder must remain accessible");
+                    add.clicked();
+                    if(!addMenu.visible)throw new Error("File creation menu did not open");
+                    addMenu.close();
+                    if(controller.childNamed(controller.view.contentItem,"nav-local-trash"))throw new Error("Duplicate trash navigation remains");
+                    console.log("NATIVE_SIMPLE_FILE_MENU_OK");
                     if(!controller.fixture && (!controller.state.account || !controller.state.account.name)){controller.send("account_storage",[]);return;}
                     let account=controller.childNamed(controller.view.contentItem,"accountMenuButton");
                     if(!account || !account.visible || account.popup.count!==5)throw new Error("Account menu missing");
@@ -271,6 +298,14 @@ Item {
                     if(!controller.view.darkMode)throw new Error("Dark theme did not reach main window");
                     controller.show_page("settings");controller.stage=1;
                 }else if(controller.stage===1){
+                    let diagnostics=controller.childNamed(controller.view.contentItem,"connectionDiagnostics");
+                    if(!diagnostics || diagnostics.visible)throw new Error("Technical connection details must start collapsed");
+                    let advanced=controller.childNamed(controller.view.contentItem,"advancedSettingsButton");
+                    advanced.clicked();
+                    if(!diagnostics.visible)throw new Error("Advanced settings cannot be opened");
+                    advanced.clicked();
+                    if(diagnostics.visible)throw new Error("Advanced settings cannot be collapsed");
+                    console.log("NATIVE_SIMPLE_SETTINGS_OK");
                     controller.capture("dark-settings.png",11);
                 }else if(controller.stage===11){
                     let choice=controller.childNamed(controller.view.contentItem,"appearanceSelector");
@@ -288,6 +323,13 @@ Item {
                     if(!(controller.childNamed(controller.view.contentItem,"page-settings").contentHeight>0))throw new Error("Background page cannot scroll");
                     if(controller.childNamed(controller.view.contentItem,"nav-background"))throw new Error("Obsolete sync navigation remains");
                     if(!controller.childNamed(controller.view.contentItem,"restartSyncButton"))throw new Error("Sync restart missing in Settings");
+                    let overview=controller.childNamed(controller.view.contentItem,"syncOverview");
+                    let advanced=controller.childNamed(controller.view.contentItem,"advancedSyncButton");
+                    if(!overview || overview.visible)throw new Error("Sync diagnostics must start collapsed");
+                    advanced.clicked();
+                    if(!overview.visible)throw new Error("Advanced sync controls cannot be opened");
+                    advanced.clicked();
+                    console.log("NATIVE_SIMPLE_SYNC_SETTINGS_OK");
                     controller.capture("light-background.png",2000);
                 }else if(controller.stage===2000){
                     controller.show_page("computer-backup");controller.stage=20001;
@@ -310,9 +352,16 @@ Item {
                     if(!(controller.childNamed(controller.view.contentItem,"page-ondemand").contentHeight>0))throw new Error("Online page cannot scroll");
                     controller.capture("light-ondemand.png",3001);
                 }else if(controller.stage===3001){
-                    controller.show_page("local-trash");controller.stage=4;
-                }else if(controller.stage===4){controller.show_page("activity");controller.stage=5;
-                }else if(controller.stage===5){controller.show_page("files");controller.stage=15;
+                    controller.navigate(controller.translate("Cloud-Papierkorb"),"/trash");controller.stage=3002;
+                }else if(controller.stage===3002){
+                    let local=controller.childNamed(controller.view.contentItem,"localTrashButton");
+                    if(!local || !local.visible)throw new Error("Local trash is unreachable from cloud trash");
+                    local.clicked();controller.stage=4;
+                }else if(controller.stage===4){
+                    if(!controller.childNamed(controller.view.contentItem,"page-local-trash"))throw new Error("Local trash navigation failed");
+                    console.log("NATIVE_LOCAL_TRASH_NAVIGATION_OK");
+                    controller.show_page("activity");controller.stage=5;
+                }else if(controller.stage===5){controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=15;
                 }else if(controller.stage===15){
                     controller.view.width=900;controller.view.height=640;controller.stage=150;
                 }else if(controller.stage===150){
@@ -459,6 +508,13 @@ Item {
                     let preview=controller.childNamed(controller.view.contentItem,"photoPreview-0");
                     if(!preview || preview.status!==Image.Ready)return;
                     if(!controller.childNamed(controller.view.contentItem,"takeoutImportButton"))throw new Error("Takeout import missing");
+                    let options=controller.childNamed(controller.view.contentItem,"photoDisplayOptions");
+                    let toggle=controller.childNamed(controller.view.contentItem,"photoDisplayButton");
+                    if(!options || options.visible)throw new Error("Photo display options must start collapsed");
+                    toggle.clicked();
+                    if(!options.visible)throw new Error("Photo display controls cannot be opened");
+                    toggle.clicked();
+                    if(options.visible)throw new Error("Photo display controls cannot be collapsed");
                     console.log("NATIVE_TAKEOUT_AND_DONATION_OK");
                     controller.capture("light-photos.png",210);
                 }else if(controller.stage===210){
