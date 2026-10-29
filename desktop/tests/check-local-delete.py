@@ -51,7 +51,8 @@ print(json.dumps(value))
         try:
             until(lambda:os.path.ismount(mount))
             for path in [mount/'one',mount/'two',mount/'folder'/'child']:
-                assert path.read_bytes()==b'abc'
+                with path.open('rb') as stream:
+                    assert stream.read()==b'abc'
             started=time.monotonic()
             (mount/'one').unlink()
             assert time.monotonic()-started<1, 'Local deletion waited for cloud'
