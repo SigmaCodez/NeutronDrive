@@ -627,6 +627,15 @@ Item {
                     controller.stage=21025;
                 }else if(controller.stage===21025){
                     if(!photoBenchController.requests.some(request=>request.action==="more"))return;
+                    // Advance across an inaccessible batch with no new tiles.
+                    photoBenchController.requests=[];
+                    controller.photoBench.moreAttempt=2049;controller.photoBench.retryAt=Date.now()+15000;
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoTotal:3000,photoOffset:2097};
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].action!=="more")throw new Error("Empty photo batch stalled pagination");
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1)throw new Error("Photo paging bypassed retry cooldown");
+                    console.log("NATIVE_EMPTY_PHOTO_PAGE_CONTINUES_OK");
                     controller.photoBench.viewState={busy:false,photosMore:false,photoTotal:2049};
                     controller.photoBench.scrolling=true;
                     let items=photoBenchController.photoEntries.slice();items[2048]=Object.assign({},items[2048],{previewLoaded:false});
@@ -634,6 +643,22 @@ Item {
                 }else if(controller.stage===21026){
                     if(!photoBenchController.requests.some(request=>request.action==="previews" && request.start===2048))return;
                     console.log("NATIVE_PHOTO_AUTOMATIC_PAGING_AND_PREFETCH_OK");
+                    photoBenchController.requests=[];
+                    let retryGrid=controller.childNamed(controller.photoBench,"photoGrid");
+                    let retryPosition=retryGrid.contentY;retryGrid.contentY=retryPosition-1;retryGrid.contentY=retryPosition;
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length)throw new Error("Thumbnail retry ignored cooldown after scrolling");
+                    controller.photoBench.previewRetryAt=0;
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].start!==2048)throw new Error("Thumbnail retry never resumed");
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1)throw new Error("Thumbnail retry loop");
+                    controller.photoBench.showPhoto(2048);photoBenchController.requests=[];
+                    controller.photoBench.loadViewerPreview();controller.photoBench.loadViewerPreview();
+                    if(photoBenchController.requests.length!==1)throw new Error("Viewer request bypassed cooldown");
+                    controller.photoBench.viewerRetryAt=0;controller.photoBench.loadViewerPreview();
+                    if(photoBenchController.requests.length!==2)throw new Error("Viewer preview did not retry");
+                    console.log("NATIVE_PHOTO_PREVIEW_RETRY_COOLDOWN_OK");
                     // Reordering after the first entry must invalidate index-based
                     // actions even while scrolling; cached metadata alone must not.
                     controller.photoBench.showPhoto(1000);

@@ -36,3 +36,11 @@ Two further reproductions failed before correction:
 - A confirmed dialog could be consumed while an unrelated navigation read was busy, causing its action to be lost. A valid confirmation now cancels that read and submits the action with the originally captured destination. Stale tokens and rejected dialogs cannot cancel the read, and explicit close confirmation retains its shutdown behavior.
 
 Validation: 117 desktop tests, Clippy with warnings denied, full Qt window checks (including file-delegate identity and selection across Refresh), and the slow-backend controller check with child-process cleanup. No live-account writes were used.
+
+## Photo loading retries and empty pages
+
+Thumbnail and viewer-preview failures previously suppressed all further attempts at the same position until another interaction reset the attempt marker. They now retry after a 15-second cooldown. Small scroll movements no longer reset request markers and bypass failure throttling. Returning to the gallery permits an immediate retry after a navigation cancellation; hidden galleries do not request data.
+
+Automatic pagination now keys its attempt to the inventory offset, not just the number of displayed tiles. A successful batch containing only missing/inaccessible photos advances directly to the next batch instead of unnecessarily waiting 15 seconds for an unchanged tile count.
+
+Validation: the complete real Qt window suite passes, including new checks for empty-page continuation, paging cooldown, thumbnail retries after cooldown, throttling across small scroll movements, and viewer-preview retries. The large synthetic gallery, selection/viewer, retained-page, navigation and tray checks also pass. No live cloud data was changed.
