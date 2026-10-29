@@ -621,6 +621,15 @@ Item {
                     controller.photoBench.scrolling=false;controller.stage=21024;
                 }else if(controller.stage===21024){
                     if(controller.photoBench.pendingPhotos || controller.photoBench.appliedPhotos[1000].name!=="During flick" || controller.photoBench.selected[0]!==1000)throw new Error("Deferred photo result or selection lost");
+                    controller.photoBench.selected=[1000,1001];controller.photoBench.scrolling=true;
+                    let inaccessible=photoBenchController.photoEntries.slice();
+                    inaccessible[1000]=Object.assign({},inaccessible[1000],{safe:false,thumbnail:""});
+                    photoBenchController.photoEntries=inaccessible;
+                    if(JSON.stringify(controller.photoBench.selected)!=="[1001]")throw new Error("Inaccessible photo retained in selection");
+                    let revokedCheck=controller.childNamed(controller.photoBench,"photoCheck-1000");
+                    if(!revokedCheck || revokedCheck.enabled)throw new Error("Inaccessible photo remained actionable during scrolling");
+                    controller.photoBench.scrolling=false;
+                    console.log("NATIVE_PHOTO_ACCESS_CHANGE_DURING_SCROLL_OK");
                     photoBenchController.requests=[];
                     controller.photoBench.viewState={busy:false,photosMore:true,photoTotal:3000};
                     controller.childNamed(controller.photoBench,"photoGrid").positionViewAtEnd();

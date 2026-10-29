@@ -19,8 +19,11 @@ ColumnLayout {
         // Defer updates within the same inventory, but clear a refreshed or
         // replaced album immediately so old tiles cannot outlive its data.
         let replaces=items.length<photoModel.count;
-        for(let i=0;!replaces && i<Math.min(appliedPhotos.length,items.length);i++)
+        let revoked=[];
+        for(let i=0;!replaces && i<Math.min(appliedPhotos.length,items.length);i++) {
             replaces=appliedPhotos[i].uid!==items[i].uid;
+            if(appliedPhotos[i].safe===true && items[i].safe!==true)revoked.push(i);
+        }
         // Index-based actions must never survive a changed inventory identity.
         // A metadata refresh or appended page keeps the selection intact.
         if(replaces) {
@@ -28,7 +31,12 @@ ColumnLayout {
             photoModel.clear(); appliedPhotos=[];
             previewAttempt=-1; moreAttempt=-1;
         }
+        // Access changes take effect immediately, including during a flick.
+        // Keep valid selections but never show a revoked tile as actionable.
+        let available=selected.filter(index=>items[index]?.safe===true);
+        if(available.length!==selected.length)selected=available;
         if(scrolling && photoModel.count>0 && !replaces) {
+            for(let index of revoked)photoModel.setProperty(index,"entry",items[index]);
             // Append new pages immediately so reaching the bottom never requires
             // releasing the wheel/touchpad. Existing tiles update after movement.
             let added=[];

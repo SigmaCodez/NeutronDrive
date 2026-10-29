@@ -44,3 +44,11 @@ Thumbnail and viewer-preview failures previously suppressed all further attempts
 Automatic pagination now keys its attempt to the inventory offset, not just the number of displayed tiles. A successful batch containing only missing/inaccessible photos advances directly to the next batch instead of unnecessarily waiting 15 seconds for an unchanged tile count.
 
 Validation: the complete real Qt window suite passes, including new checks for empty-page continuation, paging cooldown, thumbnail retries after cooldown, throttling across small scroll movements, and viewer-preview retries. The large synthetic gallery, selection/viewer, retained-page, navigation and tray checks also pass. No live cloud data was changed.
+
+## Avoid unchanged photo payloads and stale selection
+
+Preview responses and empty metadata pages previously incremented the photo revision even when the displayed photo data was unchanged. This forced serialization and delivery of the entire loaded gallery, including cached thumbnails. The Rust controller now tracks actual metadata, thumbnail and cache-window changes; unchanged data keeps its revision while pagination offsets still advance. Real changes continue to notify the view.
+
+The gallery also prunes selected photos that become inaccessible. Such tiles are disabled immediately during scrolling, while ordinary metadata updates retain their existing deferred rendering behavior and accessible selections remain intact.
+
+Validation: the two no-op revision regressions fail before correction and pass afterwards; 119 Rust desktop tests and Clippy pass. The complete real Qt window suite passes, including an access-change test during a simulated flick with a 2,049-photo fixture. No real-account changes were performed.
