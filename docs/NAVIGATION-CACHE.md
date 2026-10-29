@@ -68,3 +68,7 @@ A failed attempt could leave its error banner visible after a later successful r
 File and local-trash list envelopes are validated before recording completion. A malformed response now records a failed operation and preserves existing entries instead of presenting a misleading successful or empty result. A valid empty array still represents an empty listing.
 
 Validation: both regression tests fail before correction; 124 Rust desktop tests, Clippy with warnings denied, the complete Qt main-window suite and the slow-controller/cancellation check pass. No live-account files were modified.
+
+## Metadata invalidation and renamed emblems
+
+Single-node responses check the cache generation before updating listings, aliases and UID paths. A response started before invalidation cannot overwrite a newer cached listing. File-manager providers update tracked paths after a rename and remove tracking when an entry leaves the configured sync root. Regression tests cover rename completion and moving outside the root.
