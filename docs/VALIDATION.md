@@ -585,3 +585,19 @@ The release assets include the final CI results and exact source/provenance hash
 English previews are captured from the packaged DEB, using synthetic data and
 isolated configuration directories. No live-account cloud mutation was performed
 for this interface release.
+
+## Post-1.0.8 mount visibility correction (2026-10-29)
+
+GIO shadow/unshadow changes do not emit visibility notifications themselves.
+The extension now emits mount and monitor change signals after actual transitions,
+outside its state mutex, including restoration on shutdown. This allows a sidebar
+that already displayed the mount to remove the redundant entry while preserving
+the normal bookmark. No mount, sync job or cloud file is modified.
+
+The strengthened real-GIO test fails on the installed 1.0.8 extension because no
+change signal arrives, and passes with the correction. It checks hide/restore
+notifications, quiet steady-state polling and shutdown restoration. Rust unit
+tests and Clippy pass for the modern and legacy feature builds. These are local
+checks of an unreleased correction, not evidence of an installed update.
+
+GIO API contract: https://docs.gtk.org/gio/method.Mount.shadow.html
