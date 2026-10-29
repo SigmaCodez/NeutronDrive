@@ -19,7 +19,8 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 REPO = 'SigmaCodez/NeutronDrive'
 API = f'https://api.github.com/repos/{REPO}'
 FILES = ('files-grid-dark.png', 'files-grid-light.png', 'photos-light.png', 'computer-backup-light.png', 'sharing-light.png')
-LANGUAGES = ('en', 'de', 'fr', 'es', 'it')
+LANGUAGES = ('en', 'de', 'fr', 'es', 'it', 'pt')
+LEGACY_LANGUAGES = set(LANGUAGES) - {'pt'}
 
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -48,7 +49,7 @@ class AssetRedirect(HTTPRedirectHandler):
 
 def validate_bundle(document, tag, commit):
     translated = locales(document, tag)
-    if set(translated) != set(LANGUAGES) or document.get('source_commit') != commit:
+    if set(translated) not in (LEGACY_LANGUAGES, set(LANGUAGES)) or document.get('source_commit') != commit:
         raise ValueError('Release bundle language set or source commit mismatch')
     for fields in translated.values():
         if not {'description', 'features', 'faq', 'trust', 'views', 'releaseNotes'} <= fields.keys():

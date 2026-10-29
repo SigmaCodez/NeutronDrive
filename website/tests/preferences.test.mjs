@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { languages, resolveLanguage, newestRelease, releaseFallback } from '../lib/preferences.mjs';
 import { copy } from '../lib/translations.js';
 test('primary browser language, region variants and English fallback', () => {
- for (const [browser, expected] of [['de-CH','de'],['fr-CA','fr'],['es-MX','es'],['it-IT','it'],['en-GB','en'],['DE_ch','de'],['ja-JP','en'],['','en']]) {
+ for (const [browser, expected] of [['pt','pt'],['pt-PT','pt'],['pt-BR','pt'],['PT_br','pt'],['de-CH','de'],['fr-CA','fr'],['es-MX','es'],['it-IT','it'],['en-GB','en'],['DE_ch','de'],['ja-JP','en'],['','en']]) {
   assert.equal(resolveLanguage('auto',browser),expected);
  }
  assert.equal(resolveLanguage('fr','de-CH'),'fr');
@@ -14,7 +14,7 @@ function shape(value) {
  if (typeof value==='object') return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,shape(v)]));
  assert.equal(typeof value,'string'); assert.ok(value.trim()); return 'string';
 }
-test('all five languages have complete home and legal translations', () => {
+test('all six languages have complete home and legal translations', () => {
  assert.deepEqual(Object.keys(copy).sort(), [...languages].sort());
  for (const lang of languages) {
   assert.deepEqual(shape(copy[lang]),shape(copy.en),lang);

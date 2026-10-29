@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import unittest
+import tempfile
 
 SITE=Path(__file__).resolve().parents[1]
 ROOT=SITE.parent
@@ -25,7 +26,12 @@ class BundleTests(unittest.TestCase):
         return d
     def test_complete_bundle(self):
         d=self.bundle(); texts,images=sync.validate_bundle(d,d['release'],'a'*40)
-        self.assertEqual(len(texts),5);self.assertEqual(len(images),5)
+        self.assertEqual(len(texts),6);self.assertEqual(len(images),5)
+    def test_legacy_five_language_bundle_remains_readable(self):
+        d=self.bundle();del d['locales']['pt']
+        texts,_=sync.validate_bundle(d,d['release'],'a'*40)
+        self.assertEqual(set(texts),sync.LEGACY_LANGUAGES)
+
     def test_old_or_missing_language_rejected(self):
         d=self.bundle();del d['locales']['it']
         with self.assertRaises(ValueError):sync.validate_bundle(d,d['release'],'a'*40)
@@ -40,3 +46,12 @@ class BundleTests(unittest.TestCase):
     def test_publisher_requires_reviewed_tag(self):
         if publisher is None:self.skipTest('Publisher lives outside Docker website context')
         with self.assertRaises(ValueError):publisher.reviewed_text(SITE/'public/website-content.json','v9.0')
+
+    def test_new_publisher_requires_portuguese(self):
+        if publisher is None:self.skipTest('Publisher lives outside Docker website context')
+        d=json.loads((ROOT/'docs/website-content.json').read_text())
+        del d['locales']['pt']
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'content.json';path.write_text(json.dumps(d))
+            with self.assertRaisesRegex(ValueError,'requires.*pt'):
+                publisher.reviewed_text(path,d['release'])

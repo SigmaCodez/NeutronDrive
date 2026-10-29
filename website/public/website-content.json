@@ -481,6 +481,90 @@
           "Gestisci le condivisioni, crea link pubblici e invia inviti confermati in una finestra dedicata."
         ]
       ]
+    },
+    "pt": {
+      "description": "Um cliente de desktop não oficial e de código aberto para o Proton Drive em Linux, desenvolvido de forma independente da Proton AG.",
+      "features": [
+        [
+          "Sincronização em segundo plano",
+          "Ligue pastas locais à sua nuvem. Pause tarefas, repita transferências e acompanhe os conflitos."
+        ],
+        [
+          "Online, até precisar de acesso offline",
+          "As edições nativas DEB/RPM oferecem ficheiros a pedido e a opção «Manter no dispositivo». Snap e Flatpak descarregam os ficheiros sincronizados como ficheiros locais normais, sem marcadores online nem extensões nativas do gestor de ficheiros."
+        ],
+        [
+          "Um lugar para as suas fotografias",
+          "Cronologia, visualizador de imagens e álbuns. As miniaturas em cache mantêm-se disponíveis entre sessões."
+        ],
+        [
+          "Integrado no seu ambiente de trabalho",
+          "Interface nativa Qt Quick, modos claro e escuro, ícone de estado e arranque automático. A integração com o gestor de ficheiros depende do ambiente de trabalho."
+        ]
+      ],
+      "faq": [
+        [
+          "O NeutronDrive é um cliente oficial da Proton?",
+          "Não. O NeutronDrive é um cliente não oficial e de código aberto do Proton Drive, desenvolvido de forma independente da Proton AG e sem suporte oficial da Proton. É necessária uma conta Proton com acesso ao Proton Drive."
+        ],
+        [
+          "O NeutronDrive é gratuito?",
+          "Sim. O código-fonte está disponível sob a licença MIT. Não existe uma subscrição do NeutronDrive. Os planos e condições da Proton aplicam-se ao armazenamento e aos seus serviços."
+        ],
+        [
+          "Que ambientes de trabalho são suportados?",
+          "O NeutronDrive foi desenvolvido para Linux. A integração com o gestor de ficheiros e os ícones de estado dependem do ambiente de trabalho e da sua versão. O GNOME precisa de uma extensão adequada para mostrar o ícone de estado. Os pacotes isolados têm limitações adicionais."
+        ],
+        [
+          "Como são guardados os ficheiros offline?",
+          "As edições nativas DEB/RPM oferecem ficheiros a pedido e a opção «Manter no dispositivo». Snap e Flatpak descarregam os ficheiros sincronizados como ficheiros locais normais, sem marcadores online nem extensões nativas do gestor de ficheiros."
+        ],
+        [
+          "Como posso contribuir?",
+          "Comunique erros reproduzíveis através do GitHub Issues, reveja traduções ou contribua com código. Para vulnerabilidades de segurança, utilize o processo de comunicação privada descrito em SECURITY.md."
+        ]
+      ],
+      "trust": [
+        [
+          "Não oficial. E de código aberto.",
+          "Um cliente não oficial do Proton Drive, desenvolvido como projeto comunitário independente sob a licença MIT. Sem afiliação, aprovação ou suporte oficial da Proton AG."
+        ],
+        [
+          "Projeto independente, limites documentados.",
+          "Mantenha uma cópia de segurança independente. Nem todas as funcionalidades dos clientes Windows e macOS estão disponíveis. Consulte as notas da versão e as informações sobre assinaturas dos pacotes."
+        ],
+        [
+          "Os ficheiros locais continuam a ser locais.",
+          "Os ficheiros sincronizados e as caches locais são guardados sem encriptação no dispositivo. Proteja a sua conta de utilizador e utilize encriptação do disco, se necessário."
+        ]
+      ],
+      "views": [
+        [
+          "Ficheiros",
+          "Tudo no seu lugar.",
+          "Os seus ficheiros na nuvem numa interface familiar. Grelha ou lista, com pesquisa, envio e descarga."
+        ],
+        [
+          "Modo claro",
+          "Adaptado ao seu ambiente de trabalho.",
+          "Claro, escuro ou de acordo com o sistema. Escolha o aspeto do NeutronDrive."
+        ],
+        [
+          "Fotografias",
+          "Memórias bem organizadas.",
+          "Percorra a cronologia de fotografias, abra imagens e organize a sua coleção em álbuns."
+        ],
+        [
+          "Cópia de segurança do computador",
+          "O seu computador também conta.",
+          "Registe o seu computador Linux e sincronize pastas selecionadas com a secção Computadores do Proton Drive."
+        ],
+        [
+          "Partilha",
+          "Partilhar sem complicações.",
+          "Gira partilhas, crie ligações públicas e envie convites confirmados numa janela própria."
+        ]
+      ]
     }
   }
 }

@@ -1,4 +1,4 @@
-export const languages = ['en', 'de', 'fr', 'es', 'it'];
+export const languages = ['en', 'de', 'fr', 'es', 'it', 'pt'];
 export const storageKey = 'neutrondrive-language';
 export function resolveLanguage(preference, browserLanguage = 'en') {
   if (languages.includes(preference)) return preference;

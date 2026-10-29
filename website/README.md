@@ -129,13 +129,13 @@ project/platform questions followed by the contribution question. Do not keep a
 second copy of release-specific answers there. The publisher and server updater
 insert the three Q&A sections from `releaseNotes` between those rows.
 
-For each of en/de/fr/es/it, `releaseNotes` must contain exactly three sections
+For each of en/de/fr/es/it/pt, `releaseNotes` must contain exactly three sections
 separated by a blank line. Each starts with a question on its own line, followed
 by its answer: changes, upgrade instructions, and current limitations. The first
 two questions must name the exact release version without the leading `v`.
 Use actual newlines; legacy escaped newlines are normalized on ingestion.
 
-Before tagging, update the release identifier and review all five translations
+Before tagging, update the release identifier and review all six translations
 against the actual changes, current package availability and documented limits.
 CI and the release publisher reject missing, malformed or mismatched sections.
 The server also upgrades existing eight-row manifests and drops outdated release
