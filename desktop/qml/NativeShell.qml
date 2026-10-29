@@ -259,7 +259,7 @@ Item {
                     let finish=controller.childNamed(wizard.contentItem,"setupFinish");
                     let scroll=controller.childNamed(wizard.contentItem,"setupScroll");
                     let position=finish.mapToItem(controller.view.contentItem,0,0);
-                    if(wizard.height>controller.view.height-30 || position.y<0 || position.y+finish.height>controller.view.height || position.x<0 || position.x+finish.width>controller.view.width)throw new Error("Large-font setup hides completion controls");
+                    if(wizard.height>controller.view.height-30 || position.y<0 || position.y+finish.height>controller.view.height || position.x<0 || position.x+finish.width>controller.view.width)throw new Error("Large-font setup hides completion controls: dialog="+wizard.width+"x"+wizard.height+", window="+controller.view.width+"x"+controller.view.height+", finish="+position.x+","+position.y+" "+finish.width+"x"+finish.height);
                     if(!scroll || scroll.contentHeight<=scroll.availableHeight)throw new Error("Long store setup must remain scrollable");
                     scroll.contentItem.contentY=scroll.contentHeight-scroll.availableHeight;
                     if(scroll.contentItem.contentY<=0)throw new Error("Setup content cannot scroll");

@@ -12,7 +12,8 @@ Proton browser authentication. No reference-project code was copied.
   the sync folder in a separate step and explicitly finish setup. Store-edition
   download and disk-space notices remain visible. Long content scrolls within
   a bounded dialog while completion controls remain visible, including with
-  larger distribution fonts.
+  larger distribution fonts. The folder-step footer uses a separate full-width
+  completion row so unusually wide fallback fonts cannot push it off-screen.
 - Upload files, upload folders and create folders through **Add**. Individual
   actions still respect their existing permissions and busy-state guards. The
   file-action strip appears only after selecting an item.
@@ -40,6 +41,8 @@ interface-only change.
 - 105 Rust desktop unit tests passed; Clippy passed with warnings denied.
 - 22 localization and native-packaging checks passed. All 25 language catalogs
   contain the new labels.
+- Actual Qt window checks also passed with a fontconfig profile containing no
+  installed font directories, reproducing minimal RPM/Arch test systems.
 - Actual Qt window checks exercise light/dark setup at the minimum window size,
   file menus, advanced settings, sync controls, local-trash navigation, photo
   selection, albums, viewer, incremental loading and tray behavior.

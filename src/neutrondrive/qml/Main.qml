@@ -221,19 +221,18 @@ ApplicationWindow {
                 }
             }
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: window.theme.cardBorder }
-            RowLayout {
-                spacing: 10
-                Action { text: window.tr("Later"); onClicked: controller.send("setup_later", []) }
-                Item { Layout.fillWidth: true }
-                Action { objectName: "setupBack"; visible: setupWizard.step === 1; text: window.tr("Previous"); onClicked: setupWizard.step = 0 }
+            GridLayout {
+                columns: 2; columnSpacing: 10; rowSpacing: 10
+                Action { Layout.fillWidth: true; Layout.minimumWidth: 0; text: window.tr("Later"); onClicked: controller.send("setup_later", []) }
+                Action { Layout.fillWidth: true; Layout.minimumWidth: 0; objectName: "setupBack"; visible: setupWizard.step === 1; text: window.tr("Previous"); onClicked: setupWizard.step = 0 }
                 Action {
-                    objectName: "setupNext"
+                    objectName: "setupNext"; Layout.fillWidth: true; Layout.minimumWidth: 0
                     visible: setupWizard.step === 0; text: window.tr("Next"); primary: true
                     enabled: !s.busy && Boolean(s.authenticated)
                     onClicked: setupWizard.step = 1
                 }
                 Action {
-                    objectName: "setupFinish"
+                    objectName: "setupFinish"; Layout.columnSpan: 2; Layout.fillWidth: true; Layout.minimumWidth: 0
                     visible: setupWizard.step === 1; text: window.tr("Finish and start sync"); primary: true
                     enabled: !s.busy && Boolean(s.authenticated) && setupPath.text.trim().length > 0
                     onClicked: { controller.send("setup_folder", [setupPath.text]); controller.send("setup_finish", []); }
