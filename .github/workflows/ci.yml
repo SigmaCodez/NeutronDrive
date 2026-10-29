@@ -90,7 +90,8 @@ jobs:
                      b'scripts/build-snap', b'scripts/build-flatpak', b'scripts/prepare-native-arch',
                      b'packaging/flatpak/io.github.SigmaCodez.NeutronDrive.json',
                      b'packaging/rpm/neutrondrive.spec', b'packaging/snap/snapcraft.yaml',
-                     b'packaging/backend-lock.json', b'packaging/aur/neutrondrive-bin/PKGBUILD',
+                     b'packaging/backend-lock.json', b'packaging/appimage/tools-lock.json',
+                     b'packaging/aur/neutrondrive-bin/PKGBUILD',
                      b'packaging/aur/neutrondrive-bin/.SRCINFO'}
           changed = [p.decode() for p in paths if p and p not in allowed and not p.startswith(b'docs/') and not p.endswith(b'.md')]
           assert not changed, 'Native artifact reuse rejects changed application/build/test inputs: '+repr(changed)
