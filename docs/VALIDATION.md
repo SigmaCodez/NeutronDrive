@@ -601,3 +601,11 @@ tests and Clippy pass for the modern and legacy feature builds. These are local
 checks of an unreleased correction, not evidence of an installed update.
 
 GIO API contract: https://docs.gtk.org/gio/method.Mount.shadow.html
+
+The corrected extension also passed real Nautilus, Nemo, Caja and Thunar provider
+checks using isolated host libraries. After the user confirmed transfers were
+finished, Nautilus was gracefully restarted on the existing German desktop.
+The stale deleted-library mapping disappeared, the FUSE mount remained present,
+and the user confirmed only the Proton Drive bookmark remained. This immediate
+recovery uses installed 1.0.8; the notification correction is committed for a
+future update and has not been installed into the user's file manager.
