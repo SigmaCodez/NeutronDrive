@@ -60,3 +60,11 @@ Different search strings can produce exactly the same visible rows. Rendering no
 Local filtering and Ctrl+F remain available during cancellable cloud reads using the already loaded nodes. Filtering does not cancel the cloud request, and the latest filter remains applied when its response arrives. Mutation-time editing guards remain unchanged.
 
 Validation: both regressions failed before correction; 122 Rust desktop tests pass, including a 10,000-entry folder and repeated refined searches. Clippy and the real Qt window checks pass, including the enabled search input during a folder refresh. This demonstrates avoided model rebuilds, not a claimed real-account latency measurement.
+
+## Retry notices and malformed list responses
+
+A failed attempt could leave its error banner visible after a later successful retry. Accepted new work now clears an existing error notice while preserving informational transfer summaries; the failed attempt remains in activity history.
+
+File and local-trash list envelopes are validated before recording completion. A malformed response now records a failed operation and preserves existing entries instead of presenting a misleading successful or empty result. A valid empty array still represents an empty listing.
+
+Validation: both regression tests fail before correction; 124 Rust desktop tests, Clippy with warnings denied, the complete Qt main-window suite and the slow-controller/cancellation check pass. No live-account files were modified.

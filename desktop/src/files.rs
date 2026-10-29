@@ -393,6 +393,12 @@ impl Files {
             );
             return vec![];
         }
+        // A retry starts a new attempt. Keep informational transfer summaries,
+        // but do not leave an old error banner over a successful new result.
+        // The failed attempt remains recorded in activity history.
+        if self.state["noticeError"] == true {
+            self.message("", false);
+        }
         // Mutations (including login/logout) invalidate session metadata before
         // starting: partial success or failure must not revive stale entries.
         if !matches!(
@@ -668,6 +674,24 @@ impl Files {
             return vec![];
         }
         let work = self.active.take().unwrap();
+        // Validate list envelopes before recording success or replacing the
+        // current view. Malformed data is not an empty folder/trash listing.
+        let result = match result {
+            Ok(value)
+                if matches!(&work.done, Done::Loaded | Done::TrashList) && !value.is_array() =>
+            {
+                Err(Failure {
+                    message: if work.done == Done::Loaded {
+                        "Invalid native file list"
+                    } else {
+                        "Invalid trash list"
+                    }
+                    .into(),
+                    cancelled: false,
+                })
+            }
+            other => other,
+        };
         self.login_url = None;
         self.state["busy"] = false.into();
         self.state["reading"] = json!(false);
@@ -2228,6 +2252,49 @@ mod tests {
             .as_str()
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn retry_clears_old_error_without_erasing_success_information() {
+        let mut m = loaded();
+        let w = work(m.refresh());
+        m.complete(
+            w.id,
+            Err(Failure {
+                message: "Temporary read failure".into(),
+                cancelled: false,
+            }),
+        );
+        assert_eq!(m.state["noticeError"], true);
+        let retry = work(m.refresh());
+        assert_eq!(m.state["noticeError"], false);
+        assert_eq!(m.state["fields"]["notice_label"]["visible"], false);
+        assert!(text(&m.state["activity"][1], "status").contains("Temporary read failure"));
+        m.complete(retry.id, Ok(nodes()));
+        assert_eq!(m.state["noticeError"], false);
+        m.message("Transfer summary", false);
+        let _ = work(m.refresh());
+        assert_eq!(
+            m.state["fields"]["notice_label"]["value"],
+            "Transfer summary"
+        );
+    }
+
+    #[test]
+    fn malformed_lists_preserve_existing_data_and_mark_operation_failed() {
+        for done in [Done::Loaded, Done::TrashList] {
+            let mut m = loaded();
+            m.state["trash"] = json!([{"id":"keep","enabled":true}]);
+            let entries = m.entries.clone();
+            let trash = m.state["trash"].clone();
+            let w = work(m.submit("List", json!({"action":"list"}), done));
+            m.complete(w.id, Ok(json!({"unexpected":"response"})));
+            assert_eq!(m.entries, entries);
+            assert_eq!(m.state["trash"], trash);
+            assert_eq!(m.state["noticeError"], true);
+            assert_ne!(m.state["activity"][0]["status"], m.tr("Abgeschlossen"));
+            assert!(!m.busy());
+        }
     }
 
     #[test]
