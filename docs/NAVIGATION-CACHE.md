@@ -17,3 +17,13 @@ The photo page remains alive between sections, preserving its loaded pages, scro
 - Real Qt main-window tests, including retained gallery identity across Files/Photos navigation, image decoding, photo selection/viewer, paging and tray behavior, with isolated synthetic data.
 
 These tests do not establish real-account network latency. No live-account cloud writes are performed for this change.
+
+## Follow-up regression fixes
+
+A subsequent review reproduced three additional failures before fixing them:
+
+- Logout left the previous folder, album pagination and version-history state behind. Successful logout now returns navigation to My files and resets those personal view states without submitting a new cloud request.
+- A preview refresh replaced only the thumbnail, leaving old names, revisions and locations in the tile. It now replaces the returned metadata. Items missing from a fresh response lose their old thumbnail/location and are disabled for downloads.
+- Successful album membership changes refreshed only the album list. Changes to the currently open album now invalidate its photo inventory and reload it after the album list. Deleting that album returns to the timeline. Cancelling a follow-up cannot restore removed photos; changes to another album preserve the current gallery.
+
+Validation after these fixes: 113 desktop Rust tests, Clippy with warnings denied, real Qt main-window and slow-controller checks. The three original reproductions failed before their fixes; two additional tests cover cancelled follow-ups and unrelated album changes. No real cloud files were changed.

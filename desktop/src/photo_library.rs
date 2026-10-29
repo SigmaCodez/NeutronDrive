@@ -6,6 +6,7 @@ impl Files {
         let mut operation_request = request.clone();
         if let Some(fields) = operation_request.as_object_mut() {
             fields.remove("preserve");
+            fields.remove("reloadAlbum");
         }
         self.submit(
             "Photos",
@@ -214,9 +215,17 @@ impl Files {
                             old["thumbnail"] = json!("");
                             old["previewLoaded"] = json!(false);
                         } else if let Some(p) = by_id.get(text(old, "uid")) {
+                            // Metadata may have changed since this tile was
+                            // cached, including location, name or access state.
+                            *old = (*p).clone();
                             old["thumbnail"] = checked_thumbnail(p);
                             old["previewLoaded"] = json!(true);
                         } else if ids.contains(&old["uid"]) {
+                            // Deleted or inaccessible items must not retain an
+                            // old image or remain actionable after a fresh read.
+                            old["thumbnail"] = json!("");
+                            old["safe"] = json!(false);
+                            old["location"] = Value::Null;
                             old["previewLoaded"] = json!(true);
                         }
                     }
@@ -270,6 +279,9 @@ impl Files {
             "albums" => {
                 if value["albums"].as_array().is_some_and(|a| a.len() <= 10000) {
                     self.state["photoAlbums"] = value["albums"].clone();
+                    if let Some(album) = request["reloadAlbum"].as_str() {
+                        return self.photo_action(&json!({"action":"index","album":album}));
+                    }
                 } else {
                     self.message("Invalid album list", true);
                 }
@@ -280,7 +292,30 @@ impl Files {
                     self.message("Invalid album operation result", true);
                     return vec![];
                 }
-                self.photo_submit(json!({"action":"albums"}))
+                let mut next = json!({"action":"albums"});
+                if matches!(text(request, "action"), "add" | "remove" | "delete")
+                    && !text(request, "album").is_empty()
+                    && self.state["photoAlbum"] == request["album"]
+                {
+                    let album = if request["action"] == "delete" {
+                        ""
+                    } else {
+                        text(request, "album")
+                    };
+                    next["reloadAlbum"] = json!(album);
+                    self.state["photoAlbum"] = json!(album);
+                    // Clear invalidated membership immediately, even if the
+                    // follow-up fetch is cancelled or fails.
+                    self.state["photoTotal"] = Value::Null;
+                    self.state["photos"] = json!([]);
+                    self.state["photoOffset"] = json!(0);
+                    self.state["photosMore"] = json!(false);
+                    self.state["photoSelection"] = json!([]);
+                    self.photo_index.clear();
+                    self.photo_checked = None;
+                    self.photos_revision += 1;
+                }
+                self.photo_submit(next)
             }
             _ => vec![],
         }
@@ -335,6 +370,96 @@ mod tests {
         let next = m.complete(w.id, Ok(json!({"items":[{"uid":"a"}],"total":1})));
         assert!(m.state["photos"].as_array().unwrap().is_empty());
         assert!(matches!(&next[0], Effect::Work(w) if w.operation["request"]["action"]=="details"));
+    }
+
+    #[test]
+    fn preview_refresh_replaces_changed_metadata_and_clears_missing_photo() {
+        let mut m = model();
+        m.state["photos"] = json!([
+            {"uid":"a","name":"old","safe":true,"location":{"latitude":1},"thumbnail":"old-image"},
+            {"uid":"b","safe":true,"location":{"latitude":1},"thumbnail":"deleted-image"}
+        ]);
+        m.photo_result(&json!({"action":"details","previewStart":0,"ids":["a","b"]}),
+            json!({"photos":[{"uid":"a","name":"new","safe":true,"revision":"r2","thumbnail":"data:image/jpeg;base64,/9g="}]}));
+        assert_eq!(m.state["photos"][0]["name"], "new");
+        assert_eq!(m.state["photos"][0]["revision"], "r2");
+        assert!(m.state["photos"][0]["location"].is_null());
+        assert_eq!(m.state["photos"][1]["thumbnail"], "");
+        assert_eq!(m.state["photos"][1]["safe"], false);
+        assert!(m.state["photos"][1]["location"].is_null());
+        assert!(m.dispatch("photo_download", &json!([1])).is_empty());
+    }
+
+    #[test]
+    fn album_membership_changes_reload_active_inventory_after_album_list() {
+        for action in ["add", "remove", "delete"] {
+            let mut m = model();
+            m.state["photoAlbum"] = json!("album-a");
+            m.state["photoTotal"] = json!(1);
+            m.state["photos"] = json!([{"uid":"old"}]);
+            let expected = if action == "delete" { "" } else { "album-a" };
+            let effects = m.photo_result(
+                &json!({"action":action,"album":"album-a"}),
+                json!({"accepted":true}),
+            );
+            let Effect::Work(w) = &effects[0] else {
+                panic!("albums expected")
+            };
+            assert_eq!(w.operation["request"], json!({"action":"albums"}));
+            let effects = m.complete(w.id, Ok(json!({"albums":[]})));
+            let Effect::Work(w) = &effects[0] else {
+                panic!("index expected")
+            };
+            assert_eq!(
+                w.operation["request"],
+                json!({"action":"index","album":expected})
+            );
+        }
+    }
+
+    #[test]
+    fn cancelled_album_followup_resumes_correct_album_without_stale_photos() {
+        let mut m = model();
+        m.state["photoAlbum"] = json!("album-a");
+        m.state["photoTotal"] = json!(1);
+        m.state["photos"] = json!([{"uid":"removed"}]);
+        let effects = m.photo_result(
+            &json!({"action":"remove","album":"album-a"}),
+            json!({"accepted":true}),
+        );
+        let Effect::Work(old) = &effects[0] else {
+            panic!("albums expected")
+        };
+        m.dispatch("show_page", &json!(["settings"]));
+        assert!(m.state["photos"].as_array().unwrap().is_empty());
+        m.complete(old.id, Ok(json!({"albums":[]})));
+        let effects = m.dispatch("open_section", &json!(["Photos", "photos"]));
+        let Effect::Work(next) = &effects[0] else {
+            panic!("index expected")
+        };
+        assert_eq!(
+            next.operation["request"],
+            json!({"action":"index","album":"album-a"})
+        );
+    }
+
+    #[test]
+    fn unrelated_album_change_preserves_visible_gallery() {
+        let mut m = model();
+        m.state["photoAlbum"] = json!("album-a");
+        m.state["photoTotal"] = json!(1);
+        let photos = json!([{"uid":"keep"}]);
+        m.state["photos"] = photos.clone();
+        let effects = m.photo_result(
+            &json!({"action":"delete","album":"album-b"}),
+            json!({"accepted":true}),
+        );
+        let Effect::Work(w) = &effects[0] else {
+            panic!("albums expected")
+        };
+        assert!(m.complete(w.id, Ok(json!({"albums":[]}))).is_empty());
+        assert_eq!(m.state["photos"], photos);
+        assert_eq!(m.state["photoAlbum"], "album-a");
     }
 
     #[test]

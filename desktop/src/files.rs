@@ -896,6 +896,19 @@ impl Files {
                         self.state["photos"] = json!([]);
                         self.state["photoAlbums"] = json!([]);
                         self.state["photoTotal"] = Value::Null;
+                        self.state["photoAlbum"] = json!("");
+                        self.state["photoOffset"] = json!(0);
+                        self.state["photosMore"] = json!(false);
+                        self.state["photoSelection"] = json!([]);
+                        self.state["history"] = json!({"visible":false,"revisions":[]});
+                        self.state["page"] = json!("files");
+                        self.state["path"] = json!("/my-files");
+                        self.state["settingsSync"] = json!(false);
+                        let title = self.tr("Meine Dateien");
+                        self.crumbs = vec![(title.clone(), "/my-files".into())];
+                        self.state["crumbs"] = json!([title]);
+                        self.field("files_title", json!(title));
+                        self.field("search", json!(""));
                         self.photo_index.clear();
                         self.photo_checked = None;
                         self.photos_revision += 1;
@@ -1138,7 +1151,7 @@ impl Files {
             }
             return vec![];
         }
-        self.photo_action(&json!({"action":"index", "album":""}))
+        self.photo_action(&json!({"action":"index", "album":self.state["photoAlbum"]}))
     }
     fn abandon_read(&mut self) -> Vec<Effect> {
         if !self.active_read() {
@@ -2055,6 +2068,30 @@ mod tests {
             &json!([{"action":"index", "album":"album-id"}]),
         ));
         assert_eq!(refresh.operation["request"]["action"], "index");
+    }
+
+    #[test]
+    fn logout_resets_navigation_and_photo_pagination() {
+        let mut m = loaded();
+        m.state["page"] = json!("photos");
+        m.state["path"] = json!("/my-files/private");
+        m.crumbs = vec![("private".into(), "/my-files/private".into())];
+        m.state["photoAlbum"] = json!("old-album");
+        m.state["photoOffset"] = json!(96);
+        m.state["photosMore"] = json!(true);
+        m.state["photoSelection"] = json!([1]);
+        m.state["history"] = json!({"visible":true,"path":"/my-files/private","revisions":[{}]});
+        let w = work(m.submit("Logout", json!({"action":"logout"}), Done::LoggedOut));
+        m.complete(w.id, Ok(json!({})));
+        assert_eq!(m.state["page"], "files");
+        assert_eq!(m.state["path"], "/my-files");
+        assert_eq!(m.crumbs.len(), 1);
+        assert_eq!(m.crumbs[0].1, "/my-files");
+        assert_eq!(m.state["photoAlbum"], "");
+        assert_eq!(m.state["photoOffset"], 0);
+        assert_eq!(m.state["photosMore"], false);
+        assert_eq!(m.state["photoSelection"], json!([]));
+        assert_eq!(m.state["history"], json!({"visible":false,"revisions":[]}));
     }
 
     #[test]
