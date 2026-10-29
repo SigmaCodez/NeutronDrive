@@ -80,7 +80,7 @@ fully available offline. A **blue sync emblem** indicates an active download. Us
 folders and **Free up space** to remove eligible local cached copies. These
 actions do not open the main window. **Share** opens its separate sharing window.
 
-These are current GNOME Files (Nautilus) captures in English, with synthetic
+These are GNOME Files (Nautilus) captures in English, with synthetic
 example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
