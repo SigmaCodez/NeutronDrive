@@ -3,9 +3,13 @@ use super::*;
 use std::collections::{HashMap, HashSet};
 impl Files {
     pub(super) fn photo_submit(&mut self, request: Value) -> Vec<Effect> {
+        let mut operation_request = request.clone();
+        if let Some(fields) = operation_request.as_object_mut() {
+            fields.remove("preserve");
+        }
         self.submit(
             "Photos",
-            json!({"action":"photo_library","request":request}),
+            json!({"action":"photo_library","request":operation_request}),
             Done::PhotoLibrary(request),
         )
     }
@@ -33,7 +37,11 @@ impl Files {
                     "https://www.openstreetmap.org/?mlat={lat}&mlon={lon}#map=14/{lat}/{lon}"
                 ))]
             }
-            "index" => self.photo_submit(json!({"action":"index","album":text(request,"album")})),
+            "index" => {
+                let mut next = json!({"action":"index","album":text(request,"album")});
+                if request["preserve"] == true { next["preserve"] = json!(true); }
+                self.photo_submit(next)
+            },
             "albums" => self.photo_submit(json!({"action":"albums"})),
             "previews" => {
                 let start = request["start"].as_u64().unwrap_or(0) as usize;
@@ -146,6 +154,20 @@ impl Files {
                 if ids.iter().collect::<BTreeSet<_>>().len() != ids.len() {
                     self.message("Duplicate photo inventory identity", true);
                     return vec![];
+                }
+                self.photo_checked = Some(Instant::now());
+                // Refresh an unchanged inventory without discarding decoded
+                // previews, pagination or the user's current scroll position.
+                if request["preserve"] == true
+                    && self.state["photoTotal"].is_u64()
+                    && self.photo_index == ids
+                    && self.state["photoAlbum"] == request["album"]
+                {
+                    return if self.state["photos"].as_array().is_some_and(Vec::is_empty) {
+                        self.photo_action(&json!({"action":"more"}))
+                    } else {
+                        vec![]
+                    };
                 }
                 self.photo_index = ids;
                 self.state["photoTotal"] = json!(self.photo_index.len());
@@ -289,6 +311,32 @@ mod tests {
             false,
         )
     }
+    #[test]
+    fn automatic_inventory_refresh_retains_pages_but_manual_refresh_reloads() {
+        let mut m = model();
+        m.photo_index = vec!["a".into()];
+        m.state["photoTotal"] = json!(1);
+        m.state["photoAlbum"] = json!("");
+        m.state["photoOffset"] = json!(1);
+        m.state["photos"] = json!([{"uid":"a","thumbnail":"cached","previewLoaded":true}]);
+        m.photo_checked = Some(Instant::now() - Duration::from_secs(31));
+        let effects = m.enter_photos();
+        let Effect::Work(w) = &effects[0] else {
+            panic!("index refresh expected")
+        };
+        assert!(w.operation["request"].get("preserve").is_none());
+        m.complete(w.id, Ok(json!({"items":[{"uid":"a"}],"total":1})));
+        assert_eq!(m.state["photos"][0]["thumbnail"], "cached");
+        assert_eq!(m.state["photoOffset"], 1);
+        let effects = m.photo_action(&json!({"action":"index","album":""}));
+        let Effect::Work(w) = &effects[0] else {
+            panic!("manual refresh expected")
+        };
+        let next = m.complete(w.id, Ok(json!({"items":[{"uid":"a"}],"total":1})));
+        assert!(m.state["photos"].as_array().unwrap().is_empty());
+        assert!(matches!(&next[0], Effect::Work(w) if w.operation["request"]["action"]=="details"));
+    }
+
     #[test]
     fn inventory_is_atomic_and_first_batch_is_bounded() {
         let mut m = model();

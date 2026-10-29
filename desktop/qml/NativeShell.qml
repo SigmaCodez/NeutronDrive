@@ -6,6 +6,7 @@ Item {
     id: controller
     property var view: null
     property var setupOriginalFont: null
+    property var retainedPhotoPanel: null
     property bool initialized: false
     property bool allowClose: false
     property bool explicitQuit: false
@@ -516,7 +517,20 @@ Item {
                     toggle.clicked();
                     if(options.visible)throw new Error("Photo display controls cannot be collapsed");
                     console.log("NATIVE_TAKEOUT_AND_DONATION_OK");
-                    controller.capture("light-photos.png",210);
+                    controller.capture("light-photos.png",2091);
+                }else if(controller.stage===2091){
+                    controller.retainedPhotoPanel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    controller.send("open_section",[controller.translate("Meine Dateien"),"/my-files"]);
+                    controller.stage=2092;
+                }else if(controller.stage===2092){
+                    if(controller.state.page!=="files")throw new Error("Cached files navigation failed");
+                    controller.send("open_section",[controller.translate("Photos"),"photos"]);
+                    if(controller.state.busy)throw new Error("Gallery return restarted a cloud request");
+                    controller.stage=2093;
+                }else if(controller.stage===2093){
+                    if(controller.childNamed(controller.view.contentItem,"page-photos")!==controller.retainedPhotoPanel)throw new Error("Gallery recreated on navigation");
+                    if(controller.state.photos.length!==2)throw new Error("Gallery contents lost on return");
+                    console.log("NATIVE_CACHED_NAVIGATION_AND_RETAINED_GALLERY_OK");controller.stage=210;
                 }else if(controller.stage===210){
                     let panel=controller.childNamed(controller.view.contentItem,"page-photos");
                     let check=controller.childNamed(panel,"photoCheck-0");

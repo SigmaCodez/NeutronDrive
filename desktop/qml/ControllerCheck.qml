@@ -91,12 +91,15 @@ Item {
                     workerStarted = Date.now(); stage = 6;
                 } else if (stage === 6 && Date.now() - workerStarted >= 1500) {
                     require(JSON.parse(cancelled.stateJson).busy, "slow listing before navigation");
+                    let navigationStarted=Date.now();
                     cancelled.dispatch("open_section", '["Photos","photos"]');
                     require(JSON.parse(cancelled.stateJson).page === "photos", "photo section changes immediately during slow listing");
                     cancelled.dispatch("open_section", '["Shared","/shared-with-me"]');
                     require(JSON.parse(cancelled.stateJson).path === "/shared-with-me", "new destination wins while cancelling");
                     cancelled.dispatch("show_page", '["settings"]');
                     require(JSON.parse(cancelled.stateJson).page === "settings", "account settings override pending sidebar destination");
+                    require(!JSON.parse(cancelled.stateJson).busy, "settings immediately available before old read finishes");
+                    require(Date.now()-navigationStarted<250, "menu switches never join a slow worker");
                     cancelled.dispatch("action", '["cancel"]');
                     stage = 7;
                 } else if (stage === 7 && !JSON.parse(cancelled.stateJson).busy) {

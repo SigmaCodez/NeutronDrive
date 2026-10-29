@@ -47,6 +47,7 @@ ColumnLayout {
         appliedPhotos=items;
     }
     onPhotosChanged: updatePhotos()
+    onVisibleChanged: if(!visible) { viewer.close(); grid.focus=false; }
     Component.onCompleted: updatePhotos()
     property bool albumsVisible: false
     property var selected: []
