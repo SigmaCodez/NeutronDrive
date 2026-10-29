@@ -6,6 +6,7 @@ Item {
     id: controller
     property var view: null
     property var setupOriginalFont: null
+    property var retainedPhotoPanel: null
     property bool initialized: false
     property bool allowClose: false
     property bool explicitQuit: false
@@ -441,6 +442,13 @@ Item {
                 }else if(controller.stage===19){
                     if(JSON.stringify(controller.state.selection)!==JSON.stringify([controller.checkedFolder]))throw new Error("Mouse selection incorrect: "+JSON.stringify(controller.state.selection)+" expected "+controller.checkedFolder);
                     if(controller.childNamed(controller.checkedList,"fileRow-"+controller.checkedFolder)!==controller.checkedRow)throw new Error("Selection replaced file delegate");
+                    controller.action("refresh");
+                    if(!controller.childNamed(controller.view.contentItem,"searchInput").enabled)throw new Error("Local search disabled during folder refresh");
+                    controller.stage=190;
+                }else if(controller.stage===190){
+                    if(JSON.stringify(controller.state.selection)!==JSON.stringify([controller.checkedFolder]))throw new Error("Unchanged refresh cleared selection");
+                    if(controller.childNamed(controller.checkedList,"fileRow-"+controller.checkedFolder)!==controller.checkedRow)throw new Error("Unchanged refresh recreated file delegate");
+                    console.log("NATIVE_UNCHANGED_REFRESH_PRESERVES_SELECTION_OK");
                     let point=controller.checkedRow.mapToItem(controller.view.contentItem,30,25);
                     files.windowClick(point.x,point.y,true);controller.stage=20;
                 }else if(controller.stage===20){
@@ -516,7 +524,20 @@ Item {
                     toggle.clicked();
                     if(options.visible)throw new Error("Photo display controls cannot be collapsed");
                     console.log("NATIVE_TAKEOUT_AND_DONATION_OK");
-                    controller.capture("light-photos.png",210);
+                    controller.capture("light-photos.png",2091);
+                }else if(controller.stage===2091){
+                    controller.retainedPhotoPanel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    controller.send("open_section",[controller.translate("Meine Dateien"),"/my-files"]);
+                    controller.stage=2092;
+                }else if(controller.stage===2092){
+                    if(controller.state.page!=="files")throw new Error("Cached files navigation failed");
+                    controller.send("open_section",[controller.translate("Photos"),"photos"]);
+                    if(controller.state.busy)throw new Error("Gallery return restarted a cloud request");
+                    controller.stage=2093;
+                }else if(controller.stage===2093){
+                    if(controller.childNamed(controller.view.contentItem,"page-photos")!==controller.retainedPhotoPanel)throw new Error("Gallery recreated on navigation");
+                    if(controller.state.photos.length!==2)throw new Error("Gallery contents lost on return");
+                    console.log("NATIVE_CACHED_NAVIGATION_AND_RETAINED_GALLERY_OK");controller.stage=210;
                 }else if(controller.stage===210){
                     let panel=controller.childNamed(controller.view.contentItem,"page-photos");
                     let check=controller.childNamed(panel,"photoCheck-0");
@@ -602,12 +623,30 @@ Item {
                     controller.photoBench.scrolling=false;controller.stage=21024;
                 }else if(controller.stage===21024){
                     if(controller.photoBench.pendingPhotos || controller.photoBench.appliedPhotos[1000].name!=="During flick" || controller.photoBench.selected[0]!==1000)throw new Error("Deferred photo result or selection lost");
+                    controller.photoBench.selected=[1000,1001];controller.photoBench.scrolling=true;
+                    let inaccessible=photoBenchController.photoEntries.slice();
+                    inaccessible[1000]=Object.assign({},inaccessible[1000],{safe:false,thumbnail:""});
+                    photoBenchController.photoEntries=inaccessible;
+                    if(JSON.stringify(controller.photoBench.selected)!=="[1001]")throw new Error("Inaccessible photo retained in selection");
+                    let revokedCheck=controller.childNamed(controller.photoBench,"photoCheck-1000");
+                    if(!revokedCheck || revokedCheck.enabled)throw new Error("Inaccessible photo remained actionable during scrolling");
+                    controller.photoBench.scrolling=false;
+                    console.log("NATIVE_PHOTO_ACCESS_CHANGE_DURING_SCROLL_OK");
                     photoBenchController.requests=[];
                     controller.photoBench.viewState={busy:false,photosMore:true,photoTotal:3000};
                     controller.childNamed(controller.photoBench,"photoGrid").positionViewAtEnd();
                     controller.stage=21025;
                 }else if(controller.stage===21025){
                     if(!photoBenchController.requests.some(request=>request.action==="more"))return;
+                    // Advance across an inaccessible batch with no new tiles.
+                    photoBenchController.requests=[];
+                    controller.photoBench.moreAttempt=2049;controller.photoBench.retryAt=Date.now()+15000;
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoTotal:3000,photoOffset:2097};
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].action!=="more")throw new Error("Empty photo batch stalled pagination");
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1)throw new Error("Photo paging bypassed retry cooldown");
+                    console.log("NATIVE_EMPTY_PHOTO_PAGE_CONTINUES_OK");
                     controller.photoBench.viewState={busy:false,photosMore:false,photoTotal:2049};
                     controller.photoBench.scrolling=true;
                     let items=photoBenchController.photoEntries.slice();items[2048]=Object.assign({},items[2048],{previewLoaded:false});
@@ -615,6 +654,22 @@ Item {
                 }else if(controller.stage===21026){
                     if(!photoBenchController.requests.some(request=>request.action==="previews" && request.start===2048))return;
                     console.log("NATIVE_PHOTO_AUTOMATIC_PAGING_AND_PREFETCH_OK");
+                    photoBenchController.requests=[];
+                    let retryGrid=controller.childNamed(controller.photoBench,"photoGrid");
+                    let retryPosition=retryGrid.contentY;retryGrid.contentY=retryPosition-1;retryGrid.contentY=retryPosition;
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length)throw new Error("Thumbnail retry ignored cooldown after scrolling");
+                    controller.photoBench.previewRetryAt=0;
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].start!==2048)throw new Error("Thumbnail retry never resumed");
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1)throw new Error("Thumbnail retry loop");
+                    controller.photoBench.showPhoto(2048);photoBenchController.requests=[];
+                    controller.photoBench.loadViewerPreview();controller.photoBench.loadViewerPreview();
+                    if(photoBenchController.requests.length!==1)throw new Error("Viewer request bypassed cooldown");
+                    controller.photoBench.viewerRetryAt=0;controller.photoBench.loadViewerPreview();
+                    if(photoBenchController.requests.length!==2)throw new Error("Viewer preview did not retry");
+                    console.log("NATIVE_PHOTO_PREVIEW_RETRY_COOLDOWN_OK");
                     // Reordering after the first entry must invalidate index-based
                     // actions even while scrolling; cached metadata alone must not.
                     controller.photoBench.showPhoto(1000);

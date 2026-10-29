@@ -55,14 +55,14 @@ captures the actual packaged Qt interface in isolated English profiles using
 synthetic data. No installed user profile or live Proton account is used.
 
 Before tagging, update `docs/website-content.json` for the exact new release tag.
-All five locales (en, de, fr, es, it) must contain description, features, FAQ,
+All six locales (en, de, fr, es, it, pt) must contain description, features, FAQ,
 trust notes, gallery captions and releaseNotes. These are maintained translations,
 not machine-invented release claims. The fast `Website release manifest checks`
 workflow checks completeness on pushes and pull requests. A stale release tag,
 missing translation, mismatched package checksum/version, missing PNG or failed
 GUI check prevents publication of the homepage bundle.
 
-The generated `neutrondrive-website.json` release asset includes all text, five
+The generated `neutrondrive-website.json` release asset includes all text, six
 base64 PNGs, PNG hashes, package/executable hashes, exact source commit, language
 and capture time. It is also retained as a workflow artifact. One asset avoids
 partial text/image updates. It is generated after the package release, so a
