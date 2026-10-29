@@ -30,6 +30,7 @@ def sources():
         'core/Cargo.toml', 'core/Cargo.lock', 'packaging/qt-lock.json',
         'data/io.github.SigmaCodez.NeutronDrive.svg',
         'data/neutrondrive-available.svg',
+        'data/neutrondrive-shared.svg',
         'data/neutrondrive-syncing.svg',
     )]
     for relative, pattern in [('desktop/src', '*.rs'), ('desktop/include', '*.h'),

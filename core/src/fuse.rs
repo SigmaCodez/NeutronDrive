@@ -118,6 +118,19 @@ fn attrs(v: Value) -> Result<FileAttr> {
 }
 impl Kernel {
     fn call(&self, action: Action) -> Result<Value> {
+        if let Action::Unlink {
+            parent,
+            name,
+            directory,
+        } = &action
+        {
+            return ondemand_fs::enqueue_delete(self.id, *parent, name, *directory).map_err(|e| {
+                match e {
+                    crate::ondemand_io::Error::Fs(code, _) => Errno::from_i32(code),
+                    _ => Errno::EIO,
+                }
+            });
+        }
         if let Some(value) = ondemand_fs::cached(self.id, &action) {
             return Ok(value);
         }
@@ -604,6 +617,32 @@ pub fn run(
                 if !cancelled {
                     cancelled = callback(json!({"kind":"poll"})) != 0;
                     if !cancelled {
+                        if ondemand_fs::deletions_ready(config.id) {
+                            let deletion = Operation::Call {
+                                id: config.id,
+                                operation: Action::DrainDeletes,
+                            };
+                            let result = match &executable {
+                                Some(executable) => ondemand_fs::run(
+                                    deletion,
+                                    &mut crate::sync_remote::Sdk {
+                                        executable: executable.clone(),
+                                        callback,
+                                    },
+                                ),
+                                None => {
+                                    ondemand_fs::run(deletion, &mut crate::host::Callback(callback))
+                                }
+                            };
+                            if let Ok(v) = result {
+                                cancelled =
+                                    callback(json!({"kind":"fuse_status","status":v["status"]}))
+                                        != 0;
+                            }
+                        }
+                        if cancelled {
+                            continue;
+                        }
                         let current_generation = ondemand_fs::generation(config.id);
                         if current_generation != generation {
                             prefetched.clear();

@@ -1,19 +1,15 @@
 {
-  "captured_at": "2026-10-27T00:36:01.876775+00:00",
-  "published_release": "v1.0.1",
+  "captured_at": "2026-10-29T21:18:54.334329+00:00",
+  "published_release": "v1.0.8",
   "file_manager": "GNOME Files (Nautilus) 50.2.2",
   "language": "en",
-  "environment": "Isolated Xvfb display, private D-Bus session, temporary HOME/XDG directories and read-only bind-mounted release extension. Native libadwaita light/dark appearance. The user desktop and language were not changed.",
-  "data": "Synthetic example files and a fixture availability index, rendered by the exact 1.0.1 release Rust extension. No live Proton account or actual cloud download is depicted.",
-  "extension_sha256": "7c941e9f8c01c3941a36254437ae660141bbd97bc88f6ef1cce05e4b8d4473db",
-  "extension_source": "Extracted from the final NeutronDrive 1.0.1 amd64 DEB.",
-  "package_sha256": "5c742230b49ce1f9ea1d940f5aa21f98c4cd358f8cac4d365c1698424d116b28",
-  "application_build_commit": "b4e0282a82c3559ee369790d18544bd43a0feb19",
-  "capture": "Direct X11 pixel capture, no compositing or image edits.",
+  "environment": "Private Xvfb, D-Bus and HOME/XDG directories; read-only bound release extension. User desktop and language unchanged.",
+  "data": "Synthetic files and availability/sharing fixtures rendered by the actual release extension; no live cloud download.",
+  "extension_sha256": "8447e2f241fa095b83afd8406a8df0edd3f2cf9a7a39fba948606aa8f080a5a5",
+  "package_sha256": "b7f065abab5f1e264b5df9afca5bfc7952ccb24fa6ed01de75109aff8bc54e54",
+  "capture": "Direct X11 pixel capture, no image edits.",
   "images": {
-    "previews/file-manager-light.png": "5245b3d73b59d1eeffae117a93f51046f2a6e1da54209cdbc241c170345af084",
-    "previews/file-manager-dark.png": "71d4de365de15bbeda828d7b0b409240fe7fcd5210d9df0275b4addbe426a905"
-  },
-  "package_build_commit": "1bd0ce395a41d65bcb3e7bd454a76871401b2ea0",
-  "package_build_run": "https://github.com/SigmaCodez/NeutronDrive/actions/runs/40427721685"
+    "previews/file-manager-light.png": "5f065e023a600ba4020d739dee1f04a6811f9dd80d483728d0519c964c27eb2b",
+    "previews/file-manager-dark.png": "935da04b6af04e465275e16e952f16ccc448792ba38f6b82a82247b418a81064"
+  }
 }

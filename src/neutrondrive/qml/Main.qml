@@ -6,12 +6,13 @@ import QtQuick.Dialogs
 
 ApplicationWindow {
     id: window
+    readonly property bool compactHeight: height < 720
     readonly property bool darkMode: controller.appearance.dark
     readonly property var theme: darkMode ? {
-        "canvas": "#191b24",
+        "canvas": "#191d29",
         "text": "#f1eef9",
-        "accent": "#aa91ff",
-        "sidebar": "#12141c",
+        "accent": "#b6a0ff",
+        "sidebar": "#121621",
         "muted": "#b0b6ca",
         "border": "#44495b",
         "disabledText": "#817b91",
@@ -22,7 +23,7 @@ ApplicationWindow {
         "cardBorder": "#303442",
         "accentText": "#c4b3ff",
         "secondaryText": "#c3bdd2",
-        "selected": "#3a2e58",
+        "selected": "#34304f",
         "navHover": "#252936",
         "badge": "#352a4d",
         "warning": "#4b3723",
@@ -36,8 +37,8 @@ ApplicationWindow {
 } : {
         "canvas": "#ffffff",
         "text": "#252236",
-        "accent": "#6d4aff",
-        "sidebar": "#f4f5fa",
+        "accent": "#7050e8",
+        "sidebar": "#f0f2f8",
         "muted": "#657087",
         "border": "#d7dce8",
         "disabledText": "#9691a2",
@@ -94,7 +95,7 @@ ApplicationWindow {
         Layout.fillWidth: true
     }
     component Heading: Label {
-        color: window.theme.text; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText
+        color: window.theme.text; font.pixelSize: 18; font.bold: true; textFormat: Text.PlainText; wrapMode: Text.Wrap
         Layout.fillWidth: true
     }
     component Action: DriveButton {
@@ -103,6 +104,38 @@ ApplicationWindow {
         property string field: ""
         enabled: field ? window.f(field).enabled : !s.busy
         onClicked: controller.action(command)
+    }
+    component WorkProgress: ColumnLayout {
+        id: workProgress; property var progress: null; property bool active: true
+        readonly property bool measured: Boolean(progress && progress.total>0 && progress.completed>=0)
+        Layout.fillWidth: true; spacing: 5
+        RowLayout { Layout.fillWidth: true
+            Copy { Layout.fillWidth: true; text: workProgress.progress && workProgress.progress.path ? workProgress.progress.path : window.tr("Working…"); elide: Text.ElideMiddle; maximumLineCount: 1 }
+            Label { text: workProgress.measured ? Math.min(100,Math.floor(100*workProgress.progress.completed/workProgress.progress.total))+"%" : ""; color: window.theme.accentText; font.bold: true }
+        }
+        ProgressBar {
+            id: workBar; Layout.fillWidth: true; from:0; to: workProgress.measured ? workProgress.progress.total : 1
+            value: workProgress.measured ? Math.min(to,workProgress.progress.completed) : 0
+            indeterminate: workProgress.active && !workProgress.measured
+            implicitHeight: 7
+            background: Rectangle { color: window.theme.border; radius: 4 }
+            contentItem: Item {
+                clip: true
+                Rectangle {
+                    id: progressFill; height: parent.height; radius: 4; color: window.theme.accent
+                    width: workBar.indeterminate ? parent.width*0.22 : parent.width*workBar.visualPosition
+                    x: 0
+                    NumberAnimation on x {
+                        running: workBar.indeterminate && workProgress.visible
+                        from: -progressFill.width; to: progressFill.parent.width
+                        duration: 1200; loops: Animation.Infinite
+                        onStopped: progressFill.x=0
+                    }
+                }
+            }
+            Accessible.name: window.tr("Progress")
+        }
+        Copy { visible: workProgress.measured; font.pixelSize: 11; text: workProgress.measured ? workProgress.progress.completed+" / "+workProgress.progress.total+" · "+window.tr("items processed") : "" }
     }
     component Field: DriveField { theme: window.theme }
     component Choice: DriveCombo { theme: window.theme }
@@ -250,21 +283,21 @@ ApplicationWindow {
         Rectangle {
             Layout.preferredWidth: 248; Layout.fillHeight: true; color: window.theme.sidebar
             ColumnLayout {
-                anchors.fill: parent; anchors.margins: 18; spacing: 8
+                anchors.fill: parent; anchors.margins: window.compactHeight ? 12 : 18; spacing: window.compactHeight ? 6 : 8
                 RowLayout {
-                    Layout.topMargin: 10; spacing: 10
+                    Layout.topMargin: window.compactHeight ? 4 : 10; spacing: 10
                     Rectangle { width: 34; height: 34; radius: 10; color: window.theme.accent
                         DriveIcon { anchors.centerIn: parent; symbol: "brand"; ink: window.theme.onAccent }
                     }
                     Label { text: "NeutronDrive"; font.pixelSize: 21; font.bold: true; color: window.theme.text }
                 }
-                Item { Layout.preferredHeight: 16 }
+                Item { Layout.preferredHeight: window.compactHeight ? 4 : 16 }
                 ScrollView {
-                    id: sidebarScroll
+                    id: sidebarScroll; objectName: "sidebarNavigation"
                     Layout.fillWidth: true; Layout.fillHeight: true
                     clip: true; contentWidth: availableWidth
                     ColumnLayout {
-                        width: sidebarScroll.availableWidth; spacing: 4
+                        width: sidebarScroll.availableWidth; spacing: window.compactHeight ? 2 : 4
                 Repeater {
                     model: [{name:window.tr("Meine Dateien"),key:"/my-files",icon:"folder"},{name:window.tr("Photos"),key:"photos",icon:"photo"},{name:window.tr("Mit mir geteilt"),key:"/shared-with-me",icon:"shared"},{name:window.tr("Shared by me"),key:"/shared-by-me",icon:"shared"},{name:window.tr("Computer"),key:"/devices",icon:"computer"},{name:window.tr("Cloud-Papierkorb"),key:"/trash",icon:"trash"},
                         {name:window.tr("Aktivität"),key:"activity",icon:"activity"},{name:window.tr("Einstellungen"),key:"settings",icon:"settings"}]
@@ -278,7 +311,7 @@ ApplicationWindow {
                         property var modelData: navigationEntry.modelData
                         property bool selected: modelData.key.charAt(0)==="/" ? (s.page==="files" && ("/"+s.path.split("/")[1])===modelData.key || s.page==="computer-backup" && modelData.key==="/devices" || s.page==="local-trash" && modelData.key==="/trash") : s.page===modelData.key
                         objectName: "nav-"+modelData.key
-                        Layout.fillWidth: true; implicitHeight: 42
+                        Layout.fillWidth: true; implicitHeight: window.compactHeight ? 32 : 42
                         text: modelData.name
                         onClicked: controller.send("open_section",[modelData.name,modelData.key])
                         Accessible.name: text
@@ -294,30 +327,19 @@ ApplicationWindow {
                     }
                 }
                 Action { text: window.tr("Bei Proton anmelden"); command: "login"; visible: !s.authenticated; Layout.fillWidth: true }
-                ColumnLayout {
-                    visible: Boolean(s.authenticated); Layout.fillWidth: true
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Copy { text: window.tr("Account storage"); font.bold: true }
-                        Action { text: "↻"; flat: true; padding: 4; font.pixelSize: 20; implicitWidth: 30; implicitHeight: 30; enabled: !s.busy; onClicked: controller.send("account_storage",[]); Accessible.name: window.tr("Refresh storage"); ToolTip.visible: hovered; ToolTip.text: window.tr("Refresh storage") }
-                    }
-                    ProgressBar {
-                        id: storageProgress
-                        Layout.fillWidth: true; from: 0; to: 100; value: s.storage ? Math.min(100,s.storage.percent) : 0; visible: Boolean(s.storage)
-                        background: Rectangle { implicitHeight: 6; radius: 3; color: window.theme.border }
-                        contentItem: Item { implicitHeight: 6; Rectangle { width: storageProgress.visualPosition*parent.width; height: parent.height; radius: 3; color: window.theme.accent } }
-                    }
-                    Copy { text: s.storage ? s.storage.usedText+" "+window.tr("used")+" · "+Math.round(s.storage.percent)+"%" : window.tr("Storage information unavailable"); font.pixelSize: 12 }
-                    Copy { text: s.storage ? s.storage.freeText+" "+window.tr("free") : ""; visible: Boolean(s.storage); font.pixelSize: 12 }
-                }
+                Rectangle {
+                    Layout.fillWidth: true; implicitHeight: accountCard.implicitHeight+(window.compactHeight ? 16 : 24)
+                    visible: Boolean(s.authenticated); radius: 16
+                    color: window.theme.input; border.color: window.theme.cardBorder
+                    ColumnLayout { id: accountCard; anchors {left:parent.left;right:parent.right;top:parent.top;margins:window.compactHeight ? 8 : 12} spacing: window.compactHeight ? 6 : 12
                 Button {
                     id: accountButton; objectName: "accountMenuButton"
                     property alias popup: accountMenu
-                    visible: Boolean(s.authenticated); Layout.fillWidth: true; implicitHeight: 58; padding: 10
+                    visible: Boolean(s.authenticated); Layout.fillWidth: true; implicitHeight: window.compactHeight ? 42 : 54; padding: 4
                     readonly property string accountName: (s.account && (s.account.name || s.account.email)) || window.tr("Signed in")
                     Accessible.name: window.tr("Account menu")+": "+accountName
                     onClicked: accountMenu.open()
-                    background: Rectangle { radius: 10; color: accountButton.hovered || accountMenu.opened ? window.theme.navHover : "transparent"; border.color: accountButton.activeFocus ? window.theme.accent : window.theme.border }
+                    background: Rectangle { radius: 10; color: accountButton.hovered || accountMenu.opened ? window.theme.navHover : "transparent"; border.color: accountButton.activeFocus ? window.theme.accent : "transparent" }
                     contentItem: RowLayout {
                         spacing: 9
                         Rectangle {
@@ -342,8 +364,26 @@ ApplicationWindow {
                         AccountItem { objectName: "accountSignOut"; text: window.tr("Abmelden"); enabled: !s.busy; onTriggered: controller.action("logout") }
                     }
                 }
-                Copy { text: window.tr("Unabhängige Open-Source-App\n")+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 10 }
-                Action { objectName: "donationButton"; text: "♡  "+window.tr("Support on Ko-fi"); command: "donate"; flat: true; font.pixelSize: 12; Layout.fillWidth: true; Accessible.description: window.tr("Opens Ko-fi in your browser. Donations are optional.") }
+                ColumnLayout {
+                    visible: Boolean(s.authenticated); Layout.fillWidth: true
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Copy { text: window.tr("Account storage"); font.bold: true }
+                        Action { text: "↻"; flat: true; padding: 4; font.pixelSize: 20; implicitWidth: 30; implicitHeight: 30; enabled: !s.busy; onClicked: controller.send("account_storage",[]); Accessible.name: window.tr("Refresh storage"); ToolTip.visible: hovered; ToolTip.text: window.tr("Refresh storage") }
+                    }
+                    ProgressBar {
+                        id: storageProgress
+                        Layout.fillWidth: true; from: 0; to: 100; value: s.storage ? Math.min(100,s.storage.percent) : 0; visible: Boolean(s.storage)
+                        background: Rectangle { implicitHeight: 6; radius: 3; color: window.theme.border }
+                        contentItem: Item { implicitHeight: 6; Rectangle { width: storageProgress.visualPosition*parent.width; height: parent.height; radius: 3; color: window.theme.accent } }
+                    }
+                    Copy { text: s.storage ? s.storage.usedText+" "+window.tr("used")+" · "+Math.round(s.storage.percent)+"%" : window.tr("Storage information unavailable"); font.pixelSize: 12 }
+                    Copy { text: s.storage ? s.storage.freeText+" "+window.tr("free") : ""; visible: Boolean(s.storage); font.pixelSize: 12 }
+                }
+                    }
+                }
+                Copy { text: "NeutronDrive · "+s.version+(s.demo ? " · DEMO" : ""); font.pixelSize: 11; Layout.topMargin: 2; opacity: 0.72 }
+
             }
         }
         Rectangle {
@@ -391,11 +431,26 @@ ApplicationWindow {
                     sourceComponent: s.page==="files" ? filesPage : s.page==="computer-backup" ? computerBackupPage : s.page==="ondemand" ? mountPage : s.page==="local-trash" ? trashPage : s.page==="activity" ? activityPage : settingsPage
                 }
             }
-            RowLayout {
-                Layout.fillWidth: true
-                BusyIndicator { running: s.busy; visible: s.busy; implicitWidth: 24; implicitHeight: 24 }
-                Copy { text: window.f("status_label").value; font.pixelSize: 12 }
-                Action { visible: s.busy; text: window.tr("Abbrechen"); command: "cancel"; enabled: true }
+            ColumnLayout {
+                objectName: "activityFooter"; Layout.fillWidth: true; spacing: 5
+                RowLayout {
+                    Layout.fillWidth: true
+                    BusyIndicator { running: !s.busy && Boolean(s.syncSummary && s.syncSummary.syncing); visible:running;implicitWidth:24;implicitHeight:24 }
+                    Copy {
+                        text: !s.busy && Boolean(s.syncSummary && s.syncSummary.syncing) ? window.tr("Current activity") : window.f("status_label").value
+                        font.pixelSize: 12; maximumLineCount: 1; elide: Text.ElideRight
+                    }
+                    Action { objectName:"cancelActivity";visible: s.busy; text: window.tr("Abbrechen"); command: "cancel"; enabled: true }
+                }
+                WorkProgress {objectName:"foregroundProgress";visible:s.busy && s.page!=="activity";progress:s.progress;active:s.busy}
+                Copy {visible:!s.busy && Boolean(s.deletions && s.deletions.pending);text:window.tr("Pending cloud deletions")+": "+(s.deletions ? s.deletions.pending || 0 : 0);font.pixelSize:12}
+                WorkProgress {
+                    visible: !s.busy && s.page!=="activity" && (s.downloads || []).length>0
+                    progress: ({path:(s.downloads || [])[0] || ""}); active:visible
+                }
+                Repeater {model:!s.busy && s.page!=="activity" ? (s.jobs || []).filter(j=>j.state==="syncing").slice(0,1) : []
+                    delegate:WorkProgress {required property var modelData;progress:modelData.progress;active:true}
+                }
             }
         }
         }
@@ -413,10 +468,16 @@ ApplicationWindow {
             Card {
                 visible: s.path==="/devices"
                 Heading { text: window.tr("Back up this computer") }
-                Copy { text: window.tr("Choose local folders to keep in Proton Drive. Manage this computer's backup separately from browsing files saved by your computers.") }
-                Action { objectName: "configureComputerBackup"; text: window.tr("Configure computer backup"); primary: true; onClicked: controller.show_page("computer-backup") }
+                Copy { text: window.tr("Choose a folder. NeutronDrive keeps it in sync automatically and shows its progress here.") }
+                RowLayout {
+                    Action { objectName: "configureComputerBackup"; text: window.tr("Add folder…"); primary: true; command:"chooseComputerFolder" }
+                    Action {text:window.tr("Configure computer backup");onClicked:controller.show_page("computer-backup")}
+                }
             }
-            Heading { visible: s.path==="/devices"; text: window.tr("Saved computers") }
+            RowLayout {visible:s.path==="/devices";Layout.fillWidth:true
+                Heading {text:window.tr("Saved computers")}
+                Action {text:window.tr("Remove computer…");enabled:!s.busy && s.selection.length===1;onClicked:controller.send("remove_computer",[])}
+            }
             RowLayout {
                 Layout.fillWidth: true; spacing: 12
                 Input { field: "search"; placeholderText: window.tr("In diesem Ordner suchen …"); objectName: "searchInput"; leftPadding: 42
@@ -663,7 +724,7 @@ ApplicationWindow {
             }
             Card {
                 Heading { text: window.f("background_status").value }
-                RowLayout { Action { visible: syncSettingsPanel.advanced; text: window.tr("Dienst starten"); command: "start" } Action { visible: syncSettingsPanel.advanced; text: window.tr("Dienst stoppen"); command: "stop" } Action { objectName: "restartSyncButton"; text: window.tr("Restart sync service"); command: "restart"; enabled: !s.busy && !(s.syncSummary && s.syncSummary.syncing>0) } }
+                Flow { Layout.fillWidth: true; spacing: 8; Action { visible: syncSettingsPanel.advanced; text: window.tr("Dienst starten"); command: "start" } Action { visible: syncSettingsPanel.advanced; text: window.tr("Dienst stoppen"); command: "stop" } Action { objectName: "restartSyncButton"; text: window.tr("Restart sync service"); command: "restart"; enabled: !s.busy && !(s.syncSummary && s.syncSummary.syncing>0) } }
             }
             Action { objectName: "advancedSyncButton"; text: (syncSettingsPanel.advanced ? "▾ " : "▸ ") + window.tr("Advanced settings"); enabled: true; onClicked: syncSettingsPanel.advanced = !syncSettingsPanel.advanced }
             Card {
@@ -702,7 +763,8 @@ ApplicationWindow {
                     Flow { Layout.fillWidth: true; spacing: 8
                         Action { text: modelData.paused ? window.tr("Fortsetzen") : window.tr("Pausieren"); onClicked: controller.job_action(modelData.paused ? "resume" : "pause",modelData.id) }
                         Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
-                        Action { text: window.tr("Auftrag entfernen"); onClicked: controller.job_action("remove",modelData.id) }
+                        Action { text: window.tr("Stop syncing…"); onClicked: controller.job_action("remove",modelData.id) }
+                        Action { text: window.tr("Remove backup…"); visible: modelData.computer; onClicked: controller.job_action("remove_backup",modelData.id) }
                     }
                 }
             }
@@ -715,11 +777,9 @@ ApplicationWindow {
             Action { text: window.tr("Computer"); onClicked: controller.navigate(window.tr("Computer"),"/devices") }
             Card {
                 Heading { text: window.tr("Computersicherung") }
-                Copy { text: window.tr("Choose folders from this computer. They appear under its name in Computer, separately from your ProtonDrive sync folder.") }
-                Copy { text: window.tr("This is two-way folder synchronization, not a system image. File changes and supported deletions can propagate in both directions. Keep a separate backup for recovery.") }
-                Copy { text: window.f("background_local_label").value }
-                Action { text: window.tr("Lokalen Ordner wählen"); command: "chooseBackground" }
-                Action { objectName: "computerBackupButton"; text: window.tr("Ordner zur Computersicherung hinzufügen"); command: "addComputerFolder"; field: "background_add_button"; primary: true }
+                Copy { text: window.tr("Add a folder to start. Changes sync automatically in both directions. Your local originals stay on this computer when you stop a backup.") }
+                Action { objectName: "computerBackupButton"; text: window.tr("Add folder…"); command: "chooseComputerFolder"; field: "background_add_button"; primary: true }
+
             }
             Repeater { model: (s.jobs || []).filter(job=>job.computer)
                 delegate: Card { required property var modelData
@@ -729,7 +789,8 @@ ApplicationWindow {
                     Flow { Layout.fillWidth: true; spacing: 8
                         Action { text: modelData.paused ? window.tr("Fortsetzen") : window.tr("Pausieren"); onClicked: controller.job_action(modelData.paused ? "resume" : "pause",modelData.id) }
                         Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
-                        Action { text: window.tr("Auftrag entfernen"); onClicked: controller.job_action("remove",modelData.id) }
+                        Action { text: window.tr("Stop syncing…"); onClicked: controller.job_action("remove",modelData.id) }
+                        Action { text: window.tr("Remove backup…"); visible: modelData.computer; onClicked: controller.job_action("remove_backup",modelData.id) }
                     }
                 }
             }
@@ -788,12 +849,45 @@ ApplicationWindow {
         id: activityPage
         PageScroll {
             objectName: "page-activity"
+            Heading {text:window.tr("Current activity")}
+            Copy {text:window.f("background_status").value}
+            Card { visible: s.busy
+                Heading {text:s.activity.length ? s.activity[0].title : window.tr("Working…")}
+                WorkProgress {progress:s.progress;active:s.busy}
+            }
+            Repeater {model:(s.jobs || [])
+                delegate: Card {required property var modelData
+                    Heading {text:modelData.name}
+                    Copy {text:modelData.detail}
+                    Copy {text:modelData.status}
+                    WorkProgress {visible:modelData.state==="syncing";progress:modelData.progress;active:visible}
+                    Copy {visible:!!modelData.lastSync;text:window.tr("Last sync")+": "+new Date(modelData.lastSync*1000).toLocaleString()}
+                    Copy {visible:!!modelData.retryAt;text:window.tr("Next retry")+": "+new Date(modelData.retryAt*1000).toLocaleString()}
+                    Copy {visible:!!modelData.skipped && modelData.skipped.length>0;text:window.tr("Skipped")+": "+(modelData.skipped || []).join("\n")}
+                }
+            }
+            Repeater {model:s.downloads || []
+                delegate:Card {required property var modelData
+                    Heading {text:window.tr("Download")+" · "+modelData}
+                    WorkProgress {active:true}
+                }
+            }
+            Repeater {model:s.deletions && s.deletions.items || []
+                delegate:Card {required property var modelData
+                    Heading {text:modelData.name}
+                    Copy {text:modelData.state==="conflict" ? window.tr("Deletion conflict") : window.tr("Waiting for cloud deletion")}
+                    Copy {text:modelData.error || ""}
+                    WorkProgress {visible:modelData.state==="pending";active:visible}
+                }
+            }
+            Heading {text:window.tr("Recent activity")}
             Copy { text: window.tr("Vorgänge dieser Sitzung · keine dauerhafte Speicherung von Dateinamen") }
             Copy { visible: s.activity.length===0; text: window.tr("Noch keine Vorgänge in dieser Sitzung.") }
             Repeater { model: s.activity
                 delegate: Card { required property var modelData
                     Heading { text: modelData.title }
                     Copy { text: modelData.time+" · "+modelData.status }
+                    Copy {visible:!!modelData.progress && !!modelData.progress.path;text:modelData.progress ? modelData.progress.path || "" : ""}
                 }
             }
         }
@@ -844,7 +938,7 @@ ApplicationWindow {
             Card {
                 Heading { text: window.tr("Beim Anmelden starten") }
                 Copy { text: window.tr("Halte deine automatischen Sync-Aufträge nach dem Desktop-Start bereit.") }
-                RowLayout { Action { text: window.tr("Autostart aktivieren"); command: "autostart" } Action { text: window.tr("Deaktivieren"); command: "noAutostart" } }
+                Flow { Layout.fillWidth: true; spacing: 8; Action { text: window.tr("Autostart aktivieren"); command: "autostart" } Action { text: window.tr("Deaktivieren"); command: "noAutostart" } }
             }
             Card {
                 Heading { text: window.tr("Updates") }
@@ -889,11 +983,12 @@ ApplicationWindow {
                 }
                 Heading { text: window.tr("Konto & Verbindung") }
                 Copy { text: window.f("backend_label").value }
-                RowLayout { Action { text: window.tr("Backend prüfen"); command: "version" } Action { text: window.tr("Anmelden"); command: "login" } Action { text: window.tr("Abmelden"); command: "logout" } }
+                Flow { Layout.fillWidth: true; spacing: 8; Action { text: window.tr("Backend prüfen"); command: "version" } Action { text: window.tr("Anmelden"); command: "login" } Action { text: window.tr("Abmelden"); command: "logout" } }
                 Copy { text: window.tr("Anmeldung ausschließlich auf account.proton.me im Browser. Die Sitzung liegt im Schlüsselbund oder in pass. Flatpak kann einen eigenen Kontospeicher verwenden.") }
             }
             Card {
                 Heading { text: "NeutronDrive "+s.version }
+                Action { objectName: "donationButton"; text: "♡  "+window.tr("Support on Ko-fi"); command: "donate"; flat: true; font.pixelSize: 12; Layout.fillWidth: true; Accessible.description: window.tr("Opens Ko-fi in your browser. Donations are optional.") }
                 Copy { visible: settingsScroll.advanced; text: "Qt Quick · QML · Rust · Open Source" }
                 Action { text: window.tr("Projekt & Installation ↗"); command: "project" }
                 Action { visible: settingsScroll.advanced; text: window.tr("Offizielle Proton CLI ↗"); command: "cli" }

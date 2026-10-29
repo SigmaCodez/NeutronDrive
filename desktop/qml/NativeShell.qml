@@ -306,6 +306,9 @@ Item {
                     if(!diagnostics.visible)throw new Error("Advanced settings cannot be opened");
                     advanced.clicked();
                     if(diagnostics.visible)throw new Error("Advanced settings cannot be collapsed");
+                    let donate=controller.childNamed(controller.view.contentItem,"donationButton");
+                    if(!donate || !donate.visible || !donate.enabled)throw new Error("Ko-fi is missing from Settings");
+                    console.log("NATIVE_SETTINGS_DONATION_OK");
                     console.log("NATIVE_SIMPLE_SETTINGS_OK");
                     controller.capture("dark-settings.png",11);
                 }else if(controller.stage===11){
@@ -343,7 +346,7 @@ Item {
                     let setup=controller.childNamed(controller.view.contentItem,"configureComputerBackup");
                     if(!setup || !setup.visible)throw new Error("Computer setup card missing");
                     let donate=controller.childNamed(controller.view.contentItem,"donationButton");
-                    if(!donate || !donate.visible)throw new Error("Ko-fi footer missing");
+                    if(donate && donate.visible)throw new Error("Ko-fi must only appear in settings");
                     controller.capture("light-computers.png",20012);
                 }else if(controller.stage===20012){
                     controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=20013;
@@ -362,7 +365,20 @@ Item {
                     if(!controller.childNamed(controller.view.contentItem,"page-local-trash"))throw new Error("Local trash navigation failed");
                     console.log("NATIVE_LOCAL_TRASH_NAVIGATION_OK");
                     controller.show_page("activity");controller.stage=5;
-                }else if(controller.stage===5){controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=15;
+                }else if(controller.stage===5){
+                    let fixture=JSON.parse(JSON.stringify(controller.state));
+                    fixture.jobs=[{id:"synthetic",name:"Documents",detail:"/home/alex/Documents ↔ Proton Drive",status:"Syncing",state:"syncing",progress:{completed:3,total:10,path:"Project notes.pdf"},lastSync:null,retryAt:null,skipped:[]}];
+                    fixture.fields.background_status.value="Sync service running";
+                    fixture.syncSummary={syncing:1};
+                    fixture.deletions={pending:1,items:[{name:"Old notes.txt",state:"pending",error:"Waiting for the cloud connection"}]};
+                    controller.view.s=fixture;controller.stage=51;
+                }else if(controller.stage===51){
+                    let page=controller.childNamed(controller.view.contentItem,"page-activity");
+                    if(!page || !page.visible || page.contentHeight<=0)throw new Error("Activity progress page missing");
+                    console.log("NATIVE_ACTIVITY_PROGRESS_FIXTURE_OK");controller.capture("light-activity-progress.png",52);
+                }else if(controller.stage===52){
+                    controller.view.s=Qt.binding(()=>controller.state);
+                    controller.navigate(controller.translate("Meine Dateien"),"/my-files");controller.stage=15;
                 }else if(controller.stage===15){
                     controller.view.width=900;controller.view.height=640;controller.stage=150;
                 }else if(controller.stage===150){
@@ -373,9 +389,28 @@ Item {
                         if(!item.visible || item.width<=0)continue;
                         if(item.x+item.width>actions.width+1 || item.y+item.height>actions.height+1)throw new Error("File action clipped in compact layout");
                     }
+                    let navigation=controller.childNamed(controller.view.contentItem,"sidebarNavigation");
+                    let settings=controller.childNamed(controller.view.contentItem,"nav-settings");
+                    let location=settings.mapToItem(navigation,0,0);
+                    if(location.y<0 || location.y+settings.height>navigation.height+1)throw new Error("Compact sidebar hides Settings");
+                    console.log("NATIVE_COMPACT_SETTINGS_VISIBLE_OK");
                     console.log("NATIVE_COMPACT_FILE_ACTIONS_OK");
                     controller.capture("compact-files.png",151);
                 }else if(controller.stage===151){
+                    let fixture=JSON.parse(JSON.stringify(controller.state));
+                    fixture.busy=true;
+                    fixture.progress={completed:3,total:10,path:"A very long project folder/Quarterly report with a long filename and more details.pdf"};
+                    fixture.fields.status_label.value="Synchronizing a folder with a very long name and detailed operation information";
+                    controller.view.s=fixture;controller.stage=1501;
+                }else if(controller.stage===1501){
+                    let footer=controller.childNamed(controller.view.contentItem,"activityFooter");
+                    let cancel=controller.childNamed(controller.view.contentItem,"cancelActivity");
+                    let point=cancel.mapToItem(footer,0,0);
+                    if(!cancel.visible || point.x<0 || point.x+cancel.width>footer.width+1)throw new Error("Compact progress hides cancellation");
+                    if(controller.childNamed(controller.view.contentItem,"fileList").height<100)throw new Error("Progress hides file list");
+                    console.log("NATIVE_COMPACT_PROGRESS_OK");controller.capture("compact-progress.png",1502);
+                }else if(controller.stage===1502){
+                    controller.view.s=Qt.binding(()=>controller.state);
                     controller.view.width=1220;controller.view.height=820;
                     controller.view.hide();
                     // Empty selections exercise action routing without touching any files.

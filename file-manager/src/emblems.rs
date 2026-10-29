@@ -84,10 +84,13 @@ unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *
             return 0;
         };
         let complete = availability::status(std::path::Path::new(&path));
-        if complete == 2 {
+        if complete & 3 == 2 {
             (info.add)(file, c"neutrondrive-syncing".as_ptr());
-        } else if complete == 1 {
+        } else if complete & 3 == 1 {
             (info.add)(file, c"neutrondrive-available".as_ptr());
+        }
+        if complete & 4 != 0 {
+            (info.add)(file, c"neutrondrive-shared".as_ptr());
         }
         let mut files = FILES.lock().unwrap();
         if let Some(tracked) = files.get_mut(&(file as usize)) {

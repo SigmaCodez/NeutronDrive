@@ -1,5 +1,41 @@
 # Validation record
 
+## Release 1.0.8 validation (2026-10-29)
+
+The [final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40955695131)
+passed at `d0453619159a78475fd0ede355787a8ec156f1de`: DEB amd64/arm64,
+Ubuntu 26.10 installation tests on both architectures, Fedora/openSUSE RPM,
+Flatpak, strict Snap, AppImage and Arch package/runtime checks.
+Both architecture jobs in the [native source run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40950469131)
+passed at `81c45bf3f9b2b255c9bb728bd28f20baf9488bb0`. That source workflow was
+stopped after native success so SDK download pins could be updated. The final
+package run verifies unchanged native and SDK source fingerprints.
+
+The upstream continuous appimagetool download changed during release preparation;
+its checksum guard correctly refused the replacement. Packaging now pins the
+fixed upstream 1.9.1 release, independently verified against its SHA-256 digest.
+The complete package run above passed with this pin; no application binary was
+changed to resolve that packaging failure.
+
+Local checks passed: 210 core unit tests, 21 core integration tests, 128 desktop
+and 2 file-manager Rust tests; Clippy; 364 contracts rerun with UI, real FUSE and
+D-Bus enabled, with no skips; TypeScript checks and 27 SDK bridge tests.
+Real FUSE fixtures verify immediate local deletion while cloud trash is stalled,
+bounded close/unlink handoff, and responsive cached browsing. Background checks
+exercise both cancellation and explicit confirmation of backup removal.
+
+The final amd64 DEB passed isolated actual Qt and separate sharing-window checks.
+All public application previews were captured anew from that unmodified package
+in English, with light/dark and compact layouts visually inspected. Fresh Nautilus
+light/dark previews use the actual packaged extension and synthetic status data:
+Neutron bookmark, green offline, blue download and combined sharing/offline emblems.
+GUI-PREVIEWS.json and FILE-MANAGER-PREVIEWS.json record package/binary/image hashes.
+Six-language website contracts passed. Final changes after the package tests are
+reviewed documentation, previews and AUR checksums only.
+
+These checks do not certify full-account sync, every file manager or a physical
+PC reboot. No live-account cloud files or user desktop configuration were modified.
+
 ## Release 1.0.7 validation (2026-10-29)
 
 The [final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40934042229)
