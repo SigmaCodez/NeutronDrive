@@ -50,3 +50,17 @@ claimed by these development tests.
   fake SDK delay. Multi-file and folder local deletion completed in 0.002 seconds
   while cloud trash was stalled, then all cloud trash operations completed.
   This is a synthetic regression measurement, not a production latency guarantee.
+
+## Follow-up layout fixes
+
+Compact windows now use tighter sidebar spacing and a smaller account card so
+all eight navigation entries, including Settings, remain visible at 900 × 640.
+Section headings wrap and settings action groups flow onto another row.
+The footer keeps cancellation beside a single-line status and gives progress its
+own full-width row; Activity does not repeat its detailed bars in the footer.
+Empty error/conflict fields no longer leave dangling status separators.
+
+The 128 desktop tests and full offscreen Qt smoke passed after these changes.
+Additional assertions verify Settings remains in the navigation viewport and
+long progress text cannot push cancellation outside the compact window. Light,
+dark and compact screenshots were inspected. No local installation was changed.

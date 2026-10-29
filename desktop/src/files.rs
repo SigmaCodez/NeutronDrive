@@ -490,7 +490,7 @@ impl Files {
             let conflicts=job["conflicts"].as_array().into_iter().flatten().take(5).map(|v|self.locale.diagnostic(v.as_str().unwrap_or(""))).collect::<Vec<_>>().join("; ");
             json!({"id":job["id"],"name":job["name"].as_str().filter(|v|!v.is_empty()).unwrap_or(text(job,"local_root")),
                 "state":state,"progress":job["progress"],"completed":job["completed"],"lastSync":job["last_sync"],"retryAt":job["retry_at"],"conflicts":job["conflicts"],"skipped":job["skipped"],"computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
-                "status":format!("{} · {} {}",self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts)})
+                "status":([self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts].into_iter().filter(|part|!part.trim().is_empty()).collect::<Vec<_>>().join(" · "))})
         }).collect::<Vec<_>>());
     }
     fn activate_background(&mut self, computer: bool) -> Vec<Effect> {

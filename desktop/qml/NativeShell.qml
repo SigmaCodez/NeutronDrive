@@ -389,9 +389,28 @@ Item {
                         if(!item.visible || item.width<=0)continue;
                         if(item.x+item.width>actions.width+1 || item.y+item.height>actions.height+1)throw new Error("File action clipped in compact layout");
                     }
+                    let navigation=controller.childNamed(controller.view.contentItem,"sidebarNavigation");
+                    let settings=controller.childNamed(controller.view.contentItem,"nav-settings");
+                    let location=settings.mapToItem(navigation,0,0);
+                    if(location.y<0 || location.y+settings.height>navigation.height+1)throw new Error("Compact sidebar hides Settings");
+                    console.log("NATIVE_COMPACT_SETTINGS_VISIBLE_OK");
                     console.log("NATIVE_COMPACT_FILE_ACTIONS_OK");
                     controller.capture("compact-files.png",151);
                 }else if(controller.stage===151){
+                    let fixture=JSON.parse(JSON.stringify(controller.state));
+                    fixture.busy=true;
+                    fixture.progress={completed:3,total:10,path:"A very long project folder/Quarterly report with a long filename and more details.pdf"};
+                    fixture.fields.status_label.value="Synchronizing a folder with a very long name and detailed operation information";
+                    controller.view.s=fixture;controller.stage=1501;
+                }else if(controller.stage===1501){
+                    let footer=controller.childNamed(controller.view.contentItem,"activityFooter");
+                    let cancel=controller.childNamed(controller.view.contentItem,"cancelActivity");
+                    let point=cancel.mapToItem(footer,0,0);
+                    if(!cancel.visible || point.x<0 || point.x+cancel.width>footer.width+1)throw new Error("Compact progress hides cancellation");
+                    if(controller.childNamed(controller.view.contentItem,"fileList").height<100)throw new Error("Progress hides file list");
+                    console.log("NATIVE_COMPACT_PROGRESS_OK");controller.capture("compact-progress.png",1502);
+                }else if(controller.stage===1502){
+                    controller.view.s=Qt.binding(()=>controller.state);
                     controller.view.width=1220;controller.view.height=820;
                     controller.view.hide();
                     // Empty selections exercise action routing without touching any files.
