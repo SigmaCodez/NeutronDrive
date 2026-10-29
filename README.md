@@ -66,7 +66,8 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
 [Sync settings](docs/background-demo.png) ·
 [Computer backup](docs/previews/computer-backup-light.png) ·
 [Online drive](docs/ondemand-demo.png) ·
-[Sharing window](docs/previews/sharing-light.png)
+[Sharing window](docs/previews/sharing-light.png) ·
+[Activity progress](docs/previews/design-polish/light-activity-progress.png)
 
 ## In your file manager
 
@@ -78,7 +79,7 @@ The **Proton Drive** bookmark uses NeutronDrive’s icon. A **green checkmark**
 means a file is available locally; a folder is marked when its contents are
 fully available offline. A **blue sync emblem** indicates an active download. Use **Keep on device** to retain selected files or
 folders and **Free up space** to remove eligible local cached copies. These
-actions do not open the main window. **Share** opens its separate sharing window.
+actions do not open the main window. A **sharing emblem** identifies directly shared folders and can appear beside the offline indicator. **Share** opens its separate sharing window.
 
 These are GNOME Files (Nautilus) captures in English, with synthetic
 example files and offline-status fixtures rendered by the real extension.

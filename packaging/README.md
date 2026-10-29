@@ -17,7 +17,7 @@ python3 scripts/build-backend --help
 
 Application packages and the rebuilt SDK bridge are published in `v1.0.8`.
 The Proton upstream commit and Bun runtime remain pinned; NeutronDrive adds the
-private-input sharing command. SHA-512 download pins and source-build provenance
+verified computer-removal and private-input sharing commands. SHA-512 download pins and source-build provenance
 identify the exact bridge for both architectures. Source builds are inspectable;
 bit-for-bit reproducibility across arbitrary build hosts is not claimed.
 

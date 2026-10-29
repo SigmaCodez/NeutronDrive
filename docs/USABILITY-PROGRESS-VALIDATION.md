@@ -70,3 +70,9 @@ immediately followed a file close on both runners. Deletion now allows a bounded
 250 ms local handoff; it still refuses a busy write rather than waiting for its
 cloud request. A dedicated lock test covers short release and bounded failure;
 five repeated real FUSE runs passed locally before restarting architecture CI.
+
+Before release, all 364 contract tests were rerun with UI, real-kernel FUSE and
+D-Bus options enabled: all passed with no skips. The native background smoke
+now exercises both cancellation and confirmation of sync removal. Guided setup,
+mount control, updates, separate sharing, single-instance recovery and tray
+startup/close checks also passed locally in isolated profiles.
