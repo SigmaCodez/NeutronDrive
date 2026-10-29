@@ -22,6 +22,12 @@ static TIMER: AtomicU32 = AtomicU32::new(0);
 unsafe extern "C" fn gone(_: Ptr, file: Ptr) {
     FILES.lock().unwrap().remove(&(file as usize));
 }
+unsafe fn untrack(file: Ptr, info: &InfoApi) {
+    let removed = FILES.lock().unwrap().remove(&(file as usize)).is_some();
+    if removed {
+        (info.weak_unref)(file, gone, ptr::null_mut());
+    }
+}
 unsafe extern "C" fn tick(_: Ptr) -> c_int {
     let _ = std::panic::catch_unwind(|| {
         let Some(api) = INFO.get() else { return };
@@ -50,6 +56,7 @@ unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *
         };
         let uri = (api.uri)(file);
         if uri.is_null() {
+            untrack(file, info);
             return 0;
         }
         let mut hostname = ptr::null_mut();
@@ -62,6 +69,7 @@ unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *
             (api.free)(hostname.cast())
         }
         if local.is_null() {
+            untrack(file, info);
             return 0;
         }
         let path = CStr::from_ptr(local).to_str().ok().map(str::to_owned);
@@ -72,6 +80,7 @@ unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *
                 && paths::configured_root()
                     .is_some_and(|r| paths::relative(&r, std::path::Path::new(p)).is_some())
         }) else {
+            untrack(file, info);
             return 0;
         };
         let complete = availability::status(std::path::Path::new(&path));
@@ -81,7 +90,9 @@ unsafe extern "C" fn update(_provider: Ptr, file: Ptr, _closure: Ptr, _handle: *
             (info.add)(file, c"neutrondrive-available".as_ptr());
         }
         let mut files = FILES.lock().unwrap();
-        if files.len() < 10000 && !files.contains_key(&(file as usize)) {
+        if let Some(tracked) = files.get_mut(&(file as usize)) {
+            *tracked = (path, complete);
+        } else if files.len() < 10000 {
             (info.weak_ref)(file, gone, ptr::null_mut());
             files.insert(file as usize, (path, complete));
         }

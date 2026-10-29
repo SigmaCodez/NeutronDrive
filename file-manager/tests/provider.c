@@ -6,7 +6,8 @@
 static gpointer emblem_file=NULL;
 static int emblem_adds=0,emblem_invalidations=0;
 static const char *expected_emblem="neutrondrive-available";
-static char *file_uri(void *file){return g_strdup(file==emblem_file?"file:///tmp/nd-menu-sync/complete":file);}
+static const char *emblem_uri="file:///tmp/nd-menu-sync/complete";
+static char *file_uri(void *file){return g_strdup(file==emblem_file?emblem_uri:file);}
 static void add_emblem(void *file,const char *name){g_assert(file==emblem_file);g_assert_cmpstr(name,==,expected_emblem);emblem_adds++;}
 #define INFO_STUB(prefix) void prefix##_file_info_add_emblem(void *f,const char *n){add_emblem(f,n);} void prefix##_file_info_invalidate_extension_info(void *f){g_assert(f==emblem_file);emblem_invalidations++;}
 INFO_STUB(nautilus) INFO_STUB(nemo) INFO_STUB(caja)
@@ -99,6 +100,20 @@ int main(int argc,char **argv){
   while(emblem_invalidations==before&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
   expected_emblem="neutrondrive-available";
   g_assert_cmpint(emblem_invalidations,>,before);g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,3);
+  // The host can reuse the same file-info object after a rename.
+  emblem_uri="file:///tmp/nd-menu-sync/renamed";
+  g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,3);
+  g_file_set_contents(index,"{\"version\":1,\"available\":{\"complete\":true,\"renamed\":true}}",-1,NULL);
+  before=emblem_invalidations;end=g_get_monotonic_time()+5000000;
+  while(emblem_invalidations==before&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
+  g_assert_cmpint(emblem_invalidations,>,before);g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);g_assert_cmpint(emblem_adds,==,4);
+  // Moving outside the sync root must stop tracking the old path.
+  emblem_uri="file:///tmp/nd-outside/renamed";
+  g_assert_cmpint(update(provider,emblem_file,NULL,NULL),==,0);
+  g_file_set_contents(index,"{\"version\":1,\"available\":{}}",-1,NULL);
+  before=emblem_invalidations;end=g_get_monotonic_time()+3000000;
+  while(g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
+  g_assert_cmpint(emblem_invalidations,==,before);
   g_object_unref(emblem_file);emblem_file=NULL;
   // Hosts release their provider registry before unloading extensions. Both
   // the volume and emblem timers must allow this finalization to happen now.
