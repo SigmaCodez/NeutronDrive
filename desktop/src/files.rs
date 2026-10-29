@@ -315,16 +315,20 @@ impl Files {
     }
     fn render(&mut self) {
         let query = folded(text(&self.state["fields"]["search"], "value"));
-        self.visible = self
+        let visible: Vec<Value> = self
             .nodes
             .iter()
             .filter(|n| query.is_empty() || folded(text(n, "name")).contains(&query))
             .cloned()
             .collect();
-        self.selection.clear();
-        self.selection_anchor = None;
-        self.state["focusIndex"] = 0.into();
-        self.entries = json!(self.visible.iter().map(|n| {
+        // Search terms and hidden entries may change without changing any
+        // visible row. Preserve delegates and index selection in that case.
+        if self.files_revision == 0 || self.visible != visible {
+            self.visible = visible;
+            self.selection.clear();
+            self.selection_anchor = None;
+            self.state["focusIndex"] = 0.into();
+            self.entries = json!(self.visible.iter().map(|n| {
             let folder = n["type"] == "folder";
             let name = text(n,"name");
             json!({"name":if n["safe"] != true && ["[Name nicht entschlüsselbar]","[Ungültiger Name]"].contains(&name) {self.locale.diagnostic(name)} else {name.into()},
@@ -332,7 +336,8 @@ impl Files {
                 "size":if folder {"—".into()} else {self.locale.size_text(n["size"].as_u64())},
                 "modified":self.locale.date_text(text(n,"modified"))})
         }).collect::<Vec<_>>());
-        self.files_revision += 1;
+            self.files_revision += 1;
+        }
         self.field(
             "empty_label",
             json!(self.tr(if query.is_empty() {
@@ -1482,7 +1487,7 @@ impl Files {
             "edit" if args[0] == "background_remote" && !self.busy() => {
                 self.field("background_remote", json!(args[1].as_str().unwrap_or("")))
             }
-            "edit" if args[0] == "search" && !self.busy() => {
+            "edit" if args[0] == "search" && (!self.busy() || self.active_read()) => {
                 let next = args[1].as_str().unwrap_or("");
                 let changed =
                     folded(text(&self.state["fields"]["search"], "value")) != folded(next);
@@ -1961,6 +1966,64 @@ mod tests {
         m.dispatch("select_range", &json!([0]));
         assert_eq!(m.state["selection"], json!([]));
     }
+    #[test]
+    fn large_folder_refined_search_preserves_rows_and_selection() {
+        let mut m = model();
+        m.nodes = (0..10000).map(|i| json!({"name":format!("Document {i:05}.txt"),"path":format!("/my-files/{i}"),"type":"file","safe":true})).collect();
+        m.render();
+        m.dispatch("edit", &json!(["search", "doc"]));
+        m.select(5000, false);
+        let revision = m.files_revision;
+        for query in ["docu", "document", "DOCUMENT "] {
+            m.dispatch("edit", &json!(["search", query]));
+            assert_eq!(m.files_revision, revision);
+            assert_eq!(m.state["selection"], json!([5000]));
+            assert_eq!(m.entries.as_array().unwrap().len(), 10000);
+        }
+        m.dispatch("edit", &json!(["search", "Document 05000"]));
+        assert_eq!(m.entries.as_array().unwrap().len(), 1);
+        assert_eq!(m.state["selection"], json!([]));
+    }
+
+    #[test]
+    fn different_filters_with_identical_matches_keep_model_and_selection() {
+        let mut m = loaded();
+        m.dispatch("edit", &json!(["search", "str"]));
+        m.select(0, false);
+        let revision = m.files_revision;
+        m.dispatch("edit", &json!(["search", "strasse"]));
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.state["selection"], json!([0]));
+        assert_eq!(m.entries[0]["name"], "Straße.txt");
+        let w = work(m.refresh());
+        let mut changed = nodes();
+        changed
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"name":"other","path":"/my-files/other","type":"file","safe":true}));
+        m.complete(w.id, Ok(changed));
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.state["selection"], json!([0]));
+        assert!(text(&m.state["fields"]["count_label"], "value").contains("5"));
+    }
+
+    #[test]
+    fn local_filter_works_during_cloud_read_without_cancelling_it() {
+        let mut m = loaded();
+        let w = work(m.refresh());
+        assert!(m.dispatch("edit", &json!(["search", "STRASSE"])).is_empty());
+        assert_eq!(m.entries.as_array().unwrap().len(), 1);
+        assert_eq!(m.active.as_ref().unwrap().id, w.id);
+        let revision = m.files_revision;
+        m.complete(w.id, Ok(nodes()));
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.entries.as_array().unwrap().len(), 1);
+        let w = work(m.submit("Upload", json!({"action":"upload"}), Done::Refresh));
+        m.dispatch("edit", &json!(["search", ""]));
+        assert_eq!(m.state["fields"]["search"]["value"], "STRASSE");
+        assert_eq!(m.active.as_ref().unwrap().id, w.id);
+    }
+
     #[test]
     fn equivalent_unicode_search_preserves_selection_and_model() {
         let mut m = loaded();

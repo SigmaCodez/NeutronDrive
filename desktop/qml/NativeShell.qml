@@ -442,7 +442,9 @@ Item {
                 }else if(controller.stage===19){
                     if(JSON.stringify(controller.state.selection)!==JSON.stringify([controller.checkedFolder]))throw new Error("Mouse selection incorrect: "+JSON.stringify(controller.state.selection)+" expected "+controller.checkedFolder);
                     if(controller.childNamed(controller.checkedList,"fileRow-"+controller.checkedFolder)!==controller.checkedRow)throw new Error("Selection replaced file delegate");
-                    controller.action("refresh");controller.stage=190;
+                    controller.action("refresh");
+                    if(!controller.childNamed(controller.view.contentItem,"searchInput").enabled)throw new Error("Local search disabled during folder refresh");
+                    controller.stage=190;
                 }else if(controller.stage===190){
                     if(JSON.stringify(controller.state.selection)!==JSON.stringify([controller.checkedFolder]))throw new Error("Unchanged refresh cleared selection");
                     if(controller.childNamed(controller.checkedList,"fileRow-"+controller.checkedFolder)!==controller.checkedRow)throw new Error("Unchanged refresh recreated file delegate");

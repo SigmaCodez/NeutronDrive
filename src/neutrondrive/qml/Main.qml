@@ -117,7 +117,7 @@ ApplicationWindow {
     component Input: Field {
         property string field
         text: window.f(field).value
-        enabled: window.f(field).enabled && !s.busy
+        enabled: window.f(field).enabled && (!s.busy || (field==="search" && Boolean(s.reading)))
         Layout.fillWidth: true
         onTextEdited: controller.edit(field, text)
     }
@@ -407,7 +407,7 @@ ApplicationWindow {
             objectName: "page-files"; spacing: window.width < 1050 ? 10 : 14
             Shortcut {
                 sequences: [StandardKey.Find]
-                enabled: s.page==="files" && !s.busy && !window.dialogOpen
+                enabled: s.page==="files" && (!s.busy || Boolean(s.reading)) && !window.dialogOpen
                 onActivated: { folderSearch.forceActiveFocus(); folderSearch.selectAll(); }
             }
             Card {

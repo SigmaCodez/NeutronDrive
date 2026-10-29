@@ -52,3 +52,11 @@ Preview responses and empty metadata pages previously incremented the photo revi
 The gallery also prunes selected photos that become inaccessible. Such tiles are disabled immediately during scrolling, while ordinary metadata updates retain their existing deferred rendering behavior and accessible selections remain intact.
 
 Validation: the two no-op revision regressions fail before correction and pass afterwards; 119 Rust desktop tests and Clippy pass. The complete real Qt window suite passes, including an access-change test during a simulated flick with a 2,049-photo fixture. No real-account changes were performed.
+
+## Local search without unnecessary row rebuilds
+
+Different search strings can produce exactly the same visible rows. Rendering now compares full visible node metadata before reformatting dates/sizes, serializing the file model and resetting index selection. Matching rows keep their delegates and selection; changed rows still invalidate selection. Counts and empty-state labels are updated independently, including changes to entries outside the active filter.
+
+Local filtering and Ctrl+F remain available during cancellable cloud reads using the already loaded nodes. Filtering does not cancel the cloud request, and the latest filter remains applied when its response arrives. Mutation-time editing guards remain unchanged.
+
+Validation: both regressions failed before correction; 122 Rust desktop tests pass, including a 10,000-entry folder and repeated refined searches. Clippy and the real Qt window checks pass, including the enabled search input during a folder refresh. This demonstrates avoided model rebuilds, not a claimed real-account latency measurement.
