@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "release": "v1.0.5",
+  "release": "v1.0.6",
   "locales": {
     "en": {
       "description": "An unofficial, open-source Linux desktop client for Proton Drive, developed independently of Proton AG.",
@@ -85,7 +85,7 @@
           "Manage shares, create public links and send confirmed invitations in a dedicated window."
         ]
       ],
-      "releaseNotes": "What is new in 1.0.5?\nSidebar navigation stays responsive during slow cloud reads, with reliable cancellation. The sharing window adds passwords, expiry dates, viewer/editor access and editor resharing. Fresh file identity and sharing settings are checked before saving; passwords use private stdin.\n\nHow do I update to 1.0.5?\nInstall the current package for your distribution. DEB, RPM and Arch retain epoch 1. Snap Store availability depends on Canonical review; snapd manages published updates.\n\nWhat limitations remain?\nNo multi-account interface or native Proton Docs/Sheets export. Whole-folder deletion propagation stays blocked. Concurrent edits can still cause conflicts; keep an independent backup."
+      "releaseNotes": "What is new in 1.0.6?\nA simpler desktop with focused browser sign-in, separate folder setup, a quieter sidebar and compact file and photo toolbars. Advanced settings are expandable; synchronization and sharing safeguards remain in place.\n\nHow do I update to 1.0.6?\nInstall the current package for your distribution. DEB, RPM and Arch retain epoch 1. Snap Store availability depends on Canonical review; snapd manages published updates.\n\nWhat limitations remain?\nNo multi-account interface or native Proton Docs/Sheets export. Whole-folder deletion propagation stays blocked. Concurrent edits can still cause conflicts; keep an independent backup."
     },
     "de": {
       "description": "Ein inoffizieller Open-Source-Desktop-Client für Proton Drive unter Linux, unabhängig von Proton AG entwickelt.",
@@ -170,7 +170,7 @@
           "Verwalte Freigaben, erstelle öffentliche Links und versende bestätigte Einladungen in einem eigenen Fenster."
         ]
       ],
-      "releaseNotes": "Was ist neu in 1.0.5?\nMenüwechsel reagieren auch bei langsamen Cloud-Abfragen; Abbrechen wird zuverlässig berücksichtigt. Das Freigabefenster bietet Passwort, Ablaufdatum, Lese-/Schreibrechte und Weiterfreigabe durch Bearbeiter. Dateiidentität und Freigabestatus werden vor dem Speichern geprüft; Passwörter werden über einen privaten Eingabekanal übertragen.\n\nWie aktualisiere ich auf 1.0.5?\nInstalliere das Paket für deine Distribution. DEB, RPM und Arch behalten Epoch 1. Die Snap-Store-Verfügbarkeit hängt von Canonicals Prüfung ab; veröffentlichte Updates verwaltet snapd.\n\nWelche Einschränkungen bleiben?\nKeine Mehrkonten-Oberfläche und kein nativer Proton-Docs/Sheets-Export. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können weiterhin Konflikte verursachen; halte ein unabhängiges Backup bereit."
+      "releaseNotes": "Was ist neu in 1.0.6?\nEine übersichtlichere Oberfläche mit klarer Browser-Anmeldung, separater Ordnerauswahl, ruhiger Seitenleiste und kompakten Datei- und Foto-Werkzeugleisten. Erweiterte Einstellungen sind ausklappbar; Schutzmechanismen für Synchronisation und Freigaben bleiben erhalten.\n\nWie aktualisiere ich auf 1.0.6?\nInstalliere das Paket für deine Distribution. DEB, RPM und Arch behalten Epoch 1. Die Snap-Store-Verfügbarkeit hängt von Canonicals Prüfung ab; veröffentlichte Updates verwaltet snapd.\n\nWelche Einschränkungen bleiben?\nKeine Mehrkonten-Oberfläche und kein nativer Proton-Docs/Sheets-Export. Die Weitergabe ganzer Ordnerlöschungen bleibt gesperrt. Gleichzeitige Änderungen können weiterhin Konflikte verursachen; halte ein unabhängiges Backup bereit."
     },
     "fr": {
       "description": "Un client de bureau Linux non officiel et open source pour Proton Drive, développé indépendamment de Proton AG.",
@@ -255,7 +255,7 @@
           "Gérez les partages, créez des liens publics et envoyez des invitations confirmées dans une fenêtre dédiée."
         ]
       ],
-      "releaseNotes": "Quelles nouveautés dans la version 1.0.5 ?\nLa navigation reste réactive pendant les lectures cloud lentes et respecte les annulations. Le partage propose mot de passe, expiration, droits de lecture ou modification et repartage par les éditeurs. L’identité du fichier et les réglages sont vérifiés avant enregistrement ; les mots de passe passent par une entrée privée.\n\nComment passer à la version 1.0.5 ?\nInstallez le paquet de votre distribution. DEB, RPM et Arch conservent l’epoch 1. La disponibilité dans le Snap Store dépend de Canonical ; snapd gère les mises à jour publiées.\n\nQuelles limitations subsistent ?\nPas d’interface multicomptes ni d’export natif Proton Docs/Sheets. La suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante."
+      "releaseNotes": "Quelles nouveautés dans la version 1.0.6 ?\nUne interface simplifiée avec connexion dans le navigateur, choix du dossier séparé, barre latérale épurée et outils compacts pour les fichiers et photos. Les réglages avancés sont repliables ; les protections de synchronisation et de partage sont conservées.\n\nComment passer à la version 1.0.6 ?\nInstallez le paquet de votre distribution. DEB, RPM et Arch conservent l’epoch 1. La disponibilité dans le Snap Store dépend de Canonical ; snapd gère les mises à jour publiées.\n\nQuelles limitations subsistent ?\nPas d’interface multicomptes ni d’export natif Proton Docs/Sheets. La suppression de dossiers entiers reste bloquée. Les modifications simultanées peuvent créer des conflits : conservez une sauvegarde indépendante."
     },
     "es": {
       "description": "Un cliente de escritorio Linux no oficial y de código abierto para Proton Drive, desarrollado de forma independiente de Proton AG.",
@@ -340,7 +340,7 @@
           "Gestiona archivos compartidos, crea enlaces públicos y envía invitaciones confirmadas en una ventana propia."
         ]
       ],
-      "releaseNotes": "¿Qué novedades incluye la versión 1.0.5?\nLa navegación responde durante lecturas lentas de la nube y respeta la cancelación. Compartir permite contraseña, caducidad, permisos de lectura o edición y permitir que los editores compartan. Se verifican la identidad y los ajustes antes de guardar; las contraseñas viajan por una entrada privada.\n\n¿Cómo actualizo a la versión 1.0.5?\nInstala el paquete de tu distribución. DEB, RPM y Arch conservan epoch 1. La disponibilidad en Snap Store depende de Canonical; snapd gestiona las actualizaciones publicadas.\n\n¿Qué limitaciones quedan?\nNo hay interfaz multicuenta ni exportación nativa de Proton Docs/Sheets. El borrado de carpetas completas sigue bloqueado. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente."
+      "releaseNotes": "¿Qué novedades incluye la versión 1.0.6?\nUna interfaz más sencilla con inicio de sesión en el navegador, selección de carpeta separada, barra lateral despejada y herramientas compactas para archivos y fotos. Los ajustes avanzados son desplegables; se mantienen las protecciones de sincronización y uso compartido.\n\n¿Cómo actualizo a la versión 1.0.6?\nInstala el paquete de tu distribución. DEB, RPM y Arch conservan epoch 1. La disponibilidad en Snap Store depende de Canonical; snapd gestiona las actualizaciones publicadas.\n\n¿Qué limitaciones quedan?\nNo hay interfaz multicuenta ni exportación nativa de Proton Docs/Sheets. El borrado de carpetas completas sigue bloqueado. Los cambios simultáneos pueden causar conflictos; conserva una copia de seguridad independiente."
     },
     "it": {
       "description": "Un client desktop Linux non ufficiale e open source per Proton Drive, sviluppato indipendentemente da Proton AG.",
@@ -425,7 +425,7 @@
           "Gestisci le condivisioni, crea link pubblici e invia inviti confermati in una finestra dedicata."
         ]
       ],
-      "releaseNotes": "Quali sono le novità della versione 1.0.5?\nLa navigazione resta reattiva durante letture cloud lente e rispetta gli annullamenti. La condivisione offre password, scadenza, permessi di lettura o modifica e ricondivisione da parte degli editor. Identità e impostazioni sono verificate prima del salvataggio; le password passano tramite un ingresso privato.\n\nCome aggiorno alla versione 1.0.5?\nInstalla il pacchetto della tua distribuzione. DEB, RPM e Arch mantengono epoch 1. La disponibilità nello Snap Store dipende da Canonical; snapd gestisce gli aggiornamenti pubblicati.\n\nQuali limitazioni rimangono?\nNessuna interfaccia multi-account né esportazione nativa Proton Docs/Sheets. L’eliminazione di intere cartelle resta bloccata. Le modifiche simultanee possono causare conflitti: conserva un backup indipendente."
+      "releaseNotes": "Quali sono le novità della versione 1.0.6?\nUn’interfaccia più semplice con accesso nel browser, scelta della cartella separata, barra laterale essenziale e strumenti compatti per file e foto. Le impostazioni avanzate sono espandibili; le protezioni di sincronizzazione e condivisione restano attive.\n\nCome aggiorno alla versione 1.0.6?\nInstalla il pacchetto della tua distribuzione. DEB, RPM e Arch mantengono epoch 1. La disponibilità nello Snap Store dipende da Canonical; snapd gestisce gli aggiornamenti pubblicati.\n\nQuali limitazioni rimangono?\nNessuna interfaccia multi-account né esportazione nativa Proton Docs/Sheets. L’eliminazione di intere cartelle resta bloccata. Le modifiche simultanee possono causare conflitti: conserva un backup indipendente."
     }
   }
 }
