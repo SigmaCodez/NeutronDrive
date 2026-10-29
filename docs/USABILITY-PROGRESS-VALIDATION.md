@@ -1,4 +1,4 @@
-# Usability changes after 1.0.7 (not yet released)
+# NeutronDrive 1.0.8 usability changes
 
 ## Behavior
 
