@@ -5,6 +5,7 @@ import NeutronDrive.Native
 Item {
     id: controller
     property var view: null
+    property var setupOriginalFont: null
     property bool initialized: false
     property bool allowClose: false
     property bool explicitQuit: false
@@ -212,6 +213,7 @@ Item {
                     controller.checkedWizard=Array.from(controller.view.contentData).find(item=>item.objectName==="setupWizard");
                     if(!controller.checkedWizard)throw new Error("Setup wizard missing");
                     controller.view.width=900;controller.view.height=640;
+                    controller.setupOriginalFont=controller.view.font;
                     controller.setAppearancePreference("light");controller.stage=901;
                 }else if(controller.stage===901){
                     let wizard=controller.checkedWizard;
@@ -249,6 +251,22 @@ Item {
                     if(wizard.step!==0)throw new Error("Setup Back failed");
                     controller.childNamed(wizard.contentItem,"setupNext").clicked();
                     if(path.text!=="/tmp/NeutronDrive-setup-preview")throw new Error("Back lost selected folder");
+                    controller.view.font.pixelSize=20;
+                    controller.view.s=Object.assign({},controller.view.s,{sandboxed:true});
+                    controller.stage=910;
+                }else if(controller.stage===910){
+                    let wizard=controller.checkedWizard;
+                    let finish=controller.childNamed(wizard.contentItem,"setupFinish");
+                    let scroll=controller.childNamed(wizard.contentItem,"setupScroll");
+                    let position=finish.mapToItem(controller.view.contentItem,0,0);
+                    if(wizard.height>controller.view.height-30 || position.y<0 || position.y+finish.height>controller.view.height || position.x<0 || position.x+finish.width>controller.view.width)throw new Error("Large-font setup hides completion controls");
+                    if(!scroll || scroll.contentHeight<=scroll.availableHeight)throw new Error("Long store setup must remain scrollable");
+                    scroll.contentItem.contentY=scroll.contentHeight-scroll.availableHeight;
+                    if(scroll.contentItem.contentY<=0)throw new Error("Setup content cannot scroll");
+                    console.log("NATIVE_SETUP_LARGE_FONT_SCROLL_OK");
+                    controller.capture("setup-folder-large-font.png",911);
+                }else if(controller.stage===911){
+                    controller.view.font=controller.setupOriginalFont;
                     controller.view.s=Qt.binding(function(){return controller.state});
                     controller.view.width=1220;controller.view.height=820;
                     console.log("NATIVE_SETUP_STEPS_AND_THEMES_OK");controller.stage=0;

@@ -141,12 +141,21 @@ ApplicationWindow {
         visible: Boolean(s.setupNeeded); modal: true; closePolicy: Popup.NoAutoClose
         onOpened: step = 0
         anchors.centerIn: parent; width: Math.min(580, window.width - 48)
-        padding: 32
+        height: Math.min(implicitHeight, window.height - 48)
+        padding: 24
         background: Rectangle { radius: 18; color: window.theme.canvas; border.color: window.theme.cardBorder }
         header: Item { implicitHeight: 0 }
         Overlay.modal: Rectangle { color: window.theme.canvas }
         contentItem: ColumnLayout {
             spacing: 22
+            ScrollView {
+                id: setupScroll; objectName: "setupScroll"
+                Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 0
+                implicitHeight: setupBody.implicitHeight
+                contentWidth: availableWidth; clip: true
+                ScrollBar.vertical: DriveScrollBar { theme: window.theme }
+                ColumnLayout {
+                    id: setupBody; width: setupScroll.availableWidth; spacing: 22
             ColumnLayout {
                 Layout.fillWidth: true; spacing: 16
                 Rectangle {
@@ -209,6 +218,8 @@ ApplicationWindow {
                 Copy { visible: Boolean(s.sandboxed); text: window.tr("Finishing enables background sync and automatic startup at login. You can configure individual sync folders in Settings instead by choosing Later.") }
             }
             Copy { text: s.fields.notice_label.value || ""; visible: Boolean(text); color: window.theme.accentText }
+                }
+            }
             Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: window.theme.cardBorder }
             RowLayout {
                 spacing: 10

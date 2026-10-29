@@ -10,7 +10,9 @@ Proton browser authentication. No reference-project code was copied.
 
 - First launch shows a dedicated sign-in screen. After authentication, select
   the sync folder in a separate step and explicitly finish setup. Store-edition
-  download and disk-space notices remain visible.
+  download and disk-space notices remain visible. Long content scrolls within
+  a bounded dialog while completion controls remain visible, including with
+  larger distribution fonts.
 - Upload files, upload folders and create folders through **Add**. Individual
   actions still respect their existing permissions and busy-state guards. The
   file-action strip appears only after selecting an item.
