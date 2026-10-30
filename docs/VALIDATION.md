@@ -609,3 +609,26 @@ The stale deleted-library mapping disappeared, the FUSE mount remained present,
 and the user confirmed only the Proton Drive bookmark remained. This immediate
 recovery uses installed 1.0.8; the notification correction is committed for a
 future update and has not been installed into the user's file manager.
+
+## Release 1.0.9 (2026-10-30)
+
+Photo folder imports now preserve duplicate album memberships and report partial
+assignment failures. The scanner rejects more than 100 memberships per media
+item before upload. Viewer paging, open-album removal and GIO mount visibility
+notifications are corrected. Existing sync safeguards are retained.
+
+Both native architecture jobs passed at
+[`980fb318`](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41087519787).
+The preparatory workflow was stopped after native success to pin the SDK artifacts.
+The final package workflow verifies source fingerprints and passed at
+[`19ff53e5`](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41092544604):
+DEB amd64/arm64, Ubuntu 26.10 on both architectures, Fedora/openSUSE RPM, strict
+Snap, Flatpak, AppImage and Arch. Both native jobs passed 213 core unit tests,
+21 core integration tests, 129 desktop tests, file-manager checks and 364
+regression contracts with kernel FUSE enabled. SDK and Qt interaction tests passed.
+
+English app and file-manager previews are captured from the actual release DEB
+in isolated profiles with synthetic data. BUILD_INFO.json, TEST_RESULTS.json,
+SHA256SUMS and the preview metadata record exact provenance. No personal cloud
+data was changed, no local upgrade was performed and a real-account import test
+is not claimed.

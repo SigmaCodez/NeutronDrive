@@ -1,4 +1,4 @@
-# Photo folder import and gallery fixes — unreleased
+# Photo folder import and gallery fixes — 1.0.9
 
 Validated 2026-10-30 against the pinned Proton SDK and Bun 1.4.2.
 
@@ -21,7 +21,7 @@ Validated 2026-10-30 against the pinned Proton SDK and Bun 1.4.2.
 
 ## Validation
 
-- Rust core: 233 tests passed (212 unit tests and 21 integration tests).
+- Rust core: 234 tests passed (213 unit tests and 21 integration tests).
 - Rust desktop: 129 tests passed.
 - SDK bridge: 28 tests, 107 assertions passed across six files; TypeScript check passed.
 - Core and desktop Clippy passed with warnings denied; Rust formatting checked.
@@ -32,6 +32,7 @@ Validated 2026-10-30 against the pinned Proton SDK and Bun 1.4.2.
   library, session, or sync service was modified.
 
 These are isolated automated checks, not a real-account import validation or a
-claim of complete Windows feature parity. No release or local package installation
-was performed for this change. New UI messages have German and English text;
+claim of complete Windows feature parity. The 1.0.9 release rebuild and package matrix are recorded in
+[the release validation record](VALIDATION.md#release-109-2026-10-30). No local
+installation or real-account import was performed for this release. New UI messages have German and English text;
 other language catalogs currently use English for these new messages.
