@@ -1,10 +1,13 @@
 # Desktop update checks
 
-Settings → Updates offers a manual check and an optional automatic check, once
-per 24 hours while the GUI is running. Automatic checks are enabled by default;
-disable them to stop scheduled requests. No separate service is installed.
-The last attempt is persisted, including failures, to prevent repeated requests
-on restart. Manual checks can be retried at any time. Demo mode never checks.
+Settings → Updates offers a manual check and an optional automatic check at
+startup (after a short delay) and every two hours while the GUI is running.
+Automatic checks are enabled by default; disabling them stops scheduled requests.
+No separate service is installed. A persisted last-attempt time does not suppress
+the first check in a new app session. Checks never overlap downloads or installation.
+Only a newer available release produces a notification, once per version per app
+session. No-update results and network failures stay silent outside Update settings.
+Manual checks can be retried at any time. Demo mode never checks.
 
 The checker contacts the public GitHub releases endpoint for
 `SigmaCodez/NeutronDrive`, without authentication or account/file data. GitHub

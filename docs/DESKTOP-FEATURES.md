@@ -1,6 +1,6 @@
 # Desktop features
 
-The current release is 1.0.9. The sections below identify when features
+The current release is 1.0.10. The sections below identify when features
 were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.

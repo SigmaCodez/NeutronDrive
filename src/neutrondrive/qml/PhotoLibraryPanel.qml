@@ -16,20 +16,18 @@ ColumnLayout {
     function updatePhotos() {
         if(!photoModel)return;
         let items=photos;
-        // Defer updates within the same inventory, but clear a refreshed or
-        // replaced album immediately so old tiles cannot outlive its data.
         let replaces=items.length<photoModel.count;
         let revoked=[];
-        for(let i=0;!replaces && i<Math.min(appliedPhotos.length,items.length);i++) {
-            replaces=appliedPhotos[i].uid!==items[i].uid;
+        for(let i=0;i<Math.min(appliedPhotos.length,items.length);i++) {
+            if(appliedPhotos[i].uid!==items[i].uid)replaces=true;
             if(appliedPhotos[i].safe===true && items[i].safe!==true)revoked.push(i);
         }
-        // Index-based actions must never survive a changed inventory identity.
-        // A metadata refresh or appended page keeps the selection intact.
         if(replaces) {
-            leaveSelection(); viewer.close(); viewerIndex=-1; pendingViewerIndex=-1;
-            photoModel.clear(); appliedPhotos=[];
-            previewAttempt=-1; moreAttempt=-1;
+            let positions=new Map(items.map((p,i)=>[p.uid,i]));
+            selected=selected.map(i=>positions.get(appliedPhotos[i]?.uid)).filter(i=>i!==undefined && items[i].safe===true);
+            let next=positions.get(appliedPhotos[viewerIndex]?.uid);
+            if(next===undefined) { viewer.close(); viewerIndex=-1; } else viewerIndex=next;
+            pendingViewerIndex=-1; previewAttempt=-1; moreAttempt=-1;
         }
         // Access changes take effect immediately, including during a flick.
         // Keep valid selections but never show a revoked tile as actionable.
@@ -49,10 +47,17 @@ ColumnLayout {
         }
         pendingPhotos=false;
         // Keep delegates and scroll position alive across status updates and pages.
-        while(photoModel.count>items.length)photoModel.remove(photoModel.count-1);
+        let wanted=new Set(items.map(p=>p.uid));
+        for(let i=photoModel.count-1;i>=0;i--)if(!wanted.has(photoModel.get(i).entry.uid))photoModel.remove(i);
         for(let i=0;i<items.length;i++) {
-            if(i>=photoModel.count) { photoModel.append({entry:items[i]}); continue; }
-            let old=appliedPhotos[i], next=items[i];
+            let next=items[i];
+            if(i>=photoModel.count) { photoModel.append({entry:next}); continue; }
+            if(photoModel.get(i).entry.uid!==next.uid) {
+                let found=-1;
+                for(let j=i+1;j<photoModel.count;j++)if(photoModel.get(j).entry.uid===next.uid) { found=j; break; }
+                if(found<0)photoModel.insert(i,{entry:next}); else photoModel.move(found,i,1);
+            }
+            let old=photoModel.get(i).entry;
             if(old.thumbnail!==next.thumbnail || old.previewLoaded!==next.previewLoaded || old.name!==next.name || old.safe!==next.safe || old.modified!==next.modified || JSON.stringify(old.location)!==JSON.stringify(next.location))photoModel.setProperty(i,"entry",next);
         }
         appliedPhotos=items;

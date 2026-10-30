@@ -63,6 +63,8 @@ pub struct Model {
     pub auto_download: bool,
     pub previews: bool,
     pub last_attempt: f64,
+    pub checked_this_session: bool,
+    pub notified_tag: String,
     pub format: String,
     pub release: Value,
     pub download: Option<Download>,
@@ -87,6 +89,8 @@ impl Model {
             auto_download: false,
             previews: preview_default(env!("CARGO_PKG_VERSION")),
             last_attempt: 0.0,
+            checked_this_session: false,
+            notified_tag: String::new(),
             format,
             release: Value::Null,
             download: None,
@@ -109,7 +113,21 @@ impl Model {
             && self.automatic
             && self.active.is_none()
             && self.restart.is_none()
-            && !(0.0..86400.0).contains(&elapsed)
+            && self.download.is_none()
+            && (!self.checked_this_session || !(0.0..7200.0).contains(&elapsed))
+    }
+    pub fn should_announce(&mut self, result: &Result<Outcome, Failure>) -> bool {
+        let Ok(Outcome::Checked(release)) = result else {
+            return false;
+        };
+        let Some(tag) = release["tag"].as_str().filter(|tag| !tag.is_empty()) else {
+            return false;
+        };
+        if self.closed || self.notified_tag == tag {
+            return false;
+        }
+        self.notified_tag = tag.to_owned();
+        true
     }
     pub fn option(&mut self, name: &str, value: bool) {
         match name {
@@ -140,6 +158,7 @@ impl Model {
                 self.download = None;
                 self.release = Value::Null;
                 self.last_attempt = now;
+                self.checked_this_session = true;
                 (
                     Task::Check {
                         preview: self.previews,
@@ -251,8 +270,11 @@ mod tests {
     fn cadence_clock_change_and_demo() {
         let mut m = Model::new("deb".into(), false);
         m.last_attempt = 100000.0;
+        assert!(m.due(100001.0)); // A previous process cannot suppress startup checks.
+        m.checked_this_session = true;
         assert!(!m.due(100001.0));
-        assert!(m.due(186400.0));
+        assert!(!m.due(107199.0));
+        assert!(m.due(107200.0));
         assert!(m.due(99999.0));
         m.automatic = false;
         assert!(!m.due(200000.0));
@@ -260,6 +282,17 @@ mod tests {
         m.demo = true;
         assert!(!m.due(200000.0));
         assert!(m.begin("check", false, 0.0).is_none());
+    }
+    #[test]
+    fn notices_only_for_new_release_identity() {
+        let mut m = Model::new("deb".into(), false);
+        assert!(!m.should_announce(&Err(failure("offline"))));
+        assert!(!m.should_announce(&Ok(Outcome::Checked(Value::Null))));
+        assert!(m.should_announce(&Ok(Outcome::Checked(release()))));
+        assert!(!m.should_announce(&Ok(Outcome::Checked(release()))));
+        assert!(m.should_announce(&Ok(Outcome::Checked(json!({"tag":"v9.0.1"})))));
+        m.closed = true;
+        assert!(!m.should_announce(&Ok(Outcome::Checked(json!({"tag":"v10.0.0"})))));
     }
     #[test]
     fn automatic_download_never_automatically_installs() {

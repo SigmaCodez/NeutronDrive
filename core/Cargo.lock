@@ -393,7 +393,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-core"
-version = "1.0.9"
+version = "1.0.10"
 dependencies = [
  "fuser",
  "futures-core",

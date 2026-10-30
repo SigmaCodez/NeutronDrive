@@ -160,6 +160,7 @@ Item {
         let request=startup.nextFileAction();
         if(request)controller.handleFileAction(JSON.parse(request));
     } }
+    Timer { interval: 5000; running: controller.initialized && !controller.smoke; repeat: true; onTriggered: controller.send("refresh_cache",[]) }
     Timer {id:serviceTimer;interval:3000;running:controller.initialized;repeat:true;onTriggered:{let available=startup.trayAvailable();if(controller.trayAvailable && !available && controller.view && !controller.view.visible)controller.reveal("");controller.trayAvailable=available;controller.send("poll_services",[])}}
     // Some desktops publish their tray host after autostart applications.
     // Keep the icon registered and reveal a usable window if no host appears.
@@ -167,7 +168,7 @@ Item {
         if(!startup.trayAvailable() && !controller.view.visible)controller.reveal("");
     } }
     Timer {id:initialUpdate;interval:10000;running:controller.initialized;onTriggered:updater.tick()}
-    Timer {id:updateTimer;interval:3600000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
+    Timer {id:updateTimer;interval:60000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
     // Isolated end-to-end checks of the actual existing Main.qml, without an account.
     property int stage: 900
     property var checkedWizard: null
@@ -718,8 +719,8 @@ Item {
                     controller.photoBench.changeAlbum("remove");
                     if(photoBenchController.requests[0].album!=="open")throw new Error("Remove used another album from the chooser");
                     console.log("NATIVE_PHOTO_VIEWER_PAGING_AND_ALBUM_TARGET_OK");
-                    // Reordering after the first entry must invalidate index-based
-                    // actions even while scrolling; cached metadata alone must not.
+                    // Reordering must remap selection and viewer by stable identity,
+                    // including during scrolling. Revoked items stay unselected.
                     controller.photoBench.showPhoto(1000);
                     controller.photoBench.zoomPreview(1);
                     controller.photoBench.movePreview(1);
@@ -731,12 +732,12 @@ Item {
                     if(controller.photoBench.previewZoom!==4)throw new Error("Photo zoom upper bound failed");
                     controller.photoBench.zoomPreview(-99);
                     if(controller.photoBench.previewZoom!==1)throw new Error("Photo zoom lower bound failed");
-                    controller.photoBench.selectionMode=true;controller.photoBench.selected=[1000];
+                    controller.photoBench.selectionMode=true;controller.photoBench.selected=[1001];
                     controller.photoBench.scrolling=true;
                     let reordered=photoBenchController.photoEntries.slice();
                     let swap=reordered[1000];reordered[1000]=reordered[1001];reordered[1001]=swap;
                     photoBenchController.photoEntries=reordered;
-                    if(controller.photoBench.selected.length || controller.photoBench.selectionMode || controller.photoBench.viewerIndex!==-1 || controller.photoBench.pendingPhotos)throw new Error("Changed photo identities retained stale selection or viewer");
+                    if(controller.photoBench.selected[0]!==1000 || !controller.photoBench.selectionMode || controller.photoBench.viewerIndex!==1000 || controller.photoBench.pendingPhotos)throw new Error("Photo identities did not preserve selection and viewer");
                     if(controller.photoBench.appliedPhotos[1000].uid!=="bench-1001")throw new Error("Photo reorder was deferred while scrolling");
                     console.log("NATIVE_PHOTO_IDENTITY_AND_NAVIGATION_OK");
                     controller.photoBench.scrolling=true;photoBenchController.photoEntries=[];

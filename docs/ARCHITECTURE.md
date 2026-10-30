@@ -222,3 +222,23 @@ The UI uses a system appearance observer: asynchronous Settings portal read and
 change subscription, then Qt color-scheme/palette fallback. A generation guard
 rejects stale initial replies; teardown cancels reads and removes subscriptions.
 The application never writes the desktop appearance preference.
+
+
+## Desktop view cache
+
+Visited file sections and folders are retained in a session cache (up to 128
+folders or 64 MiB of metadata). Returning to them shows cached rows immediately;
+an independent cancellable worker refreshes stale listings without making the UI
+busy. It checks at five-second scheduling intervals, with a 30-second listing
+freshness window. Existing API listings are compared by identity; this is not a
+claim of server-side delta-only requests. Only changed UI rows are replaced.
+Foreground operations take priority and generation checks reject late results.
+Logout clears the session caches. First visits still need a network request.
+
+The gallery retains up to 128 MiB of encoded preview images and up to eight album
+views within a separate 64 MiB budget. Current preview requests are protected
+from eviction. The existing account/revision-scoped disk thumbnail cache remains
+bounded to 512 MiB and 30 days. Metadata/access checks still run in the background;
+revoked images are made non-actionable immediately. An inventory change preserves
+surviving thumbnails, selection and viewer identity rather than resetting all
+loaded pages. Folder metadata is session-scoped, not a persistent offline index.

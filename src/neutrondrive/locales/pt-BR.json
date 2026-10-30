@@ -38,7 +38,7 @@
   "Atomic non-overwriting renameat2 is unavailable": "Atomic non-overwriting renameat2 não está disponível",
   "Auftrag entfernen": "Remover tarefa",
   "Ausgewählte Proton-Drive-Ordner automatisch synchronisieren": "Sincronizar automaticamente as pastas selecionadas Proton Drive",
-  "Automatisch täglich nach Updates suchen": "Check for updates automatically every day",
+  "Automatisch beim Start und alle zwei Stunden nach Updates suchen": "Buscar atualizações ao iniciar e a cada duas horas",
   "Automatische Drive-Ereignisse unterstützen derzeit Meine Dateien.": "Eventos automáticos do Drive atualmente suportam Meus arquivos.",
   "Automatischen Sync aktivieren": "Ativar sincronização automática",
   "Automatischen Sync aktivieren?": "Ativar sincronização automática?",
