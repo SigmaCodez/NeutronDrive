@@ -88,6 +88,9 @@ pub struct Controller {
     queued_work: Option<Work>,
     status_worker: Option<JoinHandle<()>>,
     status_pending: bool,
+    cache_worker: Option<JoinHandle<()>>,
+    cache_pending: bool,
+    cache_cancel: Arc<AtomicBool>,
     status_cancel: Arc<AtomicBool>,
     cancel: Arc<AtomicBool>,
     files_revision: u64,
@@ -108,6 +111,9 @@ impl Default for Controller {
             queued_work: None,
             status_worker: None,
             status_pending: false,
+            cache_worker: None,
+            cache_pending: false,
+            cache_cancel: Arc::new(AtomicBool::new(false)),
             status_cancel: Arc::new(AtomicBool::new(false)),
             cancel: Arc::new(AtomicBool::new(false)),
             files_revision: 0,
@@ -121,6 +127,10 @@ impl Controller {
         self.queued_work = None;
         self.cancel.store(true, Ordering::Release);
         self.status_cancel.store(true, Ordering::Release);
+        self.cache_cancel.store(true, Ordering::Release);
+        if let Some(worker) = self.cache_worker.take() {
+            let _ = worker.join();
+        }
         if let Some(worker) = self.status_worker.take() {
             let _ = worker.join();
         }
@@ -276,9 +286,46 @@ impl qobject::NativeFiles {
                         self.as_mut().publish();
                     }
                 }
+                Effect::PollCache(request) => self.as_mut().poll_cache(request),
                 Effect::PollService(target) => self.as_mut().poll_service(target),
                 Effect::Work(work) => self.as_mut().start(work),
             }
+        }
+    }
+    fn poll_cache(mut self: Pin<&mut Self>, request: Value) {
+        if self.rust().closed || self.rust().cache_pending {
+            return;
+        }
+        if let Some(worker) = self.as_mut().rust_mut().cache_worker.take() {
+            let _ = worker.join();
+        }
+        let Some(model) = self.rust().model.as_ref() else {
+            return;
+        };
+        let generation = model.service_generation();
+        let executable = self.rust().executable.clone();
+        let cancel = Arc::new(AtomicBool::new(false));
+        self.as_mut().rust_mut().cache_cancel = cancel.clone();
+        self.as_mut().rust_mut().cache_pending = true;
+        let qt = self.qt_thread();
+        let worker = std::thread::Builder::new().name("qt-cache".into()).spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                runtime::call(json!({"op":"drive","executable":executable,"operation":request["operation"]}),
+                    &mut |_| i32::from(cancel.load(Ordering::Acquire)))
+            })).unwrap_or_else(|_| Err(Failure{message:"Cache refresh failed".into(),cancelled:false}));
+            let _ = qt.queue(move |mut object| {
+                object.as_mut().rust_mut().cache_pending = false;
+                if !object.rust().closed {
+                    if let (Some(model), Ok(value)) = (object.as_mut().rust_mut().model.as_mut(), result) {
+                        model.cache_polled(&request, generation, value);
+                    }
+                    object.publish();
+                }
+            });
+        });
+        match worker {
+            Ok(worker) => self.as_mut().rust_mut().cache_worker = Some(worker),
+            Err(_) => self.as_mut().rust_mut().cache_pending = false,
         }
     }
     fn poll_service(mut self: Pin<&mut Self>, target: Target) {
@@ -351,6 +398,7 @@ impl qobject::NativeFiles {
         }
     }
     fn start(mut self: Pin<&mut Self>, work: Work) {
+        self.rust().cache_cancel.store(true, Ordering::Release);
         // Cancellation is asynchronous. Keep only the latest requested work;
         // never join a still-running SDK reader on the Qt event thread.
         if self.rust().worker_id.is_some() {

@@ -259,7 +259,7 @@ impl qobject::NativeUpdates {
         let Some(model) = binding.model.as_mut() else {
             return;
         };
-        let announce = matches!(&result,Ok(Outcome::Checked(v)) if !v.is_null()) && !model.closed;
+        let announce = model.should_announce(&result);
         let download = model.finish(result);
         if model.closed {
             return;

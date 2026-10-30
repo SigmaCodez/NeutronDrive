@@ -12,9 +12,9 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.0.9](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.9).**
-This update adds photo-folder imports with automatic albums, fixes gallery navigation
-and album removal, and corrects duplicate mount visibility in native file managers.
+**Version [1.0.10](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.10).**
+This update keeps visited folders and photo previews cached, applies cloud changes
+in the background, and checks quietly for updates at startup and every two hours.
 Ubuntu 26.10 DEB checks remain part of the release test matrix.
 Keep an independent backup of important files. Complete Windows/macOS feature
 parity has not been reached.
@@ -86,18 +86,18 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.0.9
+## New in 1.0.10
 
-- Import ordinary photo/video folders or extracted Google Takeout exports, with review before uploading and automatic albums derived from folder names.
-- Upload identical local media once while retaining its multiple folder-album memberships. Existing cloud duplicates are checked by name and content.
-- Track overall import progress and distinguish successful uploads from incomplete album assignments. Ambiguous or shared target albums are not silently changed.
-- Continue through loaded photo pages in the viewer and remove photos from the actual open album.
-- Notify native file managers when the redundant sync mount is hidden or restored, so the Proton Drive bookmark remains the intended entry.
+- Show visited folders immediately while stale listings refresh in a separate background worker.
+- Retain photo thumbnails and recently visited albums within bounded caches instead of discarding previews after a few rows.
+- Apply changed photo and file rows by identity, preserving valid selections and avoiding whole-view resets.
+- Check for updates quietly at startup and every two hours. Notify only when a newer release is available, once per version per app session.
+- Translate the updated automatic-check setting into all 25 supported languages.
 
-Existing sync and deletion safeguards are preserved. New interface messages have
-German and English translations, with English fallback in other catalogs. These
-changes do not claim complete Windows parity or a real-account import certification.
-[Photo import guide](docs/TAKEOUT-IMPORT.md) · [Test scope](docs/PHOTO-IMPORT-VALIDATION.md).
+Folder metadata is cached for the current session; first visits still need a network
+request. Background refresh uses the existing listing APIs, not server-side delta-only
+requests. Existing account, access and sync safeguards remain in place.
+[Cache design](docs/ARCHITECTURE.md#desktop-view-cache) · [Update behavior](docs/UPDATES.md).
 
 ## What you can do
 
@@ -127,7 +127,7 @@ changes do not claim complete Windows parity or a real-account import certificat
   open that window directly.
 - **Keep working in the background:** close to tray, login autostart, availability
   emblems and a Proton Drive favorite on supported desktops.
-- **Check for updates:** daily or manual checks; native DEB and supported Fedora/openSUSE RPM
+- **Check for updates:** silent checks at startup and every two hours, plus manual checks; native DEB and supported Fedora/openSUSE RPM
   packages support verified downloads, installation after system authorization,
   and a guarded app/service restart.
 
@@ -151,7 +151,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.9 release assets**, not development artifacts.
+The commands below use the **1.0.10 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 Snap Store publication is automated, but availability currently awaits Canonical’s
@@ -170,29 +170,29 @@ Store revision.
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.9-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.10-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.9-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.10-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.9-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.10-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.9-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.10-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.9_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.10_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.9-x86_64.AppImage
-./NeutronDrive-1.0.9-x86_64.AppImage
+chmod +x NeutronDrive-1.0.10-x86_64.AppImage
+./NeutronDrive-1.0.10-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.9-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.10-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
