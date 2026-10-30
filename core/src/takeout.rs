@@ -329,6 +329,9 @@ pub fn scan_with_albums(
                 }
                 for name in albums {
                     if !old.albums.contains(&name) {
+                        if old.albums.len() >= 100 {
+                            return Err("Import at most 100 album memberships per photo".into());
+                        }
                         old.albums.push(name);
                     }
                 }
@@ -498,6 +501,24 @@ mod tests {
         assert_eq!(report["albumFailed"], 1);
         assert_eq!(report["remaining"], 1);
         assert_eq!(report["failed"], 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn too_many_duplicate_album_memberships_fail_during_scan() {
+        let root =
+            std::env::temp_dir().join(format!("nd-photo-album-limit-{}", std::process::id()));
+        for i in 0..101 {
+            let dir = root.join(format!("album-{i}"));
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("photo.jpg"), b"identical").unwrap();
+        }
+        let error = scan_with_albums(&root, true, &mut |_| 0).unwrap_err();
+        assert!(error.message.contains("100 album memberships"));
+        fs::remove_dir_all(root.join("album-100")).unwrap();
+        let plan: Plan =
+            serde_json::from_value(scan_with_albums(&root, true, &mut |_| 0).unwrap()).unwrap();
+        assert_eq!(plan.items.len(), 1);
+        assert_eq!(plan.items[0].albums.len(), 100);
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
