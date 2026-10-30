@@ -19,6 +19,8 @@ pub struct Item {
     sha1: String,
     capture_time: Option<i64>,
     location: Option<[f64; 2]>,
+    #[serde(default)]
+    albums: Vec<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,6 +32,8 @@ pub struct Plan {
     pub warnings: usize,
     pub videos: usize,
     pub bytes: u64,
+    #[serde(default)]
+    pub album_count: usize,
 }
 fn poll(cb: &mut impl FnMut(Value) -> i32) -> Result<()> {
     if cb(json!({"kind":"poll"})) != 0 {
@@ -133,7 +137,15 @@ fn metadata(value: &Value) -> (Option<i64>, Option<[f64; 2]>) {
     });
     (time, location)
 }
+#[cfg(test)]
 pub fn scan(root: &Path, cb: &mut impl FnMut(Value) -> i32) -> Result<Value> {
+    scan_with_albums(root, false, cb)
+}
+pub fn scan_with_albums(
+    root: &Path,
+    folder_albums: bool,
+    cb: &mut impl FnMut(Value) -> i32,
+) -> Result<Value> {
     if fs::symlink_metadata(root)
         .map_err(|_| Failure::from("Choose an extracted Takeout folder"))?
         .file_type()
@@ -155,10 +167,12 @@ pub fn scan(root: &Path, cb: &mut impl FnMut(Value) -> i32) -> Result<Value> {
         warnings: 0,
         videos: 0,
         bytes: 0,
+        album_count: 0,
     };
     let mut queue = vec![(root, 0)];
     let mut seen = BTreeMap::<(String, u64), usize>::new();
     let mut examined = 0;
+    let mut album_paths = BTreeMap::<String, PathBuf>::new();
     while let Some((dir, depth)) = queue.pop() {
         poll(cb)?;
         if depth > 64 {
@@ -271,10 +285,39 @@ pub fn scan(root: &Path, cb: &mut impl FnMut(Value) -> i32) -> Result<Value> {
                     None
                 }
             });
-            if sidecar.is_none() {
+            if sidecar.is_none() && !folder_albums {
                 plan.warnings += 1;
             }
             let (capture_time, location) = sidecar.map(metadata).unwrap_or_default();
+            let albums = if folder_albums {
+                let relative = dir
+                    .strip_prefix(plan.root.parent().ok_or("Invalid photo folder")?)
+                    .map_err(|_| Failure::from("Invalid photo folder"))?;
+                let parts: Option<Vec<_>> = relative.iter().map(|s| s.to_str()).collect();
+                let name = parts.ok_or("Photo folder name must be UTF-8")?.join(" ");
+                if name.trim().is_empty()
+                    || name.chars().count() > 255
+                    || name.chars().any(|c| c.is_control() || c == '\\')
+                {
+                    return Err(
+                        "Album name is too long or invalid; rename the source folder".into(),
+                    );
+                }
+                if let Some(previous) = album_paths.insert(name.clone(), dir.clone()) {
+                    if previous != dir {
+                        return Err(
+                            "Two folders produce the same album name; rename one before importing"
+                                .into(),
+                        );
+                    }
+                }
+                if album_paths.len() > 10000 {
+                    return Err("Import at most 10000 albums at a time".into());
+                }
+                vec![name]
+            } else {
+                Vec::new()
+            };
             let (sha1, size) = hash(&path, cb)?;
             if let Some(index) = seen.get(&(sha1.clone(), size)) {
                 let old = &mut plan.items[*index];
@@ -283,6 +326,11 @@ pub fn scan(root: &Path, cb: &mut impl FnMut(Value) -> i32) -> Result<Value> {
                 }
                 if old.location.is_none() {
                     old.location = location;
+                }
+                for name in albums {
+                    if !old.albums.contains(&name) {
+                        old.albums.push(name);
+                    }
                 }
                 plan.duplicates += 1;
                 continue;
@@ -299,12 +347,14 @@ pub fn scan(root: &Path, cb: &mut impl FnMut(Value) -> i32) -> Result<Value> {
                 sha1,
                 capture_time,
                 location,
+                albums,
             });
             if plan.items.len() > 100000 {
                 return Err("Import at most 100000 media files at a time".into());
             }
         }
     }
+    plan.album_count = album_paths.len();
     Ok(json!(plan))
 }
 pub fn import(
@@ -320,7 +370,15 @@ pub fn import(
     let mut failed = 0;
     let mut error = String::new();
     let mut root_uid = String::new();
-    for item in &plan.items {
+    let mut albums = BTreeMap::<String, String>::new();
+    let mut album_failed = 0;
+    for (index, item) in plan.items.iter().enumerate() {
+        if cb(
+            json!({"kind":"progress","unit":"items","completed":index,"total":plan.items.len(),"path":item.path,"operation":"photo_import"}),
+        ) != 0
+        {
+            poll(&mut |_| 1)?;
+        }
         poll(cb)?;
         if !item.path.starts_with(&plan.root)
             || item.path.canonicalize().ok().as_ref() != Some(&item.path)
@@ -332,7 +390,7 @@ pub fn import(
             return Err("Takeout file changed; scan again".into());
         }
         let reply = upload(
-            json!({"path":item.path,"sha1":item.sha1,"captureTime":item.capture_time,"location":item.location,"expectedRoot":root_uid}),
+            json!({"path":item.path,"sha1":item.sha1,"captureTime":item.capture_time,"location":item.location,"expectedRoot":root_uid,"albums":item.albums.iter().map(|name| json!({"name":name,"uid":albums.get(name)})).collect::<Vec<_>>()}),
             cb,
         );
         match reply {
@@ -350,6 +408,29 @@ pub fn import(
                     Some("skipped") => skipped += 1,
                     _ => return Err("Invalid photo import response".into()),
                 }
+                let mut confirmed = std::collections::BTreeSet::new();
+                if let Some(entries) = value["albums"].as_array() {
+                    for entry in entries {
+                        if let (Some(name), Some(uid)) =
+                            (entry["name"].as_str(), entry["uid"].as_str())
+                        {
+                            if item.albums.iter().any(|n| n == name) && !uid.is_empty() {
+                                confirmed.insert(name.to_owned());
+                                albums.insert(name.into(), uid.into());
+                            }
+                        }
+                    }
+                }
+                if let Some(message) = value["albumError"].as_str().filter(|s| !s.is_empty()) {
+                    error = message.into();
+                    album_failed = 1;
+                    break;
+                }
+                if item.albums.iter().any(|name| !confirmed.contains(name)) {
+                    error = "Photo uploaded, but album membership was not confirmed".into();
+                    album_failed = 1;
+                    break;
+                }
             }
             Err(e) if e.cancelled => return Err(e),
             Err(e) => {
@@ -359,13 +440,79 @@ pub fn import(
             }
         }
     }
+    let completed = uploaded + skipped - plan.duplicates;
+    if cb(
+        json!({"kind":"progress","unit":"items","completed":completed,"total":plan.items.len(),"path":"","operation":"photo_import"}),
+    ) != 0
+    {
+        poll(&mut |_| 1)?;
+    }
     Ok(
-        json!({"uploaded":uploaded,"skipped":skipped,"failed":failed,"error":error,"remaining":plan.items.len().saturating_sub(uploaded+skipped-plan.duplicates+failed)}),
+        json!({"albumFailed":album_failed,"uploaded":uploaded,"skipped":skipped,"failed":failed,"error":error,"remaining":plan.items.len().saturating_sub(uploaded+skipped-plan.duplicates+failed)}),
     )
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn folder_albums_preserve_duplicate_memberships_and_progress() {
+        let root = std::env::temp_dir().join(format!("nd-photo-folders-{}", std::process::id()));
+        fs::create_dir_all(root.join("Holiday")).unwrap();
+        fs::create_dir_all(root.join("Family")).unwrap();
+        fs::write(root.join("Holiday/a.jpg"), b"same").unwrap();
+        fs::write(root.join("Family/copy.jpg"), b"same").unwrap();
+        fs::write(root.join("Family/movie.mp4"), b"video").unwrap();
+        fs::write(root.join("notes.txt"), b"ignore").unwrap();
+        let plan: Plan =
+            serde_json::from_value(scan_with_albums(&root, true, &mut |_| 0).unwrap()).unwrap();
+        assert_eq!(plan.items.len(), 2);
+        assert_eq!(plan.duplicates, 1);
+        assert_eq!(plan.album_count, 2);
+        assert_eq!(plan.warnings, 0);
+        assert!(plan.items.iter().any(|i| i.albums.len() == 2));
+        let mut events = Vec::new();
+        let mut calls = 0;
+        let report = import(plan.clone(), &mut |v| { events.push(v); 0 }, |request, _| {
+            calls += 1;
+            if calls > 1 { assert_eq!(request["expectedRoot"], "root"); }
+            let albums: Vec<_> = request["albums"].as_array().unwrap().iter().map(|a| json!({"name":a["name"],"uid":format!("album-{}", a["name"].as_str().unwrap())})).collect();
+            Ok(json!({"root":"root","status":"uploaded","albums":albums}))
+        }).unwrap();
+        assert_eq!(report["uploaded"], 2);
+        assert_eq!(report["remaining"], 0);
+        let progress: Vec<_> = events.iter().filter(|v| v["kind"] == "progress").collect();
+        assert_eq!(progress.first().unwrap()["completed"], 0);
+        assert_eq!(progress.last().unwrap()["completed"], 2);
+        assert_eq!(progress.last().unwrap()["total"], 2);
+        let unconfirmed = import(plan.clone(), &mut |_| 0, |_, _| {
+            Ok(json!({"root":"root","status":"uploaded"}))
+        })
+        .unwrap();
+        assert_eq!(unconfirmed["albumFailed"], 1);
+        assert_eq!(unconfirmed["remaining"], 1);
+        let report = import(plan, &mut |_| 0, |_, _| {
+            Ok(json!({"root":"root","status":"uploaded","albumError":"assignment denied"}))
+        })
+        .unwrap();
+        assert_eq!(report["uploaded"], 1);
+        assert_eq!(report["albumFailed"], 1);
+        assert_eq!(report["remaining"], 1);
+        assert_eq!(report["failed"], 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn ambiguous_folder_album_names_are_rejected_before_upload() {
+        let root = std::env::temp_dir().join(format!("nd-photo-collision-{}", std::process::id()));
+        fs::create_dir_all(root.join("A B")).unwrap();
+        fs::create_dir_all(root.join("A/B")).unwrap();
+        fs::write(root.join("A B/a.jpg"), b"a").unwrap();
+        fs::write(root.join("A/B/b.jpg"), b"b").unwrap();
+        assert!(scan_with_albums(&root, true, &mut |_| 0)
+            .unwrap_err()
+            .message
+            .contains("same album name"));
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn metadata_checks_ranges() {
         let (t, l) = metadata(

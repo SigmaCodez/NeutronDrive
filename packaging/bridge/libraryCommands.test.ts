@@ -99,7 +99,7 @@ test('Takeout uploads original media with date/location, skips duplicates and re
         async getFileUploader(name:string,metadata:any){
             uploads++;expect(name).toBe('movie.mp4');expect(metadata.captureTime.toISOString()).toBe('1970-01-01T00:02:03.000Z');
             expect(metadata.additionalMetadata.Location).toEqual({Latitude:47,Longitude:8});
-            return {async uploadFromStream(stream:ReadableStream){expect(Buffer.from(await new Response(stream).arrayBuffer())).toEqual(bytes);return {async completion(){}};}};
+            return {async uploadFromStream(stream:ReadableStream){expect(Buffer.from(await new Response(stream).arrayBuffer())).toEqual(bytes);return {async completion(){return {nodeUid:"uploaded-photo"};}};}};
         }
     }} as any;
     try {
@@ -109,5 +109,32 @@ test('Takeout uploads original media with date/location, skips duplicates and re
         ctx.args=[JSON.stringify({...request,expectedRoot:'different'})];await expect(new CommandPhotoImport().action(ctx)).rejects.toThrow('account changed');
         ctx.args=[JSON.stringify({...request,sha1:'0'.repeat(40)})];await expect(new CommandPhotoImport().action(ctx)).rejects.toThrow('file changed');
         expect(uploads).toBe(1);
+    } finally {console.log=output;await rm(dir,{recursive:true,force:true});}
+});
+
+test('folder import assigns duplicates to private albums, reuses membership and reports partial album failures', async () => {
+    const dir=await mkdtemp(join(tmpdir(),'nd-album-import-'));
+    const file=join(dir,'movie.mp4'),bytes=Buffer.from('video');await writeFile(file,bytes);
+    const request={path:file,sha1:createHash('sha1').update(bytes).digest('hex'),captureTime:null,location:null,expectedRoot:'root',albums:[{name:'Holiday',uid:null}]};
+    let creates=0,adds=0,deny=false,shared=false,member=false;
+    const messages:any[]=[];const output=console.log;
+    const ctx={args:[JSON.stringify(request)],logger:{debug(){},info(){},warn(){},error(){}},photosSdk:{
+        async getMyPhotosRootFolder(){return {uid:'root'};},async findPhotoDuplicates(){return ['photo'];},
+        async getNode(uid:string){return uid==='photo'?{photo:{albums:member?[{nodeUid:'album'}]:[]}}:{uid:'album',album:{},name:{ok:true,value:'Holiday'},isShared:shared};},
+        async *iterateAlbums(){if(creates)yield {uid:'album',album:{},name:{ok:true,value:'Holiday'},isShared:shared};},
+        async createAlbum(){creates++;return {uid:'album'};},
+        async *addPhotosToAlbum(uid:string,ids:string[]){expect(uid).toBe('album');expect(ids).toEqual(['photo']);adds++;yield {uid:'photo',ok:!deny};},
+        async getFileUploader(){throw new Error('Duplicate must not upload');}
+    }} as any;
+    try {
+        console.log=(message:any)=>messages.push(JSON.parse(message));
+        await new CommandPhotoImport().action(ctx);expect(creates).toBe(1);expect(adds).toBe(1);
+        expect(messages[0]).toMatchObject({status:'skipped',albums:[{name:'Holiday',uid:'album'}],albumError:''});
+        member=true;ctx.args=[JSON.stringify({...request,albums:[{name:'Holiday',uid:'album'}]})];
+        await new CommandPhotoImport().action(ctx);expect(adds).toBe(1);expect(creates).toBe(1);
+        shared=true;await new CommandPhotoImport().action(ctx);expect(messages[2].albumError).toContain('shared');expect(adds).toBe(1);
+        shared=false;member=false;deny=true;await new CommandPhotoImport().action(ctx);
+        expect(messages[3].status).toBe('skipped');expect(messages[3].albumError).toContain('assignment failed');
+        ctx.args=[JSON.stringify({...request,albums:[{name:'bad/name'}]})];await expect(new CommandPhotoImport().action(ctx)).rejects.toThrow('Invalid import albums');
     } finally {console.log=output;await rm(dir,{recursive:true,force:true});}
 });
