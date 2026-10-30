@@ -22,7 +22,7 @@ class BundleTests(unittest.TestCase):
         path=ROOT/'docs/website-content.json'
         document=json.loads(path.read_text())
         self.assertEqual(publisher.version_key(document['release']),publisher.version_key(version))
-        self.assertEqual(set(publisher.reviewed_text(path,document['release'])),sync.LANGUAGES)
+        self.assertEqual(set(publisher.reviewed_text(path,document['release'])),set(sync.LANGUAGES))
 
     def bundle(self):
         d=json.loads((SITE/'public/website-content.json').read_text())
