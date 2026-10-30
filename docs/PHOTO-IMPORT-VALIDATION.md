@@ -11,6 +11,8 @@ Validated 2026-10-30 against the pinned Proton SDK and Bun 1.4.2.
 - Existing private albums can be reused; shared, renamed or ambiguous targets
   fail safely. Partial album failures preserve successful uploads and are visible.
   Missing membership confirmation is also a failure, even after upload succeeds.
+- More than 100 folder memberships for identical media are rejected during the
+  scan, before the user confirms or any upload starts. The boundary (100) is tested.
 - Whole-import item progress, result counts, and a gallery refresh prompt.
 - The photo viewer requests the next page when moving beyond loaded photos.
 - Removing selected photos from an album targets the open album, independently
