@@ -117,6 +117,7 @@ pub enum Effect {
     Clipboard(String),
     OpenUrl(String),
     PollService(Target),
+    PollCache(Value),
     Cancel,
     Close,
     Hide,
@@ -138,6 +139,9 @@ pub struct Files {
     visible: Vec<Value>,
     photo_index: Vec<String>,
     photo_checked: Option<Instant>,
+    cache_checked: Option<Instant>,
+    cache_turn: usize,
+    photo_views: VecDeque<(String, Vec<String>, Value)>,
     selection: BTreeSet<usize>,
     selection_anchor: Option<usize>,
     crumbs: Vec<(String, String)>,
@@ -220,6 +224,9 @@ impl Files {
             visible: vec![],
             photo_index: vec![],
             photo_checked: None,
+            cache_checked: None,
+            cache_turn: 0,
+            photo_views: VecDeque::new(),
             photos_revision: 1,
             selection: BTreeSet::new(),
             selection_anchor: None,
@@ -333,7 +340,7 @@ impl Files {
             self.entries = json!(self.visible.iter().map(|n| {
             let folder = n["type"] == "folder";
             let name = text(n,"name");
-            json!({"name":if n["safe"] != true && ["[Name nicht entschlüsselbar]","[Ungültiger Name]"].contains(&name) {self.locale.diagnostic(name)} else {name.into()},
+            json!({"uid":n["uid"],"path":n["path"],"name":if n["safe"] != true && ["[Name nicht entschlüsselbar]","[Ungültiger Name]"].contains(&name) {self.locale.diagnostic(name)} else {name.into()},
                 "kind":self.tr(if folder {"Ordner"} else {"Datei"}),"isFolder":folder,"safe":n["safe"] == true,
                 "size":if folder {"—".into()} else {self.locale.size_text(n["size"].as_u64())},
                 "modified":self.locale.date_text(text(n,"modified"))})
@@ -401,14 +408,32 @@ impl Files {
         if self.state["noticeError"] == true {
             self.message("", false);
         }
-        // Mutations (including login/logout) invalidate session metadata before
-        // starting: partial success or failure must not revive stale entries.
+        // Mutations mark retained views stale before starting, even on partial
+        // failure. Authentication/setup boundaries discard the session cache.
         if !matches!(
             done,
-            Done::Loaded | Done::Photos | Done::TrashList | Done::Version | Done::CloseStatus
+            Done::Loaded
+                | Done::Photos
+                | Done::TrashList
+                | Done::Version
+                | Done::CloseStatus
+                | Done::Share(_)
+                | Done::ShareReload(_)
+                | Done::Versions(_)
+                | Done::Background
+                | Done::Mount
+                | Done::Autostart(_)
         ) && !matches!(&done, Done::PhotoLibrary(request) if matches!(text(request, "action"), "index" | "details" | "albums"))
         {
-            self.folder_cache.clear();
+            if matches!(done, Done::Setup | Done::LoggedOut) {
+                self.folder_cache.clear();
+                self.photo_views.clear();
+            } else {
+                for entry in &mut self.folder_cache {
+                    entry.saved = Instant::now() - Duration::from_secs(60);
+                }
+                self.photo_views.clear();
+            }
         }
         self.state["progress"] = Value::Null;
         self.next_work += 1;
@@ -983,6 +1008,8 @@ impl Files {
                         self.photo_checked = None;
                         self.photos_revision += 1;
                         self.folder_cache.clear();
+                        self.photo_views.clear();
+                        self.cache_checked = None;
                         self.nodes.clear();
                         self.render();
                         self.message(&self.tr("Von Proton abgemeldet."), false);
@@ -1172,26 +1199,28 @@ impl Files {
         }
     }
     fn cache_folder(&mut self) {
-        let path = self.path().to_owned();
+        self.store_folder(self.path().to_owned(), self.nodes.clone());
+    }
+    fn store_folder(&mut self, path: String, nodes: Vec<Value>) {
         self.folder_cache.retain(|entry| entry.path != path);
-        let bytes = serde_json::to_vec(&self.nodes).map_or(usize::MAX, |v| v.len());
-        if bytes > 8 * 1024 * 1024 {
+        let bytes = serde_json::to_vec(&nodes).map_or(usize::MAX, |v| v.len());
+        if bytes > 64 * 1024 * 1024 {
             return;
         }
-        while self.folder_cache.len() >= 32
+        while self.folder_cache.len() >= 128
             || self
                 .folder_cache
                 .iter()
                 .map(|entry| entry.bytes)
                 .sum::<usize>()
                 + bytes
-                > 8 * 1024 * 1024
+                > 64 * 1024 * 1024
         {
             self.folder_cache.pop_front();
         }
         self.folder_cache.push_back(CachedFolder {
             path,
-            nodes: self.nodes.clone(),
+            nodes,
             saved: Instant::now(),
             bytes,
         });
@@ -1206,27 +1235,17 @@ impl Files {
         self.nodes = cached
             .as_ref()
             .map_or_else(Vec::new, |entry| entry.nodes.clone());
-        let fresh = cached
-            .as_ref()
-            .is_some_and(|entry| entry.saved.elapsed() < Duration::from_secs(30));
+        let found = cached.is_some();
         if let Some(entry) = cached {
             self.folder_cache.push_back(entry);
         }
         self.render();
-        fresh
+        found
     }
     fn enter_photos(&mut self) -> Vec<Effect> {
         // Returning to the gallery preserves the album, loaded pages and previews.
         // Explicit Refresh still rebuilds the inventory from the cloud.
         if self.state["photoTotal"].is_u64() {
-            if self
-                .photo_checked
-                .is_some_and(|saved| saved.elapsed() >= Duration::from_secs(30))
-            {
-                return self.photo_action(
-                    &json!({"action":"index", "album":self.state["photoAlbum"], "preserve":true}),
-                );
-            }
             if self.state["photos"].as_array().is_some_and(Vec::is_empty)
                 && !self.photo_index.is_empty()
             {
@@ -1445,6 +1464,7 @@ impl Files {
                 return effects;
             }
 
+            "refresh_cache" => return self.refresh_cache(),
             "poll_services" if !self.busy() && self.state["demo"] != true => {
                 return vec![Effect::PollService(if self.state["page"] == "ondemand" {
                     Target::Mount
@@ -2237,10 +2257,18 @@ mod tests {
         assert!(!m.busy());
         m.folder_cache.back_mut().unwrap().saved = Instant::now() - Duration::from_secs(31);
         m.dispatch("open_section", &json!(["Activity", "activity"]));
-        let refresh = work(m.dispatch("open_section", &json!(["Files", "/my-files"])));
+        assert!(m
+            .dispatch("open_section", &json!(["Files", "/my-files"]))
+            .is_empty());
         assert_eq!(m.entries, expected);
-        assert_eq!(refresh.operation["path"], "/my-files");
-        m.complete(refresh.id, Ok(json!([])));
+        m.state["demo"] = json!(false);
+        let effects = m.refresh_cache();
+        let Effect::PollCache(request) = &effects[0] else {
+            panic!("background refresh");
+        };
+        assert_eq!(request["operation"]["path"], "/my-files");
+        assert!(!m.busy());
+        m.cache_polled(request, m.next_work, json!([]));
         assert!(m.entries.as_array().unwrap().is_empty());
     }
 
@@ -2323,7 +2351,10 @@ mod tests {
         let mut m = loaded();
         assert!(!m.folder_cache.is_empty());
         let w = work(m.submit("Upload", json!({"action":"upload"}), Done::Refresh));
-        assert!(m.folder_cache.is_empty());
+        assert!(m
+            .folder_cache
+            .iter()
+            .all(|c| c.saved.elapsed() >= Duration::from_secs(30)));
         m.complete(
             w.id,
             Err(Failure {
@@ -2341,16 +2372,16 @@ mod tests {
     #[test]
     fn folder_cache_is_bounded_and_keeps_recent_folders() {
         let mut m = loaded();
-        for i in 0..40 {
+        for i in 0..136 {
             m.state["path"] = json!(format!("/my-files/{i}"));
             m.cache_folder();
         }
-        assert_eq!(m.folder_cache.len(), 32);
+        assert_eq!(m.folder_cache.len(), 128);
         assert_eq!(m.folder_cache.front().unwrap().path, "/my-files/8");
         m.state["path"] = json!("/my-files/8");
         assert!(m.restore_folder());
         assert_eq!(m.folder_cache.back().unwrap().path, "/my-files/8");
-        m.nodes = vec![json!({"name":"x".repeat(8 * 1024 * 1024)})];
+        m.nodes = vec![json!({"name":"x".repeat(64 * 1024 * 1024)})];
         m.state["path"] = json!("/my-files/oversized");
         m.cache_folder();
         assert!(!m
@@ -2926,3 +2957,6 @@ mod tests {
 
 #[path = "photo_library.rs"]
 mod photo_library;
+
+#[path = "view_cache.rs"]
+mod view_cache;

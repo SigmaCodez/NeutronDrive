@@ -127,7 +127,7 @@ changes do not claim complete Windows parity or a real-account import certificat
   open that window directly.
 - **Keep working in the background:** close to tray, login autostart, availability
   emblems and a Proton Drive favorite on supported desktops.
-- **Check for updates:** daily or manual checks; native DEB and supported Fedora/openSUSE RPM
+- **Check for updates:** silent checks at startup and every two hours, plus manual checks; native DEB and supported Fedora/openSUSE RPM
   packages support verified downloads, installation after system authorization,
   and a guarded app/service restart.
 

@@ -6,6 +6,26 @@ import QtQuick.Dialogs
 
 ApplicationWindow {
     id: window
+    readonly property var cachedFileEntries: controller.fileEntries || []
+    ListModel { id: cachedFiles; dynamicRoles: true }
+    function fileIdentity(entry) { return entry.uid || entry.path || entry.name; }
+    function updateFileEntries() {
+        let entries=cachedFileEntries;
+        let ids=new Set(entries.map(fileIdentity));
+        for(let i=cachedFiles.count-1;i>=0;i--)if(!ids.has(fileIdentity(cachedFiles.get(i).entry)))cachedFiles.remove(i);
+        for(let i=0;i<entries.length;i++) {
+            let next=entries[i], id=fileIdentity(next);
+            if(i>=cachedFiles.count) { cachedFiles.append({entry:next}); continue; }
+            if(fileIdentity(cachedFiles.get(i).entry)!==id) {
+                let found=-1;
+                for(let j=i+1;j<cachedFiles.count;j++)if(fileIdentity(cachedFiles.get(j).entry)===id) { found=j; break; }
+                if(found<0)cachedFiles.insert(i,{entry:next});else cachedFiles.move(found,i,1);
+            }
+            if(JSON.stringify(cachedFiles.get(i).entry)!==JSON.stringify(next))cachedFiles.setProperty(i,"entry",next);
+        }
+    }
+    onCachedFileEntriesChanged: updateFileEntries()
+    Component.onCompleted: updateFileEntries()
     readonly property bool compactHeight: height < 720
     readonly property bool darkMode: controller.appearance.dark
     readonly property var theme: darkMode ? {
@@ -536,7 +556,7 @@ ApplicationWindow {
                     }
                     ListView {
                         id: fileList; objectName: "fileList"; visible: !window.gridView; Layout.fillWidth: true; Layout.fillHeight: true
-                        clip: true; model: controller.fileEntries; spacing: 4;
+                        clip: true; model: cachedFiles; spacing: 4;
                         activeFocusOnTab: true; currentIndex: s.focusIndex; keyNavigationEnabled: false
                         Keys.onPressed: function(event) {
                             if (event.matches(StandardKey.SelectAll)) { controller.select_all(); event.accepted=true }
@@ -554,7 +574,7 @@ ApplicationWindow {
                         ScrollBar.vertical: DriveScrollBar { theme: window.theme }
                         delegate: Rectangle {
                             id: fileRow
-                            required property var modelData; required property int index
+                            required property var entry; readonly property var modelData: entry; required property int index
                             width: fileList.width; height: 64; radius: 8
                             objectName: "fileRow-"+index
                             color: s.selection.indexOf(index)>=0 ? window.theme.rowSelected : rowMouse.containsMouse ? window.theme.rowHover : "transparent"
@@ -591,7 +611,7 @@ ApplicationWindow {
                         id: fileGrid; objectName: "fileGrid"
                         visible: window.gridView
                         Layout.fillWidth: true; Layout.fillHeight: true
-                        clip: true; model: controller.fileEntries
+                        clip: true; model: cachedFiles
                         cellWidth: width / Math.max(1, Math.floor(width / 148)); cellHeight: 144
                         currentIndex: s.focusIndex; keyNavigationEnabled: false; activeFocusOnTab: true
                         boundsBehavior: Flickable.StopAtBounds
@@ -615,7 +635,7 @@ ApplicationWindow {
                         }
                         delegate: Item {
                             id: tile
-                            required property var modelData; required property int index
+                            required property var entry; readonly property var modelData: entry; required property int index
                             objectName: "fileTile-"+index
                             width: fileGrid.cellWidth; height: fileGrid.cellHeight
                             Accessible.role: Accessible.ListItem; Accessible.name: modelData.name
@@ -943,7 +963,7 @@ ApplicationWindow {
             Card {
                 Heading { text: window.tr("Updates") }
                 Check {
-                    text: window.tr("Automatisch täglich nach Updates suchen")
+                    text: window.tr("Automatisch beim Start und alle zwei Stunden nach Updates suchen")
                     checked: controller.updates.automatic
                     enabled: !controller.updates.busy
                     onToggled: controller.updates.setOption("automatic", checked)

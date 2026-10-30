@@ -41,6 +41,11 @@ impl Files {
                 ))]
             }
             "index" => {
+                let album=text(request,"album");
+                if self.state["photoAlbum"] != album {
+                    self.save_photo_view();
+                    if self.restore_photo_view(album) { return vec![]; }
+                }
                 let mut next = json!({"action":"index","album":text(request,"album")});
                 if request["preserve"] == true { next["preserve"] = json!(true); }
                 self.photo_submit(next)
@@ -198,7 +203,7 @@ impl Files {
                     self.message("Invalid photo batch", true);
                     return vec![];
                 }
-                if let Some(start) = request["previewStart"].as_u64() {
+                if request["previewStart"].as_u64().is_some() {
                     let Some(ids) = request["ids"].as_array() else {
                         return vec![];
                     };
@@ -211,14 +216,8 @@ impl Files {
                         _ => Vec::new(),
                     };
                     let mut changed = false;
-                    for (index, old) in current.iter_mut().enumerate() {
-                        if index < (start as usize).saturating_sub(48)
-                            || index >= start as usize + 96
-                        {
-                            changed |= old["thumbnail"] != "" || old["previewLoaded"] != false;
-                            old["thumbnail"] = json!("");
-                            old["previewLoaded"] = json!(false);
-                        } else if let Some(p) = by_id.get(text(old, "uid")) {
+                    for old in current.iter_mut() {
+                        if let Some(p) = by_id.get(text(old, "uid")) {
                             // Metadata may have changed since this tile was
                             // cached, including location, name or access state.
                             let mut updated = (*p).clone();
@@ -242,6 +241,9 @@ impl Files {
                         }
                     }
                     self.state["photos"] = Value::Array(current);
+                    self.trim_photo_memory(
+                        request["ids"].as_array().map(Vec::as_slice).unwrap_or(&[]),
+                    );
                     if changed {
                         self.photos_revision += 1;
                     }
@@ -280,13 +282,8 @@ impl Files {
                     current.push(p);
                     changed = true;
                 }
-                let keep_from = current.len().saturating_sub(96);
-                for photo in current.iter_mut().take(keep_from) {
-                    changed |= photo["thumbnail"] != "" || photo["previewLoaded"] != false;
-                    photo["thumbnail"] = json!("");
-                    photo["previewLoaded"] = json!(false);
-                }
                 self.state["photos"] = Value::Array(current);
+                self.trim_photo_memory(request["ids"].as_array().map(Vec::as_slice).unwrap_or(&[]));
                 if changed {
                     self.photos_revision += 1;
                 }
@@ -341,7 +338,7 @@ impl Files {
     }
 }
 
-fn checked_thumbnail(photo: &Value) -> Value {
+pub(super) fn checked_thumbnail(photo: &Value) -> Value {
     let value = text(photo, "thumbnail");
     if value.starts_with("data:image/jpeg;base64,") && value.len() <= 710000 {
         json!(value)
@@ -374,12 +371,8 @@ mod tests {
         m.state["photoOffset"] = json!(1);
         m.state["photos"] = json!([{"uid":"a","thumbnail":"cached","previewLoaded":true}]);
         m.photo_checked = Some(Instant::now() - Duration::from_secs(31));
-        let effects = m.enter_photos();
-        let Effect::Work(w) = &effects[0] else {
-            panic!("index refresh expected")
-        };
-        assert!(w.operation["request"].get("preserve").is_none());
-        m.complete(w.id, Ok(json!({"items":[{"uid":"a"}],"total":1})));
+        assert!(m.enter_photos().is_empty());
+        assert!(!m.busy());
         assert_eq!(m.state["photos"][0]["thumbnail"], "cached");
         assert_eq!(m.state["photoOffset"], 1);
         let effects = m.photo_action(&json!({"action":"index","album":""}));
@@ -533,7 +526,7 @@ mod tests {
         assert_eq!(w.operation["request"]["ids"].as_array().unwrap().len(), 48);
     }
     #[test]
-    fn missing_photos_advance_inventory_cursor_and_old_previews_are_released() {
+    fn missing_photos_advance_inventory_cursor_and_old_previews_stay_cached() {
         let mut m = model();
         m.photo_index = (0..200).map(|i| format!("p{i}")).collect();
         for start in [0, 48, 96] {
@@ -556,9 +549,9 @@ mod tests {
                 .iter()
                 .filter(|p| !text(p, "thumbnail").is_empty())
                 .count(),
-            96
+            141
         );
-        assert_eq!(photos[0]["previewLoaded"], false);
+        assert_eq!(photos[0]["previewLoaded"], true);
         m.photo_result(
             &json!({"action":"details","previewStart":0,"ids":["p1"]}),
             json!({"photos":[{"uid":"p1","thumbnail":"file:///etc/passwd"}]}),
@@ -648,6 +641,6 @@ mod tests {
         assert_eq!(m.state["photos"][0]["previewLoaded"], true);
         assert_eq!(m.state["photos"][55]["previewLoaded"], true);
         assert_eq!(m.state["photos"][143]["previewLoaded"], true);
-        assert_eq!(m.state["photos"][144]["previewLoaded"], false);
+        assert_eq!(m.state["photos"][144]["previewLoaded"], true);
     }
 }
