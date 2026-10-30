@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import unittest
 import tempfile
+import tomllib
 
 SITE=Path(__file__).resolve().parents[1]
 ROOT=SITE.parent
@@ -15,6 +16,14 @@ sync=load('sync_bundle',SITE/'scripts/sync-server-content.py')
 publisher=load('publisher',ROOT/'scripts/build-website-release.py') if (ROOT/'scripts/build-website-release.py').exists() else None
 
 class BundleTests(unittest.TestCase):
+    def test_reviewed_website_copy_matches_application_version(self):
+        if publisher is None:self.skipTest('Publisher lives outside Docker website context')
+        version=tomllib.loads((ROOT/'desktop/Cargo.toml').read_text())['package']['version']
+        path=ROOT/'docs/website-content.json'
+        document=json.loads(path.read_text())
+        self.assertEqual(publisher.version_key(document['release']),publisher.version_key(version))
+        self.assertEqual(set(publisher.reviewed_text(path,document['release'])),set(sync.LANGUAGES))
+
     def bundle(self):
         d=json.loads((SITE/'public/website-content.json').read_text())
         d['source_commit']='a'*40

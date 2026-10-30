@@ -2,9 +2,9 @@ name: Website release manifest checks
 on:
   workflow_dispatch:
   push:
-    paths: ['docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
+    paths: ['desktop/Cargo.toml', 'core/Cargo.toml', 'docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
   pull_request:
-    paths: ['docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
+    paths: ['desktop/Cargo.toml', 'core/Cargo.toml', 'docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
 permissions:
   contents: read
 jobs:
