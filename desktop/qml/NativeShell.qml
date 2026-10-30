@@ -705,6 +705,19 @@ Item {
                     controller.photoBench.viewerRetryAt=0;controller.photoBench.loadViewerPreview();
                     if(photoBenchController.requests.length!==2)throw new Error("Viewer preview did not retry");
                     console.log("NATIVE_PHOTO_PREVIEW_RETRY_COOLDOWN_OK");
+                    // The viewer must load the next inventory page without closing.
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoOffset:2049};
+                    controller.photoBench.showPhoto(2048);photoBenchController.requests=[];
+                    controller.photoBench.moreAttempt=-1;controller.photoBench.movePreview(1);
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].action!=="more")throw new Error("Viewer stopped at page boundary");
+                    let appended=photoBenchController.photoEntries.concat([{uid:"bench-2049",name:"Next page",safe:true,previewLoaded:true,thumbnail:""}]);
+                    photoBenchController.photoEntries=appended;
+                    if(controller.photoBench.viewerIndex!==2049 || controller.photoBench.pendingViewerIndex!==-1)throw new Error("Viewer did not advance after loading page");
+                    controller.photoBench.viewState={busy:false,photosMore:false,photoAlbums:[{uid:"open",safe:true},{uid:"other",safe:true}],photoAlbum:"open"};
+                    controller.photoBench.albumIndex=1;controller.photoBench.selected=[0];photoBenchController.requests=[];
+                    controller.photoBench.changeAlbum("remove");
+                    if(photoBenchController.requests[0].album!=="open")throw new Error("Remove used another album from the chooser");
+                    console.log("NATIVE_PHOTO_VIEWER_PAGING_AND_ALBUM_TARGET_OK");
                     // Reordering after the first entry must invalidate index-based
                     // actions even while scrolling; cached metadata alone must not.
                     controller.photoBench.showPhoto(1000);

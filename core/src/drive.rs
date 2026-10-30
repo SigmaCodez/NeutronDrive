@@ -12,6 +12,8 @@ type Result<T> = std::result::Result<T, Failure>;
 pub enum Operation {
     TakeoutScan {
         root: String,
+        #[serde(default)]
+        folder_albums: bool,
     },
     TakeoutImport {
         plan: crate::takeout::Plan,
@@ -148,8 +150,15 @@ pub fn run(
     callback: &mut impl FnMut(Value) -> i32,
 ) -> Result<Value> {
     let operation = match operation {
-        Operation::TakeoutScan { root } => {
-            return crate::takeout::scan(std::path::Path::new(&root), callback)
+        Operation::TakeoutScan {
+            root,
+            folder_albums,
+        } => {
+            return crate::takeout::scan_with_albums(
+                std::path::Path::new(&root),
+                folder_albums,
+                callback,
+            )
         }
         Operation::TakeoutImport { plan } => {
             return crate::takeout::import(plan, callback, |request, cb| {

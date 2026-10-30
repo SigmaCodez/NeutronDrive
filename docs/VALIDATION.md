@@ -585,3 +585,50 @@ The release assets include the final CI results and exact source/provenance hash
 English previews are captured from the packaged DEB, using synthetic data and
 isolated configuration directories. No live-account cloud mutation was performed
 for this interface release.
+
+## Post-1.0.8 mount visibility correction (2026-10-29)
+
+GIO shadow/unshadow changes do not emit visibility notifications themselves.
+The extension now emits mount and monitor change signals after actual transitions,
+outside its state mutex, including restoration on shutdown. This allows a sidebar
+that already displayed the mount to remove the redundant entry while preserving
+the normal bookmark. No mount, sync job or cloud file is modified.
+
+The strengthened real-GIO test fails on the installed 1.0.8 extension because no
+change signal arrives, and passes with the correction. It checks hide/restore
+notifications, quiet steady-state polling and shutdown restoration. Rust unit
+tests and Clippy pass for the modern and legacy feature builds. These are local
+checks of an unreleased correction, not evidence of an installed update.
+
+GIO API contract: https://docs.gtk.org/gio/method.Mount.shadow.html
+
+The corrected extension also passed real Nautilus, Nemo, Caja and Thunar provider
+checks using isolated host libraries. After the user confirmed transfers were
+finished, Nautilus was gracefully restarted on the existing German desktop.
+The stale deleted-library mapping disappeared, the FUSE mount remained present,
+and the user confirmed only the Proton Drive bookmark remained. This immediate
+recovery uses installed 1.0.8; the notification correction is committed for a
+future update and has not been installed into the user's file manager.
+
+## Release 1.0.9 (2026-10-30)
+
+Photo folder imports now preserve duplicate album memberships and report partial
+assignment failures. The scanner rejects more than 100 memberships per media
+item before upload. Viewer paging, open-album removal and GIO mount visibility
+notifications are corrected. Existing sync safeguards are retained.
+
+Both native architecture jobs passed at
+[`980fb318`](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41087519787).
+The preparatory workflow was stopped after native success to pin the SDK artifacts.
+The final package workflow verifies source fingerprints and passed at
+[`19ff53e5`](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41092544604):
+DEB amd64/arm64, Ubuntu 26.10 on both architectures, Fedora/openSUSE RPM, strict
+Snap, Flatpak, AppImage and Arch. Both native jobs passed 213 core unit tests,
+21 core integration tests, 129 desktop tests, file-manager checks and 364
+regression contracts with kernel FUSE enabled. SDK and Qt interaction tests passed.
+
+English app and file-manager previews are captured from the actual release DEB
+in isolated profiles with synthetic data. BUILD_INFO.json, TEST_RESULTS.json,
+SHA256SUMS and the preview metadata record exact provenance. No personal cloud
+data was changed, no local upgrade was performed and a real-account import test
+is not claimed.

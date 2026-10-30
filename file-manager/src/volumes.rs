@@ -8,7 +8,9 @@ struct VolumeApi {
     path: unsafe extern "C" fn(Ptr) -> *mut c_char,
     shadow: unsafe extern "C" fn(Ptr),
     unshadow: unsafe extern "C" fn(Ptr),
+    reference: unsafe extern "C" fn(Ptr) -> Ptr,
     unref: unsafe extern "C" fn(Ptr),
+    emit: unsafe extern "C" fn(Ptr, *const c_char, ...),
     free_list: unsafe extern "C" fn(*mut List),
 }
 static VOLUME: OnceLock<VolumeApi> = OnceLock::new();
@@ -26,6 +28,7 @@ unsafe extern "C" fn poll(_: Ptr) -> c_int {
         let mut item = mounts;
         let mut shadowed = SHADOWED.lock().unwrap();
         let mut current = Vec::new();
+        let mut changed = Vec::new();
         while !item.is_null() {
             let mount = (*item).data;
             let file = (api.root)(mount);
@@ -44,6 +47,7 @@ unsafe extern "C" fn poll(_: Ptr) -> c_int {
             }
             if same && !shadowed.contains(&(mount as usize)) {
                 (api.shadow)(mount);
+                changed.push((api.reference)(mount));
                 shadowed.push(mount as usize);
             } else {
                 (api.unref)(mount);
@@ -55,16 +59,28 @@ unsafe extern "C" fn poll(_: Ptr) -> c_int {
                 true
             } else {
                 (api.unshadow)(*mount as Ptr);
+                changed.push((api.reference)(*mount as Ptr));
                 (api.unref)(*mount as Ptr);
                 false
             }
         });
+        drop(shadowed);
+        // Shadow counters do not emit signals. Notify only on transitions and
+        // outside our mutex: host callbacks may synchronously inspect providers.
+        for mount in changed {
+            notify(api, monitor, mount);
+            (api.unref)(mount);
+        }
         (api.free_list)(mounts);
         (api.unref)(monitor);
         sidebar::refresh();
         sidebar_gtk3::refresh();
     });
     1
+}
+unsafe fn notify(api: &VolumeApi, monitor: Ptr, mount: Ptr) {
+    (api.emit)(mount, c"changed".as_ptr());
+    (api.emit)(monitor, c"mount-changed".as_ptr(), mount);
 }
 pub unsafe fn start(_provider: Ptr) {
     if TIMER.load(Ordering::Relaxed) != 0 {
@@ -78,7 +94,9 @@ pub unsafe fn start(_provider: Ptr) {
             path: symbol("g_file_get_path")?,
             shadow: symbol("g_mount_shadow")?,
             unshadow: symbol("g_mount_unshadow")?,
+            reference: symbol("g_object_ref")?,
             unref: symbol("g_object_unref")?,
+            emit: symbol("g_signal_emit_by_name")?,
             free_list: symbol("g_list_free")?,
         };
         let add: unsafe extern "C" fn(
@@ -111,9 +129,17 @@ pub fn shutdown() {
             }
         }
         if let Some(api) = VOLUME.get() {
-            for mount in std::mem::take(&mut *SHADOWED.lock().unwrap()) {
+            let mounts = std::mem::take(&mut *SHADOWED.lock().unwrap());
+            let monitor = (api.monitor)();
+            for mount in mounts {
                 (api.unshadow)(mount as Ptr);
+                if !monitor.is_null() {
+                    notify(api, monitor, mount as Ptr);
+                }
                 (api.unref)(mount as Ptr);
+            }
+            if !monitor.is_null() {
+                (api.unref)(monitor);
             }
         }
     }

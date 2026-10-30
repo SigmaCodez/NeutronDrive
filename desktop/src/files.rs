@@ -842,10 +842,15 @@ impl Files {
                             self.message("No supported photos or videos found.", true);
                             return vec![];
                         }
-                        let description=format!("{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n\n{}",self.tr("Media files"),count,self.tr("Videos"),value["videos"],self.tr("Duplicate files"),value["duplicates"],self.tr("Ignored files"),value["ignored"],self.tr("Metadata warnings"),value["warnings"],self.tr("Import into Proton Photos? Originals stay unchanged. Albums and comments are not imported. You can cancel and retry; completed uploads are kept."));
+                        let description=format!("{}: {}\n{}: {}\n{}: {}\n{}: {}\n{}: {}\n\n{}",self.tr("Media files"),count,self.tr("Videos"),value["videos"],self.tr("Duplicate files"),value["duplicates"],self.tr("Ignored files"),value["ignored"],self.tr("Metadata warnings"),value["warnings"],self.tr("Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept."));
+                        let description = format!(
+                            "{description}\n{}: {}",
+                            self.tr("Albums"),
+                            value["album_count"].as_u64().unwrap_or(0)
+                        );
                         self.dialog(
                             "confirm",
-                            "Google Takeout import",
+                            "Photo import",
                             &description,
                             json!({}),
                             Answer::TakeoutImport(value),
@@ -863,11 +868,21 @@ impl Files {
                             self.tr("Remaining"),
                             value["remaining"]
                         );
-                        self.message(
-                            &format!("{report}\n{}", value["error"].as_str().unwrap_or("")),
-                            value["failed"].as_u64().unwrap_or(0) > 0,
-                        );
-                        vec![]
+                        self.photo_checked = None;
+                        self.state["photoTotal"] = Value::Null;
+                        self.dialog(
+                            "confirm",
+                            "Photo import finished",
+                            &format!(
+                                "{report}\n{}: {}\n{}\n\n{}",
+                                self.tr("Album errors"),
+                                value["albumFailed"].as_u64().unwrap_or(0),
+                                value["error"].as_str().unwrap_or(""),
+                                self.tr("Refresh the photo library now?")
+                            ),
+                            json!({}),
+                            Answer::PhotoLibrary(json!({"action":"index","album":""})),
+                        )
                     }
                     Done::PhotoLibrary(request) => self.photo_result(&request, value),
                     Done::Photos => {
@@ -1057,9 +1072,9 @@ impl Files {
             Answer::LinkSettings { node, settings, .. } => self.submit("Save link settings", json!({"action":"set_link","path":node["path"],"settings":settings}), Done::ShareReload(node)),
             Answer::TakeoutFolder => {
                 let Some(root)=Self::local_paths(value).into_iter().next() else { return vec![]; };
-                self.submit("Google Takeout import",json!({"action":"takeout_scan","root":root}),Done::TakeoutScan)
+                self.submit("Photo import",json!({"action":"takeout_scan","root":root,"folder_albums":true}),Done::TakeoutScan)
             }
-            Answer::TakeoutImport(plan) => self.submit("Google Takeout import",json!({"action":"takeout_import","plan":plan}),Done::TakeoutImport),
+            Answer::TakeoutImport(plan) => self.submit("Photo import",json!({"action":"takeout_import","plan":plan}),Done::TakeoutImport),
             Answer::Close => {self.closing=true;self.field("status_label",json!(self.tr("Vorgang wird beendet …")));if self.busy(){vec![Effect::Cancel]}else{vec![Effect::Close]}},
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::ComputerFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.background_local=Some(path);return self.activate_background(true);}vec![]},
@@ -1878,6 +1893,33 @@ mod tests {
             Effect::Close
         ));
         assert!(m.closing);
+    }
+    #[test]
+    fn folder_import_requires_review_and_refreshes_after_partial_album_result() {
+        let mut m = model();
+        assert!(m
+            .photo_action(&json!({"action":"import_folder"}))
+            .is_empty());
+        m.state["authenticated"] = json!(true);
+        m.state["demo"] = json!(false);
+        let d = dialog(m.photo_action(&json!({"action":"import_folder"})));
+        let scan = work(m.dispatch(
+            "answer_dialog",
+            &json!([d["token"], true, ["file:///tmp/Photos"]]),
+        ));
+        assert_eq!(scan.operation["folder_albums"], true);
+        let plan = json!({"root":"/tmp/Photos","items":[{}],"album_count":2,"videos":0,"duplicates":0,"ignored":0,"warnings":0});
+        let review = dialog(m.complete(scan.id, Ok(plan.clone())));
+        let upload = work(m.dispatch("answer_dialog", &json!([review["token"], true, ""])));
+        assert_eq!(upload.operation["plan"], plan);
+        m.state["photoTotal"] = json!(10);
+        let finished = dialog(m.complete(upload.id,Ok(json!({"uploaded":1,"skipped":0,"failed":0,"remaining":0,"albumFailed":1,"error":"Album denied"}))));
+        assert!(m.state["photoTotal"].is_null());
+        let refresh = work(m.dispatch("answer_dialog", &json!([finished["token"], true, ""])));
+        assert_eq!(
+            refresh.operation["request"],
+            json!({"action":"index","album":""})
+        );
     }
     #[test]
     fn takeout_requires_review_before_upload_and_donation_is_external() {

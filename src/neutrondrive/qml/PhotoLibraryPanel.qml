@@ -27,7 +27,7 @@ ColumnLayout {
         // Index-based actions must never survive a changed inventory identity.
         // A metadata refresh or appended page keeps the selection intact.
         if(replaces) {
-            leaveSelection(); viewer.close(); viewerIndex=-1;
+            leaveSelection(); viewer.close(); viewerIndex=-1; pendingViewerIndex=-1;
             photoModel.clear(); appliedPhotos=[];
             previewAttempt=-1; moreAttempt=-1;
         }
@@ -35,6 +35,9 @@ ColumnLayout {
         // Keep valid selections but never show a revoked tile as actionable.
         let available=selected.filter(index=>items[index]?.safe===true);
         if(available.length!==selected.length)selected=available;
+        if(viewer.visible && pendingViewerIndex>=0 && items.length>pendingViewerIndex) {
+            let next=pendingViewerIndex; pendingViewerIndex=-1; showPhoto(next);
+        }
         if(scrolling && photoModel.count>0 && !replaces) {
             for(let index of revoked)photoModel.setProperty(index,"entry",items[index]);
             // Append new pages immediately so reaching the bottom never requires
@@ -64,6 +67,7 @@ ColumnLayout {
     property var selected: []
     property bool selectionMode: false
     property int tileSize: 200
+    property int pendingViewerIndex: -1
     property int viewerIndex: -1
     property real previewZoom: 1
     property int previewAttempt: -1
@@ -79,7 +83,12 @@ ColumnLayout {
         previewViewport.contentX=0; previewViewport.contentY=0;
         viewer.open();
     }
-    function movePreview(delta) { showPhoto(viewerIndex+delta); }
+    function movePreview(delta) {
+        if(delta>0 && viewerIndex===photos.length-1 && viewState.photosMore) {
+            pendingViewerIndex=photos.length;
+            loadViewerPreview();
+        } else { pendingViewerIndex=-1; showPhoto(viewerIndex+delta); }
+    }
     function zoomPreview(delta) { previewZoom=Math.max(1,Math.min(4,previewZoom+delta)); }
     function leaveSelection() { selected=[]; selectionMode=false; }
     function dateText(value) {
@@ -110,7 +119,7 @@ ColumnLayout {
     property bool displayOptions: false
     function selectedAlbum() { return (panel.viewState.photoAlbums || [])[albumIndex]; }
     function changeAlbum(action) {
-        let album=selectedAlbum();
+        let album=action==="remove" ? (viewState.photoAlbums || []).find(a=>a.uid===viewState.photoAlbum) : selectedAlbum();
         if(album)request({action:action,album:album.uid,indices:selected});
     }
     RowLayout {
@@ -131,9 +140,14 @@ ColumnLayout {
         PhotoButton {
             objectName: "takeoutImportButton"; text: host.tr("Import photos")
             enabled: !panel.viewState.busy && Boolean(panel.viewState.authenticated) && !panel.viewState.demo
-            onClicked: panel.request({action:"takeout"})
-            ToolTip.visible: hovered; ToolTip.text: host.tr("Import photos and videos from an extracted Google Photos export.")
-            Accessible.description: host.tr("Google Takeout import")
+            onClicked: importMenu.popup()
+            ToolTip.visible: hovered; ToolTip.text: host.tr("Import a photo folder or an extracted Google Photos export.")
+            Accessible.description: host.tr("Photo import")
+            PhotoMenu {
+                id: importMenu
+                PhotoMenuItem { text: host.tr("Import a folder"); onTriggered: panel.request({action:"import_folder"}) }
+                PhotoMenuItem { text: host.tr("Google Takeout import"); onTriggered: panel.request({action:"takeout"}) }
+            }
         }
         PhotoButton { objectName: "photoDisplayButton"; visible: !panel.albumsVisible; text: host.tr("View options"); highlighted: panel.displayOptions; onClicked: panel.displayOptions = !panel.displayOptions }
     }
@@ -174,7 +188,7 @@ ColumnLayout {
             Accessible.name: host.tr("Albums")
         }
         PhotoButton { text: host.tr("Add to album"); enabled: !panel.viewState.busy && panel.selected.length>0 && Boolean(panel.selectedAlbum()); onClicked: panel.changeAlbum("add") }
-        PhotoButton { text: host.tr("Remove from album"); enabled: !panel.viewState.busy && panel.selected.length>0 && Boolean(panel.selectedAlbum()); onClicked: panel.changeAlbum("remove") }
+        PhotoButton { text: host.tr("Remove from album"); enabled: !panel.viewState.busy && panel.selected.length>0 && Boolean(panel.viewState.photoAlbum); onClicked: panel.changeAlbum("remove") }
         PhotoButton { text: host.tr("Set album cover"); enabled: !panel.viewState.busy && panel.selected.length===1 && Boolean(panel.selectedAlbum()); onClicked: panel.changeAlbum("cover") }
     }
     GridView {
@@ -202,7 +216,7 @@ ColumnLayout {
                 RowLayout {
                     ColumnLayout {
                         Layout.fillWidth: true; spacing: 3
-                        Label { text: albumTile.modelData.name; textFormat: Text.PlainText; color: host.theme.text; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
+                        Label { text: albumTile.modelData.name || host.tr("Album"); textFormat: Text.PlainText; color: host.theme.text; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                         Label { text: host.tr("Photos")+": "+albumTile.modelData.count; color: host.theme.muted }
                     }
                     PhotoButton { text: "⋯"; Accessible.name: host.tr("Album actions"); enabled: !panel.viewState.busy && albumTile.modelData.safe; onClicked: albumMenu.popup() }
@@ -293,7 +307,7 @@ ColumnLayout {
                 grid.positionViewAtIndex(panel.viewerIndex,GridView.Contain);
                 grid.forceActiveFocus();
             }
-            panel.previewZoom=1; panel.viewerIndex=-1;
+            panel.previewZoom=1; panel.viewerIndex=-1; panel.pendingViewerIndex=-1;
         }
         contentItem: ColumnLayout {
             spacing: 14; focus: true
@@ -329,7 +343,7 @@ ColumnLayout {
             RowLayout {
                 PhotoButton { text: "‹"; Accessible.name: host.tr("Previous"); enabled: panel.viewerIndex>0; onClicked: panel.movePreview(-1) }
                 Label { text: (panel.viewerIndex+1)+" / "+panel.photos.length; color: host.theme.text }
-                PhotoButton { text: "›"; Accessible.name: host.tr("Next"); enabled: panel.viewerIndex<panel.photos.length-1; onClicked: panel.movePreview(1) }
+                PhotoButton { text: "›"; Accessible.name: host.tr("Next"); enabled: !panel.viewState.busy && (panel.viewerIndex<panel.photos.length-1 || panel.viewState.photosMore); onClicked: panel.movePreview(1) }
                 Item { Layout.fillWidth: true }
                 Label { text: host.tr("Preview"); color: host.theme.muted }
                 PhotoButton { text: "−"; Accessible.name: host.tr("Zoom out"); enabled: panel.previewZoom>1; onClicked: panel.zoomPreview(-0.5) }
@@ -341,7 +355,15 @@ ColumnLayout {
     // Failure retries have a cooldown; moving the viewport must not turn a
     // failed request into a tight loop. New visible ranges still load promptly.
     function loadViewerPreview() {
-        if(!viewer.visible || panel.viewState.busy || panel.viewerIndex<0 || panel.currentPhoto.previewLoaded)return;
+        if(!viewer.visible || panel.viewState.busy || panel.viewerIndex<0)return;
+        if(panel.pendingViewerIndex>=0 && panel.viewState.photosMore) {
+            let offset=Number.isFinite(panel.viewState.photoOffset) ? panel.viewState.photoOffset : panel.photos.length;
+            if(panel.moreAttempt!==offset || Date.now()>=panel.retryAt) {
+                panel.moreAttempt=offset; panel.retryAt=Date.now()+15000; panel.request({action:"more"});
+            }
+            return;
+        }
+        if(panel.currentPhoto.previewLoaded)return;
         if(panel.viewerAttempt===panel.viewerIndex && Date.now()<panel.viewerRetryAt)return;
         panel.viewerAttempt=panel.viewerIndex; panel.viewerRetryAt=Date.now()+15000;
         panel.request({action:"previews",start:panel.viewerIndex});

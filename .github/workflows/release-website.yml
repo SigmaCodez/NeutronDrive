@@ -2,6 +2,10 @@ name: Publish release website content
 on:
   workflow_call:
     inputs:
+      dry_run:
+        description: 'Validate and build outputs without publishing'
+        type: boolean
+        default: false
       tag:
         required: true
         type: string
@@ -9,6 +13,10 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: 'Validate and build outputs without publishing'
+        type: boolean
+        default: false
       tag:
         description: 'Existing published release tag to rebuild website content for'
         required: true
@@ -71,6 +79,10 @@ jobs:
           path: ${{ runner.temp }}/website/neutrondrive-website.json
           if-no-files-found: error
       - name: Attach the complete manifest to this release
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$ND_TAG" "$RUNNER_TEMP/website/neutrondrive-website.json" --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Record validation-only result
+        if: ${{ inputs.dry_run }}
+        run: echo 'Validation completed. No release asset or Store channel was changed.' >> "$GITHUB_STEP_SUMMARY"

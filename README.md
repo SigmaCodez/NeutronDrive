@@ -12,10 +12,10 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.0.8](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.8).**
-This update simplifies sign-in, navigation, file actions, photos and settings.
-Advanced controls remain available when needed; existing sync and sharing safeguards
-are preserved. Ubuntu 26.10 DEB checks remain part of the release test matrix.
+**Version [1.0.9](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.9).**
+This update adds photo-folder imports with automatic albums, fixes gallery navigation
+and album removal, and corrects duplicate mount visibility in native file managers.
+Ubuntu 26.10 DEB checks remain part of the release test matrix.
 Keep an independent backup of important files. Complete Windows/macOS feature
 parity has not been reached.
 
@@ -86,20 +86,18 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.0.8
+## New in 1.0.9
 
-- Delete cached files locally without waiting for cloud requests; a durable queue verifies identities and revisions before moving cloud copies to trash.
-- Follow current sync jobs, item-based progress, downloads, retries and pending cloud deletions in Activity.
-- Set up computer folder backup with one folder picker; separate controls stop sync, remove a cloud backup or remove a computer while retaining local originals.
-- Recognize shared folders with an additional file-manager emblem alongside offline/sync status.
-- Use a cleaner account/storage card, consistent light/dark buttons and compact layouts that keep Settings and Cancel visible.
-- Find the optional Ko-fi button discreetly in Settings.
+- Import ordinary photo/video folders or extracted Google Takeout exports, with review before uploading and automatic albums derived from folder names.
+- Upload identical local media once while retaining its multiple folder-album memberships. Existing cloud duplicates are checked by name and content.
+- Track overall import progress and distinguish successful uploads from incomplete album assignments. Ambiguous or shared target albums are not silently changed.
+- Continue through loaded photo pages in the viewer and remove photos from the actual open album.
+- Notify native file managers when the redundant sync mount is hidden or restored, so the Proton Drive bookmark remains the intended entry.
 
-Cloud deletion conflicts remain visible for review. Open/local edits are protected;
-folder removal requires a verified empty cloud folder. General bidirectional
-folder-deletion safeguards remain in place. New interface messages have German
-and English translations, with English fallback in other catalogs.
-[Behavior and test scope](docs/USABILITY-PROGRESS-VALIDATION.md).
+Existing sync and deletion safeguards are preserved. New interface messages have
+German and English translations, with English fallback in other catalogs. These
+changes do not claim complete Windows parity or a real-account import certification.
+[Photo import guide](docs/TAKEOUT-IMPORT.md) · [Test scope](docs/PHOTO-IMPORT-VALIDATION.md).
 
 ## What you can do
 
@@ -153,7 +151,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.8 release assets**, not development artifacts.
+The commands below use the **1.0.9 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 Snap Store publication is automated, but availability currently awaits Canonical’s
@@ -172,29 +170,29 @@ Store revision.
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.8-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.9-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.8-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.9-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.8-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.9-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.8-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.9-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.8_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.9_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.8-x86_64.AppImage
-./NeutronDrive-1.0.8-x86_64.AppImage
+chmod +x NeutronDrive-1.0.9-x86_64.AppImage
+./NeutronDrive-1.0.9-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.8-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.9-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes

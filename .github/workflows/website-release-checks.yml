@@ -1,5 +1,6 @@
 name: Website release manifest checks
 on:
+  workflow_dispatch:
   push:
     paths: ['docs/website-content.json', 'docs/website-content-corrections/**', 'scripts/build-website-release.py', 'website/**', '.github/workflows/*website*.yml']
   pull_request:

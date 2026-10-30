@@ -173,6 +173,11 @@ export class CommandPhotoImport implements Command {
         const request = JSON.parse(raw);
         if (!request || typeof request.path !== 'string' || !path.isAbsolute(request.path)
             || !/^[a-f0-9]{40}$/.test(request.sha1) || typeof request.expectedRoot !== 'string') throw new Error('Invalid photo import request');
+        const requestedAlbums: {name:string;uid?:string|null}[] = request.albums ?? [];
+        if (!Array.isArray(requestedAlbums) || requestedAlbums.length > 100 || requestedAlbums.some(a =>
+            !a || typeof a.name !== 'string' || !a.name.trim() || [...a.name].length > 255 || /[\\/\x00-\x1f\x7f]/.test(a.name)
+            || (a.uid != null && (typeof a.uid !== 'string' || !a.uid || a.uid.length > 1024)))
+            || new Set(requestedAlbums.map(a=>a.name)).size !== requestedAlbums.length) throw new Error('Invalid import albums');
         const stat = await lstat(request.path);
         if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Import requires a regular media file');
         const root = await photosSdk.getMyPhotosRootFolder();
@@ -193,10 +198,51 @@ export class CommandPhotoImport implements Command {
             metadata.additionalMetadata = {...metadata.additionalMetadata,Location:{Latitude:request.location[0],Longitude:request.location[1]}};
         }
         const duplicates = await photosSdk.findPhotoDuplicates(name, async()=>request.sha1);
-        if (duplicates.length) { console.log(JSON.stringify({root:root.uid,status:'skipped'})); return; }
-        const uploader = await photosSdk.getFileUploader(name,metadata);
-        const controller = await uploader.uploadFromStream(prepared.file.stream(),prepared.thumbnails);
-        await controller.completion();
-        console.log(JSON.stringify({root:root.uid,status:'uploaded'}));
+        let uid = duplicates[0];
+        const status = uid ? 'skipped' : 'uploaded';
+        if (!uid) {
+            const uploader = await photosSdk.getFileUploader(name,metadata);
+            const controller = await uploader.uploadFromStream(prepared.file.stream(),prepared.thumbnails);
+            uid = (await controller.completion()).nodeUid;
+        }
+        const albums: {name:string;uid:string}[] = [];
+        let albumError = '';
+        try {
+            if (requestedAlbums.length) {
+                if (!uid) throw new Error('Uploaded photo identity is unavailable; retry the import');
+                const photo = await photosSdk.getNode(uid);
+                if (!photo.photo) throw new Error('Photo is no longer available; retry the import');
+                const membership = new Set(photo.photo.albums.map(a=>a.nodeUid));
+                for (const wanted of requestedAlbums) {
+                    let albumUid = wanted.uid;
+                    if (albumUid) {
+                        const album = await photosSdk.getNode(albumUid);
+                        if (!album.album || !album.name.ok || album.name.value !== wanted.name || album.isShared)
+                            throw new Error('Import album changed or is shared; scan again');
+                    } else {
+                        const matches = [];
+                        let count = 0;
+                        for await (const album of photosSdk.iterateAlbums()) {
+                            if (++count > 10000) throw new Error('Too many albums for folder import');
+                            if (album.name.ok && album.name.value === wanted.name) matches.push(album);
+                        }
+                        if (matches.length > 1 || matches.some(a=>a.isShared)) throw new Error('Album name is ambiguous or shared; rename it before importing');
+                        albumUid = matches.length ? matches[0].uid : (await photosSdk.createAlbum(wanted.name)).uid;
+                    }
+                    if (!membership.has(albumUid)) {
+                        let count = 0;
+                        for await (const entry of photosSdk.addPhotosToAlbum(albumUid,[uid])) {
+                            if (!entry.ok || entry.uid !== uid) throw new Error('Photo uploaded but album assignment failed; retry the import');
+                            count++;
+                        }
+                        if (count !== 1) throw new Error('Album assignment could not be confirmed; retry the import');
+                        membership.add(albumUid);
+                    }
+                    albums.push({name:wanted.name,uid:albumUid});
+                }
+            }
+        } catch (error) { albumError = error instanceof Error ? error.message : 'Album assignment failed; retry the import'; }
+        // An album failure must not pretend the original upload failed or roll it back.
+        console.log(JSON.stringify({root:root.uid,status,albums,albumError}));
     }
 }

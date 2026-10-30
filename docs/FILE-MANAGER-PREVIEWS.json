@@ -1,12 +1,12 @@
 {
-  "captured_at": "2026-10-29T21:18:54.334329+00:00",
-  "published_release": "v1.0.8",
+  "captured_at": "2026-10-30T16:53:58.970864+00:00",
+  "published_release": "v1.0.9",
   "file_manager": "GNOME Files (Nautilus) 50.2.2",
   "language": "en",
   "environment": "Private Xvfb, D-Bus and HOME/XDG directories; read-only bound release extension. User desktop and language unchanged.",
   "data": "Synthetic files and availability/sharing fixtures rendered by the actual release extension; no live cloud download.",
-  "extension_sha256": "8447e2f241fa095b83afd8406a8df0edd3f2cf9a7a39fba948606aa8f080a5a5",
-  "package_sha256": "b7f065abab5f1e264b5df9afca5bfc7952ccb24fa6ed01de75109aff8bc54e54",
+  "extension_sha256": "03de89d9155edec091a8cbf95017cff54d69e7024dc20cbaa98858f8700b865d",
+  "package_sha256": "23f585c77a3844e2fbee7fe026ce416fdb5facc960e5d2a013a234a6c7fe29c2",
   "capture": "Direct X11 pixel capture, no image edits.",
   "images": {
     "previews/file-manager-light.png": "5f065e023a600ba4020d739dee1f04a6811f9dd80d483728d0519c964c27eb2b",
