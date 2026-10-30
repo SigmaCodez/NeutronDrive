@@ -781,5 +781,13 @@
   "Remove computer…": "Remove computer…",
   "Deletion conflict": "Deletion conflict",
   "Last sync": "Last sync",
-  "Waiting for cloud deletion": "Waiting for cloud deletion"
+  "Waiting for cloud deletion": "Waiting for cloud deletion",
+  "Photo import": "Photo import",
+  "Import a folder": "Import a folder",
+  "Choose a folder with photos and videos. Subfolders become albums. Identical local files are uploaded once and added to all their albums.": "Choose a folder with photos and videos. Subfolders become albums. Identical local files are uploaded once and added to all their albums.",
+  "Import a photo folder or an extracted Google Photos export.": "Import a photo folder or an extracted Google Photos export.",
+  "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
+  "Photo import finished": "Photo import finished",
+  "Album errors": "Album errors",
+  "Refresh the photo library now?": "Refresh the photo library now?"
 }

@@ -18,6 +18,10 @@ static void thunar_iface(void *iface,void *unused){
 }
 static void *sym(GModule *m,const char *name){void *v=NULL;g_assert(g_module_symbol(m,name,&v));return v;}
 
+static guint mount_changes=0, monitor_changes=0;
+static void changed(GMount *mount,gpointer unused){mount_changes++;}
+static void monitor_changed(GVolumeMonitor *monitor,GMount *mount,gpointer target){if(mount==target)monitor_changes++;}
+
 int main(int argc,char**argv){
  g_assert(argc==4);
  GModule *host=g_module_open("libnautilus-extension.so.4",G_MODULE_BIND_LAZY);g_assert(host);
@@ -30,13 +34,26 @@ int main(int argc,char**argv){
   g_list_free_full(mounts,g_object_unref);g_main_context_iteration(NULL,FALSE);g_usleep(20000);
  }
  g_assert(target);g_assert(!g_mount_is_shadowed(target));
+ g_signal_connect(target,"changed",G_CALLBACK(changed),NULL);
+ g_signal_connect(monitor,"mount-changed",G_CALLBACK(monitor_changed),target);
  GTypeModule *module=g_object_new(test_module_get_type(),NULL);g_assert(g_type_module_use(module));
  void(*init)(void*)=sym(plugin,"nautilus_module_initialize");init(module);
  void(*types_fn)(const GType**,int*)=sym(plugin,"nautilus_module_list_types");const GType*types;int count;types_fn(&types,&count);g_assert_cmpint(count,==,1);
  gpointer provider=g_object_new(types[0],NULL);g_assert(g_mount_is_shadowed(target));
+ g_assert_cmpuint(mount_changes,>,0);g_assert_cmpuint(monitor_changes,>,0);
+ guint hidden_mount_changes=mount_changes,hidden_monitor_changes=monitor_changes;
+ gint64 steady=g_get_monotonic_time()+3*G_TIME_SPAN_SECOND;
+ while(g_get_monotonic_time()<steady){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
+ g_assert_cmpuint(mount_changes,==,hidden_mount_changes);g_assert_cmpuint(monitor_changes,==,hidden_monitor_changes);
  g_file_set_contents(argv[3],"{\"mountpoint\":\"/tmp/neutrondrive-no-such-test-mount\"}",-1,NULL);
  gint64 end=g_get_monotonic_time()+5*G_TIME_SPAN_SECOND;
  while(g_mount_is_shadowed(target)&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
  g_assert(!g_mount_is_shadowed(target));
- void(*shutdown)(void)=sym(plugin,"nautilus_module_shutdown");shutdown();g_object_unref(provider);g_object_unref(target);g_object_unref(monitor);puts("GIO_VOLUME_HIDE_AND_CONFIG_CHANGE_RESTORE_OK");return 0;
+ g_assert_cmpuint(mount_changes,>,hidden_mount_changes);g_assert_cmpuint(monitor_changes,>,hidden_monitor_changes);
+ gchar *config=g_strdup_printf("{\"mountpoint\":\"%s\"}",argv[2]);g_file_set_contents(argv[3],config,-1,NULL);g_free(config);
+ end=g_get_monotonic_time()+5*G_TIME_SPAN_SECOND;
+ while(!g_mount_is_shadowed(target)&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
+ g_assert(g_mount_is_shadowed(target));hidden_mount_changes=mount_changes;hidden_monitor_changes=monitor_changes;
+ void(*shutdown)(void)=sym(plugin,"nautilus_module_shutdown");shutdown();
+ g_assert(!g_mount_is_shadowed(target));g_assert_cmpuint(mount_changes,>,hidden_mount_changes);g_assert_cmpuint(monitor_changes,>,hidden_monitor_changes);g_object_unref(provider);g_object_unref(target);g_object_unref(monitor);puts("GIO_VOLUME_HIDE_AND_CONFIG_CHANGE_RESTORE_OK");return 0;
 }

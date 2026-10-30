@@ -1,5 +1,6 @@
 name: Snap publisher checks
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - '.github/workflows/release-snap-store.yml'

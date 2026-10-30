@@ -4,12 +4,20 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: 'Validate and build outputs without publishing'
+        type: boolean
+        default: false
       tag:
         description: 'Published GitHub release tag to upload or retry'
         required: true
         type: string
   workflow_call:
     inputs:
+      dry_run:
+        description: 'Validate and build outputs without publishing'
+        type: boolean
+        default: false
       tag:
         required: true
         type: string
@@ -53,8 +61,10 @@ jobs:
             *) echo 'ND_CHANNEL=latest/stable' >> "$GITHUB_ENV" ;;
           esac
       - name: Install Snapcraft
+        if: ${{ !inputs.dry_run }}
         run: sudo snap install snapcraft --classic
       - name: Publish verified package to the selected channel
+        if: ${{ !inputs.dry_run }}
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
@@ -62,5 +72,9 @@ jobs:
           snapcraft upload --release="$ND_CHANNEL" "$ND_PACKAGE"
           snapcraft status neutrondrive
       - name: Record successful publication
+        if: ${{ !inputs.dry_run }}
         run: |
           printf 'Published GitHub release **%s** to Snap Store **%s** (amd64).\n' "$ND_TAG" "$ND_CHANNEL" >> "$GITHUB_STEP_SUMMARY"
+      - name: Record validation-only result
+        if: ${{ inputs.dry_run }}
+        run: echo 'Validation completed. No release asset or Store channel was changed.' >> "$GITHUB_STEP_SUMMARY"

@@ -1,13 +1,19 @@
 # Desktop features
 
-The latest published package is beta 0.1. The sections below identify when features
+The current release is 1.0.9. The sections below identify when features
 were introduced.
 Upgrade the complete application package; older bridges do not contain all
 photo-library, album and account-storage commands.
 
+## Photo folder import (1.0.9)
+
+**Photos → Photo import → Import a folder** supports ordinary photo/video folders
+and creates albums from their relative paths. Identical local media retains all
+folder memberships. [Import behavior and limits](TAKEOUT-IMPORT.md).
+
 ## Beta 0.1: Takeout, Computer and donations
 
-**Photos → Google Takeout import** accepts an extracted Google Photos export.
+**Photos → Photo import → Google Takeout import** accepts an extracted Google Photos export.
 Download every archive part from Google Takeout and extract/merge them into one
 folder before choosing it. ZIP/TGZ archives are not extracted by NeutronDrive.
 The Rust planner scans media files and associated JSON, then asks for confirmation
@@ -17,9 +23,10 @@ Only confirmation starts uploads into Proton Photos, not My files.
 Matching `.json` and `.supplemental-metadata.json` files supply `photoTakenTime`
 and valid GPS coordinates. Exact sidecar names take precedence; a unique title
 match handles truncated metadata filenames. Missing or ambiguous metadata uses
-the SDK's embedded metadata fallback and is counted as a warning. Original media
-bytes and local JSON files are never rewritten. Albums, descriptions, comments
-and edited/original relationships are not reconstructed. See Google's
+the SDK's embedded metadata fallback. Malformed or ambiguous metadata can produce
+a warning. Original media bytes and local JSON files are never rewritten. Version
+1.0.9 derives albums from folder names; descriptions, comments and edited/original
+relationships are not reconstructed. See Google's
 [export metadata explanation](https://support.google.com/photos/answer/3024190?hl=EN).
 
 Identical content within the selected export is skipped. The public Photos SDK

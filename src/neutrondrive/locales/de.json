@@ -781,5 +781,13 @@
   "Remove computer…": "Computer entfernen …",
   "Deletion conflict": "Löschkonflikt",
   "Last sync": "Letzter Abgleich",
-  "Waiting for cloud deletion": "Cloud-Löschung ausstehend"
+  "Waiting for cloud deletion": "Cloud-Löschung ausstehend",
+  "Photo import": "Fotoimport",
+  "Import a folder": "Ordner importieren",
+  "Choose a folder with photos and videos. Subfolders become albums. Identical local files are uploaded once and added to all their albums.": "Wähle einen Ordner mit Fotos und Videos. Aus Unterordnern werden Alben. Identische lokale Dateien werden einmal hochgeladen und allen zugehörigen Alben hinzugefügt.",
+  "Import a photo folder or an extracted Google Photos export.": "Importiere einen Fotoordner oder einen entpackten Google-Fotos-Export.",
+  "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "In Proton Photos importieren? Originale bleiben unverändert. Alben werden aus Ordnernamen erstellt; passende private Alben werden wiederverwendet. Kommentare werden nicht importiert. Du kannst abbrechen und erneut starten; abgeschlossene Uploads bleiben erhalten.",
+  "Photo import finished": "Fotoimport abgeschlossen",
+  "Album errors": "Albumfehler",
+  "Refresh the photo library now?": "Fotobibliothek jetzt aktualisieren?"
 }
