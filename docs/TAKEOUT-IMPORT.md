@@ -4,7 +4,7 @@ NeutronDrive can upload photos and videos from an **extracted Google
 Takeout export** into Proton Photos. It keeps original media bytes unchanged and
 uses matching Google JSON sidecars for capture time and location when available.
 
-## Folder import (unreleased)
+## Folder import (1.0.9)
 
 Open **Photos → Photo import → Import a folder** to select ordinary photo and
 video folders. Review the scan before uploading. Each media-containing folder
