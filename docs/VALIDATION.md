@@ -632,3 +632,30 @@ in isolated profiles with synthetic data. BUILD_INFO.json, TEST_RESULTS.json,
 SHA256SUMS and the preview metadata record exact provenance. No personal cloud
 data was changed, no local upgrade was performed and a real-account import test
 is not claimed.
+
+
+## Release 1.0.10 (2026-10-30)
+
+Visited folder listings and photo previews remain cached while an independent
+worker refreshes cloud metadata. Stable identities preserve valid selections,
+viewer targets and file range-selection anchors. Cache budgets and account
+boundaries are tested. Update checks run quietly at startup and every two hours,
+with duplicate notices suppressed within the app session.
+
+Both native architecture jobs passed at
+[`bcb23e7b`](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41100854532):
+213 core unit tests, 21 integration tests, 136 desktop tests, file-manager provider
+checks and all 364 regression contracts, including kernel FUSE and real Qt window
+checks in every supported language. The initial Snap job failed while installing
+Snapcraft due to a Snap Store assertion download timeout, before building the app.
+
+The final package matrix verifies unchanged native-source fingerprints and passed
+at [the pinned package commit](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41127043414):
+DEB amd64/arm64, Ubuntu 26.10 on both architectures, Fedora/openSUSE RPM, strict
+Snap, Flatpak, AppImage and Arch. Final AUR recipe hashes are checked against the
+built DEBs. BUILD_INFO.json and TEST_RESULTS.json record the exact commits and runs.
+
+English light/dark GUI and file-manager previews were captured from the actual
+1.0.10 DEB in isolated profiles with synthetic files. The packaged UI and sharing
+checks passed. No personal cloud data was changed and no local system upgrade was
+performed. This release does not certify every desktop session or full-account sync.
