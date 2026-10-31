@@ -11,6 +11,7 @@
 #include <QClipboard>
 #include <QQuickWindow>
 #include <QKeyEvent>
+#include <QWheelEvent>
 #include <QStandardPaths>
 #include <QDesktopServices>
 #include <QUrl>
@@ -63,6 +64,16 @@ inline bool snapshotWindow(const QString &name, const QString &path) {
 inline void setClipboard(const QString &text) { QGuiApplication::clipboard()->setText(text); }
 inline QString clipboardText() { return QGuiApplication::clipboard()->text(); }
 // Native UI regression input: deliver real Qt events to the same window as a user.
+inline bool windowWheel(const QString &name, double x, double y, int delta) {
+    for (auto *window : QGuiApplication::allWindows()) {
+        if (window->objectName() != name) continue;
+        QPointF local(x, y), global = window->mapToGlobal(local.toPoint());
+        QWheelEvent event(local, global, QPoint(), QPoint(0, delta), Qt::NoButton,
+                          Qt::NoModifier, Qt::NoScrollPhase, false);
+        return QCoreApplication::sendEvent(window, &event);
+    }
+    return false;
+}
 inline bool windowKey(const QString &name, int key, bool control, bool shift) {
     for (auto *window : QGuiApplication::allWindows()) {
         if (window->objectName() != name) continue;

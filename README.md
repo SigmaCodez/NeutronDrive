@@ -12,7 +12,7 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.0.10](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.10).**
+**Version [1.0.11](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.0.11).**
 This update keeps visited folders and photo previews cached, applies cloud changes
 in the background, and checks quietly for updates at startup and every two hours.
 Ubuntu 26.10 DEB checks remain part of the release test matrix.
@@ -86,18 +86,18 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.0.10
+## New in 1.0.11
 
-- Show visited folders immediately while stale listings refresh in a separate background worker.
-- Retain photo thumbnails and recently visited albums within bounded caches instead of discarding previews after a few rows.
-- Apply changed photo and file rows by identity, preserving valid selections and avoiding whole-view resets.
-- Check for updates quietly at startup and every two hours. Notify only when a newer release is available, once per version per app session.
-- Translate the updated automatic-check setting into all 25 supported languages.
+- Scroll photos and albums by roughly one image row per mouse-wheel notch. Pixel-based touchpad gestures keep their native behavior; thumbnail replacements wait for wheel movement to settle.
+- Pause individual background-sync and computer-backup jobs for 1, 4 or 24 hours, with automatic resumption even after restarting the service.
+- Retry failed jobs directly from Activity without resuming deliberately paused jobs or interrupting active transfers.
+- Expand every reported conflict or skipped item. Unchanged status polls preserve cards, expanded details and their scroll position.
+- Copy a support summary containing states and counts only, without file names, paths, account information or raw errors.
+- See the last completed sync, next retry and scheduled resume time. New messages are included in all 25 languages.
 
-Folder metadata is cached for the current session; first visits still need a network
-request. Background refresh uses the existing listing APIs, not server-side delta-only
-requests. Existing account, access and sync safeguards remain in place.
-[Cache design](docs/ARCHITECTURE.md#desktop-view-cache) · [Update behavior](docs/UPDATES.md).
+Timed pauses apply to background-sync jobs, not on-demand FUSE reads. Retrying
+preserves the existing account, identity and conflict checks; it does not overwrite
+conflicting copies. [Community-informed improvements](docs/COMMUNITY-IMPROVEMENTS.md).
 
 ## What you can do
 
@@ -151,7 +151,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.0.10 release assets**, not development artifacts.
+The commands below use the **1.0.11 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 Snap Store publication is automated, but availability currently awaits Canonical’s
@@ -170,29 +170,29 @@ Store revision.
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.0.10-1_amd64.deb
+sudo apt install ./neutrondrive_1.0.11-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.0.10-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.0.11-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.0.10-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.0.11-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.0.10-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.0.11-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.0.10_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.0.11_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.0.10-x86_64.AppImage
-./NeutronDrive-1.0.10-x86_64.AppImage
+chmod +x NeutronDrive-1.0.11-x86_64.AppImage
+./NeutronDrive-1.0.11-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.0.10-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.0.11-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes

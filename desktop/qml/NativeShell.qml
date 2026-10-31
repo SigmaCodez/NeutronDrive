@@ -672,6 +672,31 @@ Item {
                 }else if(controller.stage===21020){
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");
                     if(grid.count!==2000)throw new Error("Large photo model missing");
+                    let wheel={pixelDelta:{x:0,y:0},angleDelta:{x:0,y:-120},modifiers:Qt.NoModifier};
+                    grid.contentY=grid.originY;
+                    if(!controller.photoBench.scrollGallery(grid,wheel) || Math.abs(grid.contentY-grid.originY-grid.cellHeight)>1)throw new Error("Photo wheel must advance one row per notch");
+                    let before=grid.contentY;
+                    wheel.pixelDelta.y=-5;
+                    if(controller.photoBench.scrollGallery(grid,wheel) || grid.contentY!==before)throw new Error("Native touchpad scrolling was overridden");
+                    wheel.pixelDelta.y=0;wheel.angleDelta.y=12000;
+                    controller.photoBench.scrollGallery(grid,wheel);
+                    if(grid.contentY!==grid.originY)throw new Error("Photo wheel escaped upper boundary");
+                    wheel.angleDelta.y=-12000000;controller.photoBench.scrollGallery(grid,wheel);
+                    if(Math.abs(grid.contentY-(grid.originY+grid.contentHeight-grid.height))>1)throw new Error("Photo wheel escaped lower boundary");
+                    if(!controller.photoBench.scrolling)throw new Error("Wheel movement must defer thumbnail replacement");
+                    console.log("NATIVE_PHOTO_FAST_WHEEL_OK");
+                    controller.stage=210201;
+                }else if(controller.stage===210201){
+                    if(controller.photoBench.scrolling)return;
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    grid.contentY=grid.originY;
+                    let point=grid.mapToItem(controller.view.contentItem,grid.width/2,grid.height/2);
+                    files.windowWheel(point.x,point.y,-120);controller.stage=210202;
+                }else if(controller.stage===210202){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    if(Math.abs(grid.contentY-grid.originY-grid.cellHeight)>1)throw new Error("Native mouse wheel did not use accelerated gallery scrolling: "+grid.contentY);
+                    if(controller.photoBench.scrolling)return;
+                    console.log("NATIVE_PHOTO_WHEEL_EVENT_OK");
                     grid.positionViewAtIndex(1000,GridView.Beginning);controller.stage=21021;
                 }else if(controller.stage===21021){
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");
