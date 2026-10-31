@@ -789,5 +789,18 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "Pauză de 1 oră",
+  "Pause for 4 hours": "Pauză de 4 ore",
+  "Pause for 24 hours": "Pauză de 24 de ore",
+  "Until I resume": "Până reiau manual",
+  "No completed sync yet": "Nicio sincronizare finalizată",
+  "Automatic resume": "Reluare automată",
+  "Copy diagnostics": "Copiază diagnosticul",
+  "Only status and counts are copied. No file names, paths or account details.": "Se copiază doar stări și numere. Fără nume de fișiere, căi sau datele contului.",
+  "Diagnostics copied": "Diagnostic copiat",
+  "Retry now": "Reîncearcă acum",
+  "Hide details": "Ascunde detaliile",
+  "Show details": "Arată detaliile",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Reîncercarea verifică ambele copii fără a suprascrie conflictele."
 }

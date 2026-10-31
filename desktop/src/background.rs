@@ -35,7 +35,11 @@ fn execute(
         "restart",
         "remove",
         "pause",
+        "pause_1h",
+        "pause_4h",
+        "pause_24h",
         "resume",
+        "retry",
         "sync",
         "add",
         "computer",
@@ -216,7 +220,7 @@ fn execute(
                 call(command("reload", Value::Null))?;
             }
         }
-        "pause" | "resume" | "sync" => {
+        "pause" | "pause_1h" | "pause_4h" | "pause_24h" | "resume" | "retry" | "sync" => {
             let id = operation["id"]
                 .as_str()
                 .filter(|v| !v.is_empty())
@@ -260,6 +264,45 @@ fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn timed_pause_forwards_selected_job_and_rejects_missing_identity() {
+        for action in ["pause_1h", "pause_4h", "pause_24h", "retry"] {
+            let mut calls = Vec::new();
+            execute(
+                "sdk",
+                &json!({"action":action,"id":"selected"}),
+                Path::new("/app"),
+                false,
+                &mut |r| {
+                    calls.push(r.clone());
+                    if r["op"] == "data_dir" {
+                        return Ok(json!("/tmp/nd-timed-pause"));
+                    }
+                    Ok(json!({"running":true,"jobs":[]}))
+                },
+            )
+            .unwrap();
+            assert!(calls.iter().any(|r| r["op"] == "control_command"
+                && r["action"] == action
+                && r["job_id"] == "selected"));
+            let mut changed = false;
+            let result = execute(
+                "sdk",
+                &json!({"action":action}),
+                Path::new("/app"),
+                false,
+                &mut |r| {
+                    if r["op"] == "data_dir" {
+                        return Ok(json!("/tmp/nd-timed-pause"));
+                    }
+                    changed = true;
+                    Ok(Value::Null)
+                },
+            );
+            assert!(result.is_err());
+            assert!(!changed);
+        }
+    }
     #[test]
     fn backup_removal_waits_for_active_worker_and_verifies_identity() {
         for (active, changed) in [(true, false), (false, true), (false, false)] {

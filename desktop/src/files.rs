@@ -514,7 +514,9 @@ impl Files {
             let label=match state {"idle"=>"Aktuell","syncing"=>"Wird synchronisiert","paused"=>"Pausiert","conflicts"|"conflict"=>"Konflikt","blocked"=>"Blockiert","offline"=>"Offline","error"=>"Failed","stopped"=>"Dienst ist gestoppt",""|"waiting"=>"Waiting",other=>other};
             let conflicts=job["conflicts"].as_array().into_iter().flatten().take(5).map(|v|self.locale.diagnostic(v.as_str().unwrap_or(""))).collect::<Vec<_>>().join("; ");
             json!({"id":job["id"],"name":job["name"].as_str().filter(|v|!v.is_empty()).unwrap_or(text(job,"local_root")),
-                "state":state,"progress":job["progress"],"completed":job["completed"],"lastSync":job["last_sync"],"retryAt":job["retry_at"],"conflicts":job["conflicts"],"skipped":job["skipped"],"computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
+                "state":state,"hasError":!text(job,"error").is_empty(),
+                "issues":std::iter::once(text(job,"error")).chain(job["conflicts"].as_array().into_iter().flatten().filter_map(Value::as_str)).chain(job["skipped"].as_array().into_iter().flatten().filter_map(Value::as_str)).filter(|v|!v.trim().is_empty()).map(|v|self.locale.diagnostic(v)).collect::<Vec<_>>(),
+                "progress":job["progress"],"completed":job["completed"],"lastSync":job["last_sync"],"pausedUntil":job["paused_until"],"retryAt":job["retry_at"],"conflicts":job["conflicts"],"skipped":job["skipped"],"computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
                 "status":([self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts].into_iter().filter(|part|!part.trim().is_empty()).collect::<Vec<_>>().join(" · "))})
         }).collect::<Vec<_>>());
     }
@@ -1586,8 +1588,17 @@ impl Files {
                 }
             }
             "job_action"
-                if ["pause", "resume", "sync", "remove"]
-                    .contains(&args[0].as_str().unwrap_or("")) =>
+                if [
+                    "pause",
+                    "pause_1h",
+                    "pause_4h",
+                    "pause_24h",
+                    "resume",
+                    "retry",
+                    "sync",
+                    "remove",
+                ]
+                .contains(&args[0].as_str().unwrap_or("")) =>
             {
                 return self
                     .submit_background("Hintergrund-Sync", json!({"action":args[0],"id":args[1]}))
@@ -1684,6 +1695,11 @@ impl Files {
         vec![]
     }
     fn action(&mut self, name: &str) -> Vec<Effect> {
+        if name == "copySyncDiagnostics" {
+            let report = crate::sync_diagnostics::report(&self.state);
+            self.message(&self.tr("Diagnostics copied"), false);
+            return vec![Effect::Clipboard(report)];
+        }
         if name == "openLogin" {
             return self
                 .login_url
@@ -1820,6 +1836,27 @@ impl Files {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn support_report_copies_aggregates_while_busy_and_details_keep_all_issues() {
+        let mut m = model();
+        m.render_background(
+            &json!({"running":true,"jobs":[{"id":"private-id","name":"Secret project",
+            "state":"conflict","error":"private error","local_root":"/home/private",
+            "conflicts":["one","two","three","four","five","six"],"skipped":["private skipped"]}]}),
+        );
+        assert_eq!(m.state["jobs"][0]["issues"].as_array().unwrap().len(), 8);
+        assert_eq!(m.state["jobs"][0]["issues"][6], "six");
+        m.state["busy"] = json!(true);
+        let effects = m.dispatch("action", &json!(["copySyncDiagnostics"]));
+        assert_eq!(effects.len(), 1);
+        let Effect::Clipboard(report) = &effects[0] else {
+            panic!("Expected clipboard only");
+        };
+        assert!(!report.contains("private") && !report.contains("Secret"));
+        let report: Value = serde_json::from_str(report).unwrap();
+        assert_eq!(report["conflict_count"], 6);
+        assert_eq!(report["skipped_count"], 1);
+    }
     #[test]
     fn stale_progress_cannot_change_the_current_operation() {
         let mut m = loaded();

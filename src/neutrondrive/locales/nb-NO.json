@@ -789,5 +789,18 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "Pause i 1 time",
+  "Pause for 4 hours": "Pause i 4 timer",
+  "Pause for 24 hours": "Pause i 24 timer",
+  "Until I resume": "Til jeg fortsetter",
+  "No completed sync yet": "Ingen fullført synkronisering ennå",
+  "Automatic resume": "Automatisk gjenopptakelse",
+  "Copy diagnostics": "Kopier diagnostikk",
+  "Only status and counts are copied. No file names, paths or account details.": "Bare status og antall kopieres. Ingen filnavn, stier eller kontoopplysninger.",
+  "Diagnostics copied": "Diagnostikk kopiert",
+  "Retry now": "Prøv igjen nå",
+  "Hide details": "Skjul detaljer",
+  "Show details": "Vis detaljer",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Et nytt forsøk kontrollerer begge kopiene uten å overskrive konflikter."
 }
