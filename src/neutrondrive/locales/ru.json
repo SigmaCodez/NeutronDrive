@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Приостановить на 24 часа",
   "Until I resume": "До ручного возобновления",
   "No completed sync yet": "Синхронизация ещё не завершалась",
-  "Automatic resume": "Автоматическое возобновление"
+  "Automatic resume": "Автоматическое возобновление",
+  "Copy diagnostics": "Копировать диагностику",
+  "Only status and counts are copied. No file names, paths or account details.": "Копируются только состояния и счётчики. Без имён файлов, путей и данных аккаунта.",
+  "Diagnostics copied": "Диагностика скопирована",
+  "Retry now": "Повторить сейчас",
+  "Hide details": "Скрыть подробности",
+  "Show details": "Показать подробности",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Повторная попытка проверяет обе копии, не перезаписывая конфликты."
 }

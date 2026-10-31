@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Szünet 24 órára",
   "Until I resume": "Kézi folytatásig",
   "No completed sync yet": "Még nincs befejezett szinkronizálás",
-  "Automatic resume": "Automatikus folytatás"
+  "Automatic resume": "Automatikus folytatás",
+  "Copy diagnostics": "Diagnosztika másolása",
+  "Only status and counts are copied. No file names, paths or account details.": "Csak állapotok és darabszámok másolódnak. Fájlnevek, útvonalak és fiókadatok nélkül.",
+  "Diagnostics copied": "Diagnosztika másolva",
+  "Retry now": "Újrapróbálkozás",
+  "Hide details": "Részletek elrejtése",
+  "Show details": "Részletek megjelenítése",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Az újrapróbálkozás mindkét példányt ellenőrzi, az ütközések felülírása nélkül."
 }

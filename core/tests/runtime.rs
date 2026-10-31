@@ -310,9 +310,25 @@ esac
         std::fs::read(local.join("test.txt")).unwrap(),
         b"local edit"
     );
+    let (ok, retry) = control("retry");
+    // Per-job retry intentionally requires an identity; it cannot retry every job accidentally.
+    assert!(!ok, "{retry}");
+    let (ok, retried) = request(
+        json!({"version":1,"op":"control_command","path":state.join("control.sock"),
+        "action":"retry","job_id":job["result"]["id"],"timeout":1.0}),
+    );
+    assert!(ok, "{retried}");
+    assert_eq!(retried["result"]["jobs"][0]["state"], "pending");
+    assert_eq!(retried["result"]["jobs"][0]["account_root_uid"], "root");
     let (ok, paused) = control("pause");
     assert!(ok, "{paused}");
     assert_eq!(paused["result"]["jobs"][0]["state"], "paused");
+    let (ok, still_paused) = request(
+        json!({"version":1,"op":"control_command","path":state.join("control.sock"),
+        "action":"retry","job_id":job["result"]["id"],"timeout":1.0}),
+    );
+    assert!(ok, "{still_paused}");
+    assert_eq!(still_paused["result"]["jobs"][0]["paused"], true);
     let (ok, timed) = control("pause_1h");
     assert!(ok, "{timed}");
     let now = std::time::SystemTime::now()

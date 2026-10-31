@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Pozastaviť na 24 hodín",
   "Until I resume": "Do ručného obnovenia",
   "No completed sync yet": "Zatiaľ žiadna dokončená synchronizácia",
-  "Automatic resume": "Automatické obnovenie"
+  "Automatic resume": "Automatické obnovenie",
+  "Copy diagnostics": "Kopírovať diagnostiku",
+  "Only status and counts are copied. No file names, paths or account details.": "Kopírujú sa iba stavy a počty. Bez názvov súborov, ciest alebo údajov účtu.",
+  "Diagnostics copied": "Diagnostika skopírovaná",
+  "Retry now": "Skúsiť znova",
+  "Hide details": "Skryť podrobnosti",
+  "Show details": "Zobraziť podrobnosti",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Nový pokus skontroluje obe kópie bez prepísania konfliktov."
 }

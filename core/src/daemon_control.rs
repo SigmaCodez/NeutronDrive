@@ -19,6 +19,7 @@ pub enum Action {
     #[serde(rename = "pause_24h")]
     Pause24h,
     Resume,
+    Retry,
     Sync,
 }
 fn call(host: &mut impl Services, action: &str, mut args: Value) -> Result<Value> {
@@ -113,6 +114,25 @@ pub fn command(action: Action, job_id: Option<String>, host: &mut impl Services)
             call(host, "notify", json!({}))?;
         }
         Action::Reload => reload(host)?,
+        Action::Retry => {
+            let id = job_id.ok_or("Missing job identity")?;
+            let job = jobs(host)?
+                .into_iter()
+                .find(|job| job["id"] == id)
+                .ok_or("Sync-Job wurde nicht gefunden.")?;
+            let snapshot = call(host, "snapshot", json!({}))?;
+            // A stale UI click must never resume a deliberate pause or interrupt a transfer.
+            if job["paused"] != true
+                && snapshot["current"] != id
+                && matches!(
+                    snapshot["jobs"][&id]["state"].as_str(),
+                    Some("offline" | "error" | "blocked" | "conflict" | "conflicts")
+                )
+            {
+                // Recreate failed watches and schedule a fresh, identity-checked sync.
+                return command(Action::Resume, Some(id), host);
+            }
+        }
         Action::Pause
         | Action::Pause1h
         | Action::Pause4h
@@ -252,6 +272,48 @@ mod tests {
             calls: vec![],
             watch_error: false,
         }
+    }
+    #[test]
+    fn retry_only_restarts_failed_unpaused_jobs() {
+        for state in ["offline", "error", "blocked", "conflict", "conflicts"] {
+            let mut h = host();
+            h.current = Value::Null;
+            h.runtime["a"]["state"] = json!(state);
+            command(Action::Retry, Some("a".into()), &mut h).unwrap();
+            assert!(has(&h, "watch") && has(&h, "schedule"));
+            assert!(!has(&h, "cancel"));
+            assert_eq!(h.jobs[0]["remote_uid"], "pinned-root");
+        }
+        for (state, paused, active) in [
+            ("offline", true, false),
+            ("paused", false, false),
+            ("syncing", false, true),
+            ("blocked", false, true),
+            ("idle", false, false),
+        ] {
+            let mut h = host();
+            h.current = if active { json!("a") } else { Value::Null };
+            h.jobs[0]["paused"] = json!(paused);
+            h.jobs[0]["paused_until"] = json!(12345);
+            h.runtime["a"]["state"] = json!(state);
+            command(Action::Retry, Some("a".into()), &mut h).unwrap();
+            assert!(!has(&h, "update_job") && !has(&h, "watch") && !has(&h, "cancel"));
+            assert_eq!(h.jobs[0]["paused_until"], 12345);
+        }
+        let mut h = host();
+        assert!(command(Action::Retry, None, &mut h).is_err());
+        assert!(command(Action::Retry, Some("missing".into()), &mut h).is_err());
+    }
+    #[test]
+    fn retry_keeps_watch_failures_visible() {
+        let mut h = host();
+        h.current = Value::Null;
+        h.runtime["a"]["state"] = json!("blocked");
+        h.watch_error = true;
+        command(Action::Retry, Some("a".into()), &mut h).unwrap();
+        assert_eq!(h.runtime["a"]["state"], "blocked");
+        assert!(!h.runtime["a"]["error"].as_str().unwrap().is_empty());
+        assert!(!has(&h, "schedule"));
     }
     #[test]
     fn timed_pause_uses_wall_clock_and_manual_resume_clears_deadline() {

@@ -171,6 +171,8 @@ Item {
     Timer {id:updateTimer;interval:60000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
     // Isolated end-to-end checks of the actual existing Main.qml, without an account.
     property int stage: 900
+    property var checkedSupportControl: null
+    property var checkedSupportList: null
     property var checkedWizard: null
     property var lastDialog: ({})
     property var checkedList: null
@@ -391,6 +393,7 @@ Item {
                 }else if(controller.stage===5){
                     let fixture=JSON.parse(JSON.stringify(controller.state));
                     fixture.jobs=[{id:"synthetic",name:"Documents",detail:"/home/alex/Documents ↔ Proton Drive",status:"Syncing",state:"syncing",progress:{completed:3,total:10,path:"Project notes.pdf"},lastSync:null,retryAt:null,skipped:[]}];
+                    fixture.jobs.push({id:"synthetic-retry",name:"Backup",detail:"/home/alex/Backup ↔ Proton Drive",status:"Conflict",state:"conflict",paused:false,lastSync:1700000000,retryAt:null,issues:Array.from({length:30},(_,i)=>"Conflict "+i+": both copies changed; review the local and cloud versions."),conflicts:[]});
                     fixture.fields.background_status.value="Sync service running";
                     fixture.syncSummary={syncing:1};
                     fixture.deletions={pending:1,items:[{name:"Old notes.txt",state:"pending",error:"Waiting for the cloud connection"}]};
@@ -398,6 +401,24 @@ Item {
                 }else if(controller.stage===51){
                     let page=controller.childNamed(controller.view.contentItem,"page-activity");
                     if(!page || !page.visible || page.contentHeight<=0)throw new Error("Activity progress page missing");
+                    let retry=controller.childNamed(controller.view.contentItem,"retrySyncJob-synthetic-retry");
+                    let details=controller.childNamed(controller.view.contentItem,"toggleSyncIssues-synthetic-retry");
+                    if(!retry || !retry.visible || !details || !details.visible)throw new Error("Activity recovery controls missing");
+                    details.clicked();controller.checkedSupportControl=details;controller.stage=511;
+                }else if(controller.stage===511){
+                    let list=controller.childNamed(controller.view.contentItem,"syncIssueList-synthetic-retry");
+                    if(!list || !list.visible || list.count!==30)throw new Error("Full conflict details missing");
+                    list.contentY=80;controller.checkedSupportList=list;
+                    controller.view.s=JSON.parse(JSON.stringify(controller.view.s));controller.stage=512;
+                }else if(controller.stage===512){
+                    let details=controller.childNamed(controller.view.contentItem,"toggleSyncIssues-synthetic-retry");
+                    let list=controller.childNamed(controller.view.contentItem,"syncIssueList-synthetic-retry");
+                    if(details!==controller.checkedSupportControl || list!==controller.checkedSupportList || !list.visible || list.contentY<70)throw new Error("Status refresh reset activity details");
+                    let copy=controller.childNamed(controller.view.contentItem,"copySyncDiagnostics");
+                    copy.clicked();
+                    let report=JSON.parse(files.clipboardText());
+                    if(report.report_version!==1 || report.app!=="NeutronDrive" || report.account || report.jobs)throw new Error("Safe diagnostic copy failed");
+                    console.log("NATIVE_ACTIVITY_RECOVERY_AND_DETAILS_OK");
                     console.log("NATIVE_ACTIVITY_PROGRESS_FIXTURE_OK");controller.capture("light-activity-progress.png",52);
                 }else if(controller.stage===52){
                     controller.view.s=Qt.binding(()=>controller.state);
