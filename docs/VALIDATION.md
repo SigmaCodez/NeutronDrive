@@ -659,3 +659,29 @@ English light/dark GUI and file-manager previews were captured from the actual
 1.0.10 DEB in isolated profiles with synthetic files. The packaged UI and sharing
 checks passed. No personal cloud data was changed and no local system upgrade was
 performed. This release does not certify every desktop session or full-account sync.
+
+
+## Release 1.0.11 (2026-10-31)
+
+Photos and albums advance roughly one image row per physical mouse-wheel notch.
+Pixel-based touchpad events pass through to Qt; native window input checks verify
+wheel delivery, bounded scrolling, selection and deferred thumbnail replacement.
+Background jobs support persisted timed pauses and safe per-job retries. Activity
+exposes all reported issues, preserves unchanged delegates and scrolling, and
+copies an allowlisted diagnostic summary without names, paths or account data.
+
+Both native architecture jobs passed: 217 core unit tests, 21 integration tests,
+140 desktop tests, file-manager provider checks and 364 regression contracts,
+including kernel FUSE and actual Qt windows in every supported language.
+Native tests: https://github.com/SigmaCodez/NeutronDrive/actions/runs/41248904208
+
+The package matrix verifies matching native-source fingerprints and passed for
+DEB amd64/arm64, Ubuntu 26.10 on both architectures, Fedora/openSUSE RPM, strict
+Snap, Flatpak, AppImage and Arch. AUR recipe hashes match the built DEBs.
+Package tests: https://github.com/SigmaCodez/NeutronDrive/actions/runs/41251703816
+
+English GUI and file-manager previews are captured from the actual 1.0.11 DEB
+with isolated profiles and synthetic files. Packaged UI and sharing tests passed.
+BUILD_INFO.json and TEST_RESULTS.json record exact commits and runs. No personal
+cloud files were changed and no local system upgrade was performed. These tests
+do not certify every desktop configuration or a complete real-account sync.
