@@ -232,6 +232,10 @@ esac
         json!({"version":1,"op":"jobs","state":state,"planned":[],"operation":{"action":"add","local_root":local,"remote_root":"/my-files","name":"native","paused":false}}),
     );
     assert!(ok, "{job}");
+    let (ok, stored) = request(json!({"version":1,"op":"jobs","state":state,"planned":[],
+        "operation":{"action":"pause_until","id":job["result"]["id"],"until":1}}));
+    assert!(ok, "{stored}");
+    // Starting a fresh daemon must resume a deadline that expired while it was stopped.
     let mut child = Child(
         Command::new(env!("CARGO_BIN_EXE_neutrondrive-runtime"))
             .env("PATH", "/nonexistent")
@@ -306,9 +310,52 @@ esac
         std::fs::read(local.join("test.txt")).unwrap(),
         b"local edit"
     );
+    let (ok, retry) = control("retry");
+    // Per-job retry intentionally requires an identity; it cannot retry every job accidentally.
+    assert!(!ok, "{retry}");
+    let (ok, retried) = request(
+        json!({"version":1,"op":"control_command","path":state.join("control.sock"),
+        "action":"retry","job_id":job["result"]["id"],"timeout":1.0}),
+    );
+    assert!(ok, "{retried}");
+    assert_eq!(retried["result"]["jobs"][0]["state"], "pending");
+    assert_eq!(retried["result"]["jobs"][0]["account_root_uid"], "root");
     let (ok, paused) = control("pause");
     assert!(ok, "{paused}");
     assert_eq!(paused["result"]["jobs"][0]["state"], "paused");
+    let (ok, still_paused) = request(
+        json!({"version":1,"op":"control_command","path":state.join("control.sock"),
+        "action":"retry","job_id":job["result"]["id"],"timeout":1.0}),
+    );
+    assert!(ok, "{still_paused}");
+    assert_eq!(still_paused["result"]["jobs"][0]["paused"], true);
+    let (ok, timed) = control("pause_1h");
+    assert!(ok, "{timed}");
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let until = timed["result"]["jobs"][0]["paused_until"].as_u64().unwrap();
+    assert!((now + 3598..=now + 3601).contains(&until));
+    // Set an already-expired persisted deadline, then reload as on daemon startup.
+    // No GUI or user resume command participates in expiration.
+    let (ok, stored) = request(json!({"version":1,"op":"jobs","state":state,"planned":[],
+        "operation":{"action":"pause_until","id":job["result"]["id"],"until":now-1}}));
+    assert!(ok, "{stored}");
+    assert!(control("reload").0);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let (ok, status) = control("status");
+        if ok && status["result"]["jobs"][0]["paused"] == false {
+            assert!(status["result"]["jobs"][0]["paused_until"].is_null());
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed pause did not resume: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(30));
+    }
     let (ok, resumed) = control("resume");
     assert!(ok, "{resumed}");
     assert_eq!(resumed["result"]["jobs"][0]["account_root_uid"], "root");

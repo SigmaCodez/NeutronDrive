@@ -17,6 +17,7 @@ mod preferences;
 pub mod runtime;
 mod setup;
 mod startup;
+mod sync_diagnostics;
 mod update_controller;
 mod update_installer;
 mod update_restart;

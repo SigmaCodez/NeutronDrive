@@ -789,5 +789,18 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "Jeda selama 1 jam",
+  "Pause for 4 hours": "Jeda selama 4 jam",
+  "Pause for 24 hours": "Jeda selama 24 jam",
+  "Until I resume": "Sampai saya melanjutkan",
+  "No completed sync yet": "Belum ada sinkronisasi selesai",
+  "Automatic resume": "Lanjutkan otomatis",
+  "Copy diagnostics": "Salin diagnostik",
+  "Only status and counts are copied. No file names, paths or account details.": "Hanya status dan jumlah yang disalin. Tanpa nama berkas, jalur, atau detail akun.",
+  "Diagnostics copied": "Diagnostik disalin",
+  "Retry now": "Coba lagi sekarang",
+  "Hide details": "Sembunyikan detail",
+  "Show details": "Tampilkan detail",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Percobaan ulang memeriksa kedua salinan tanpa menimpa konflik."
 }

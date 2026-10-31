@@ -789,5 +789,18 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "暫停 1 小時",
+  "Pause for 4 hours": "暫停 4 小時",
+  "Pause for 24 hours": "暫停 24 小時",
+  "Until I resume": "直到我手動恢復",
+  "No completed sync yet": "尚未完成任何同步",
+  "Automatic resume": "自動恢復",
+  "Copy diagnostics": "複製診斷資訊",
+  "Only status and counts are copied. No file names, paths or account details.": "僅複製狀態和計數，不包含檔名、路徑或帳戶資訊。",
+  "Diagnostics copied": "診斷資訊已複製",
+  "Retry now": "立即重試",
+  "Hide details": "隱藏詳情",
+  "Show details": "顯示詳情",
+  "Retry checks both copies again. It does not overwrite a conflict.": "重試會重新檢查兩個副本，不會覆寫衝突。"
 }

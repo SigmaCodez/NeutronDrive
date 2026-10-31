@@ -789,5 +789,18 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "Παύση για 1 ώρα",
+  "Pause for 4 hours": "Παύση για 4 ώρες",
+  "Pause for 24 hours": "Παύση για 24 ώρες",
+  "Until I resume": "Μέχρι να συνεχίσω",
+  "No completed sync yet": "Δεν έχει ολοκληρωθεί συγχρονισμός",
+  "Automatic resume": "Αυτόματη συνέχιση",
+  "Copy diagnostics": "Αντιγραφή διαγνωστικών",
+  "Only status and counts are copied. No file names, paths or account details.": "Αντιγράφονται μόνο καταστάσεις και μετρήσεις. Χωρίς ονόματα αρχείων, διαδρομές ή στοιχεία λογαριασμού.",
+  "Diagnostics copied": "Τα διαγνωστικά αντιγράφηκαν",
+  "Retry now": "Νέα προσπάθεια",
+  "Hide details": "Απόκρυψη λεπτομερειών",
+  "Show details": "Εμφάνιση λεπτομερειών",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Η νέα προσπάθεια ελέγχει και τα δύο αντίγραφα χωρίς αντικατάσταση συγκρούσεων."
 }

@@ -171,6 +171,8 @@ Item {
     Timer {id:updateTimer;interval:60000;running:controller.initialized;repeat:true;onTriggered:updater.tick()}
     // Isolated end-to-end checks of the actual existing Main.qml, without an account.
     property int stage: 900
+    property var checkedSupportControl: null
+    property var checkedSupportList: null
     property var checkedWizard: null
     property var lastDialog: ({})
     property var checkedList: null
@@ -340,7 +342,29 @@ Item {
                     controller.show_page("computer-backup");controller.stage=20001;
                 }else if(controller.stage===20001){
                     if(!controller.childNamed(controller.view.contentItem,"computerBackupButton"))throw new Error("Computer backup configuration missing");
-                    console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",2001);
+                    let fixture=JSON.parse(JSON.stringify(controller.state));
+                    fixture.jobs=[{id:"synthetic",name:"Documents",computer:true,detail:"/home/alex/Documents ↔ Proton Drive",status:"Paused",paused:false,pausedUntil:null,lastSync:1700000000,retryAt:null}];
+                    controller.view.s=fixture;controller.stage=20002;
+                }else if(controller.stage===20002){
+                    let pause=controller.childNamed(controller.view.contentItem,"syncPauseButton");
+                    if(!pause)throw new Error("Sync pause control missing");
+                    pause.clicked();controller.stage=20003;
+                }else if(controller.stage===20003){
+                    let pause=controller.childNamed(controller.view.contentItem,"syncPauseButton");
+                    let menu=pause ? pause.pausePopup : null;
+                    if(!menu || !menu.opened || menu.count!==4)throw new Error("Timed pause choices missing");
+                    menu.close();
+                    let fixture=JSON.parse(JSON.stringify(controller.view.s));
+                    fixture.jobs[0].paused=true;fixture.jobs[0].pausedUntil=1700003600;
+                    controller.view.s=fixture;controller.stage=20004;
+                }else if(controller.stage===20004){
+                    let pause=controller.childNamed(controller.view.contentItem,"syncPauseButton");
+                    let time=controller.childNamed(controller.view.contentItem,"syncResumeTime");
+                    if(!pause || pause.text!==controller.translate("Fortsetzen") || !time || !time.visible || time.text.indexOf("Invalid")>=0)throw new Error("Paused job resume information missing");
+                    console.log("NATIVE_TIMED_SYNC_PAUSE_OK");
+                    console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",20005);
+                }else if(controller.stage===20005){
+                    controller.view.s=Qt.binding(function(){return controller.state});controller.stage=2001;
                 }else if(controller.stage===2001){
                     controller.navigate(controller.translate("Computer"),"/devices");controller.stage=20011;
                 }else if(controller.stage===20011){
@@ -369,6 +393,7 @@ Item {
                 }else if(controller.stage===5){
                     let fixture=JSON.parse(JSON.stringify(controller.state));
                     fixture.jobs=[{id:"synthetic",name:"Documents",detail:"/home/alex/Documents ↔ Proton Drive",status:"Syncing",state:"syncing",progress:{completed:3,total:10,path:"Project notes.pdf"},lastSync:null,retryAt:null,skipped:[]}];
+                    fixture.jobs.push({id:"synthetic-retry",name:"Backup",detail:"/home/alex/Backup ↔ Proton Drive",status:"Conflict",state:"conflict",paused:false,lastSync:1700000000,retryAt:null,issues:Array.from({length:30},(_,i)=>"Conflict "+i+": both copies changed; review the local and cloud versions."),conflicts:[]});
                     fixture.fields.background_status.value="Sync service running";
                     fixture.syncSummary={syncing:1};
                     fixture.deletions={pending:1,items:[{name:"Old notes.txt",state:"pending",error:"Waiting for the cloud connection"}]};
@@ -376,6 +401,24 @@ Item {
                 }else if(controller.stage===51){
                     let page=controller.childNamed(controller.view.contentItem,"page-activity");
                     if(!page || !page.visible || page.contentHeight<=0)throw new Error("Activity progress page missing");
+                    let retry=controller.childNamed(controller.view.contentItem,"retrySyncJob-synthetic-retry");
+                    let details=controller.childNamed(controller.view.contentItem,"toggleSyncIssues-synthetic-retry");
+                    if(!retry || !retry.visible || !details || !details.visible)throw new Error("Activity recovery controls missing");
+                    details.clicked();controller.checkedSupportControl=details;controller.stage=511;
+                }else if(controller.stage===511){
+                    let list=controller.childNamed(controller.view.contentItem,"syncIssueList-synthetic-retry");
+                    if(!list || !list.visible || list.count!==30)throw new Error("Full conflict details missing");
+                    list.contentY=80;controller.checkedSupportList=list;
+                    controller.view.s=JSON.parse(JSON.stringify(controller.view.s));controller.stage=512;
+                }else if(controller.stage===512){
+                    let details=controller.childNamed(controller.view.contentItem,"toggleSyncIssues-synthetic-retry");
+                    let list=controller.childNamed(controller.view.contentItem,"syncIssueList-synthetic-retry");
+                    if(details!==controller.checkedSupportControl || list!==controller.checkedSupportList || !list.visible || list.contentY<70)throw new Error("Status refresh reset activity details");
+                    let copy=controller.childNamed(controller.view.contentItem,"copySyncDiagnostics");
+                    copy.clicked();
+                    let report=JSON.parse(files.clipboardText());
+                    if(report.report_version!==1 || report.app!=="NeutronDrive" || report.account || report.jobs)throw new Error("Safe diagnostic copy failed");
+                    console.log("NATIVE_ACTIVITY_RECOVERY_AND_DETAILS_OK");
                     console.log("NATIVE_ACTIVITY_PROGRESS_FIXTURE_OK");controller.capture("light-activity-progress.png",52);
                 }else if(controller.stage===52){
                     controller.view.s=Qt.binding(()=>controller.state);
@@ -629,6 +672,31 @@ Item {
                 }else if(controller.stage===21020){
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");
                     if(grid.count!==2000)throw new Error("Large photo model missing");
+                    let wheel={pixelDelta:{x:0,y:0},angleDelta:{x:0,y:-120},modifiers:Qt.NoModifier};
+                    grid.contentY=grid.originY;
+                    if(!controller.photoBench.scrollGallery(grid,wheel) || Math.abs(grid.contentY-grid.originY-grid.cellHeight)>1)throw new Error("Photo wheel must advance one row per notch");
+                    let before=grid.contentY;
+                    wheel.pixelDelta.y=-5;
+                    if(controller.photoBench.scrollGallery(grid,wheel) || grid.contentY!==before)throw new Error("Native touchpad scrolling was overridden");
+                    wheel.pixelDelta.y=0;wheel.angleDelta.y=12000;
+                    controller.photoBench.scrollGallery(grid,wheel);
+                    if(grid.contentY!==grid.originY)throw new Error("Photo wheel escaped upper boundary");
+                    wheel.angleDelta.y=-12000000;controller.photoBench.scrollGallery(grid,wheel);
+                    if(Math.abs(grid.contentY-(grid.originY+grid.contentHeight-grid.height))>1)throw new Error("Photo wheel escaped lower boundary");
+                    if(!controller.photoBench.scrolling)throw new Error("Wheel movement must defer thumbnail replacement");
+                    console.log("NATIVE_PHOTO_FAST_WHEEL_OK");
+                    controller.stage=210201;
+                }else if(controller.stage===210201){
+                    if(controller.photoBench.scrolling)return;
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    grid.contentY=grid.originY;
+                    let point=grid.mapToItem(controller.view.contentItem,grid.width/2,grid.height/2);
+                    files.windowWheel(point.x,point.y,-120);controller.stage=210202;
+                }else if(controller.stage===210202){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    if(Math.abs(grid.contentY-grid.originY-grid.cellHeight)>1)throw new Error("Native mouse wheel did not use accelerated gallery scrolling: "+grid.contentY);
+                    if(controller.photoBench.scrolling)return;
+                    console.log("NATIVE_PHOTO_WHEEL_EVENT_OK");
                     grid.positionViewAtIndex(1000,GridView.Beginning);controller.stage=21021;
                 }else if(controller.stage===21021){
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");

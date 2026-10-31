@@ -789,5 +789,18 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "Прыпыніць на 1 гадзіну",
+  "Pause for 4 hours": "Прыпыніць на 4 гадзіны",
+  "Pause for 24 hours": "Прыпыніць на 24 гадзіны",
+  "Until I resume": "Да ручнога аднаўлення",
+  "No completed sync yet": "Сінхранізацыя яшчэ не завершана",
+  "Automatic resume": "Аўтаматычнае аднаўленне",
+  "Copy diagnostics": "Капіяваць дыягностыку",
+  "Only status and counts are copied. No file names, paths or account details.": "Капіююцца толькі станы і лічыльнікі. Без назваў файлаў, шляхоў і даных уліковага запісу.",
+  "Diagnostics copied": "Дыягностыка скапіявана",
+  "Retry now": "Паўтарыць зараз",
+  "Hide details": "Схаваць падрабязнасці",
+  "Show details": "Паказаць падрабязнасці",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Паўторная спроба правярае абедзве копіі без перазапісу канфліктаў."
 }
