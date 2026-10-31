@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Pausa i 24 timmar",
   "Until I resume": "Tills jag återupptar",
   "No completed sync yet": "Ingen slutförd synkronisering ännu",
-  "Automatic resume": "Automatisk återupptagning"
+  "Automatic resume": "Automatisk återupptagning",
+  "Copy diagnostics": "Kopiera diagnostik",
+  "Only status and counts are copied. No file names, paths or account details.": "Endast status och antal kopieras. Inga filnamn, sökvägar eller kontouppgifter.",
+  "Diagnostics copied": "Diagnostik kopierad",
+  "Retry now": "Försök igen nu",
+  "Hide details": "Dölj detaljer",
+  "Show details": "Visa detaljer",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Ett nytt försök kontrollerar båda kopiorna utan att skriva över konflikter."
 }

@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Pause i 24 timer",
   "Until I resume": "Indtil jeg genoptager",
   "No completed sync yet": "Ingen fuldført synkronisering endnu",
-  "Automatic resume": "Automatisk genoptagelse"
+  "Automatic resume": "Automatisk genoptagelse",
+  "Copy diagnostics": "Kopiér diagnostik",
+  "Only status and counts are copied. No file names, paths or account details.": "Kun status og antal kopieres. Ingen filnavne, stier eller kontooplysninger.",
+  "Diagnostics copied": "Diagnostik kopieret",
+  "Retry now": "Prøv igen nu",
+  "Hide details": "Skjul detaljer",
+  "Show details": "Vis detaljer",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Et nyt forsøg kontrollerer begge kopier uden at overskrive konflikter."
 }

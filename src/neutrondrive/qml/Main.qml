@@ -6,6 +6,25 @@ import QtQuick.Dialogs
 
 ApplicationWindow {
     id: window
+    property var expandedSyncIssues: ({})
+    readonly property var syncJobs: s && s.jobs ? s.jobs : []
+    ListModel { id: cachedSyncJobs; dynamicRoles: true }
+    function updateSyncJobs() {
+        let entries=syncJobs, ids=new Set(entries.map(job=>job.id));
+        for(let i=cachedSyncJobs.count-1;i>=0;i--)if(!ids.has(cachedSyncJobs.get(i).entry.id))cachedSyncJobs.remove(i);
+        for(let i=0;i<entries.length;i++) {
+            let next=entries[i];
+            if(i>=cachedSyncJobs.count) { cachedSyncJobs.append({entry:next}); continue; }
+            if(cachedSyncJobs.get(i).entry.id!==next.id) {
+                let found=-1;
+                for(let j=i+1;j<cachedSyncJobs.count;j++)if(cachedSyncJobs.get(j).entry.id===next.id) { found=j; break; }
+                if(found<0)cachedSyncJobs.insert(i,{entry:next});else cachedSyncJobs.move(found,i,1);
+            }
+            if(JSON.stringify(cachedSyncJobs.get(i).entry)!==JSON.stringify(next))cachedSyncJobs.setProperty(i,"entry",next);
+        }
+    }
+    onSyncJobsChanged: updateSyncJobs()
+
     readonly property var cachedFileEntries: controller.fileEntries || []
     ListModel { id: cachedFiles; dynamicRoles: true }
     function fileIdentity(entry) { return entry.uid || entry.path || entry.name; }
@@ -25,7 +44,7 @@ ApplicationWindow {
         }
     }
     onCachedFileEntriesChanged: updateFileEntries()
-    Component.onCompleted: updateFileEntries()
+    Component.onCompleted: { updateFileEntries(); updateSyncJobs(); }
     readonly property bool compactHeight: height < 720
     readonly property bool darkMode: controller.appearance.dark
     readonly property var theme: darkMode ? {
@@ -146,7 +165,7 @@ ApplicationWindow {
         Layout.fillWidth: true; spacing: 4
         Copy { text: job.lastSync ? window.tr("Last sync")+": "+new Date(job.lastSync*1000).toLocaleString() : window.tr("No completed sync yet") }
         Copy { visible: !!job.retryAt; text: window.tr("Next retry")+": "+new Date(job.retryAt*1000).toLocaleString() }
-        Copy { objectName: "syncResumeTime"; visible: job.paused && !!job.pausedUntil; text: window.tr("Automatic resume")+": "+new Date(job.pausedUntil*1000).toLocaleString() }
+        Copy { objectName: "syncResumeTime"; visible: job.paused===true && !!job.pausedUntil; text: window.tr("Automatic resume")+": "+new Date(job.pausedUntil*1000).toLocaleString() }
     }
     component WorkProgress: ColumnLayout {
         id: workProgress; property var progress: null; property bool active: true
@@ -895,19 +914,40 @@ ApplicationWindow {
         PageScroll {
             objectName: "page-activity"
             Heading {text:window.tr("Current activity")}
+            Action { objectName: "copySyncDiagnostics"; text: window.tr("Copy diagnostics"); enabled: true; command: "copySyncDiagnostics" }
+            Copy { text: window.tr("Only status and counts are copied. No file names, paths or account details.") }
             Copy {text:window.f("background_status").value}
             Card { visible: s.busy
                 Heading {text:s.activity.length ? s.activity[0].title : window.tr("Working…")}
                 WorkProgress {progress:s.progress;active:s.busy}
             }
-            Repeater {model:(s.jobs || [])
-                delegate: Card {required property var modelData
+            Repeater {model:cachedSyncJobs
+                delegate: Card {required property var entry; readonly property var modelData: entry
                     Heading {text:modelData.name}
                     Copy {text:modelData.detail}
                     Copy {text:modelData.status}
                     WorkProgress {visible:modelData.state==="syncing";progress:modelData.progress;active:visible}
                     SyncTiming { job: modelData }
-                    Copy {visible:!!modelData.skipped && modelData.skipped.length>0;text:window.tr("Skipped")+": "+(modelData.skipped || []).join("\n")}
+                    Flow { Layout.fillWidth: true; spacing: 8
+                        Action { objectName: "retrySyncJob-"+modelData.id; text: window.tr("Retry now"); visible: !modelData.paused && ["offline","error","blocked","conflict","conflicts"].indexOf(modelData.state)>=0; onClicked: controller.job_action("retry",modelData.id) }
+                        SyncPauseButton { job: modelData }
+                        Action {
+                            objectName: "toggleSyncIssues-"+modelData.id
+                            visible: (modelData.issues || []).length>0
+                            text: (window.expandedSyncIssues[modelData.id] ? window.tr("Hide details") : window.tr("Show details"))+" ("+(modelData.issues || []).length+")"
+                            onClicked: { let next=Object.assign({},window.expandedSyncIssues); next[modelData.id]=!next[modelData.id]; window.expandedSyncIssues=next; }
+                        }
+                    }
+                    Copy { visible: modelData.state==="conflict" || modelData.state==="conflicts"; text: window.tr("Retry checks both copies again. It does not overwrite a conflict.") }
+                    ListView {
+                        objectName: "syncIssueList-"+modelData.id
+                        Layout.fillWidth: true; Layout.preferredHeight: visible ? 200 : 0
+                        visible: !!window.expandedSyncIssues[modelData.id] && (modelData.issues || []).length>0
+                        model: visible ? modelData.issues : []
+                        clip: true; spacing: 8
+                        ScrollBar.vertical: ScrollBar { }
+                        delegate: Label { required property string modelData; width: ListView.view.width-16; text: modelData; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.theme.muted }
+                    }
                 }
             }
             Repeater {model:s.downloads || []

@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Wstrzymaj na 24 godziny",
   "Until I resume": "Do ręcznego wznowienia",
   "No completed sync yet": "Brak ukończonej synchronizacji",
-  "Automatic resume": "Automatyczne wznowienie"
+  "Automatic resume": "Automatyczne wznowienie",
+  "Copy diagnostics": "Kopiuj diagnostykę",
+  "Only status and counts are copied. No file names, paths or account details.": "Kopiowane są tylko stany i liczby. Bez nazw plików, ścieżek i danych konta.",
+  "Diagnostics copied": "Diagnostyka skopiowana",
+  "Retry now": "Spróbuj ponownie",
+  "Hide details": "Ukryj szczegóły",
+  "Show details": "Pokaż szczegóły",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Ponowna próba sprawdza obie kopie bez nadpisywania konfliktów."
 }

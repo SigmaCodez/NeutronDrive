@@ -795,5 +795,12 @@
   "Pause for 24 hours": "暂停 24 小时",
   "Until I resume": "直到我手动恢复",
   "No completed sync yet": "尚未完成任何同步",
-  "Automatic resume": "自动恢复"
+  "Automatic resume": "自动恢复",
+  "Copy diagnostics": "复制诊断信息",
+  "Only status and counts are copied. No file names, paths or account details.": "仅复制状态和计数，不包含文件名、路径或账户信息。",
+  "Diagnostics copied": "诊断信息已复制",
+  "Retry now": "立即重试",
+  "Hide details": "隐藏详情",
+  "Show details": "显示详情",
+  "Retry checks both copies again. It does not overwrite a conflict.": "重试会重新检查两个副本，不会覆盖冲突。"
 }

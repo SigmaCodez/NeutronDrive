@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Pause for 24 hours",
   "Until I resume": "Until I resume",
   "No completed sync yet": "No completed sync yet",
-  "Automatic resume": "Automatic resume"
+  "Automatic resume": "Automatic resume",
+  "Copy diagnostics": "Copy diagnostics",
+  "Only status and counts are copied. No file names, paths or account details.": "Only status and counts are copied. No file names, paths or account details.",
+  "Diagnostics copied": "Diagnostics copied",
+  "Retry now": "Retry now",
+  "Hide details": "Hide details",
+  "Show details": "Show details",
+  "Retry checks both copies again. It does not overwrite a conflict.": "Retry checks both copies again. It does not overwrite a conflict."
 }

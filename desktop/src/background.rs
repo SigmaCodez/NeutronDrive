@@ -39,6 +39,7 @@ fn execute(
         "pause_4h",
         "pause_24h",
         "resume",
+        "retry",
         "sync",
         "add",
         "computer",
@@ -219,7 +220,7 @@ fn execute(
                 call(command("reload", Value::Null))?;
             }
         }
-        "pause" | "pause_1h" | "pause_4h" | "pause_24h" | "resume" | "sync" => {
+        "pause" | "pause_1h" | "pause_4h" | "pause_24h" | "resume" | "retry" | "sync" => {
             let id = operation["id"]
                 .as_str()
                 .filter(|v| !v.is_empty())
@@ -265,7 +266,7 @@ mod tests {
     use super::*;
     #[test]
     fn timed_pause_forwards_selected_job_and_rejects_missing_identity() {
-        for action in ["pause_1h", "pause_4h", "pause_24h"] {
+        for action in ["pause_1h", "pause_4h", "pause_24h", "retry"] {
             let mut calls = Vec::new();
             execute(
                 "sdk",

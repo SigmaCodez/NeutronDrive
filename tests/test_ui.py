@@ -17,6 +17,7 @@ class NativeUiTests(unittest.TestCase):
         self.assertIn('NATIVE_PHOTO_SELECTION_AND_VIEWER_OK', output)
         self.assertIn('NATIVE_KEYBOARD_AND_MOUSE_OK', output)
         self.assertIn('NATIVE_MAIN_WINDOW_OK', output)
+        self.assertIn('NATIVE_ACTIVITY_RECOVERY_AND_DETAILS_OK', output)
 
     def test_literal_prompt_and_clipboard_through_native_sdk_worker(self):
         output = check('--check-window-fixture', fixture=True)

@@ -795,5 +795,12 @@
   "Pause for 24 hours": "Pausa de 24 hores",
   "Until I resume": "Fins que reprengui",
   "No completed sync yet": "Cap sincronització completada",
-  "Automatic resume": "Represa automàtica"
+  "Automatic resume": "Represa automàtica",
+  "Copy diagnostics": "Copia el diagnòstic",
+  "Only status and counts are copied. No file names, paths or account details.": "Només es copien estats i recomptes. Sense noms de fitxers, camins ni dades del compte.",
+  "Diagnostics copied": "Diagnòstic copiat",
+  "Retry now": "Torna-ho a provar",
+  "Hide details": "Amaga els detalls",
+  "Show details": "Mostra els detalls",
+  "Retry checks both copies again. It does not overwrite a conflict.": "El nou intent comprova les dues còpies sense sobreescriure els conflictes."
 }

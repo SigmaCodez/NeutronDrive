@@ -406,7 +406,7 @@ impl Services for StateHost<'_> {
             "jobs" => return Ok(json!(self.shared.jobs()?)),
             "snapshot" => {
                 return Ok(
-                    json!({"current":self.state.current,"jobs":self.state.jobs.iter().map(|(id,j)|(id.clone(),json!({"job":j.config,"watcher":j.watcher.is_some()}))).collect::<BTreeMap<_,_>>()}),
+                    json!({"current":self.state.current,"jobs":self.state.jobs.iter().map(|(id,j)|(id.clone(),json!({"job":j.config,"watcher":j.watcher.is_some(),"state":j.runtime["state"]}))).collect::<BTreeMap<_,_>>()}),
                 )
             }
             "status" => return self.shared.status(self.state),
