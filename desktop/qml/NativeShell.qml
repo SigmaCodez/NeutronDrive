@@ -340,7 +340,29 @@ Item {
                     controller.show_page("computer-backup");controller.stage=20001;
                 }else if(controller.stage===20001){
                     if(!controller.childNamed(controller.view.contentItem,"computerBackupButton"))throw new Error("Computer backup configuration missing");
-                    console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",2001);
+                    let fixture=JSON.parse(JSON.stringify(controller.state));
+                    fixture.jobs=[{id:"synthetic",name:"Documents",computer:true,detail:"/home/alex/Documents ↔ Proton Drive",status:"Paused",paused:false,pausedUntil:null,lastSync:1700000000,retryAt:null}];
+                    controller.view.s=fixture;controller.stage=20002;
+                }else if(controller.stage===20002){
+                    let pause=controller.childNamed(controller.view.contentItem,"syncPauseButton");
+                    if(!pause)throw new Error("Sync pause control missing");
+                    pause.clicked();controller.stage=20003;
+                }else if(controller.stage===20003){
+                    let pause=controller.childNamed(controller.view.contentItem,"syncPauseButton");
+                    let menu=pause ? pause.pausePopup : null;
+                    if(!menu || !menu.opened || menu.count!==4)throw new Error("Timed pause choices missing");
+                    menu.close();
+                    let fixture=JSON.parse(JSON.stringify(controller.view.s));
+                    fixture.jobs[0].paused=true;fixture.jobs[0].pausedUntil=1700003600;
+                    controller.view.s=fixture;controller.stage=20004;
+                }else if(controller.stage===20004){
+                    let pause=controller.childNamed(controller.view.contentItem,"syncPauseButton");
+                    let time=controller.childNamed(controller.view.contentItem,"syncResumeTime");
+                    if(!pause || pause.text!==controller.translate("Fortsetzen") || !time || !time.visible || time.text.indexOf("Invalid")>=0)throw new Error("Paused job resume information missing");
+                    console.log("NATIVE_TIMED_SYNC_PAUSE_OK");
+                    console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",20005);
+                }else if(controller.stage===20005){
+                    controller.view.s=Qt.binding(function(){return controller.state});controller.stage=2001;
                 }else if(controller.stage===2001){
                     controller.navigate(controller.translate("Computer"),"/devices");controller.stage=20011;
                 }else if(controller.stage===20011){

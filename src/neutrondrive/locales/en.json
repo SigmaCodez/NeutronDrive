@@ -789,5 +789,11 @@
   "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.": "Import into Proton Photos? Originals stay unchanged. Albums are created from folder names; matching private albums are reused. Comments are not imported. You can cancel and retry; completed uploads are kept.",
   "Photo import finished": "Photo import finished",
   "Album errors": "Album errors",
-  "Refresh the photo library now?": "Refresh the photo library now?"
+  "Refresh the photo library now?": "Refresh the photo library now?",
+  "Pause for 1 hour": "Pause for 1 hour",
+  "Pause for 4 hours": "Pause for 4 hours",
+  "Pause for 24 hours": "Pause for 24 hours",
+  "Until I resume": "Until I resume",
+  "No completed sync yet": "No completed sync yet",
+  "Automatic resume": "Automatic resume"
 }

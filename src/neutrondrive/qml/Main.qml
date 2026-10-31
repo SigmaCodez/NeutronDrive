@@ -125,6 +125,29 @@ ApplicationWindow {
         enabled: field ? window.f(field).enabled : !s.busy
         onClicked: controller.action(command)
     }
+    component SyncPauseButton: DriveButton {
+        id: pauseButton; objectName: "syncPauseButton"
+        readonly property alias pausePopup: pauseMenu
+        required property var job
+        theme: window.theme
+        enabled: !s.busy
+        text: job.paused ? window.tr("Fortsetzen") : window.tr("Pausieren")
+        onClicked: { if (job.paused) controller.job_action("resume", job.id); else pauseMenu.popup() }
+        DriveMenu {
+            id: pauseMenu; objectName: "syncPauseMenu"; theme: window.theme
+            DriveMenuItem { theme: window.theme; text: window.tr("Pause for 1 hour"); onTriggered: controller.job_action("pause_1h", pauseButton.job.id) }
+            DriveMenuItem { theme: window.theme; text: window.tr("Pause for 4 hours"); onTriggered: controller.job_action("pause_4h", pauseButton.job.id) }
+            DriveMenuItem { theme: window.theme; text: window.tr("Pause for 24 hours"); onTriggered: controller.job_action("pause_24h", pauseButton.job.id) }
+            DriveMenuItem { theme: window.theme; text: window.tr("Until I resume"); onTriggered: controller.job_action("pause", pauseButton.job.id) }
+        }
+    }
+    component SyncTiming: ColumnLayout {
+        required property var job
+        Layout.fillWidth: true; spacing: 4
+        Copy { text: job.lastSync ? window.tr("Last sync")+": "+new Date(job.lastSync*1000).toLocaleString() : window.tr("No completed sync yet") }
+        Copy { visible: !!job.retryAt; text: window.tr("Next retry")+": "+new Date(job.retryAt*1000).toLocaleString() }
+        Copy { objectName: "syncResumeTime"; visible: job.paused && !!job.pausedUntil; text: window.tr("Automatic resume")+": "+new Date(job.pausedUntil*1000).toLocaleString() }
+    }
     component WorkProgress: ColumnLayout {
         id: workProgress; property var progress: null; property bool active: true
         readonly property bool measured: Boolean(progress && progress.total>0 && progress.completed>=0)
@@ -780,8 +803,9 @@ ApplicationWindow {
                     Heading { text: modelData.name }
                     Copy { text: modelData.detail }
                     Copy { text: modelData.status }
+                    SyncTiming { job: modelData }
                     Flow { Layout.fillWidth: true; spacing: 8
-                        Action { text: modelData.paused ? window.tr("Fortsetzen") : window.tr("Pausieren"); onClicked: controller.job_action(modelData.paused ? "resume" : "pause",modelData.id) }
+                        SyncPauseButton { job: modelData }
                         Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
                         Action { text: window.tr("Stop syncing…"); onClicked: controller.job_action("remove",modelData.id) }
                         Action { text: window.tr("Remove backup…"); visible: modelData.computer; onClicked: controller.job_action("remove_backup",modelData.id) }
@@ -806,8 +830,9 @@ ApplicationWindow {
                     Heading { text: modelData.name }
                     Copy { text: modelData.detail }
                     Copy { text: modelData.status }
+                    SyncTiming { job: modelData }
                     Flow { Layout.fillWidth: true; spacing: 8
-                        Action { text: modelData.paused ? window.tr("Fortsetzen") : window.tr("Pausieren"); onClicked: controller.job_action(modelData.paused ? "resume" : "pause",modelData.id) }
+                        SyncPauseButton { job: modelData }
                         Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
                         Action { text: window.tr("Stop syncing…"); onClicked: controller.job_action("remove",modelData.id) }
                         Action { text: window.tr("Remove backup…"); visible: modelData.computer; onClicked: controller.job_action("remove_backup",modelData.id) }
@@ -881,8 +906,7 @@ ApplicationWindow {
                     Copy {text:modelData.detail}
                     Copy {text:modelData.status}
                     WorkProgress {visible:modelData.state==="syncing";progress:modelData.progress;active:visible}
-                    Copy {visible:!!modelData.lastSync;text:window.tr("Last sync")+": "+new Date(modelData.lastSync*1000).toLocaleString()}
-                    Copy {visible:!!modelData.retryAt;text:window.tr("Next retry")+": "+new Date(modelData.retryAt*1000).toLocaleString()}
+                    SyncTiming { job: modelData }
                     Copy {visible:!!modelData.skipped && modelData.skipped.length>0;text:window.tr("Skipped")+": "+(modelData.skipped || []).join("\n")}
                 }
             }

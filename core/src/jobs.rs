@@ -22,6 +22,8 @@ struct Job {
     remote_root: String,
     #[serde(default)]
     paused: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    paused_until: Option<u64>,
     #[serde(default)]
     remote_uid: String,
     #[serde(default)]
@@ -53,6 +55,13 @@ pub enum Action {
         id: String,
         name: Option<String>,
         paused: Option<bool>,
+    },
+    PauseUntil {
+        id: String,
+        until: u64,
+    },
+    ResumeExpired {
+        now: u64,
     },
     Remove {
         id: String,
@@ -248,6 +257,7 @@ pub fn transact(
                 local_root,
                 remote_root,
                 paused,
+                paused_until: None,
                 remote_uid: String::new(),
                 account_root_uid: String::new(),
                 local_device,
@@ -263,6 +273,7 @@ pub fn transact(
                 .ok_or("Sync-Job wurde nicht gefunden.")?;
             if let Some(paused) = paused {
                 job.paused = paused;
+                job.paused_until = None;
             }
             if let Some(name) = name {
                 if !name.trim().is_empty() {
@@ -270,6 +281,32 @@ pub fn transact(
                 }
             }
             json!(job)
+        }
+        Action::PauseUntil { id, until } => {
+            if until == 0 {
+                return Err("Invalid pause deadline".into());
+            }
+            let job = jobs
+                .iter_mut()
+                .find(|j| j.id == id)
+                .ok_or("Sync-Job wurde nicht gefunden.")?;
+            job.paused = true;
+            job.paused_until = Some(until);
+            json!(job)
+        }
+        Action::ResumeExpired { now } => {
+            let mut changed = false;
+            for job in &mut jobs {
+                if job.paused && job.paused_until.is_some_and(|until| until <= now) {
+                    job.paused = false;
+                    job.paused_until = None;
+                    changed = true;
+                }
+            }
+            if !changed {
+                return Ok(json!(false));
+            }
+            json!(true)
         }
         Action::Remove { id } => {
             let count = jobs.len();
@@ -310,4 +347,67 @@ pub fn transact(
     validate(&jobs)?;
     storage::write(&path, json!({"version":1,"jobs":jobs}))?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn timed_pauses_survive_reload_and_do_not_override_manual_changes() {
+        let root = std::env::temp_dir().join(format!(
+            "nd-pause-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let state = root.join("state");
+        let id = "0123456789abcdef0123456789abcdef";
+        storage::directory(&state, true, true).unwrap();
+        storage::write(&state.join("jobs.json"), json!({"version":1,"jobs":[{
+            "id":id,"name":"Test","local_root":root.join("files"),"remote_root":"/my-files/Test","paused":false
+        }]})).unwrap();
+        let run = |action| transact(&state, &[], action, &mut |_| 0).unwrap();
+        // Old version-1 files remain readable, without injecting an empty timer.
+        assert!(run(Action::List)[0].get("paused_until").is_none());
+        run(Action::PauseUntil {
+            id: id.into(),
+            until: 200,
+        });
+        assert_eq!(run(Action::List)[0]["paused_until"], 200);
+        assert_eq!(run(Action::ResumeExpired { now: 199 }), false);
+        assert_eq!(run(Action::ResumeExpired { now: 200 }), true);
+        assert_eq!(run(Action::List)[0]["paused"], false);
+        assert_eq!(run(Action::ResumeExpired { now: 201 }), false);
+        run(Action::PauseUntil {
+            id: id.into(),
+            until: 300,
+        });
+        run(Action::PauseUntil {
+            id: id.into(),
+            until: 500,
+        });
+        assert_eq!(run(Action::ResumeExpired { now: 300 }), false);
+        run(Action::Update {
+            id: id.into(),
+            name: None,
+            paused: Some(true),
+        });
+        assert_eq!(run(Action::ResumeExpired { now: 1000 }), false);
+        let job = run(Action::List)[0].clone();
+        assert_eq!(job["paused"], true);
+        assert!(job.get("paused_until").is_none());
+        run(Action::PauseUntil {
+            id: id.into(),
+            until: 2000,
+        });
+        run(Action::Update {
+            id: id.into(),
+            name: None,
+            paused: Some(false),
+        });
+        assert!(run(Action::List)[0].get("paused_until").is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }
