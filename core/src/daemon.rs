@@ -313,6 +313,34 @@ impl Shared {
             },
         )
     }
+    fn resume_due_pauses(self: &Arc<Self>) -> Result<()> {
+        if self.stopped.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        let now = wall() as u64;
+        let mut state = self.lock()?;
+        if !state.jobs.values().any(|job| {
+            job.config["paused"] == true
+                && job.config["paused_until"]
+                    .as_u64()
+                    .is_some_and(|until| until <= now)
+        }) {
+            return Ok(());
+        }
+        // Recheck the persisted deadline under the jobs lock. A later manual pause wins.
+        jobs::transact(
+            &self.config.state,
+            &self.config.mount_paths,
+            jobs::Action::ResumeExpired { now },
+            &mut |_| 0,
+        )?;
+        daemon_control::reload(&mut StateHost {
+            shared: self,
+            state: &mut state,
+        })?;
+        self.persist(&state)?;
+        Ok(())
+    }
     fn event_jobs(state: &State) -> Vec<Value> {
         state.jobs.iter().map(|(id,j)|json!({"id":id,"remote_uid":j.config["remote_uid"],"account_root_uid":j.config["account_root_uid"],"known_uids":j.runtime["known_uids"],"paused":j.config["paused"]})).collect()
     }
@@ -374,6 +402,7 @@ impl Services for StateHost<'_> {
         }
         let id = text(&args, "id");
         match text(&args, "action") {
+            "wall" => return Ok(json!(wall() as u64)),
             "jobs" => return Ok(json!(self.shared.jobs()?)),
             "snapshot" => {
                 return Ok(
@@ -393,10 +422,17 @@ impl Services for StateHost<'_> {
                 jobs::transact(
                     &self.shared.config.state,
                     &self.shared.config.mount_paths,
-                    jobs::Action::Update {
-                        id: id.into(),
-                        paused: args["paused"].as_bool(),
-                        name: None,
+                    if let Some(until) = args["paused_until"].as_u64() {
+                        jobs::Action::PauseUntil {
+                            id: id.into(),
+                            until,
+                        }
+                    } else {
+                        jobs::Action::Update {
+                            id: id.into(),
+                            paused: args["paused"].as_bool(),
+                            name: None,
+                        }
                     },
                     &mut |_| 0,
                 )?;
@@ -846,11 +882,17 @@ impl Shared {
         Ok(())
     }
     fn wait_task(
-        &self,
+        self: &Arc<Self>,
         task: JoinHandle<Result<()>>,
         callback: &mut impl FnMut(Value) -> i32,
     ) -> Result<()> {
+        let mut next_pause_check = Instant::now();
+        let mut pause_error = None;
         while !task.is_finished() {
+            if pause_error.is_none() && Instant::now() >= next_pause_check {
+                pause_error = self.resume_due_pauses().err();
+                next_pause_check = Instant::now() + Duration::from_secs(1);
+            }
             if callback(json!({"kind":"poll"})) != 0 {
                 self.stopped.store(true, Ordering::Release);
                 self.cancel.store(true, Ordering::Release);
@@ -858,10 +900,16 @@ impl Shared {
             }
             thread::sleep(Duration::from_millis(25));
         }
-        task.join().map_err(|_| "Native daemon worker panicked")?
+        // Always join the active transfer, even if persisting a timer failed.
+        task.join().map_err(|_| "Native daemon worker panicked")??;
+        if let Some(error) = pause_error {
+            return Err(error);
+        }
+        Ok(())
     }
     fn main_loop(self: &Arc<Self>, callback: &mut impl FnMut(Value) -> i32) -> Result<()> {
         loop {
+            self.resume_due_pauses()?;
             if callback(json!({"kind":"poll"})) != 0 {
                 self.command(daemon_control::Action::Stop, None)?;
             }

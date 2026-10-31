@@ -12,6 +12,12 @@ pub enum Action {
     StopIdle,
     Reload,
     Pause,
+    #[serde(rename = "pause_1h")]
+    Pause1h,
+    #[serde(rename = "pause_4h")]
+    Pause4h,
+    #[serde(rename = "pause_24h")]
+    Pause24h,
     Resume,
     Sync,
 }
@@ -107,7 +113,12 @@ pub fn command(action: Action, job_id: Option<String>, host: &mut impl Services)
             call(host, "notify", json!({}))?;
         }
         Action::Reload => reload(host)?,
-        Action::Pause | Action::Resume | Action::Sync => {
+        Action::Pause
+        | Action::Pause1h
+        | Action::Pause4h
+        | Action::Pause24h
+        | Action::Resume
+        | Action::Sync => {
             let selected: Vec<_> = jobs(host)?
                 .into_iter()
                 .filter(|j| job_id.as_ref().is_none_or(|id| j["id"] == *id))
@@ -128,9 +139,30 @@ pub fn command(action: Action, job_id: Option<String>, host: &mut impl Services)
                     }
                 }
             } else {
-                let paused = matches!(action, Action::Pause);
+                let paused = !matches!(action, Action::Resume);
+                let seconds = match action {
+                    Action::Pause1h => 3600,
+                    Action::Pause4h => 14400,
+                    Action::Pause24h => 86400,
+                    _ => 0,
+                };
+                let until = if seconds > 0 {
+                    Some(
+                        call(host, "wall", json!({}))?
+                            .as_u64()
+                            .ok_or("Invalid daemon clock")?
+                            .checked_add(seconds)
+                            .ok_or("Invalid pause deadline")?,
+                    )
+                } else {
+                    None
+                };
                 for job in &selected {
-                    call(host, "update_job", json!({"id":job["id"],"paused":paused}))?;
+                    call(
+                        host,
+                        "update_job",
+                        json!({"id":job["id"],"paused":paused,"paused_until":until}),
+                    )?;
                 }
                 if !paused {
                     let snapshot = call(host, "snapshot", json!({}))?;
@@ -175,6 +207,7 @@ mod tests {
             self.calls.push(args.clone());
             let id = args["id"].as_str().unwrap_or("");
             match args["action"].as_str().unwrap() {
+                "wall" => return Ok(json!(1000)),
                 "jobs" => return Ok(json!(self.jobs)),
                 "snapshot" => return Ok(json!({"jobs":self.runtime,"current":self.current})),
                 "status" => return Ok(self.runtime.clone()),
@@ -182,6 +215,7 @@ mod tests {
                     for job in &mut self.jobs {
                         if job["id"] == id {
                             job["paused"] = args["paused"].clone();
+                            job["paused_until"] = args["paused_until"].clone();
                         }
                     }
                 }
@@ -218,6 +252,26 @@ mod tests {
             calls: vec![],
             watch_error: false,
         }
+    }
+    #[test]
+    fn timed_pause_uses_wall_clock_and_manual_resume_clears_deadline() {
+        for (wire, seconds) in [
+            ("pause_1h", 3600),
+            ("pause_4h", 14400),
+            ("pause_24h", 86400),
+        ] {
+            let mut h = host();
+            let action: Action = serde_json::from_value(json!(wire)).unwrap();
+            command(action, Some("a".into()), &mut h).unwrap();
+            assert_eq!(h.jobs[0]["paused_until"], 1000 + seconds);
+            assert!(has(&h, "cancel"));
+            assert_eq!(h.runtime["a"]["watcher"], false);
+            command(Action::Resume, Some("a".into()), &mut h).unwrap();
+            assert!(h.jobs[0]["paused_until"].is_null());
+            assert_eq!(h.jobs[0]["paused"], false);
+            assert!(has(&h, "schedule"));
+        }
+        assert!(serde_json::from_value::<Action>(json!("pause_999h")).is_err());
     }
     #[test]
     fn idle_stop_is_atomic_and_never_cancels_an_active_job() {
