@@ -63,6 +63,8 @@ pub mod qt {
         fn clipboardText() -> QString;
         #[rust_name = "snapshot_window"]
         fn snapshotWindow(name: &QString, path: &QString) -> bool;
+        #[rust_name = "window_wheel"]
+        fn windowWheel(name: &QString, x: f64, y: f64, delta: i32) -> bool;
         #[rust_name = "window_key"]
         fn windowKey(name: &QString, key: i32, control: bool, shift: bool) -> bool;
         #[rust_name = "window_click"]

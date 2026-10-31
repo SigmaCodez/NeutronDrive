@@ -44,6 +44,9 @@ pub mod qobject {
         #[cxx_name = "snapshotWindow"]
         fn snapshot_window(self: &NativeFiles, name: &QString, path: &QString) -> bool;
         #[qinvokable]
+        #[cxx_name = "windowWheel"]
+        fn window_wheel(self: &NativeFiles, x: f64, y: f64, delta: i32) -> bool;
+        #[qinvokable]
         #[cxx_name = "windowKey"]
         fn window_key(self: &NativeFiles, key: i32, control: bool) -> bool;
         #[qinvokable]
@@ -147,6 +150,10 @@ impl Drop for Controller {
 impl qobject::NativeFiles {
     fn clipboard_text(&self) -> QString {
         crate::platform::qt::clipboard_text()
+    }
+    fn window_wheel(&self, x: f64, y: f64, delta: i32) -> bool {
+        (self.rust().demo || std::env::args().nth(1).as_deref() == Some("--check-window-fixture"))
+            && crate::platform::qt::window_wheel(&QString::from("mainWindow"), x, y, delta)
     }
     fn window_key(&self, key: i32, control: bool) -> bool {
         (self.rust().demo || std::env::args().nth(1).as_deref() == Some("--check-window-fixture"))

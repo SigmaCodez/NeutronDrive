@@ -10,8 +10,26 @@ ColumnLayout {
     readonly property var photos: controller.photoEntries || []
     property var appliedPhotos: []
     property bool pendingPhotos: false
-    property bool scrolling: grid.moving
+    property bool scrolling: grid.moving || wheelIdle.running
     onScrollingChanged: if(!scrolling && pendingPhotos)updatePhotos()
+    // Pixel-based touchpad gestures retain native Qt scrolling and inertia.
+    // A physical wheel notch covers one tile row instead of a few text lines.
+    function scrollGallery(view, event) {
+        if(event.pixelDelta.x!==0 || event.pixelDelta.y!==0 || event.angleDelta.y===0 || event.modifiers!==Qt.NoModifier)return false;
+        let top=view.originY;
+        let bottom=top+Math.max(0,view.contentHeight-view.height);
+        let step=Math.min(view.cellHeight,Math.max(120,view.height*0.75));
+        view.cancelFlick();
+        view.contentY=Math.max(top,Math.min(bottom,view.contentY-event.angleDelta.y/120*step));
+        wheelIdle.restart();
+        return true;
+    }
+    Timer { id: wheelIdle; interval: 180 }
+    component GalleryWheel: WheelHandler {
+        required property var view
+        target: null; acceptedDevices: PointerDevice.Mouse; acceptedModifiers: Qt.NoModifier
+        onWheel: event=>{ event.accepted=panel.scrollGallery(view,event); }
+    }
     ListModel { id: photoModel; dynamicRoles: true }
     function updatePhotos() {
         if(!photoModel)return;
@@ -198,6 +216,7 @@ ColumnLayout {
     }
     GridView {
         id: albums; objectName: "photoAlbumsGrid"
+        GalleryWheel { view: albums }
         visible: panel.albumsVisible; Layout.fillWidth: true; Layout.fillHeight: true
         clip: true; model: panel.viewState.photoAlbums || []; cellWidth: width/Math.max(1,Math.floor(width/240)); cellHeight: 240
         ScrollBar.vertical: DriveScrollBar { theme: host.theme }
@@ -239,6 +258,7 @@ ColumnLayout {
     GridView {
         id: grid
         objectName: "photoGrid"; visible: !panel.albumsVisible
+        GalleryWheel { view: grid }
         Layout.fillWidth: true; Layout.fillHeight: true
         clip: true; model: photoModel; reuseItems: true; cellWidth: width/Math.max(1,Math.floor(width/panel.tileSize)); cellHeight: cellWidth
         cacheBuffer: grid.height
