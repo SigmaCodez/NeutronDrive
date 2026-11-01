@@ -15,7 +15,7 @@ Build the backend (Bun 1.4.2 and network access required):
 python3 scripts/build-backend --help
 ```
 
-Application packages and the rebuilt SDK bridge are published in `v1.0.11`.
+Application packages and the rebuilt SDK bridge are published in `v1.1.0`.
 The Proton upstream commit and Bun runtime remain pinned; NeutronDrive adds the
 verified folder-photo import, automatic album membership and private-input sharing commands. SHA-512 download pins and source-build provenance
 identify the exact bridge for both architectures. Source builds are inspectable;
@@ -258,7 +258,7 @@ makepkg --syncdeps
 
 This recipe has no Python runtime dependencies and verifies the original DEB's
 frontend and SDK provenance before creating its local source/checksum entries.
-The published `packaging/aur/neutrondrive-bin` recipe pins the 1.0.11 native
+The published `packaging/aur/neutrondrive-bin` recipe pins the 1.1.0 native
 DEBs and uses the same runtime dependency set as the tested Arch package.
 No AUR account creation or publication is performed by either workflow.
 
@@ -284,7 +284,7 @@ unchanged. Publication requires runtime testing of the changed packages.
 
 ## Stable 1.0
 
-Application and distributable package versions are 1.0.11. Epoch 1 is retained for
+Application and distributable package versions are 1.1.0. Epoch 1 is retained for
 native package upgrades. Snap uses `grade: stable`; regular GitHub release tags
 publish to `latest/stable`, while beta tags continue to use `latest/beta`.
 See [Store automation](../docs/snap-store-automation.md).
@@ -292,12 +292,12 @@ See [Store automation](../docs/snap-store-automation.md).
 
 ## Ubuntu 26.10 DEB validation
 
-Version 1.0.11 uses the same portable native DEB on Ubuntu 26.10; there is no
+Version 1.1.0 uses the same portable native DEB on Ubuntu 26.10; there is no
 separate Ubuntu-only application build. Choose `amd64` for Intel/AMD PCs or
 `arm64` for ARM64 systems:
 
 ```sh
-sudo apt install ./neutrondrive_1.0.11-1_amd64.deb
+sudo apt install ./neutrondrive_1.1.0-1_amd64.deb
 ```
 
 CI installs the release DEB in an actual `ubuntu:26.10` userspace on both
