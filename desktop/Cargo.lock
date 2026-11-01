@@ -606,7 +606,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "link-cplusplus"
-version = "1.0.12"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f78c730aaa7d0b9336a299029ea49f9ee53b0ed06e9202e8cb7db9bae7b8c82"
 dependencies = [
@@ -651,7 +651,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-core"
-version = "1.0.11"
+version = "1.1.0"
 dependencies = [
  "fuser",
  "futures-core",
@@ -667,7 +667,7 @@ dependencies = [
 
 [[package]]
 name = "neutrondrive-qt"
-version = "1.0.11"
+version = "1.1.0"
 dependencies = [
  "cxx",
  "cxx-qt",
@@ -1458,7 +1458,7 @@ dependencies = [
 
 [[package]]
 name = "webpki-root-certs"
-version = "1.0.11"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e49d0e65abc00c142e8f9428da991da9f1a250c39be97459901eb12b9b49f62a"
 dependencies = [
@@ -1467,7 +1467,7 @@ dependencies = [
 
 [[package]]
 name = "webpki-roots"
-version = "1.0.11"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
 dependencies = [
