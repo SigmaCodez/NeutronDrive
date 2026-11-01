@@ -61,6 +61,7 @@ fn mutation(op: &Value) -> bool {
             op["action"].as_str(),
             Some(
                 "account_storage"
+                    | "login"
                     | "version"
                     | "info"
                     | "sharing"
@@ -292,6 +293,12 @@ pub fn run(
     let fresh = fresh || operation["_fresh"] == true;
     if let Some(o) = operation.as_object_mut() {
         o.remove("_fresh");
+    }
+    // Authentication and unrelated reads must never wait for cache identity.
+    if !cacheable(&operation) && !mutation(&operation) {
+        let parsed = serde_json::from_value(operation)
+            .map_err(|_| Failure::from("Invalid browsing operation"))?;
+        return drive::run(executable, parsed, cb);
     }
     let namespace = identity(&executable, cb);
     let dir = namespace.as_ref().and_then(|n| root().map(|r| r.join(n)));
