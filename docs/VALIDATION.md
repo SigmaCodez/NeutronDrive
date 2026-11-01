@@ -685,3 +685,35 @@ with isolated profiles and synthetic files. Packaged UI and sharing tests passed
 BUILD_INFO.json and TEST_RESULTS.json record exact commits and runs. No personal
 cloud files were changed and no local system upgrade was performed. These tests
 do not certify every desktop configuration or a complete real-account sync.
+
+
+## Unreleased: persistent browsing snapshots (2026-11-01)
+
+Cloud file sections, photo inventories, albums and per-photo previews now use
+private, bounded disk snapshots keyed by the local SDK session. Normal startup
+and navigation reuse snapshots; foreground Refresh and background reconciliation
+use live metadata. Confirmed removals prune stale preview/descendant snapshots.
+The exact local-only SDK identity command uses a separate process lock, while
+all cloud commands retain the original backend serialization.
+
+Validation on Linux x86_64:
+
+- 220 core unit tests and 23 integration-test cases passed, including separate
+  application processes reopening all five file sections and Photos while cloud
+  access is denied and the normal backend lock is held. The scenario also checks
+  account isolation, refresh failures and confirmed deletion after another restart.
+- 142 desktop tests passed, including immediate disk-hit rendering followed by
+  background validation, manual cache bypass and login memory-cache clearing.
+- 364 regression cases completed successfully; 15 optional kernel FUSE cases were
+  skipped in this local run. Actual Qt windows and all supported UI languages
+  were exercised with isolated settings and synthetic data.
+- Core and desktop Clippy passed with warnings denied; formatting checks passed.
+- The rebuilt SDK bridge passed 28 contracts and TypeScript checking. Its compiled
+  local identity command passed synthetic-credential tests for no session, token
+  refresh, changed session, corruption and logout, with an unreachable API host.
+
+No real Proton account or user files were modified. A real PC reboot was not
+performed: restart persistence was tested with fresh processes and retained disk
+state. No release, local installation, or all-distribution package build is
+included in this change. New installations must bundle the rebuilt SDK bridge;
+an older bridge falls back to normal live reads without a persistent-view cache.

@@ -122,7 +122,7 @@ pub enum Effect {
     Close,
     Hide,
 }
-// Session-only metadata: bounded, never written to disk or reused after logout.
+// Bounded in-memory views, backed by account-isolated worker-side disk snapshots.
 struct CachedFolder {
     path: String,
     nodes: Vec<Value>,
@@ -141,6 +141,7 @@ pub struct Files {
     photo_checked: Option<Instant>,
     cache_checked: Option<Instant>,
     cache_turn: usize,
+    cached_read: bool,
     photo_views: VecDeque<(String, Vec<String>, Value)>,
     selection: BTreeSet<usize>,
     selection_anchor: Option<usize>,
@@ -226,6 +227,7 @@ impl Files {
             photo_checked: None,
             cache_checked: None,
             cache_turn: 0,
+            cached_read: false,
             photo_views: VecDeque::new(),
             photos_revision: 1,
             selection: BTreeSet::new(),
@@ -435,6 +437,7 @@ impl Files {
                 self.photo_views.clear();
             }
         }
+        self.cached_read = false;
         self.state["progress"] = Value::Null;
         self.next_work += 1;
         let title = self.tr(title);
@@ -680,6 +683,13 @@ impl Files {
             _ => {}
         }
     }
+    fn refresh_live(&mut self) -> Vec<Effect> {
+        self.submit(
+            "Dateiliste laden",
+            json!({"action":"list","path":self.path(),"_fresh":true}),
+            Done::Loaded,
+        )
+    }
     pub fn refresh(&mut self) -> Vec<Effect> {
         if self.busy() {
             return vec![];
@@ -691,6 +701,12 @@ impl Files {
         )
     }
     pub fn progress(&mut self, id: u64, event: Value) {
+        if event["kind"] == "cache_hit" {
+            if self.active.as_ref().is_some_and(|w| w.id == id) {
+                self.cached_read = true;
+            }
+            return;
+        }
         if self.active.as_ref().is_some_and(|w| w.id == id) {
             self.state["progress"] = event.clone();
             if let Some(record) = self.state["activity"]
@@ -839,7 +855,7 @@ impl Files {
                     Done::Background => {
                         self.render_background(&value);
                         if work.operation["action"] == "remove_computer" {
-                            return self.refresh();
+                            return self.refresh_live();
                         }
                         vec![]
                     }
@@ -953,6 +969,11 @@ impl Files {
                             let changed = self.files_revision == 0 || self.nodes != sorted;
                             self.nodes = sorted;
                             self.cache_folder();
+                            if self.cached_read {
+                                if let Some(entry) = self.folder_cache.back_mut() {
+                                    entry.saved = Instant::now() - Duration::from_secs(60);
+                                }
+                            }
                             // Unchanged metadata must not recreate delegates or
                             // discard the user's keyboard focus and selection.
                             if changed {
@@ -963,7 +984,7 @@ impl Files {
                         }
                         vec![]
                     }
-                    Done::Refresh => self.refresh(),
+                    Done::Refresh => self.refresh_live(),
                     Done::FileManager => {
                         if value["share"].is_object() {
                             let node = value["share"].clone();
@@ -1740,6 +1761,12 @@ impl Files {
             "addComputerFolder"=>self.activate_background(true),
             "start"|"stop"|"restart"=>self.submit_background("Hintergrund-Sync",json!({"action":name})),
             "login" => {
+                self.folder_cache.clear(); self.photo_views.clear(); self.photo_index.clear();
+                self.state["photos"] = json!([]); self.state["photoAlbums"] = json!([]);
+                self.state["photoTotal"] = Value::Null; self.state["photoOffset"] = json!(0);
+                self.state["photosMore"] = json!(false); self.state["account"] = Value::Null;
+                self.state["storage"] = Value::Null; self.state["authenticated"] = json!(false);
+                self.nodes.clear(); self.render(); self.photos_revision += 1;
                 self.message(&self.tr("Die Anmeldung erfolgt bei Proton im Browser. Diese App ist unabhängig und wird nicht von Proton unterstützt."),false);
                 self.submit("Anmelden",json!({"action":"login"}),Done::Refresh)
             },
@@ -1749,7 +1776,8 @@ impl Files {
             "web" => vec![Effect::OpenUrl("https://drive.proton.me".into())],
             "donate" => vec![Effect::OpenUrl("https://ko-fi.com/D1D11J5U3D".into())],
             "subscription" => vec![Effect::OpenUrl("https://account.proton.me/drive/dashboard".into())],
-            "refresh" => self.refresh(),
+            "initial_cache" => self.refresh(),
+            "refresh" => self.refresh_live(),
             "Versions" if nodes.len()==1 => self.submit("Version history",json!({"action":"versions","path":paths[0]}),Done::Versions(paths[0].clone())),
             "version" => self.submit("Backend prüfen", json!({"action":"version"}), Done::Version),
             "upload" | "uploadFolder"
