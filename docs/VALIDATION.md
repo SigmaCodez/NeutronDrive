@@ -1,5 +1,44 @@
 # Validation record
 
+## Release 1.1.0 validation (2026-11-01)
+
+The [final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41303891508)
+passed for `6231cbb018925f3b539acec07c6a5b2e738b6021`: DEB amd64/arm64,
+Ubuntu 26.10 installation on both architectures, Fedora/openSUSE RPM, strict Snap,
+Flatpak, AppImage and Arch installation/runtime checks.
+Both architecture jobs in the [native source run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41301096328)
+passed at `1f1f7ec8173ea8f729e611120754d622c415e2ff`. That run was stopped after
+native success to pin the GitHub-built ARM64 SDK checksum. The final run verifies
+unchanged native and SDK source fingerprints. An earlier package run detected a
+changed linuxdeploy continuous download; the final build pins the named upstream
+1-alpha-20251107-1 release, independently verified against GitHub's SHA-256 digest.
+
+Each native CI architecture passed 220 core unit tests, 23 integration cases,
+142 desktop and 2 file-manager tests, Clippy with warnings denied, 364 retained
+regression tests without skips, and the actual Qt/FUSE/service checks. The rebuilt
+SDK passed TypeScript checks, 28 bridge tests and the offline cache-identity test.
+A full controller check caught an unnecessary cache lookup before login; login
+and unrelated live reads now bypass that lookup, and the controller check passes.
+Separate-process cache tests cover all five file sections, photo inventory,
+albums and details, account isolation, an occupied normal SDK lock, offline
+reopening, refresh failures and confirmed removal reconciliation.
+
+Local final checks passed core/desktop/provider tests, Qt controller/services,
+all UI languages, actual window/sharing checks, Nautilus/Nemo sidebar checks and
+364 regression tests with 19 optional environment-dependent skips. Final DEB
+previews were captured in English from the unmodified package, in light/dark and
+compact layouts. File-manager previews use the actual packaged extension with
+synthetic offline/download/sharing status. GUI-PREVIEWS.json and
+FILE-MANAGER-PREVIEWS.json record exact package, binary and image hashes.
+Final post-test repository changes are documentation, previews and AUR download
+checksums only; the shipped application and SDK sources remain unchanged.
+
+No real-account files were modified. These tests do not certify full-account
+synchronization, every desktop session or a physical PC reboot. Cache restart
+coverage uses separate application processes with retained disk state. Existing
+SDK metadata lists are still fetched in the background; this is not server-side
+delta-only querying.
+
 ## Release 1.0.8 validation (2026-10-29)
 
 The [final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/40955695131)
@@ -685,3 +724,35 @@ with isolated profiles and synthetic files. Packaged UI and sharing tests passed
 BUILD_INFO.json and TEST_RESULTS.json record exact commits and runs. No personal
 cloud files were changed and no local system upgrade was performed. These tests
 do not certify every desktop configuration or a complete real-account sync.
+
+
+## Unreleased: persistent browsing snapshots (2026-11-01)
+
+Cloud file sections, photo inventories, albums and per-photo previews now use
+private, bounded disk snapshots keyed by the local SDK session. Normal startup
+and navigation reuse snapshots; foreground Refresh and background reconciliation
+use live metadata. Confirmed removals prune stale preview/descendant snapshots.
+The exact local-only SDK identity command uses a separate process lock, while
+all cloud commands retain the original backend serialization.
+
+Validation on Linux x86_64:
+
+- 220 core unit tests and 23 integration-test cases passed, including separate
+  application processes reopening all five file sections and Photos while cloud
+  access is denied and the normal backend lock is held. The scenario also checks
+  account isolation, refresh failures and confirmed deletion after another restart.
+- 142 desktop tests passed, including immediate disk-hit rendering followed by
+  background validation, manual cache bypass and login memory-cache clearing.
+- 364 regression cases completed successfully; 15 optional kernel FUSE cases were
+  skipped in this local run. Actual Qt windows and all supported UI languages
+  were exercised with isolated settings and synthetic data.
+- Core and desktop Clippy passed with warnings denied; formatting checks passed.
+- The rebuilt SDK bridge passed 28 contracts and TypeScript checking. Its compiled
+  local identity command passed synthetic-credential tests for no session, token
+  refresh, changed session, corruption and logout, with an unreachable API host.
+
+No real Proton account or user files were modified. A real PC reboot was not
+performed: restart persistence was tested with fresh processes and retained disk
+state. No release, local installation, or all-distribution package build is
+included in this change. New installations must bundle the rebuilt SDK bridge;
+an older bridge falls back to normal live reads without a persistent-view cache.

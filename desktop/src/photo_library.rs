@@ -7,10 +7,11 @@ impl Files {
         if let Some(fields) = operation_request.as_object_mut() {
             fields.remove("preserve");
             fields.remove("reloadAlbum");
+            fields.remove("fresh");
         }
         self.submit(
             "Photos",
-            json!({"action":"photo_library","request":operation_request}),
+            json!({"action":"photo_library","request":operation_request,"_fresh":request["fresh"] == true}),
             Done::PhotoLibrary(request),
         )
     }
@@ -48,9 +49,10 @@ impl Files {
                 }
                 let mut next = json!({"action":"index","album":text(request,"album")});
                 if request["preserve"] == true { next["preserve"] = json!(true); }
+                if request["fresh"] == true { next["fresh"] = json!(true); }
                 self.photo_submit(next)
             },
-            "albums" => self.photo_submit(json!({"action":"albums"})),
+            "albums" => self.photo_submit(json!({"action":"albums","fresh":request["fresh"] == true})),
             "previews" => {
                 let start = request["start"].as_u64().unwrap_or(0) as usize;
                 let photos = self.state["photos"].as_array();
@@ -163,7 +165,11 @@ impl Files {
                     self.message("Duplicate photo inventory identity", true);
                     return vec![];
                 }
-                self.photo_checked = Some(Instant::now());
+                self.photo_checked = if self.cached_read {
+                    None
+                } else {
+                    Some(Instant::now())
+                };
                 // Refresh an unchanged inventory without discarding decoded
                 // previews, pagination or the user's current scroll position.
                 if request["preserve"] == true

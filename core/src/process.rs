@@ -283,7 +283,15 @@ pub fn run_with_input(
             "NeutronDrive verwendet ausschließlich den offiziellen Proton-API-Endpunkt.".into(),
         );
     }
-    let lock_path = data_dir()?.join("backend.lock");
+    // The bridge's exact local-only identity command never initializes SDK caches
+    // or networking. It must remain available during a stalled cloud transfer.
+    // All ordinary SDK commands retain the original exclusive backend lock.
+    let local_identity = input.is_none() && request.args == ["cache", "identity"];
+    let lock_path = data_dir()?.join(if local_identity {
+        "cache-identity.lock"
+    } else {
+        "backend.lock"
+    });
     let lock = OpenOptions::new()
         .read(true)
         .write(true)

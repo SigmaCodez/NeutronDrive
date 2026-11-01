@@ -150,7 +150,7 @@ Item {
             if(!view)throw new Error(component.errorString());
             trayAvailable=startup.trayAvailable();
             initialized=true;
-            if(launch.demo || launch.available){action("refresh")}else{show_page("settings");files.notify(translate("Das Proton-SDK-Backend wurde nicht gefunden."),true)}
+            if(launch.demo || launch.available){action("initial_cache")}else{show_page("settings");files.notify(translate("Das Proton-SDK-Backend wurde nicht gefunden."),true)}
             ready();
         }catch(error){console.error(error);stop();Qt.exit(1)}
     })

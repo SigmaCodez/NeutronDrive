@@ -3,6 +3,7 @@
 pub mod appimage;
 mod autostart;
 mod backend;
+pub mod browse_cache;
 mod cache;
 mod computer;
 mod computer_setup;

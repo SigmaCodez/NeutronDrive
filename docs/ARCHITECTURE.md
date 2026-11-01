@@ -226,19 +226,41 @@ The application never writes the desktop appearance preference.
 
 ## Desktop view cache
 
-Visited file sections and folders are retained in a session cache (up to 128
-folders or 64 MiB of metadata). Returning to them shows cached rows immediately;
-an independent cancellable worker refreshes stale listings without making the UI
-busy. It checks at five-second scheduling intervals, with a 30-second listing
-freshness window. Existing API listings are compared by identity; this is not a
-claim of server-side delta-only requests. Only changed UI rows are replaced.
-Foreground operations take priority and generation checks reject late results.
-Logout clears the session caches. First visits still need a network request.
+Visited file sections and folders retain bounded in-memory views (128 folders or
+64 MiB), backed by private disk snapshots under `neutrondrive/views-v1` in the
+XDG cache directory. My files, incoming/outgoing shares, computers, cloud trash,
+photo inventories, albums and individual photo previews survive application and
+computer restarts. The first visit still needs the network; subsequent visits
+read local snapshots on a worker. Shutdown does not clear them. The disk budget
+is 256 MiB and 10,000 records per local SDK session; oldest records are evicted
+only to enforce that budget. Snapshots contain decrypted names and previews in
+user-owned 0700 directories and 0600 files, written atomically. They contain no
+authentication tokens or passwords.
 
-The gallery retains up to 128 MiB of encoded preview images and up to eight album
-views within a separate 64 MiB budget. Current preview requests are protected
-from eviction. The existing account/revision-scoped disk thumbnail cache remains
-bounded to 512 MiB and 30 days. Metadata/access checks still run in the background;
-revoked images are made non-actionable immediately. An inventory change preserves
-surviving thumbnails, selection and viewer identity rather than resetting all
-loaded pages. Folder metadata is session-scoped, not a persistent offline index.
+The SDK bridge's local-only `cache identity` command reads its configured
+credential store without initializing networking or event synchronization. It
+returns a SHA-256 namespace derived from the API host and session UID, never
+credentials or the raw UID. Token refresh preserves the namespace; logout or a
+new login session cannot read another session's snapshots. Missing, locked,
+malformed or unsupported identity is a cache miss. Login clears memory views;
+logout invalidates the active disk namespace. Sync safety decisions and all
+mutation preconditions continue to use live SDK data, never these UI snapshots.
+
+A separate cancellable worker refreshes retained views in the background without
+making navigation busy. Disk hits are scheduled for validation at the next
+five-second tick; normal listing freshness is 30 seconds. Existing SDK listings
+are compared by identity: this is not a claim of server-side delta-only API
+requests. Only changed UI rows are replaced. Photo previews are reused by
+identity/revision, and unchanged disk entries are not rewritten. Mutation
+invalidation targets affected listings while preserving unrelated previews.
+Generation guards reject late writes after local invalidation. Failed refreshes
+leave the last snapshot available; successful empty lists replace deleted data.
+Manual Refresh bypasses disk reads. Corrupt/oversized/symlink cache entries are
+misses, and cache-write failures never prevent normal cloud access.
+
+The gallery retains up to 128 MiB of encoded previews and eight album views within
+a separate 64 MiB memory budget. Current preview requests are protected from
+memory eviction. The existing account/revision-scoped thumbnail download cache
+remains bounded to 512 MiB and 30 days, independently of persistent view snapshots.
+An inventory update preserves surviving thumbnails and selection. Access changes
+reported by the backend immediately clear revoked images and actions.
