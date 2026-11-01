@@ -315,21 +315,32 @@ impl qobject::NativeFiles {
         self.as_mut().rust_mut().cache_cancel = cancel.clone();
         self.as_mut().rust_mut().cache_pending = true;
         let qt = self.qt_thread();
-        let worker = std::thread::Builder::new().name("qt-cache".into()).spawn(move || {
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                runtime::call(json!({"op":"drive","executable":executable,"operation":request["operation"]}),
-                    &mut |_| i32::from(cancel.load(Ordering::Acquire)))
-            })).unwrap_or_else(|_| Err(Failure{message:"Cache refresh failed".into(),cancelled:false}));
-            let _ = qt.queue(move |mut object| {
-                object.as_mut().rust_mut().cache_pending = false;
-                if !object.rust().closed {
-                    if let (Some(model), Ok(value)) = (object.as_mut().rust_mut().model.as_mut(), result) {
-                        model.cache_polled(&request, generation, value);
+        let worker = std::thread::Builder::new()
+            .name("qt-cache".into())
+            .spawn(move || {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    runtime::browse(executable, request["operation"].clone(), true, &mut |_| {
+                        i32::from(cancel.load(Ordering::Acquire))
+                    })
+                }))
+                .unwrap_or_else(|_| {
+                    Err(Failure {
+                        message: "Cache refresh failed".into(),
+                        cancelled: false,
+                    })
+                });
+                let _ = qt.queue(move |mut object| {
+                    object.as_mut().rust_mut().cache_pending = false;
+                    if !object.rust().closed {
+                        if let (Some(model), Ok(value)) =
+                            (object.as_mut().rust_mut().model.as_mut(), result)
+                        {
+                            model.cache_polled(&request, generation, value);
+                        }
+                        object.publish();
                     }
-                    object.publish();
-                }
+                });
             });
-        });
         match worker {
             Ok(worker) => self.as_mut().rust_mut().cache_worker = Some(worker),
             Err(_) => self.as_mut().rust_mut().cache_pending = false,
@@ -418,44 +429,72 @@ impl qobject::NativeFiles {
         let qt = self.qt_thread();
         let executable = self.rust().executable.clone();
         let demo = self.rust().demo;
-        let worker=std::thread::Builder::new().name("qt-drive".into()).spawn(move || {
-            let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                let mut callback=|event:Value| {
-                    if cancel.load(Ordering::Acquire) {return 1;}
-                    if event["kind"] == "progress" {
-                        let event=event.clone();
-                        if qt.queue(move |object| object.progress(id,event)).is_err(){return 1;}
-                    }
-                    if event["kind"] == "login" {
-                        if let Some(url)=event["url"].as_str() {
-                            let url=url.to_string();
-                            if qt.queue(move |object| object.login_ready(id,url)).is_err() {return 1;}
+        let worker = std::thread::Builder::new()
+            .name("qt-drive".into())
+            .spawn(move || {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    let mut callback = |event: Value| {
+                        if cancel.load(Ordering::Acquire) {
+                            return 1;
                         }
+                        if event["kind"] == "progress" || event["kind"] == "cache_hit" {
+                            let event = event.clone();
+                            if qt.queue(move |object| object.progress(id, event)).is_err() {
+                                return 1;
+                            }
+                        }
+                        if event["kind"] == "login" {
+                            if let Some(url) = event["url"].as_str() {
+                                let url = url.to_string();
+                                if qt.queue(move |object| object.login_ready(id, url)).is_err() {
+                                    return 1;
+                                }
+                            }
+                        }
+                        0
+                    };
+                    if demo {
+                        demo_operation(&work.operation)
+                    } else if work.target == Target::FileManager {
+                        crate::file_manager::run(&executable, &work.operation, &mut callback)
+                    } else if work.target == Target::Background {
+                        crate::background::run(&executable, &work.operation, &mut callback)
+                    } else if work.target == Target::Mount
+                        && matches!(
+                            work.operation["action"].as_str(),
+                            Some("pin_remote" | "evict_remote")
+                        )
+                    {
+                        crate::setup::availability(&executable, &work.operation, &mut callback)
+                    } else if work.target == Target::Mount && work.operation["action"] == "setup" {
+                        crate::setup::run(&executable, &work.operation, &mut callback)
+                    } else if work.target == Target::Mount {
+                        runtime::call(
+                            crate::headless::desktop_request(&executable, work.operation)?,
+                            &mut callback,
+                        )
+                    } else if work.target == Target::Autostart {
+                        crate::autostart::run(
+                            &executable,
+                            work.operation["enabled"] == true,
+                            &mut callback,
+                        )
+                    } else if work.target == Target::Trash {
+                        crate::local_trash::run(&work.operation, &mut callback)
+                    } else if work.operation["action"] == "logout" {
+                        crate::account::logout(&executable, &mut callback)
+                    } else {
+                        runtime::browse(executable, work.operation, false, &mut callback)
                     }
-                    0
-                };
-                if demo {demo_operation(&work.operation)} else if work.target == Target::FileManager {
-                    crate::file_manager::run(&executable,&work.operation,&mut callback)
-                } else if work.target == Target::Background {
-                    crate::background::run(&executable,&work.operation,&mut callback)
-                } else if work.target == Target::Mount && matches!(work.operation["action"].as_str(),Some("pin_remote"|"evict_remote")) {
-                    crate::setup::availability(&executable,&work.operation,&mut callback)
-                } else if work.target == Target::Mount && work.operation["action"] == "setup" {
-                    crate::setup::run(&executable,&work.operation,&mut callback)
-                } else if work.target == Target::Mount {
-                    runtime::call(crate::headless::desktop_request(&executable,work.operation)?,&mut callback)
-                } else if work.target == Target::Autostart {
-                    crate::autostart::run(&executable,work.operation["enabled"] == true,&mut callback)
-                } else if work.target == Target::Trash {
-                    crate::local_trash::run(&work.operation,&mut callback)
-                } else if work.operation["action"] == "logout" {
-                    crate::account::logout(&executable,&mut callback)
-                } else {
-                    runtime::call(json!({"op":"drive","executable":executable,"operation":work.operation}),&mut callback)
-                }
-            })).unwrap_or_else(|_|Err(Failure{message:"Native worker failed; no success assumed".into(),cancelled:false}));
-            let _=qt.queue(move |object| object.complete(id,result));
-        });
+                }))
+                .unwrap_or_else(|_| {
+                    Err(Failure {
+                        message: "Native worker failed; no success assumed".into(),
+                        cancelled: false,
+                    })
+                });
+                let _ = qt.queue(move |object| object.complete(id, result));
+            });
         match worker {
             Ok(worker) => {
                 self.as_mut().rust_mut().worker_id = Some(id);

@@ -23,3 +23,18 @@ pub fn call(mut request: Value, callback: &mut impl FnMut(Value) -> i32) -> Resu
 pub fn value(request: Value) -> Result<Value, Failure> {
     call(request, &mut |_| 0)
 }
+
+/// Disk-backed browsing runs exclusively on workers, never the Qt thread.
+pub fn browse(
+    executable: String,
+    operation: Value,
+    fresh: bool,
+    callback: &mut impl FnMut(Value) -> i32,
+) -> Result<Value, Failure> {
+    neutrondrive_core::browse_cache::run(executable, operation, fresh, callback).map_err(|e| {
+        Failure {
+            message: e.message,
+            cancelled: e.cancelled,
+        }
+    })
+}

@@ -155,7 +155,7 @@ ColumnLayout {
             highlighted: panel.selectionMode
             onClicked: { if(panel.selectionMode)panel.leaveSelection(); else { panel.selectionMode=true; if(!panel.viewState.busy && !(panel.viewState.photoAlbums || []).length)panel.request({action:"albums"}); } }
         }
-        PhotoButton { text: host.tr("Refresh"); enabled: !panel.viewState.busy; onClicked: panel.albumsVisible ? panel.request({action:"albums"}) : panel.openAlbum(panel.viewState.photoAlbum || "") }
+        PhotoButton { text: host.tr("Refresh"); enabled: !panel.viewState.busy; onClicked: panel.request(panel.albumsVisible ? {action:"albums",fresh:true} : {action:"index",album:panel.viewState.photoAlbum || "",fresh:true,preserve:true}) }
     }
     RowLayout {
         Layout.fillWidth: true; spacing: 8
