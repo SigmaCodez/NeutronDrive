@@ -1,4 +1,4 @@
-//! Session-scoped stale-while-revalidate views. Never block navigation on a poll.
+//! Memory views backed by worker-side persistent snapshots; background reconciliation.
 use super::*;
 use std::collections::{HashMap, HashSet};
 impl Files {
@@ -315,6 +315,43 @@ mod tests {
     }
     fn request(action: &str) -> Value {
         json!({"album":"","operation":{"action":"photo_library","request":{"action":action,"album":"","ids":["a","c"]}}})
+    }
+    #[test]
+    fn disk_hit_is_displayed_and_scheduled_for_background_validation() {
+        let mut m = model();
+        m.state["page"] = json!("files");
+        let effects = m.refresh();
+        let Effect::Work(work) = &effects[0] else {
+            panic!("Expected reader")
+        };
+        m.progress(work.id, json!({"kind":"cache_hit"}));
+        m.complete(
+            work.id,
+            Ok(json!([{"uid":"a","name":"Cached","safe":true}])),
+        );
+        assert!(!m.busy());
+        assert_eq!(m.entries[0]["name"], "Cached");
+        assert!(m.folder_cache.back().unwrap().saved.elapsed() >= Duration::from_secs(30));
+        assert!(matches!(
+            m.refresh_cache().as_slice(),
+            [Effect::PollCache(_)]
+        ));
+        let effects = m.dispatch("action", &json!(["refresh"]));
+        let Effect::Work(work) = &effects[0] else {
+            panic!("Expected fresh reader")
+        };
+        assert_eq!(work.operation["_fresh"], true);
+    }
+    #[test]
+    fn login_drops_previous_account_memory_views() {
+        let mut m = model();
+        m.store_folder("/my-files".into(), vec![json!({"uid":"old"})]);
+        m.save_photo_view();
+        m.dispatch("action", &json!(["login"]));
+        assert!(m.folder_cache.is_empty());
+        assert!(m.photo_views.is_empty());
+        assert!(m.state["photos"].as_array().unwrap().is_empty());
+        assert!(m.state["photoTotal"].is_null());
     }
     #[test]
     fn inventory_diff_retains_images_and_rejects_late_or_invalid_results() {

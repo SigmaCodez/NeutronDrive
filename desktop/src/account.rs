@@ -3,6 +3,7 @@ use crate::runtime::{self, Failure};
 use serde_json::{json, Value};
 
 pub fn logout(executable: &str, callback: &mut impl FnMut(Value) -> i32) -> Result<Value, Failure> {
+    neutrondrive_core::browse_cache::forget(executable, callback);
     let flatpak = std::env::var_os("FLATPAK_ID").is_some_and(|v| !v.is_empty());
     logout_with(executable, flatpak, &mut |mut request| {
         if request["op"] == "desktop_bus" {

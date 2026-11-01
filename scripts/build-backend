@@ -8,6 +8,8 @@ import argparse
 import hashlib
 import json
 import os
+import platform
+import sys
 from pathlib import Path
 import shutil
 import stat
@@ -120,6 +122,9 @@ def main():
                   'registry_rewrite': 'https://pkg.protontech.ch/npm/npm-public/ -> https://registry.npmjs.org/',
                   'bridge_files': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in BRIDGE.glob('*.ts')}}
     output.with_name(output.name + '.provenance.json').write_text(json.dumps(provenance, indent=2) + '\n')
+    native_target = 'bun-linux-arm64' if platform.machine() in ('aarch64', 'arm64') else 'bun-linux-x64-baseline'
+    if args.target == native_target:
+        run([sys.executable, BRIDGE / 'check-local-cache.py', output])
     print(f'Built {output}\nSHA512 {sha512}')
 
 
