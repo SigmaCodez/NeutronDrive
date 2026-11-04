@@ -6,7 +6,7 @@ nd_mount=$2
 nd_test=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 nd_state=$(mktemp -d /tmp/nd-volume-test-XXXXXX)
 trap 'rm -rf -- "$nd_state"' EXIT
-cc "$nd_test/volume.c" -o "$nd_state/check" $(pkg-config --cflags --libs gio-2.0 gmodule-2.0)
+cc -Wl,--export-dynamic "$nd_test/volume.c" -o "$nd_state/check" $(pkg-config --cflags --libs gio-2.0 gmodule-2.0) -ldl
 mkdir -p "$nd_state/neutrondrive/ondemand-service"
 python3 - "$nd_state/neutrondrive/ondemand-service/mount.json" "$nd_mount" <<'PY'
 import json,sys

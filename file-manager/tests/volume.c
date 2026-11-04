@@ -1,6 +1,7 @@
 #include <gio/gio.h>
 #include <gmodule.h>
 #include <stdio.h>
+#include <dlfcn.h>
 typedef struct {GTypeModule parent;} TestModule;
 typedef struct {GTypeModuleClass parent;} TestModuleClass;
 G_DEFINE_TYPE(TestModule,test_module,G_TYPE_TYPE_MODULE)
@@ -22,8 +23,28 @@ static guint mount_changes=0, monitor_changes=0;
 static void changed(GMount *mount,gpointer unused){mount_changes++;}
 static void monitor_changed(GVolumeMonitor *monitor,GMount *mount,gpointer target){if(mount==target)monitor_changes++;}
 
+/* An isolated mount uses the real GMount shadow counters and GObject signals,
+ * without relying on desktop-specific filtering of temporary kernel mounts. */
+typedef struct {GObject parent; GFile *root;} TestMount;
+typedef struct {GObjectClass parent;} TestMountClass;
+static GFile *test_root(GMount *m){return g_object_ref(((TestMount*)m)->root);}
+static void mount_iface(GMountIface *iface){iface->get_root=test_root;}
+G_DEFINE_TYPE_WITH_CODE(TestMount,test_mount,G_TYPE_OBJECT,G_IMPLEMENT_INTERFACE(G_TYPE_MOUNT,mount_iface))
+static void mount_finalize(GObject *obj){g_clear_object(&((TestMount*)obj)->root);G_OBJECT_CLASS(test_mount_parent_class)->finalize(obj);}
+static void test_mount_class_init(TestMountClass *c){G_OBJECT_CLASS(c)->finalize=mount_finalize;}
+static void test_mount_init(TestMount *m){}
+static GMount *synthetic=NULL;
+GList *g_volume_monitor_get_mounts(GVolumeMonitor *monitor){
+ if(synthetic)return g_list_append(NULL,g_object_ref(synthetic));
+ GList *(*real_mounts)(GVolumeMonitor*)=dlsym(RTLD_NEXT,"g_volume_monitor_get_mounts");
+ g_assert(real_mounts);return real_mounts(monitor);
+}
+
 int main(int argc,char**argv){
  g_assert(argc==4);
+ if(g_getenv("ND_TEST_SYNTHETIC_VOLUME")){
+  TestMount *m=g_object_new(test_mount_get_type(),NULL);m->root=g_file_new_for_path(argv[2]);synthetic=G_MOUNT(m);
+ }
  GModule *host=g_module_open("libnautilus-extension.so.4",G_MODULE_BIND_LAZY);
  if(!host)host=g_module_open("libnautilus-extension.so.1",G_MODULE_BIND_LAZY);
  g_assert(host);
@@ -57,5 +78,5 @@ int main(int argc,char**argv){
  while(!g_mount_is_shadowed(target)&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
  g_assert(g_mount_is_shadowed(target));hidden_mount_changes=mount_changes;hidden_monitor_changes=monitor_changes;
  void(*shutdown)(void)=sym(plugin,"nautilus_module_shutdown");shutdown();
- g_assert(!g_mount_is_shadowed(target));g_assert_cmpuint(mount_changes,==,hidden_mount_changes);g_assert_cmpuint(monitor_changes,==,hidden_monitor_changes);g_object_unref(provider);g_object_unref(target);g_object_unref(monitor);puts("GIO_VOLUME_HIDE_CONFIG_RESTORE_AND_QUIET_SHUTDOWN_OK");return 0;
+ g_assert(!g_mount_is_shadowed(target));g_assert_cmpuint(mount_changes,==,hidden_mount_changes);g_assert_cmpuint(monitor_changes,==,hidden_monitor_changes);g_object_unref(provider);g_object_unref(target);g_object_unref(monitor);g_clear_object(&synthetic);puts("GIO_VOLUME_HIDE_CONFIG_RESTORE_AND_QUIET_SHUTDOWN_OK");return 0;
 }
