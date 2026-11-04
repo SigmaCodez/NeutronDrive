@@ -62,7 +62,7 @@ workflow checks completeness on pushes and pull requests. A stale release tag,
 missing translation, mismatched package checksum/version, missing PNG or failed
 GUI check prevents publication of the homepage bundle.
 
-The generated `neutrondrive-website.json` release asset includes all text, six
+The generated `neutrondrive-website.json` release asset includes all text, five
 base64 PNGs, PNG hashes, package/executable hashes, exact source commit, language
 and capture time. It is also retained as a workflow artifact. One asset avoids
 partial text/image updates. It is generated after the package release, so a

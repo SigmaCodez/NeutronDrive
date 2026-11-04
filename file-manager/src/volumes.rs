@@ -130,16 +130,13 @@ pub fn shutdown() {
         }
         if let Some(api) = VOLUME.get() {
             let mounts = std::mem::take(&mut *SHADOWED.lock().unwrap());
-            let monitor = (api.monitor)();
             for mount in mounts {
                 (api.unshadow)(mount as Ptr);
-                if !monitor.is_null() {
-                    notify(api, monitor, mount as Ptr);
-                }
+                // Do not notify the host during module teardown: Nautilus may
+                // already have freed its provider list while its sidebar still
+                // listens for mount changes. Restore the process-local shadow
+                // counter silently; poll() still notifies during normal use.
                 (api.unref)(mount as Ptr);
-            }
-            if !monitor.is_null() {
-                (api.unref)(monitor);
             }
         }
     }

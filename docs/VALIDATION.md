@@ -1,5 +1,38 @@
 # Validation record
 
+## 1.1.1 validation (2026-11-04)
+
+The [native and Linux package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41895207945) passed for
+`1238c872c5c8201aa6d40925fc391d8da9f6d6eb`. It includes x86-64 and ARM64 native
+Rust/Qt/service tests, retained regression contracts, SDK checks, DEB installation
+on both architectures and Ubuntu 26.10, Fedora/openSUSE RPM, Flatpak, strict Snap,
+AppImage and Arch runtime checks.
+
+The GIO regression uses real GObject signals and GMount shadow counters with an
+isolated synthetic mount. It checks normal transition notifications, quiet steady
+state, configuration-change restoration and silent module shutdown. It is run
+against modern and legacy Nautilus ABIs in native CI. The original installed
+1.1.0 library failed the shutdown assertion; the corrected library passed both
+synthetic and existing-local-mount tests. No cloud file operations were involved.
+
+Initial CI attempts exposed a missing GNU feature declaration in the test harness
+on Ubuntu 22.04 and stale AppStream screenshot URLs. Both were corrected. Another
+attempt failed the pre-existing daemon pause/retry assertion once; the unchanged
+daemon code and test passed in the final complete rerun. No daemon fix is claimed
+for that observation.
+
+Fresh English GUI captures come directly from the unmodified CI amd64 DEB, using
+isolated profiles and synthetic data. GUI-PREVIEWS.json records the exact package,
+executable, application build commit and image hashes. Release metadata and AUR
+recipes pin the published package/SDK bytes; BUILD_INFO.json and TEST_RESULTS.json
+record the native/package run and final release commit. Documentation, previews
+and distribution hashes are finalized after the tested application build.
+
+This patch changes extension teardown only. Existing sync safeguards and platform
+limitations remain. No new live-account sync or physical-machine RPM upgrade is
+claimed for this release.
+
+
 ## Release 1.1.0 validation (2026-11-01)
 
 The [final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41303891508)
