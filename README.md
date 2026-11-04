@@ -12,7 +12,9 @@ An unofficial, open-source **Linux desktop client for Proton Drive**. Browse you
 cloud files, synchronize folders in the background, keep selected items offline,
 and manage photos, albums and sharing from a native Qt Quick interface.
 
-**Version [1.1.0](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.1.0).**
+**Version [1.1.1](https://github.com/SigmaCodez/NeutronDrive/releases/tag/v1.1.1).**
+This patch fixes a Nautilus crash during file-manager extension shutdown.
+Normal mount visibility updates remain enabled.
 Previously visited cloud views and photo previews now survive application and PC
 restarts. Saved views appear from local disk and refresh quietly in the background.
 Ubuntu 26.10 DEB checks remain part of the release test matrix.
@@ -151,7 +153,7 @@ same DEB on Ubuntu 26.10 and test the Qt interface and Nautilus integration.
 These container checks do not replace a full GNOME/Wayland desktop-session test.
 
 Download from [GitHub Releases](https://github.com/SigmaCodez/NeutronDrive/releases).
-The commands below use the **1.1.0 release assets**, not development artifacts.
+The commands below use the **1.1.1 release assets**, not development artifacts.
 Packages are independent community builds, not official Proton packages or store listings.
 
 Snap Store publication is automated, but availability currently awaits Canonical’s
@@ -170,29 +172,29 @@ Store revision.
 
 ```sh
 # Debian / Ubuntu (choose arm64 instead of amd64 if appropriate)
-sudo apt install ./neutrondrive_1.1.0-1_amd64.deb
+sudo apt install ./neutrondrive_1.1.1-1_amd64.deb
 
 # Fedora
-sudo dnf install ./neutrondrive-1.1.0-fedora-x86_64.rpm
+sudo dnf install ./neutrondrive-1.1.1-fedora-x86_64.rpm
 
 # openSUSE
-sudo zypper install ./neutrondrive-1.1.0-opensuse-x86_64.rpm
+sudo zypper install ./neutrondrive-1.1.1-opensuse-x86_64.rpm
 
 # Flatpak
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user ./neutrondrive-1.1.0-x86_64.flatpak
+flatpak install --user ./neutrondrive-1.1.1-x86_64.flatpak
 flatpak run io.github.SigmaCodez.NeutronDrive
 
 # Snap (local unsigned package)
-sudo snap install --dangerous ./neutrondrive_1.1.0_amd64.snap
+sudo snap install --dangerous ./neutrondrive_1.1.1_amd64.snap
 sudo snap connect neutrondrive:password-manager-service
 
 # AppImage
-chmod +x NeutronDrive-1.1.0-x86_64.AppImage
-./NeutronDrive-1.1.0-x86_64.AppImage
+chmod +x NeutronDrive-1.1.1-x86_64.AppImage
+./NeutronDrive-1.1.1-x86_64.AppImage
 
 # Arch: install the downloaded package with dependencies
-sudo pacman -U ./neutrondrive-bin-1.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U ./neutrondrive-bin-1.1.1-1-x86_64.pkg.tar.zst
 ```
 
 Verify downloads against the release's `SHA256SUMS`. Release evidence includes
