@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <gio/gio.h>
 #include <gmodule.h>
 #include <stdio.h>
