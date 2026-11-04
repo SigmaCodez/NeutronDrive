@@ -55,5 +55,5 @@ int main(int argc,char**argv){
  while(!g_mount_is_shadowed(target)&&g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
  g_assert(g_mount_is_shadowed(target));hidden_mount_changes=mount_changes;hidden_monitor_changes=monitor_changes;
  void(*shutdown)(void)=sym(plugin,"nautilus_module_shutdown");shutdown();
- g_assert(!g_mount_is_shadowed(target));g_assert_cmpuint(mount_changes,>,hidden_mount_changes);g_assert_cmpuint(monitor_changes,>,hidden_monitor_changes);g_object_unref(provider);g_object_unref(target);g_object_unref(monitor);puts("GIO_VOLUME_HIDE_AND_CONFIG_CHANGE_RESTORE_OK");return 0;
+ g_assert(!g_mount_is_shadowed(target));g_assert_cmpuint(mount_changes,==,hidden_mount_changes);g_assert_cmpuint(monitor_changes,==,hidden_monitor_changes);g_object_unref(provider);g_object_unref(target);g_object_unref(monitor);puts("GIO_VOLUME_HIDE_CONFIG_RESTORE_AND_QUIET_SHUTDOWN_OK");return 0;
 }
