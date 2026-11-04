@@ -18,7 +18,7 @@ Updater code and seed data are root-owned in `/usr/local/lib/neutrondrive-conten
 - Current version, release status and original release notes; corrections to
   existing release notes are picked up as well. Direct package downloads keep
   their existing five-minute refresh.
-- The `neutrondrive-website.json` release asset has priority and bundles all five
+- The `neutrondrive-website.json` release asset has priority and bundles all six
   locales with fresh PNGs, hashes and the exact release commit. It is produced by
   `.github/workflows/release-website.yml`.
 - For releases without a bundle, homepage descriptions, features, FAQ, trust notes and gallery captions come from an
@@ -28,7 +28,7 @@ Updater code and seed data are root-owned in `/usr/local/lib/neutrondrive-conten
   checked. Old captures keep their real version label until a new set exists.
 
 The server consumes published content; it does not invent or AI-translate text.
-The website interface remains available in EN/DE/FR/ES/IT. Release-specific
+The website interface remains available in EN/DE/FR/ES/IT/PT. Release-specific
 translations come from the manifest, falling back to English. Without a matching
 manifest, original English release notes still update automatically, the feature
 overview keeps its reviewed version label, and old beta-specific FAQ and status
@@ -49,7 +49,7 @@ Before tagging, update `docs/website-content.json`:
 }
 ```
 
-The checked-in file contains the current five-language content as an example.
+The checked-in file contains the current six-language content as an example.
 English is required. Optional fields: `description`, `releaseNotes`, `features`
 (exactly four title/text pairs), `faq` (1–20 question/answer pairs), `trust`
 (three title/text pairs), `views` (five tab/title/caption triples in the existing
@@ -60,7 +60,7 @@ An inherited manifest with an older release tag is ignored, not relabelled.
 Capture actual application screenshots with synthetic data, update the existing
 `docs/GUI-PREVIEWS.json` with `published_release` and SHA256 per image, and include
 both manifests in the release tag. No homepage deployment is then necessary. For automatic capture and bundling,
-see `docs/RELEASING.md`: the release workflow requires all five complete locales,
+see `docs/RELEASING.md`: the release workflow requires all six complete locales,
 including `releaseNotes`, and generates screenshots from the published DEB.
 
 ## Atomic publication and failures

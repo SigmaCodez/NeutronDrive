@@ -34,6 +34,12 @@ cargo fmt -- --check
     cargo "${nd_cargo[@]}" build --locked --offline
 )
 python3 "$nd_root/file-manager/tests/check-providers.py" "$CARGO_TARGET_DIR/debug/libneutrondrive_file_manager.so" "$CARGO_TARGET_DIR/debug/libneutrondrive_nautilus3.so"
+nd_volume_extension="$CARGO_TARGET_DIR/debug/libneutrondrive_nautilus3.so"
+if python3 -c 'import ctypes.util,sys; sys.exit(0 if (ctypes.util.find_library("nautilus-extension") or "").endswith(".so.4") else 1)'; then
+    nd_volume_extension="$CARGO_TARGET_DIR/debug/libneutrondrive_file_manager.so"
+fi
+ND_TEST_SYNTHETIC_VOLUME=1 timeout 20 bash "$nd_root/file-manager/tests/check-volume.sh" "$nd_volume_extension" /tmp/nd-synthetic-volume
+
 dbus-run-session -- xvfb-run -a env NO_AT_BRIDGE=1 G_DEBUG=fatal-warnings \
     python3 "$nd_root/file-manager/tests/check-nemo-sidebar.py" "$CARGO_TARGET_DIR/debug/libneutrondrive_file_manager.so"
 # The GTK4 adapter is a no-op on the legacy Nautilus 42 ABI.

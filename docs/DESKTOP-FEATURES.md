@@ -1,5 +1,14 @@
 # Desktop features
 
+## 1.1.1 — Nautilus shutdown correction
+
+The native file-manager extension restores its process-local mount shadow
+counters without emitting mount-change notifications during module teardown.
+This avoids reentering a Nautilus sidebar whose provider list is already being
+disposed. Runtime mount visibility updates and restoration after configuration
+changes remain enabled. No account, sync-job or cloud-data migration is needed.
+
+
 The current release is 1.0.10. The sections below identify when features
 were introduced.
 Upgrade the complete application package; older bridges do not contain all
