@@ -1,22 +1,23 @@
 {
-  "preview_version": "1.1.0",
-  "published_release": "v1.1.0",
-  "binary_version": "NeutronDrive 1.1.0",
-  "binary_sha256": "3f690b2d3b2023a1f8fbd0b82434ad124cd968f5a0049b649089755c4b3487f8",
-  "package": "neutrondrive_1.1.0-1_amd64.deb",
-  "package_sha256": "883d251b036151cc2153fab322cefb47f202bb5595572b4c35bedd77a3c0cafb",
-  "captured_at": "2026-11-01T11:57:07.551866+00:00",
+  "preview_version": "1.1.1",
+  "published_release": "v1.1.1",
+  "binary_version": "NeutronDrive 1.1.1",
+  "binary_sha256": "a143795d575a6ea14d5dddd3784accda1140e888ebb2d7aa4a6a7e1b65435e65",
+  "package": "neutrondrive_1.1.1-1_amd64.deb",
+  "package_sha256": "aabdaebd0151f5d60361d12f5434af9e5dd28cb53909c28f222c27546a3423e0",
+  "captured_at": "2026-11-04T19:47:50.684139+00:00",
   "language": "en",
-  "environment": "Unmodified GitHub-built 1.1.0 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
+  "environment": "Unmodified GitHub-built 1.1.1 DEB executable and bundled Qt; offscreen software rendering, private D-Bus and isolated XDG directories.",
   "data": "Synthetic English demo data; direct GUI captures, no image edits or personal files.",
   "images": {
-    "light-grid.png": "c066e7c930c2732a295785e086b37d57fe6409abb2abaf9a60a22400cf86abd8",
-    "dark-grid.png": "ffc5edadfcf9a36a380d2e78cb24791bc5a7e94d39e83e24c287d4cc46728592",
-    "compact-files.png": "431a6f039f98a23136c3adae4c4201aca5a2b75313aee2767c153f054911fdb8",
-    "dark-settings.png": "32577007c4ae34011995c9cde399d8a39a6ab6fbdb0a00f01e54f301d26ff61b",
-    "light-photos.png": "bd2ff6ab12043eda1ebce75be2ac94323aa55f4cdeff98972f29f17e24626871",
+    "light-grid.png": "adcd9e9c2eb13cee6dbc64a0f76d97c4125125aa04797723b9a2fd7bb612d853",
+    "dark-grid.png": "9b8d3073b926f00e22b598c6d4697350cf0d1ae3df3b6fef95170ae608c6b190",
+    "compact-files.png": "9cc527a2ae38bfc703d8daae2fd14d4afc2402157663b6187fcf87defd603c5e",
+    "dark-settings.png": "23a478c989b8e6978e3c99461fc24a42ee28d010e2c56b079a5bebe0eb022693",
+    "light-photos.png": "b8824a93426b05f0f48109b98db148e5154e4a9e7307d225f51d0093c0bd5621",
     "share-window-light.png": "23503ec59b68c6c98da2e3bc48be3712bef9ffa0ecb9454a8ab644af63dc6a94",
-    "light-activity-progress.png": "cef782058a20e74c24d733ca502cb103fdf68d5def74cdf36e8c986d59ed5b35",
-    "compact-progress.png": "48e827fc5dfc3d45f6bb94bc207d4ecdea997a7d912e7ce39440f65da96886ab"
-  }
+    "light-activity-progress.png": "99af843420a886d56a99de072effc1a485f7b2bda0d2b7b963f62e3e23ec90ed",
+    "compact-progress.png": "3579fe3d0e253c3743bdb847a766441f951140057149c70a072451efb982c40d"
+  },
+  "application_build_commit": "1238c872c5c8201aa6d40925fc391d8da9f6d6eb"
 }
