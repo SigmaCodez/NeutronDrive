@@ -24,7 +24,9 @@ static void monitor_changed(GVolumeMonitor *monitor,GMount *mount,gpointer targe
 
 int main(int argc,char**argv){
  g_assert(argc==4);
- GModule *host=g_module_open("libnautilus-extension.so.4",G_MODULE_BIND_LAZY);g_assert(host);
+ GModule *host=g_module_open("libnautilus-extension.so.4",G_MODULE_BIND_LAZY);
+ if(!host)host=g_module_open("libnautilus-extension.so.1",G_MODULE_BIND_LAZY);
+ g_assert(host);
  GModule *plugin=g_module_open(argv[1],G_MODULE_BIND_LAZY);g_assert(plugin);
  GVolumeMonitor *monitor=g_volume_monitor_get();
  GMount *target=NULL;

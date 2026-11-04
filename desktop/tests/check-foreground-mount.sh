@@ -42,6 +42,14 @@ for nd_mode in online offline; do
     [[ $nd_ready == true ]]
     [[ -d "$nd_root/state/neutrondrive/ondemand-foreground" ]]
     [[ $(cat "$nd_root/mount/data") == abc ]]
+    if [[ $nd_mode == online ]]; then
+        nd_extension="$(dirname "$nd_binary")/libneutrondrive_file_manager.so"
+        if ! python3 -c 'import ctypes.util,sys; sys.exit(0 if (ctypes.util.find_library("nautilus-extension") or "").endswith(".so.4") else 1)'; then
+            nd_extension="$(dirname "$nd_binary")/libneutrondrive_nautilus3.so"
+        fi
+        nd_project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+        timeout 20 bash "$nd_project/file-manager/tests/check-volume.sh" "$nd_extension" "$nd_root/mount"
+    fi
     kill -TERM "$nd_pid"
     wait "$nd_pid"
     nd_pid=
