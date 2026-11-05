@@ -802,5 +802,19 @@
   "Retry now": "Tentar novamente",
   "Hide details": "Ocultar detalhes",
   "Show details": "Mostrar detalhes",
-  "Retry checks both copies again. It does not overwrite a conflict.": "A nova tentativa verifica ambas as cópias sem substituir conflitos."
+  "Retry checks both copies again. It does not overwrite a conflict.": "A nova tentativa verifica ambas as cópias sem substituir conflitos.",
+  "Download (KiB/s)": "Download (KiB/s)",
+  "Excluded paths": "Excluded paths",
+  "Excluded relative paths, one per line (including subfolders). No wildcards.": "Excluded relative paths, one per line (including subfolders). No wildcards.",
+  "Hour (UTC)": "Hour (UTC)",
+  "Limits apply to SDK traffic from the next operation, including sync, uploads, downloads and on-demand files. 0 means unlimited. Network buffers may briefly burst.": "Limits apply to SDK traffic from the next operation, including sync, uploads, downloads and on-demand files. 0 means unlimited. Network buffers may briefly burst.",
+  "Minute": "Minute",
+  "Missed runs catch up when the service starts. Manual sync stays available. Disable the schedule for continuous sync.": "Missed runs catch up when the service starts. Manual sync stays available. Disable the schedule for continuous sync.",
+  "Next scheduled sync (UTC)": "Next scheduled sync (UTC)",
+  "Saving pauses this job. Review the settings, then resume it when ready. Exclusions keep existing local and cloud files.": "Saving pauses this job. Review the settings, then resume it when ready. Exclusions keep existing local and cloud files.",
+  "Sync daily at (UTC)": "Sync daily at (UTC)",
+  "Sync is stopping. Wait for the current transfer to finish, then save the settings again.": "Sync is stopping. Wait for the current transfer to finish, then save the settings again.",
+  "Sync settings": "Sync settings",
+  "Transfer limits": "Transfer limits",
+  "Upload (KiB/s)": "Upload (KiB/s)"
 }

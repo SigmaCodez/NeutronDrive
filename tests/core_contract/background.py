@@ -4,7 +4,7 @@ Rust owns daemon state, threads, watches, events, IPC and sync execution.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import signal
@@ -126,6 +126,9 @@ class Job:
     account_root_uid: str = ""
     local_device: int = 0
     local_inode: int = 0
+
+    options: dict = field(default_factory=dict)
+    next_scheduled_at: int | None = None
 
 
 class JobStore:

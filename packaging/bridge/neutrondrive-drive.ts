@@ -1,5 +1,6 @@
 /** NeutronDrive entry point; upstream auth, session, cache and commands retained. */
 import { createHash } from 'node:crypto';
+import { installTransferLimits } from './transferLimits';
 import { getConfig } from './config';
 import { initCredentials } from './credentials';
 import { CommandSharingConfigure } from './sharingCommands';
@@ -15,6 +16,19 @@ import { CommandPhotoImport, CommandVersions, CommandRestoreVersion, CommandPhot
 
 declare const APP_VERSION: string;
 declare const SDK_VERSION: string | undefined;
+
+// Explicit capability handshake: older bridge binaries reject this flag.
+if (Bun.argv[2] === '--neutrondrive-transfer-limits-v1') {
+    Bun.argv.splice(2, 1);
+    if (process.argv[2] === '--neutrondrive-transfer-limits-v1') process.argv.splice(2, 1);
+    const limit = (name: string) => {
+        const value = process.env[name] ?? '0';
+        if (!/^\d+$/.test(value) || Number(value) > 1048576) throw new Error('Invalid transfer limit');
+        return Number(value);
+    };
+    process.env.NEUTRONDRIVE_LIMITS_ACTIVE = '1';
+    installTransferLimits(limit('NEUTRONDRIVE_UPLOAD_KIB'), limit('NEUTRONDRIVE_DOWNLOAD_KIB'));
+}
 
 // Local-only cache namespace: never initialize the SDK, event manager or network.
 // No tokens, passwords or raw session identifiers leave the credential boundary.

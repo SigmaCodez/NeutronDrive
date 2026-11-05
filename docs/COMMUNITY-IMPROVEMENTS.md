@@ -4,6 +4,20 @@ Latest review: **5 November 2026**. This is a qualitative sample of public
 feedback, not a survey or vote-based ranking. Priorities below are maintainer
 recommendations based on usefulness and implementation dependencies.
 
+## Unreleased implementation, 5 November 2026
+
+The open sync controls now have an implementation: per-job relative-path/subtree
+exclusions with preserved baselines, daily UTC schedules with persisted deadlines,
+and shared upload/download stream pacing in the SDK bridge. Existing timed pauses,
+retry and diagnostics remain available. See [usage and exact scope](SYNC-CONTROLS.md).
+This is local development work, not an installed or published release.
+
+The requested independent security review is **not completed**. A
+[review scope and reproduction guide](SECURITY-REVIEW-SCOPE.md) is prepared for an
+external reviewer; internal tests cannot satisfy independence.
+
+The inventory below records the current development status and its sources.
+
 ## Request inventory and implementation assessment
 
 The repository issue search returned only [#19, Hello from Syncative](https://github.com/SigmaCodez/NeutronDrive/issues/19),
@@ -16,16 +30,16 @@ NeutronDrive users.
 
 | Request | Evidence | Current NeutronDrive status | Suggested next step |
 | --- | --- | --- | --- |
-| Exclude files/subfolders, such as node_modules and build output | [Subfolder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1wzc527/add_ability_to_exclude_specific_subfolders_from/), [file-level exclusions](https://www.reddit.com/r/ProtonDrive/comments/1rpszqw/proton_drive_needs_filelevel_sync_exclusions_is/) | Open: no configurable per-job ignore rules found. Existing reserved-name and unsupported-file safeguards are not user-defined exclusions. | First feature priority; implement consistently across local scan, remote scan, reconciliation and saved baselines. |
-| Limit upload/download bandwidth | [Rate-limit request](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Open: no user-configurable transfer bandwidth limit found. Timed pauses do not provide throttling. | Assess SDK/transfer enforcement before adding controls; include concurrent jobs and on-demand reads. |
-| Run synchronization at chosen times | [Scheduling requested alongside bandwidth limits](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Open: automatic resume after a pause exists, but is not a recurring calendar schedule. | Define timezone, daylight-saving, missed-run and manual-pause behavior before implementation. |
+| Exclude files/subfolders, such as node_modules and build output | [Subfolder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1wzc527/add_ability_to_exclude_specific_subfolders_from/), [file-level exclusions](https://www.reddit.com/r/ProtonDrive/comments/1rpszqw/proton_drive_needs_filelevel_sync_exclusions_is/) | Implemented locally: explicit per-job relative paths/subtrees; existing data and baselines are retained. | Validate on a disposable live account before release; glob patterns remain outside this first implementation. |
+| Limit upload/download bandwidth | [Rate-limit request](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Implemented locally: separate persisted upload/download limits with shared stream budgets. | Ship the matching bridge; measure real-network buffering separately from application stream pacing. |
+| Run synchronization at chosen times | [Scheduling requested alongside bandwidth limits](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Implemented locally: daily UTC deadline, missed-run catch-up and manual sync override. | Local-time zones and weekly calendar rules are not part of the daily UTC schedule. |
 | Pause temporarily and resume automatically | [Timed pause feedback](https://www.reddit.com/r/ProtonDrive/comments/1ulfq23/windows_pause_sync_for_a_limited_time/) | Already implemented in the project: 1, 4 or 24 hours, or manual resume; persisted per-job deadlines. | Retain existing expiration/restart regression coverage; no duplicate feature needed. |
 | Reliable Linux sync with understandable failures | [Linux day-to-day reliability discussion](https://www.reddit.com/r/ProtonDrive/comments/1v0nch0/anyone_here_using_proton_drive_as_their_primary/) | Partly addressed: retry, last successful sync, retry/resume times, expandable issue details and private diagnostic summaries exist. Reliability is an ongoing requirement, not a completed checkbox. | Continue reproducible error/recovery tests and UX fixes. |
 | Independent security review and public findings | [Linux client feedback](https://www.reddit.com/r/ProtonDrive/comments/1t047ri/i_built_an_opensource_proton_drive_sync_client/) | External review request concerning another client, relevant as a trust requirement for this category. This review establishes no independent NeutronDrive audit. | Separate externally conducted review; internal tests must not be described as an independent audit. |
 
-### Proposed acceptance criteria for exclusions
+### Acceptance criteria for exclusions
 
-These are a proposed design, **not implemented functionality**:
+The relative-path implementation follows these requirements:
 
 - Store explicit rules per sync job and explain their scope before saving them.
   Start with relative paths/subtrees; define glob syntax separately rather than
@@ -43,14 +57,12 @@ These are a proposed design, **not implemented functionality**:
   the cloud browser or on-demand mount. Do not advertise disk cleanup as a side
   effect of excluding a path.
 
-### Outcome of this review
+### Validation and remaining external work
 
-The source-backed request inventory and implementation boundaries were updated.
-No new runtime feature, release or local installation was made in this review.
-The open requests need coordinated engine work or an external review; none was
-represented as implemented merely by adding documentation or a UI control.
-The earlier implementation and validation records below are retained as history.
-
+See [VALIDATION.md](VALIDATION.md) for test results and [SYNC-CONTROLS.md](SYNC-CONTROLS.md)
+for exact behavior and limitations. No release or installation has been performed.
+An independent security audit still needs an external reviewer; the internal test
+record and prepared review scope do not complete that request.
 
 ## Implemented: timed background-sync pauses
 
@@ -66,7 +78,10 @@ The job cards and Activity page show the last completed sync, the next retry whe
 - [Limited-time sync pauses](https://www.reddit.com/r/ProtonDrive/comments/1ulfq23/windows_pause_sync_for_a_limited_time/) (July 2026) addresses forgetting to resume after reducing network or CPU load. The thread also includes requests for Linux support.
 - [Linux GUI usability](https://www.reddit.com/r/ProtonDrive/comments/1rkiqny/proton_drive_app_for_linux/) (March 2026) emphasizes a straightforward GUI and responsive file browsing.
 
-### Other recurring requests, not implemented in this change
+### Requests deferred by the earlier timed-pause change
+
+Both items below are implemented by the newer unreleased work at the top of this
+document. The notes record why they were kept separate from timed pauses.
 
 - [File and folder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1wzc527/add_ability_to_exclude_specific_subfolders_from/) and [development-folder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1gosqmw/node_modules_exclusion/): need explicit semantics for existing cloud files, deletion baselines and nested paths before adding a safe ignore system.
 - [Bandwidth limits](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/): require transfer-layer enforcement across the SDK, upload, download and mounted-file paths. A pause is not a rate limiter.
@@ -78,9 +93,9 @@ The job cards and Activity page show the last completed sync, the next retry whe
 - **Copy diagnostics** copies a deliberately allowlisted JSON summary: app version, OS/architecture, service state, counts of jobs by state, errors, conflicts, skipped items, timed pauses, downloads and pending deletions. It excludes job IDs, file names, paths, account information, timestamps and raw errors. Nothing is uploaded or sent automatically. It remains available during transfers.
 - All seven new UI messages are included in the 25 language catalogs.
 
-These changes address the reliability and understandable-status requests in the Linux discussions linked above. Exclusion rules and transfer rate limiting remain separate work.
+These changes address the reliability and understandable-status requests in the Linux discussions linked above. Exclusion rules and transfer rate limiting were subsequently implemented as described at the top of this document.
 
-## Validation
+## Earlier timed-pause and troubleshooting validation
 
 Tests use isolated temporary profiles and synthetic SDK responses, never real account files. They cover old job-format compatibility, persisted deadlines, expiration boundaries, replacement deadlines, manual override, fixed-duration IPC commands, missing job identities, safe cancellation, daemon startup after expiry, and automatic resumption without a GUI.
 

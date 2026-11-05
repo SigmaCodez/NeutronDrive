@@ -73,10 +73,15 @@ def main():
     account_patch = BRIDGE / 'account-status.patch'
     run(['git', '-C', source, 'apply', '--check', account_patch])
     run(['git', '-C', source, 'apply', account_patch])
+    http_file = source / 'cli/src/api/httpClient.ts'
+    http_file.write_bytes(subprocess.check_output(['git', '-C', str(source), 'show', 'HEAD:cli/src/api/httpClient.ts']))
+    transfer_patch = BRIDGE / 'transfer-limits.patch'
+    run(['git', '-C', source, 'apply', '--check', transfer_patch])
+    run(['git', '-C', source, 'apply', transfer_patch])
     dirty = subprocess.check_output(['git', '-C', str(source), 'diff', '--name-only'], text=True).splitlines()
-    if dirty != ['cli/bun.lock', 'cli/src/cli/interface.ts', 'cli/src/cli/version.ts', 'cli/src/init.ts']:
+    if dirty != ['cli/bun.lock', 'cli/src/api/httpClient.ts', 'cli/src/cli/interface.ts', 'cli/src/cli/version.ts', 'cli/src/init.ts']:
         parser.error('Source cache has unexpected tracked modifications: ' + ', '.join(dirty))
-    for name in ('eventProtocol.ts', 'eventCommands.ts', 'neutrondrive-drive.ts',
+    for name in ('transferLimits.ts', 'transferLimits.test.ts', 'eventProtocol.ts', 'eventCommands.ts', 'neutrondrive-drive.ts',
                  'flushOutput.ts', 'flushOutput.test.ts', 'eventProtocol.test.ts', 'versionBranding.test.ts', 'computerCommands.ts', 'computerCommands.test.ts', 'libraryCommands.ts', 'libraryCommands.test.ts', 'sharingCommands.ts', 'sharingCommands.test.ts'):
         shutil.copyfile(BRIDGE / name, source / 'cli/src' / name)
     # The pinned Bun lock includes local source packages and the official crypto
@@ -93,7 +98,7 @@ def main():
         parser.error('Unexpected root node_modules directory in source cache')
     else:
         modules.symlink_to('cli/node_modules', target_is_directory=True)
-    run([bun, 'test', 'src/flushOutput.test.ts', 'src/eventProtocol.test.ts', 'src/versionBranding.test.ts', 'src/computerCommands.test.ts', 'src/libraryCommands.test.ts', 'src/sharingCommands.test.ts'], cwd=source / 'cli')
+    run([bun, 'test', 'src/transferLimits.test.ts', 'src/flushOutput.test.ts', 'src/eventProtocol.test.ts', 'src/versionBranding.test.ts', 'src/computerCommands.test.ts', 'src/libraryCommands.test.ts', 'src/sharingCommands.test.ts'], cwd=source / 'cli')
     run([bun, 'node_modules/typescript/bin/tsc', '--noEmit', '--incremental', 'false'], cwd=source / 'cli')
     if args.test_only:
         return
@@ -116,6 +121,7 @@ def main():
     provenance = {**lock, 'target': args.target, 'sha512': sha512,
                   'builder_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   'source_lock_sha256': hashlib.sha256((BRIDGE / 'source-lock.json').read_bytes()).hexdigest(),
+                  'transfer_patch_sha256': hashlib.sha256(transfer_patch.read_bytes()).hexdigest(),
                   'account_patch_sha256': hashlib.sha256(account_patch.read_bytes()).hexdigest(),
                   'version_patch_sha256': hashlib.sha256(version_patch.read_bytes()).hexdigest(),
                   'public_registry_lock_sha256': hashlib.sha256(public_lock).hexdigest(),

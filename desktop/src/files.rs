@@ -103,6 +103,8 @@ enum Answer {
     BackgroundFolder,
     ComputerFolder,
     BackgroundRemoval(Value),
+    SyncOptions(String),
+    TransferLimits,
     MountFolder,
     ActivateBackground {
         local: String,
@@ -508,6 +510,7 @@ impl Files {
         }
         self.field("background_status", status.into());
         let jobs = value["jobs"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+        self.state["transferLimits"] = value["transfer_limits"].clone();
         self.state["syncSummary"] = json!({"total":jobs.len(),
             "syncing":jobs.iter().filter(|j|j["state"]=="syncing").count(),
             "paused":jobs.iter().filter(|j|j["paused"]==true || j["state"]=="paused").count(),
@@ -519,7 +522,7 @@ impl Files {
             json!({"id":job["id"],"name":job["name"].as_str().filter(|v|!v.is_empty()).unwrap_or(text(job,"local_root")),
                 "state":state,"hasError":!text(job,"error").is_empty(),
                 "issues":std::iter::once(text(job,"error")).chain(job["conflicts"].as_array().into_iter().flatten().filter_map(Value::as_str)).chain(job["skipped"].as_array().into_iter().flatten().filter_map(Value::as_str)).filter(|v|!v.trim().is_empty()).map(|v|self.locale.diagnostic(v)).collect::<Vec<_>>(),
-                "progress":job["progress"],"completed":job["completed"],"lastSync":job["last_sync"],"pausedUntil":job["paused_until"],"retryAt":job["retry_at"],"conflicts":job["conflicts"],"skipped":job["skipped"],"computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
+                "options":job["options"],"nextScheduledAt":job["next_scheduled_at"],"progress":job["progress"],"completed":job["completed"],"lastSync":job["last_sync"],"pausedUntil":job["paused_until"],"retryAt":job["retry_at"],"conflicts":job["conflicts"],"skipped":job["skipped"],"computer":text(job,"remote_root").starts_with("/devices/"),"detail":format!("{} ↔ {}",text(job,"local_root"),text(job,"remote_root")),"paused":job["paused"]==true,
                 "status":([self.tr(label),self.locale.diagnostic(text(job,"error")),conflicts].into_iter().filter(|part|!part.trim().is_empty()).collect::<Vec<_>>().join(" · "))})
         }).collect::<Vec<_>>());
     }
@@ -1122,6 +1125,8 @@ impl Files {
             Answer::Close => {self.closing=true;self.field("status_label",json!(self.tr("Vorgang wird beendet …")));if self.busy(){vec![Effect::Cancel]}else{vec![Effect::Close]}},
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::ComputerFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.background_local=Some(path);return self.activate_background(true);}vec![]},
+            Answer::TransferLimits => self.submit_background("Transfer limits", json!({"action":"limits","limits":value})),
+            Answer::SyncOptions(id) => self.submit_background("Sync settings", json!({"action":"configure","id":id,"options":value})),
             Answer::BackgroundRemoval(operation) => self.submit_background("Remove backup",operation),
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
             Answer::ActivateBackground{local,remote,computer}=>self.submit_background(if computer {"Computersicherung einrichten"} else {"Hintergrund-Sync aktivieren"},json!({"action":if computer {"computer"} else {"add"},"local":local,"remote":remote})),
@@ -1602,6 +1607,18 @@ impl Files {
                     return self.dialog("confirm",if args[0]=="remove_backup" {"Remove backup?"}else{"Stop syncing this folder?"},if args[0]=="remove_backup" {"Stop syncing and move this folder's cloud copy to Proton Drive trash. Local original files are kept."}else{"Stop syncing this folder. Local files and the cloud copy are kept."},json!({}),Answer::BackgroundRemoval(json!({"action":args[0],"id":job["id"]})));
                 }
             }
+            "transfer_limits" if !self.busy() && self.state["transferLimits"].is_object() => {
+                return self.dialog("transfer_limits", "Transfer limits", "Limits apply to SDK traffic from the next operation, including sync, uploads, downloads and on-demand files. 0 means unlimited. Network buffers may briefly burst.", json!({"limits":self.state["transferLimits"]}), Answer::TransferLimits);
+            }
+            "job_action" if args[0] == "configure" && !self.busy() => {
+                if let Some(job) = self.state["jobs"]
+                    .as_array()
+                    .and_then(|jobs| jobs.iter().find(|j| j["id"] == args[1]))
+                    .cloned()
+                {
+                    return self.dialog("sync_options", "Sync settings", "Saving pauses this job. Review the settings, then resume it when ready. Exclusions keep existing local and cloud files.", json!({"options":job["options"]}), Answer::SyncOptions(text(&job,"id").into()));
+                }
+            }
             "job_action"
                 if [
                     "pause",
@@ -1859,11 +1876,38 @@ impl Files {
 mod tests {
     use super::*;
     #[test]
+    fn sync_options_dialog_keeps_captured_job_and_passes_structured_settings() {
+        let mut m = model();
+        m.state["jobs"] =
+            json!([{"id":"first","options":{"exclusions":["build"],"daily_utc_minute":120}}]);
+        let dialog = dialog(m.dispatch("job_action", &json!(["configure", "first"])));
+        assert_eq!(dialog["kind"], "sync_options");
+        assert_eq!(dialog["options"]["exclusions"], json!(["build"]));
+        m.state["jobs"] = json!([{"id":"other"}]);
+        let options = json!({"exclusions":["nested/cache"],"daily_utc_minute":1439});
+        let request = work(m.answer(dialog["token"].as_u64().unwrap(), true, &options));
+        assert_eq!(
+            request.operation,
+            json!({"action":"configure","id":"first","options":options})
+        );
+    }
+    #[test]
+    fn transfer_limits_require_loaded_settings_and_cancel_is_read_only() {
+        let mut m = model();
+        assert!(m.dispatch("transfer_limits", &json!([])).is_empty());
+        m.state["transferLimits"] = json!({"upload_kib":128,"download_kib":256});
+        let dialog = dialog(m.dispatch("transfer_limits", &json!([])));
+        assert_eq!(dialog["limits"], m.state["transferLimits"]);
+        assert!(m
+            .answer(dialog["token"].as_u64().unwrap(), false, &json!({}))
+            .is_empty());
+    }
+    #[test]
     fn support_report_copies_aggregates_while_busy_and_details_keep_all_issues() {
         let mut m = model();
         m.render_background(
             &json!({"running":true,"jobs":[{"id":"private-id","name":"Secret project",
-            "state":"conflict","error":"private error","local_root":"/home/private",
+            "state":"conflict","error":"private error","local_root":"/home/private","options":{"exclusions":["Secret excluded path"]},
             "conflicts":["one","two","three","four","five","six"],"skipped":["private skipped"]}]}),
         );
         assert_eq!(m.state["jobs"][0]["issues"].as_array().unwrap().len(), 8);

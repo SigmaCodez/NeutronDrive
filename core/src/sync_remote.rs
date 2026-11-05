@@ -150,6 +150,7 @@ fn node_entry(mut node: Value, allow_trashed: bool, host: &mut impl Services) ->
     entry(&node, allow_trashed)
 }
 struct Scan {
+    options: crate::sync_options::Options,
     entries: Map<String, Value>,
     blocked: Map<String, Value>,
     visited: BTreeSet<String>,
@@ -190,6 +191,9 @@ impl Scan {
             } else {
                 format!("{prefix}/{name}")
             };
+            if self.options.excludes(&relative) {
+                continue;
+            }
             let reason = name_error(&name);
             if !reason.is_empty() || nodes.len() != 1 {
                 self.blocked.insert(
@@ -228,6 +232,23 @@ impl Scan {
         }
         Ok(())
     }
+}
+pub fn scan_scoped(
+    root: &Value,
+    options: &crate::sync_options::Options,
+    host: &mut impl Services,
+) -> Result<Value> {
+    options.validate()?;
+    let mut scan = Scan {
+        options: options.clone(),
+        entries: Map::new(),
+        blocked: Map::new(),
+        visited: BTreeSet::from([string(root, "uid").into()]),
+        fresh: false,
+        allow_trashed: false,
+    };
+    scan.visit(string(root, "path"), "", 0, host)?;
+    Ok(json!({"entries":scan.entries,"blocked":scan.blocked}))
 }
 pub fn run(operation: Operation, host: &mut impl Services) -> Result<Value> {
     match operation {
@@ -295,6 +316,7 @@ pub fn run(operation: Operation, host: &mut impl Services) -> Result<Value> {
             allow_trashed,
         } => {
             let mut scan = Scan {
+                options: Default::default(),
                 entries: Map::new(),
                 blocked: Map::new(),
                 visited: BTreeSet::from([string(&root, "uid").into()]),

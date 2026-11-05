@@ -130,7 +130,13 @@ pub fn command(action: Action, job_id: Option<String>, host: &mut impl Services)
                 )
             {
                 // Recreate failed watches and schedule a fresh, identity-checked sync.
-                return command(Action::Resume, Some(id), host);
+                let resumed = command(Action::Resume, Some(id.clone()), host)?;
+                let ready = call(host, "snapshot", json!({}))?;
+                if ready["jobs"][&id]["watcher"] == true && ready["jobs"][&id]["state"] != "blocked"
+                {
+                    return command(Action::Sync, Some(id), host);
+                }
+                return Ok(resumed);
             }
         }
         Action::Pause

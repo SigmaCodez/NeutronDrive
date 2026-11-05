@@ -75,6 +75,7 @@ class SyncPlan:
     _state_key: str = field(default="", repr=False)
     _root_identity: tuple[int, int] = field(default=(0, 0), repr=False)
     _blocked: set[str] = field(default_factory=set, repr=False)
+    _options: dict[str, Any] = field(default_factory=dict, repr=False)
     _owner: str = field(default="", repr=False)
     _executed: bool = field(default=False, repr=False)
 

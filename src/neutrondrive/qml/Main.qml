@@ -165,6 +165,7 @@ ApplicationWindow {
         Layout.fillWidth: true; spacing: 4
         Copy { text: job.lastSync ? window.tr("Last sync")+": "+new Date(job.lastSync*1000).toLocaleString() : window.tr("No completed sync yet") }
         Copy { visible: !!job.retryAt; text: window.tr("Next retry")+": "+new Date(job.retryAt*1000).toLocaleString() }
+        Copy { visible: !!job.nextScheduledAt; text: Number.isFinite(job.nextScheduledAt) && job.nextScheduledAt>0 && job.nextScheduledAt<=8640000000000 ? window.tr("Next scheduled sync (UTC)")+": "+new Date(job.nextScheduledAt*1000).toISOString().slice(0,16).replace("T"," ") : "" }
         Copy { objectName: "syncResumeTime"; visible: job.paused===true && !!job.pausedUntil; text: window.tr("Automatic resume")+": "+new Date(job.pausedUntil*1000).toLocaleString() }
     }
     component WorkProgress: ColumnLayout {
@@ -825,6 +826,7 @@ ApplicationWindow {
                     SyncTiming { job: modelData }
                     Flow { Layout.fillWidth: true; spacing: 8
                         SyncPauseButton { job: modelData }
+                        Action { objectName: "syncSettingsButton-"+modelData.id; text: window.tr("Sync settings"); onClicked: controller.job_action("configure", modelData.id) }
                         Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
                         Action { text: window.tr("Stop syncing…"); onClicked: controller.job_action("remove",modelData.id) }
                         Action { text: window.tr("Remove backup…"); visible: modelData.computer; onClicked: controller.job_action("remove_backup",modelData.id) }
@@ -852,6 +854,7 @@ ApplicationWindow {
                     SyncTiming { job: modelData }
                     Flow { Layout.fillWidth: true; spacing: 8
                         SyncPauseButton { job: modelData }
+                        Action { objectName: "syncSettingsButton-"+modelData.id; text: window.tr("Sync settings"); onClicked: controller.job_action("configure", modelData.id) }
                         Action { text: window.tr("Jetzt abgleichen"); onClicked: controller.job_action("sync",modelData.id) }
                         Action { text: window.tr("Stop syncing…"); onClicked: controller.job_action("remove",modelData.id) }
                         Action { text: window.tr("Remove backup…"); visible: modelData.computer; onClicked: controller.job_action("remove_backup",modelData.id) }
@@ -931,6 +934,7 @@ ApplicationWindow {
                     Flow { Layout.fillWidth: true; spacing: 8
                         Action { objectName: "retrySyncJob-"+modelData.id; text: window.tr("Retry now"); visible: !modelData.paused && ["offline","error","blocked","conflict","conflicts"].indexOf(modelData.state)>=0; onClicked: controller.job_action("retry",modelData.id) }
                         SyncPauseButton { job: modelData }
+                        Action { objectName: "syncSettingsButton-"+modelData.id; text: window.tr("Sync settings"); onClicked: controller.job_action("configure", modelData.id) }
                         Action {
                             objectName: "toggleSyncIssues-"+modelData.id
                             visible: (modelData.issues || []).length>0
@@ -1018,6 +1022,7 @@ ApplicationWindow {
                     Accessible.name: window.tr("Sprache")
                 }
                 Copy { text: window.tr("Die Sprache wird beim nächsten App-Start übernommen.") }
+                Action { objectName: "transferLimitsButton"; text: window.tr("Transfer limits"); enabled: !s.busy && Boolean(s.transferLimits); onClicked: controller.send("transfer_limits",[]) }
             }
             Card {
                 Heading { text: window.tr("Beim Anmelden starten") }
@@ -1090,7 +1095,19 @@ ApplicationWindow {
             if (value.kind==="folder") folderPicker.open()
             else if (value.kind==="files") { filePicker.fileMode=value.multiple ? FileDialog.OpenFiles : FileDialog.OpenFile; filePicker.open() }
             else if(value.kind==="share")shareWindow.present(value)
-            else { promptInput.text=value.initial || ""; modal.open(); cancelDialog.forceActiveFocus() }
+            else { promptInput.text=value.initial || "";
+                if(value.kind==="sync_options") {
+                    let options=value.options || {};
+                    syncExclusions.text=(options.exclusions || []).join("\n");
+                    syncDaily.checked=Number.isInteger(options.daily_utc_minute);
+                    syncHour.value=syncDaily.checked ? Math.floor(options.daily_utc_minute/60) : 2;
+                    syncMinute.value=syncDaily.checked ? options.daily_utc_minute%60 : 0;
+                }
+                if(value.kind==="transfer_limits") {
+                    uploadLimit.value=value.limits.upload_kib;
+                    downloadLimit.value=value.limits.download_kib;
+                }
+                modal.open(); cancelDialog.forceActiveFocus() }
         }
     }
     ShareWindow { id: shareWindow; host: window; controller: window.appController }
@@ -1117,13 +1134,35 @@ ApplicationWindow {
             spacing: 16
             Copy { text: window.request.description || ""; color: window.theme.secondaryText }
             Field { id: promptInput; objectName: "promptInput"; visible: window.request.kind==="prompt"; Layout.fillWidth: true; selectByMouse: true; color: window.theme.text }
+            ColumnLayout {
+                visible: window.request.kind==="sync_options"; Layout.fillWidth: true
+                Copy { text: window.tr("Excluded relative paths, one per line (including subfolders). No wildcards.") }
+                ScrollView { Layout.fillWidth: true; Layout.preferredHeight: 130
+                    TextArea { id: syncExclusions; objectName: "syncExclusions"; selectByMouse: true; wrapMode: TextEdit.NoWrap; color: window.theme.text; Accessible.name: window.tr("Excluded paths") }
+                }
+                DriveCheck { id: syncDaily; objectName: "syncDaily"; theme: window.theme; text: window.tr("Sync daily at (UTC)") }
+                RowLayout {
+                    enabled: syncDaily.checked
+                    SpinBox { id: syncHour; objectName: "syncHour"; from: 0; to: 23; editable: true; Accessible.name: window.tr("Hour (UTC)") }
+                    Label { text: ":"; color: window.theme.text }
+                    SpinBox { id: syncMinute; objectName: "syncMinute"; from: 0; to: 59; editable: true; Accessible.name: window.tr("Minute") }
+                }
+                Copy { text: window.tr("Missed runs catch up when the service starts. Manual sync stays available. Disable the schedule for continuous sync.") }
+            }
+            GridLayout {
+                visible: window.request.kind==="transfer_limits"; columns: 2; Layout.fillWidth: true
+                Copy { text: window.tr("Upload (KiB/s)") }
+                SpinBox { id: uploadLimit; objectName: "uploadLimit"; from: 0; to: 1048576; editable: true; Accessible.name: window.tr("Upload (KiB/s)") }
+                Copy { text: window.tr("Download (KiB/s)") }
+                SpinBox { id: downloadLimit; objectName: "downloadLimit"; from: 0; to: 1048576; editable: true; Accessible.name: window.tr("Download (KiB/s)") }
+            }
             Flow {
                 Layout.fillWidth: true; spacing: 8
                 Action { id: cancelDialog; objectName: "dialogCancel"; text: window.tr("Abbrechen / Schließen"); enabled: true
                     onClicked: modal.reject()
                 }
                 Action { objectName: "dialogAccept"; text: window.request.kind==="prompt" ? window.tr("Übernehmen") : window.tr("Bestätigen"); enabled: true; primary: true; visible: window.request.kind!=="share"
-                    onClicked: { let token=window.request.token; let value=promptInput.text; modal.close(); controller.answer_dialog(token,true,value) }
+                    onClicked: { let token=window.request.token; let value=window.request.kind==="sync_options" ? {exclusions:syncExclusions.text.split("\n").filter(path=>path.length>0),daily_utc_minute:syncDaily.checked ? syncHour.value*60+syncMinute.value : null} : window.request.kind==="transfer_limits" ? {upload_kib:uploadLimit.value,download_kib:downloadLimit.value} : promptInput.text; modal.close(); controller.answer_dialog(token,true,value) }
                 }
             }
         }

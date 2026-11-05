@@ -17,6 +17,7 @@ class BackendProvenanceTests(unittest.TestCase):
             report={**json.loads((bridge/'source-lock.json').read_text()),
                     'target':'bun-linux-x64-baseline',
                     'bridge_files':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in bridge.glob('*.ts')},
+                    'transfer_patch_sha256':hashlib.sha256((ROOT/'packaging/bridge/transfer-limits.patch').read_bytes()).hexdigest(),
                     'account_patch_sha256':hashlib.sha256((ROOT/'packaging/bridge/account-status.patch').read_bytes()).hexdigest(),
                     'version_patch_sha256':hashlib.sha256((ROOT/'packaging/bridge/version-branding.patch').read_bytes()).hexdigest(),
                     'builder_sha256':hashlib.sha256((ROOT/'scripts/build-backend').read_bytes()).hexdigest(),
@@ -25,7 +26,7 @@ class BackendProvenanceTests(unittest.TestCase):
             provenance.write_text(json.dumps(report))
             backend.verify_source_build(binary,'x86_64')
             with self.assertRaises(ValueError):backend.verify_source_build(binary,'aarch64')
-            for key,value in [('account_patch_sha256','wrong'),('version_patch_sha256','wrong'),('bridge_files',{}),('builder_sha256','wrong'),('commit','wrong')]:
+            for key,value in [('transfer_patch_sha256','wrong'),('account_patch_sha256','wrong'),('version_patch_sha256','wrong'),('bridge_files',{}),('builder_sha256','wrong'),('commit','wrong')]:
                 provenance.write_text(json.dumps({**report,key:value}))
                 with self.assertRaises(ValueError):backend.verify_source_build(binary,'x86_64')
             provenance.write_text(json.dumps(report));binary.write_bytes(b'corrupt binary')

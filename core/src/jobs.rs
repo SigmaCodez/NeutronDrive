@@ -27,6 +27,10 @@ struct Job {
     #[serde(default)]
     remote_uid: String,
     #[serde(default)]
+    options: crate::sync_options::Options,
+    #[serde(default)]
+    next_scheduled_at: Option<u64>,
+    #[serde(default)]
     account_root_uid: String,
     #[serde(default)]
     local_device: u64,
@@ -55,6 +59,15 @@ pub enum Action {
         id: String,
         name: Option<String>,
         paused: Option<bool>,
+    },
+    Configure {
+        id: String,
+        options: crate::sync_options::Options,
+        now: u64,
+    },
+    ScheduledComplete {
+        id: String,
+        now: u64,
     },
     PauseUntil {
         id: String,
@@ -86,6 +99,7 @@ fn validate(jobs: &[Job]) -> Result<()> {
         return Err("Zu viele oder doppelte Sync-Jobs.".into());
     }
     for (i, job) in jobs.iter().enumerate() {
+        job.options.validate()?;
         if job.id.len() != 32
             || !job.id.bytes().all(|c| b"0123456789abcdef".contains(&c))
             || !Path::new(&job.local_root).is_absolute()
@@ -258,6 +272,8 @@ pub fn transact(
                 remote_root,
                 paused,
                 paused_until: None,
+                options: Default::default(),
+                next_scheduled_at: None,
                 remote_uid: String::new(),
                 account_root_uid: String::new(),
                 local_device,
@@ -280,6 +296,27 @@ pub fn transact(
                     job.name = name.trim().chars().take(120).collect();
                 }
             }
+            json!(job)
+        }
+        Action::Configure { id, options, now } => {
+            options.validate()?;
+            let job = jobs
+                .iter_mut()
+                .find(|j| j.id == id)
+                .ok_or("Sync job not found")?;
+            if !job.paused {
+                return Err("Pause the sync job before changing its options".into());
+            }
+            job.next_scheduled_at = options.next_after(now);
+            job.options = options;
+            json!(job)
+        }
+        Action::ScheduledComplete { id, now } => {
+            let job = jobs
+                .iter_mut()
+                .find(|j| j.id == id)
+                .ok_or("Sync job not found")?;
+            job.next_scheduled_at = job.options.next_after(now);
             json!(job)
         }
         Action::PauseUntil { id, until } => {
@@ -408,6 +445,46 @@ mod tests {
             paused: Some(false),
         });
         assert!(run(Action::List)[0].get("paused_until").is_none());
+        let options = crate::sync_options::Options {
+            exclusions: vec!["build".into()],
+            daily_utc_minute: Some(60),
+        };
+        assert!(transact(
+            &state,
+            &[],
+            Action::Configure {
+                id: id.into(),
+                options: options.clone(),
+                now: 100
+            },
+            &mut |_| 0
+        )
+        .is_err());
+        run(Action::Update {
+            id: id.into(),
+            name: None,
+            paused: Some(true),
+        });
+        run(Action::Configure {
+            id: id.into(),
+            options: options.clone(),
+            now: 100,
+        });
+        let reloaded = run(Action::List)[0].clone();
+        assert_eq!(reloaded["options"], json!(options));
+        assert_eq!(reloaded["next_scheduled_at"], 3600);
+        assert_eq!(reloaded["paused"], true);
+        run(Action::ScheduledComplete {
+            id: id.into(),
+            now: 180000,
+        });
+        assert_eq!(run(Action::List)[0]["next_scheduled_at"], 262800);
+        run(Action::Configure {
+            id: id.into(),
+            options: Default::default(),
+            now: 200000,
+        });
+        assert!(run(Action::List)[0]["next_scheduled_at"].is_null());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

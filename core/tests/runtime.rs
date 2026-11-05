@@ -359,6 +359,77 @@ esac
     let (ok, resumed) = control("resume");
     assert!(ok, "{resumed}");
     assert_eq!(resumed["result"]["jobs"][0]["account_root_uid"], "root");
+    // Configure a future daily run while paused: startup/local events must wait,
+    // but an explicit manual sync remains available and respects exclusions.
+    assert!(control("pause").0);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !control("status").1["result"]["current"].is_null() {
+        assert!(Instant::now() < deadline);
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let configure = |at: u64, minute: u64| {
+        request(
+            json!({"version":1,"op":"jobs","state":state,"planned":[],"operation":{"action":"configure","id":job["result"]["id"],"now":at,"options":{"exclusions":["test.txt"],"daily_utc_minute":minute}}}),
+        )
+    };
+    let (ok, configured) = configure(now, (now / 60 + 10) % 1440);
+    assert!(ok, "{configured}");
+    assert!(control("resume").0);
+    std::thread::sleep(Duration::from_millis(350));
+    let status = control("status").1;
+    assert!(status["result"]["current"].is_null());
+    assert!(
+        status["result"]["jobs"][0]["next_scheduled_at"]
+            .as_u64()
+            .unwrap()
+            > now
+    );
+    let previous = status["result"]["jobs"][0]["last_sync"].clone();
+    assert!(control("sync").0);
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        let status = control("status").1;
+        if status["result"]["jobs"][0]["last_sync"] != previous
+            && status["result"]["current"].is_null()
+        {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "manual scheduled sync failed: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    assert_eq!(
+        std::fs::read(local.join("test.txt")).unwrap(),
+        b"local edit"
+    );
+    assert!(control("pause").0);
+    let previous = control("status").1["result"]["jobs"][0]["last_sync"].clone();
+    assert!(configure(0, 0).0); // A persisted missed deadline, as after being offline.
+    assert!(control("reload").0);
+    std::thread::sleep(Duration::from_millis(100));
+    assert_eq!(
+        control("status").1["result"]["jobs"][0]["last_sync"],
+        previous
+    );
+    assert!(control("resume").0);
+    let deadline = Instant::now() + Duration::from_secs(8);
+    loop {
+        let status = control("status").1;
+        if status["result"]["jobs"][0]["next_scheduled_at"]
+            .as_u64()
+            .unwrap()
+            > now
+        {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "missed scheduled sync failed: {status}"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+    }
     let (ok, stopped) = control("stop");
     assert!(ok, "{stopped}");
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -824,5 +895,57 @@ fn link_settings_use_private_stdin_and_never_process_arguments() {
         json!({"version":1,"op":"drive","executable":"/nonexistent","operation":{"action":"set_link","path":"/my-files/test","settings":{"password":"x".repeat(4096)}}}),
     );
     assert!(!ok);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn transfer_limits_persist_validate_and_reach_sdk_capability_flag() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::env::temp_dir().join(format!("nd-limit-state-{}", std::process::id()));
+    std::fs::create_dir(&root).unwrap();
+    let call = |value: Value| {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_neutrondrive-runtime"))
+            .env("XDG_STATE_HOME", &root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(value.to_string().as_bytes())
+            .unwrap();
+        let output = child.wait_with_output().unwrap();
+        let lines: Vec<Value> = serde_json::Deserializer::from_slice(&output.stdout)
+            .into_iter::<Value>()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        lines.last().unwrap().clone()
+    };
+    let read = || call(json!({"version":1,"op":"transfer_limits","limits":null}));
+    assert_eq!(read()["result"], json!({"upload_kib":0,"download_kib":0}));
+    let limits = json!({"upload_kib":64,"download_kib":128});
+    assert_eq!(
+        call(json!({"version":1,"op":"transfer_limits","limits":limits}))["ok"],
+        true
+    );
+    assert_eq!(read()["result"], limits);
+    assert_eq!(
+        call(
+            json!({"version":1,"op":"transfer_limits","limits":{"upload_kib":1048577,"download_kib":0}})
+        )["ok"],
+        false
+    );
+    assert_eq!(read()["result"], limits);
+    let sdk = root.join("sdk");
+    std::fs::write(&sdk, "#!/bin/sh\nprintf '%s %s %s' \"$1\" \"$NEUTRONDRIVE_UPLOAD_KIB\" \"$NEUTRONDRIVE_DOWNLOAD_KIB\"\n").unwrap();
+    std::fs::set_permissions(&sdk, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let result = call(
+        json!({"version":1,"executable":sdk,"args":["filesystem","list","/my-files"],"timeout":5.0,"parse":false,"login":false,"max_output":4096}),
+    );
+    assert_eq!(result["ok"], true, "{result}");
+    assert_eq!(result["result"], "--neutrondrive-transfer-limits-v1 64 128");
     std::fs::remove_dir_all(root).unwrap();
 }

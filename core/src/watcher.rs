@@ -25,6 +25,7 @@ struct Watcher {
     running: AtomicBool,
 }
 struct State {
+    options: crate::sync_options::Options,
     fd: File,
     root: PathBuf,
     paths: BTreeMap<i32, PathBuf>,
@@ -45,7 +46,16 @@ fn send(
 }
 
 impl State {
+    fn excluded(&self, path: &Path) -> bool {
+        path.strip_prefix(&self.root)
+            .ok()
+            .and_then(Path::to_str)
+            .is_some_and(|p| self.options.excludes(p))
+    }
     fn add_tree(&mut self, root: &Path) -> Result<()> {
+        if self.excluded(root) {
+            return Ok(());
+        }
         let mounts = jobs::mounts()?;
         if mounts.iter().any(|(path, kind)| {
             (root.starts_with(path) || Path::new(path).starts_with(root))
@@ -63,6 +73,9 @@ impl State {
         }
         let mut pending = vec![root.to_path_buf()];
         while let Some(path) = pending.pop() {
+            if self.excluded(&path) {
+                continue;
+            }
             let info = match std::fs::symlink_metadata(&path) {
                 Ok(info) => info,
                 Err(_) => continue,
@@ -124,6 +137,9 @@ impl State {
             } else {
                 parent.join(OsString::from_vec(name))
             };
+            if self.excluded(&path) {
+                continue;
+            }
             if event["add_tree"] == true && self.add_tree(&path).is_err() {
                 send(callback, None, "watch-error")?;
             }
@@ -148,6 +164,10 @@ impl State {
 }
 
 pub fn create(root: Vec<u8>) -> Result<u64> {
+    create_scoped(root, Default::default())
+}
+pub fn create_scoped(root: Vec<u8>, options: crate::sync_options::Options) -> Result<u64> {
+    options.validate()?;
     let root = PathBuf::from(OsString::from_vec(root));
     let _directory = storage::directory(&root, false, false)?;
     let fd = unsafe { inotify_init1(O_NONBLOCK | O_CLOEXEC) };
@@ -155,6 +175,7 @@ pub fn create(root: Vec<u8>) -> Result<u64> {
         return Err("inotify konnte nicht gestartet werden.".into());
     }
     let mut state = State {
+        options,
         fd: unsafe { File::from_raw_fd(fd) },
         root: root.clone(),
         paths: BTreeMap::new(),
@@ -245,6 +266,7 @@ mod tests {
     use super::*;
     fn state() -> State {
         State {
+            options: Default::default(),
             fd: File::open("/dev/null").unwrap(),
             root: PathBuf::from("/synthetic"),
             paths: BTreeMap::from([(4, PathBuf::from("/synthetic"))]),
@@ -259,6 +281,40 @@ mod tests {
             name.to_vec(),
         ]
         .concat()
+    }
+    #[test]
+    fn excluded_events_do_not_register_or_deliver() {
+        let mut watcher = state();
+        watcher.options.exclusions = vec!["build".into()];
+        watcher
+            .consume(&event(4, 0x40000100, b"build\0"), &mut |_| {
+                panic!("excluded event delivered")
+            })
+            .unwrap();
+        assert_eq!(watcher.paths.len(), 1);
+    }
+    #[test]
+    fn scoped_registration_skips_existing_and_new_excluded_directories() {
+        let root = std::env::temp_dir().join(format!("nd-scoped-watch-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("build/deep")).unwrap();
+        std::fs::create_dir_all(root.join("allowed")).unwrap();
+        let id = create_scoped(
+            root.as_os_str().as_bytes().to_vec(),
+            crate::sync_options::Options {
+                exclusions: vec!["build".into()],
+                daily_utc_minute: None,
+            },
+        )
+        .unwrap();
+        {
+            let registry = WATCHERS.lock().unwrap();
+            let mut state = registry[&id].state.lock().unwrap();
+            assert_eq!(state.paths.len(), 2);
+            state.add_tree(&root.join("build/deep")).unwrap();
+            assert_eq!(state.paths.len(), 2);
+        }
+        stop(id).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn malformed_read_has_no_partial_delivery_or_registration() {

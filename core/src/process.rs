@@ -324,11 +324,20 @@ pub fn run_with_input(
         std::thread::sleep(Duration::from_millis(20));
     }
     notify(callback, json!({"kind":"poll"}))?;
+    let limits = crate::transfer_limits::read()?;
     let mut command = Command::new(&request.executable);
+    // Old backends reject this explicit capability flag rather than silently
+    // running transfers without the configured limit.
+    if limits.enabled() && !local_identity {
+        command.arg("--neutrondrive-transfer-limits-v1");
+    }
+
     command
         .args(&request.args)
         .env_clear()
         .envs(environment)
+        .env("NEUTRONDRIVE_UPLOAD_KIB", limits.upload_kib.to_string())
+        .env("NEUTRONDRIVE_DOWNLOAD_KIB", limits.download_kib.to_string())
         .env("NO_COLOR", "1")
         .env("PROTON_DRIVE_LOG_LEVEL", "WARNING")
         .env("PROTON_DRIVE_UNSAFE_CACHE", "false")
@@ -383,7 +392,13 @@ pub fn run_with_input(
     let started = Instant::now();
     let status = loop {
         notify(callback, json!({"kind":"poll"}))?;
-        if started.elapsed().as_secs_f64() > request.timeout {
+        if started.elapsed().as_secs_f64()
+            > if limits.enabled() && !local_identity {
+                86400.0
+            } else {
+                request.timeout
+            }
+        {
             return Err("Zeitlimit erreicht. Der Vorgang wurde beendet; bitte Cloud-Status vor einem erneuten Versuch prüfen.".into());
         }
         let before = out.len() + err.len();

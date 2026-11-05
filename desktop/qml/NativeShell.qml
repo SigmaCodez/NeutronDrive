@@ -364,6 +364,22 @@ Item {
                     console.log("NATIVE_TIMED_SYNC_PAUSE_OK");
                     console.log("NATIVE_SYNC_SETTINGS_AND_COMPUTER_BACKUP_OK");controller.capture("light-computer-backup.png",20005);
                 }else if(controller.stage===20005){
+                    if(!controller.childNamed(controller.view.contentItem,"syncSettingsButton-synthetic"))throw new Error("Sync settings entry missing");
+                    controller.dialogRequested({kind:"sync_options",token:0,title:"Sync settings",description:controller.translate("Saving pauses this job. Review the settings, then resume it when ready. Exclusions keep existing local and cloud files."),options:{exclusions:["node_modules","Project/build"],daily_utc_minute:1439}});
+                    controller.stage=200051;
+                }else if(controller.stage===200051){
+                    if(controller.dialogChild("syncExclusions").text!=="node_modules\nProject/build" || !controller.dialogChild("syncDaily").checked || controller.dialogChild("syncHour").value!==23 || controller.dialogChild("syncMinute").value!==59)throw new Error("Sync settings did not preserve paths and UTC time");
+                    controller.capture("light-sync-options.png",200052);
+                }else if(controller.stage===200052){
+                    controller.dialogChild("dialogCancel").clicked();
+                    controller.dialogRequested({kind:"transfer_limits",token:0,title:"Transfer limits",description:controller.translate("Limits apply to SDK traffic from the next operation, including sync, uploads, downloads and on-demand files. 0 means unlimited. Network buffers may briefly burst."),limits:{upload_kib:128,download_kib:512}});
+                    controller.stage=200053;
+                }else if(controller.stage===200053){
+                    if(controller.dialogChild("uploadLimit").value!==128 || controller.dialogChild("downloadLimit").value!==512)throw new Error("Transfer limits not restored");
+                    controller.capture("light-transfer-limits.png",200054);
+                }else if(controller.stage===200054){
+                    controller.dialogChild("dialogCancel").clicked();
+                    console.log("NATIVE_SYNC_OPTIONS_AND_TRANSFER_LIMITS_OK");
                     controller.view.s=Qt.binding(function(){return controller.state});controller.stage=2001;
                 }else if(controller.stage===2001){
                     controller.navigate(controller.translate("Computer"),"/devices");controller.stage=20011;

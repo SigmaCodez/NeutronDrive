@@ -1,0 +1,22 @@
+diff --git a/cli/src/api/httpClient.ts b/cli/src/api/httpClient.ts
+index cd2a513..2cd7e67 100644
+--- a/cli/src/api/httpClient.ts
++++ b/cli/src/api/httpClient.ts
+@@ -11,7 +11,7 @@ export class HTTPClient {
+             ...(options.json !== undefined ? { json: options.json } : {}),
+             ...(options.body !== undefined && options.json === undefined ? { body: options.body } : {}),
+             headers: options.headers,
+-            timeout: options.timeoutMs,
++            timeout: process.env.NEUTRONDRIVE_LIMITS_ACTIVE === '1' ? false : options.timeoutMs,
+             signal: options.signal,
+             throwHttpErrors: false,
+         });
+@@ -22,7 +22,7 @@ export class HTTPClient {
+             method: options.method,
+             body: options.body,
+             headers: options.headers,
+-            timeout: options.timeoutMs,
++            timeout: process.env.NEUTRONDRIVE_LIMITS_ACTIVE === '1' ? false : options.timeoutMs,
+             signal: options.signal,
+             throwHttpErrors: false,
+         });

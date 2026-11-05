@@ -16,6 +16,9 @@ pub struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
+    TransferLimits {
+        limits: Option<crate::transfer_limits::Limits>,
+    },
     DesktopRuntime {
         config: crate::desktop_runtime::Config,
     },
@@ -738,6 +741,7 @@ pub fn dispatch(request: Request, callback: &mut impl FnMut(Value) -> i32) -> Re
             message,
             cancelled,
         } => crate::host::fail(id, message, cancelled),
+        Command::TransferLimits { limits } => crate::transfer_limits::run(limits),
         Command::SyncPlan {
             state,
             root,

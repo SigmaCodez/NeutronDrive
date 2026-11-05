@@ -214,7 +214,16 @@ pub fn name_error(name: &str) -> Option<&'static str> {
     }
 }
 pub fn scan(root: RawFd, callback: &mut impl FnMut(Value) -> i32) -> Result<Value> {
+    scan_scoped(root, &Default::default(), callback)
+}
+pub fn scan_scoped(
+    root: RawFd,
+    options: &crate::sync_options::Options,
+    callback: &mut impl FnMut(Value) -> i32,
+) -> Result<Value> {
+    options.validate()?;
     struct Scan {
+        options: crate::sync_options::Options,
         entries: BTreeMap<String, Value>,
         blocked: BTreeMap<String, String>,
         ancestors: BTreeSet<(u64, u64)>,
@@ -238,6 +247,9 @@ pub fn scan(root: RawFd, callback: &mut impl FnMut(Value) -> i32) -> Result<Valu
                 } else {
                     format!("{prefix}/{name}")
                 };
+                if self.options.excludes(&relative) {
+                    continue;
+                }
                 if let Some(reason) = name_error(&name) {
                     self.blocked.insert(relative, reason.into());
                     continue;
@@ -289,6 +301,7 @@ pub fn scan(root: RawFd, callback: &mut impl FnMut(Value) -> i32) -> Result<Valu
         return Err("An open local root directory is required".into());
     }
     let mut scan = Scan {
+        options: options.clone(),
         entries: BTreeMap::new(),
         blocked: BTreeMap::new(),
         ancestors: BTreeSet::from([(info.dev(), info.ino())]),

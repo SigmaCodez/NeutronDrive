@@ -223,7 +223,14 @@ impl Shared {
             return Err("Der lokale Sync-Ordner wurde ersetzt; Job bewusst neu anlegen.".into());
         }
         use std::os::unix::ffi::OsStrExt;
-        let watch = watcher::create(root.as_os_str().as_bytes().to_vec())?;
+        let options = serde_json::from_value(
+            job.config
+                .get("options")
+                .cloned()
+                .unwrap_or_else(|| json!({})),
+        )
+        .map_err(|_| fail("Invalid sync options"))?;
+        let watch = watcher::create_scoped(root.as_os_str().as_bytes().to_vec(), options)?;
         job.watcher = Some(watch);
         job.runtime["rebuild_watch"] = json!(false);
         let shared = Arc::clone(self);
@@ -283,6 +290,16 @@ impl Shared {
                 return Ok(());
             }
             if let Some(path) = &relative {
+                let options: crate::sync_options::Options = serde_json::from_value(
+                    job.config
+                        .get("options")
+                        .cloned()
+                        .unwrap_or_else(|| json!({})),
+                )
+                .map_err(|_| fail("Invalid sync options"))?;
+                if options.excludes(path) {
+                    return Ok(());
+                }
                 if job.runtime["state"] != "syncing"
                     && job.runtime["snapshot_ready"] == true
                     && filesystem::matches_snapshot(
@@ -645,10 +662,14 @@ impl Shared {
         let state = sync_state
             .to_str()
             .ok_or_else(|| Failure::from("Invalid sync state path"))?;
-        let plan = sync_plan::run(
+        let options =
+            serde_json::from_value(job.get("options").cloned().unwrap_or_else(|| json!({})))
+                .map_err(|_| fail("Invalid sync options"))?;
+        let plan = sync_plan::run_scoped(
             state,
             text(&job, "local_root"),
             text(&job, "remote_root"),
+            &options,
             &mut Cached(self),
         )?;
         if plan["remote_root_uid"] != job["remote_uid"] {
@@ -660,7 +681,9 @@ impl Shared {
             let mut state = self.lock()?;
             let current = self.jobs()?.into_iter().find(|j| j["id"] == id);
             if self.stopped.load(Ordering::Acquire)
-                || current.as_ref().is_none_or(|j| j["paused"] == true)
+                || current
+                    .as_ref()
+                    .is_none_or(|j| j["paused"] == true || j["options"] != job["options"])
             {
                 return Err(fail("Sync-Job wurde angehalten.").into());
             }
@@ -701,6 +724,19 @@ impl Shared {
         if let Some(job) = state.jobs.get_mut(id) {
             let action = match outcome {
                 Ok((previous, result)) => {
+                    if result["errors"].as_array().is_some_and(Vec::is_empty)
+                        && job.config["options"]["daily_utc_minute"].is_u64()
+                    {
+                        job.config = jobs::transact(
+                            &self.config.state,
+                            &self.config.mount_paths,
+                            jobs::Action::ScheduledComplete {
+                                id: id.into(),
+                                now: wall() as u64,
+                            },
+                            &mut |_| 0,
+                        )?;
+                    }
                     json!({"action":"complete","previous":previous,"result":result})
                 }
                 Err(JobError::Blocked(error)) => json!({"action":"blocked","error":error}),
@@ -928,7 +964,14 @@ impl Shared {
                 )?;
                 continue;
             }
-            let candidates:Vec<_>=state.order.iter().filter_map(|id| state.jobs.get(id).map(|job| (id,job))).map(|(id,j)|json!({"id":id,"pending":j.runtime["pending"],"paused":j.config["paused"],"state":j.runtime["state"],"due":j.runtime["due"]})).collect();
+            let timestamp = wall() as u64;
+            let candidates: Vec<_> = state.order.iter().filter_map(|id| state.jobs.get(id).map(|job| (id, job))).map(|(id, j)| {
+                let scheduled = j.config["options"]["daily_utc_minute"].is_u64();
+                let due = j.config["next_scheduled_at"].as_u64().unwrap_or(0) <= timestamp;
+                let manual = j.runtime["reasons"].as_array().is_some_and(|r| r.iter().any(|r| r == "manual"));
+                let eligible = !scheduled || due || manual;
+                json!({"id":id,"pending":eligible && (j.runtime["pending"] == true || (scheduled && due)),"paused":j.config["paused"],"state":j.runtime["state"],"due":j.runtime["due"]})
+            }).collect();
             let decision = policy_call(json!({"op":"select","jobs":candidates,"now":clock()}))?;
             if decision.is_null() || decision["delay"].as_f64().unwrap_or(0.0) > 0.0 {
                 let delay = decision["delay"].as_f64().unwrap_or(0.25).min(0.25);

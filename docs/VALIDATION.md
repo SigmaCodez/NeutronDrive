@@ -1,5 +1,44 @@
 # Validation record
 
+## Unreleased: community sync controls (2026-11-05)
+
+Implemented per-job relative-path/subtree exclusions, daily UTC scheduling with
+persisted missed-run catch-up, and separate shared upload/download stream limits.
+Saving job settings pauses the job and waits for active work to stop. Exclusions
+preserve local/cloud content and baselines, skip recursive filesystem watches,
+and retain ordinary conflict detection when removed. Existing timed pauses,
+manual retry and private diagnostic summaries remain covered.
+
+Validation uses isolated profiles, synthetic SDK responses and a loopback HTTP
+server, without modifying real account files:
+
+- 227 core unit tests and 16 native runtime integration tests passed, including
+  exclusion/deletion safety, re-inclusion conflicts, watch registration, persisted
+  schedules, manual override, paused catch-up and bridge capability negotiation.
+- 149 desktop unit tests passed, including captured job identity, cancellation,
+  pause-before-save and diagnostic privacy.
+- The Python contract suite ran 364 tests successfully with 19 opt-in/platform
+  tests skipped (345 executed). Native Qt window checks were run separately in
+  English and German, including settings values, cancellation and existing photo,
+  focus and cache regressions. Both dialog layouts were visually inspected.
+  The deliberately damaged photo fixture produces an expected decoder warning;
+  final window checks have no binding-loop or JavaScript type/range warnings.
+- All 31 SDK bridge tests and TypeScript checks passed. A real loopback HTTP test
+  verifies upload/download byte preservation and pacing; concurrent budget and
+  cancellation tests also pass. Both x86_64 and ARM64 bridges were cross-built
+  against the pinned SDK; the x86_64 binary passed capability startup validation.
+  The ARM64 candidate was not executed on ARM hardware.
+- Rust formatting and diff whitespace checks passed.
+
+The controls require the matching new SDK bridge. Published backend manifests
+remain unchanged. Exclusions use literal relative paths, schedules use UTC, and
+bandwidth limits pace application streams rather than kernel/socket traffic.
+New labels are translated into German and English; other catalogs use English
+fallback. No live Proton account/network-rate test or independent security audit
+was performed. See [SYNC-CONTROLS.md](SYNC-CONTROLS.md) for behavior and
+[SECURITY-REVIEW-SCOPE.md](SECURITY-REVIEW-SCOPE.md) for the prepared external review.
+No installed package, GitHub release or homepage was changed.
+
 ## Unreleased: avoid refetching empty previews during cache eviction (2026-11-05)
 
 Photo memory trimming now skips entries with no thumbnail bytes. Previously,

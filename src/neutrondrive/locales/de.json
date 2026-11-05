@@ -802,5 +802,19 @@
   "Retry now": "Erneut versuchen",
   "Hide details": "Details ausblenden",
   "Show details": "Details anzeigen",
-  "Retry checks both copies again. It does not overwrite a conflict.": "Beim erneuten Versuch werden beide Kopien geprüft. Konflikte werden nicht überschrieben."
+  "Retry checks both copies again. It does not overwrite a conflict.": "Beim erneuten Versuch werden beide Kopien geprüft. Konflikte werden nicht überschrieben.",
+  "Download (KiB/s)": "Download (KiB/s)",
+  "Excluded paths": "Ausgeschlossene Pfade",
+  "Excluded relative paths, one per line (including subfolders). No wildcards.": "Ausgeschlossene relative Pfade, einer pro Zeile (mit Unterordnern). Keine Platzhalter.",
+  "Hour (UTC)": "Stunde (UTC)",
+  "Limits apply to SDK traffic from the next operation, including sync, uploads, downloads and on-demand files. 0 means unlimited. Network buffers may briefly burst.": "Die Grenzen gelten ab dem nächsten SDK-Vorgang für Sync, Uploads, Downloads und On-demand-Dateien. 0 bedeutet unbegrenzt. Netzwerkpuffer können kurzzeitig höhere Raten verursachen.",
+  "Minute": "Minute",
+  "Missed runs catch up when the service starts. Manual sync stays available. Disable the schedule for continuous sync.": "Verpasste Läufe werden beim Dienststart nachgeholt. Manueller Abgleich bleibt möglich. Für laufenden Abgleich den Zeitplan deaktivieren.",
+  "Next scheduled sync (UTC)": "Nächster geplanter Abgleich (UTC)",
+  "Saving pauses this job. Review the settings, then resume it when ready. Exclusions keep existing local and cloud files.": "Beim Speichern wird dieser Auftrag pausiert. Prüfe die Einstellungen und setze ihn danach fort. Ausgeschlossene Dateien bleiben lokal und in der Cloud erhalten.",
+  "Sync daily at (UTC)": "Täglich synchronisieren um (UTC)",
+  "Sync is stopping. Wait for the current transfer to finish, then save the settings again.": "Der Sync wird angehalten. Warte, bis die laufende Übertragung beendet ist, und speichere die Einstellungen erneut.",
+  "Sync settings": "Sync-Einstellungen",
+  "Transfer limits": "Bandbreitenbegrenzung",
+  "Upload (KiB/s)": "Upload (KiB/s)"
 }

@@ -113,8 +113,16 @@ fn poll(host: &mut impl Services) -> i32 {
         1
     }
 }
-fn scan(fd: &File, host: &mut impl Services) -> Result<Value> {
-    Ok(filesystem::scan(fd.as_raw_fd(), &mut |_| poll(host))?)
+fn scan(
+    fd: &File,
+    options: &crate::sync_options::Options,
+    host: &mut impl Services,
+) -> Result<Value> {
+    Ok(filesystem::scan_scoped(
+        fd.as_raw_fd(),
+        options,
+        &mut |_| poll(host),
+    )?)
 }
 fn lookup(root: &Value, path: &str, host: &mut impl Services) -> Result<Value> {
     Ok(sync_remote::run(
@@ -227,6 +235,7 @@ struct Execution<'a> {
     trash_desktop: bool,
     result: Value,
     failed: BTreeSet<String>,
+    options: crate::sync_options::Options,
     baseline: Map<String, Value>,
     pending: Map<String, Value>,
     expected: Map<String, Value>,
@@ -321,7 +330,7 @@ impl Execution<'_> {
                 hook("after_local_trash").map_err(operational)?;
             }
             let current = sync_proof::roots(&self.proof, self.root.as_raw_fd(), host)?;
-            let local = scan(&self.root, host)?;
+            let local = scan(&self.root, &self.options, host)?;
             if tree(&local["entries"])?.contains_key(relative)
                 || tree(&local["blocked"])?
                     .keys()
@@ -454,15 +463,8 @@ impl Execution<'_> {
         hook: &mut impl FnMut(&str) -> std::result::Result<(), Failure>,
     ) -> Result<()> {
         let root = sync_proof::roots(&self.proof, self.root.as_raw_fd(), host)?;
-        let local = scan(&self.root, host)?;
-        let remote = sync_remote::run(
-            Remote::Scan {
-                root: root.clone(),
-                fresh: false,
-                allow_trashed: false,
-            },
-            host,
-        )?;
+        let local = scan(&self.root, &self.options, host)?;
+        let remote = sync_remote::scan_scoped(&root, &self.options, host)?;
         self.result["_local_snapshot"] = local["entries"].clone();
         self.result["_remote_snapshot"] = remote["entries"].clone();
         let mut blocked = self.failed.clone();
@@ -653,10 +655,13 @@ fn run_with_hook(
         trash_desktop: request.trash_desktop,
         result,
         failed: set(&plan["_blocked"])?,
+        options: serde_json::from_value(plan.get("_options").cloned().unwrap_or_else(|| json!({})))
+            .map_err(|_| Error::from("Invalid sync options"))?,
         baseline: tree(&plan["_baseline"])?.clone(),
         pending: tree(&plan["_pending_deletions"])?.clone(),
         expected: tree(&plan["_remote"])?.clone(),
     };
+    execution.options.validate()?;
     let actions = plan["actions"]
         .as_array()
         .ok_or("Invalid execution actions")?;
@@ -664,7 +669,7 @@ fn run_with_hook(
         host.progress(json!({"kind":"progress","unit":"items","completed":index,"total":actions.len(),"path":action["relative_path"],"operation":action["kind"]}));
         host.poll()?;
         let relative = text(action, "relative_path")?;
-        if under(relative, &execution.failed) {
+        if execution.options.excludes(relative) || under(relative, &execution.failed) {
             execution.push(
                 "conflicts",
                 json!(format!("{relative}: parent operation was blocked")),
@@ -803,6 +808,55 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.base);
         }
+    }
+    fn scoped(tree: &mut Tree) -> Request {
+        let mut request = tree.request();
+        request.plan = crate::sync_plan::run_scoped(
+            tree.state.to_str().unwrap(),
+            tree.root.to_str().unwrap(),
+            "/my-files",
+            &crate::sync_options::Options {
+                exclusions: vec!["data".into()],
+                daily_utc_minute: None,
+            },
+            &mut tree.host,
+        )
+        .unwrap();
+        request
+    }
+    #[test]
+    fn exclusions_preserve_cloud_data_and_baseline_after_local_removal() {
+        let mut tree = Tree::new();
+        std::fs::remove_file(tree.root.join("data")).unwrap();
+        let request = scoped(&mut tree);
+        let baseline = request.plan["_baseline"].clone();
+        assert_eq!(request.plan["actions"], json!([]));
+        assert_eq!(run(request, &mut tree.host).unwrap()["errors"], json!([]));
+        assert_eq!(tree.host.trash_calls, 0);
+        assert_eq!(scoped(&mut tree).plan["_baseline"], baseline);
+    }
+    #[test]
+    fn exclusions_preserve_local_data_after_cloud_removal() {
+        let mut tree = Tree::new();
+        tree.host.trashed = true;
+        let request = scoped(&mut tree);
+        assert_eq!(request.plan["actions"], json!([]));
+        assert_eq!(run(request, &mut tree.host).unwrap()["errors"], json!([]));
+        assert_eq!(std::fs::read(tree.root.join("data")).unwrap(), b"valuable");
+    }
+    #[test]
+    fn removing_exclusion_detects_changes_on_both_sides() {
+        let mut tree = Tree::new();
+        let baseline = scoped(&mut tree).plan["_baseline"].clone();
+        std::fs::write(tree.root.join("data"), b"local change").unwrap();
+        tree.host.file["sha1"] = json!("1111111111111111111111111111111111111111");
+        tree.host.file["revision"] = json!("rev2");
+        let request = scoped(&mut tree);
+        assert_eq!(run(request, &mut tree.host).unwrap()["errors"], json!([]));
+        let restored = tree.request();
+        assert_eq!(restored.plan["_baseline"], baseline);
+        assert_eq!(restored.plan["actions"], json!([]));
+        assert!(!restored.plan["conflicts"].as_array().unwrap().is_empty());
     }
     #[test]
     fn failed_intent_persistence_prevents_remote_mutation() {

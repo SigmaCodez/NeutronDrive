@@ -14,6 +14,16 @@ use std::{
 };
 type Result<T> = std::result::Result<T, Failure>;
 pub fn run(state: &str, root: &str, remote_path: &str, host: &mut impl Services) -> Result<Value> {
+    run_scoped(state, root, remote_path, &Default::default(), host)
+}
+pub fn run_scoped(
+    state: &str,
+    root: &str,
+    remote_path: &str,
+    options: &crate::sync_options::Options,
+    host: &mut impl Services,
+) -> Result<Value> {
+    options.validate()?;
     host.poll()?;
     if Path::new(state).starts_with(Path::new(root)) {
         return Err(
@@ -51,21 +61,14 @@ pub fn run(state: &str, root: &str, remote_path: &str, host: &mut impl Services)
     if !baseline["identity"].is_null() && baseline["identity"] != json!(identity) {
         return Err("Local sync root identity changed since the saved baseline".into());
     }
-    let local = filesystem::scan(fd.as_raw_fd(), &mut |_| {
+    let local = filesystem::scan_scoped(fd.as_raw_fd(), options, &mut |_| {
         if host.poll().is_ok() {
             0
         } else {
             1
         }
     })?;
-    let cloud = sync_remote::run(
-        Remote::Scan {
-            root: remote.clone(),
-            fresh: false,
-            allow_trashed: false,
-        },
-        host,
-    )?;
+    let cloud = sync_remote::scan_scoped(&remote, options, host)?;
     let mut blocked = local["blocked"]
         .as_object()
         .ok_or("Invalid local scan")?
@@ -76,6 +79,9 @@ pub fn run(state: &str, root: &str, remote_path: &str, host: &mut impl Services)
             .ok_or("Invalid remote scan")?
             .clone(),
     );
+    for path in &options.exclusions {
+        blocked.insert(path.clone(), json!("Excluded by sync settings"));
+    }
     let skipped: Vec<_> = blocked
         .iter()
         .map(|(path, reason)| {
@@ -119,6 +125,6 @@ pub fn run(state: &str, root: &str, remote_path: &str, host: &mut impl Services)
         return Err("Rust planner requires unresolved deletion proofs".into());
     }
     Ok(
-        json!({"local_root":root,"remote_root":remote["path"],"remote_root_uid":uid,"actions":decisions["actions"],"conflicts":decisions["conflicts"],"skipped":skipped,"_local":local["entries"],"_remote":cloud["entries"],"_baseline":baseline["entries"],"_pending_deletions":baseline["pending"],"_state_digest":baseline["digest"],"_state_key":key,"_root_identity":identity,"_blocked":decisions["blocked"]}),
+        json!({"_options":options,"local_root":root,"remote_root":remote["path"],"remote_root_uid":uid,"actions":decisions["actions"],"conflicts":decisions["conflicts"],"skipped":skipped,"_local":local["entries"],"_remote":cloud["entries"],"_baseline":baseline["entries"],"_pending_deletions":baseline["pending"],"_state_digest":baseline["digest"],"_state_key":key,"_root_identity":identity,"_blocked":decisions["blocked"]}),
     )
 }

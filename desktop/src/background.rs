@@ -29,6 +29,8 @@ fn execute(
 ) -> Result<Value, Failure> {
     let action = operation["action"].as_str().unwrap_or("");
     if ![
+        "limits",
+        "configure",
         "status",
         "start",
         "stop",
@@ -71,7 +73,14 @@ fn execute(
     let status = service(json!({"action":"status"}));
     let command = |action: &str, id: Value| json!({"op":"control_command","path":state.join("control.sock"),"action":action,"job_id":id,"timeout":5.0});
     match action {
-        "status" => return call(status),
+        "status" => {
+            let mut result = call(status)?;
+            result["transfer_limits"] = call(json!({"op":"transfer_limits","limits":null}))?;
+            return Ok(result);
+        }
+        "limits" => {
+            call(json!({"op":"transfer_limits","limits":operation["limits"]}))?;
+        }
         "start" => {
             call(start)?;
         }
@@ -220,6 +229,34 @@ fn execute(
                 call(command("reload", Value::Null))?;
             }
         }
+        "configure" => {
+            let id = operation["id"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| failure("Missing job identity"))?;
+            let running = call(status.clone())?["running"] == true;
+            if running {
+                call(command("pause", json!(id)))?;
+                let latest = call(status.clone())?;
+                if latest.get("current").is_none() || latest["current"] == id {
+                    return Err(failure("Sync is stopping. Wait for the current transfer to finish, then save the settings again."));
+                }
+            } else {
+                call(
+                    json!({"op":"jobs","state":state,"planned":[],"operation":{"action":"update","id":id,"name":null,"paused":true}}),
+                )?;
+            }
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|_| failure("System clock unavailable"))?
+                .as_secs();
+            call(
+                json!({"op":"jobs","state":state,"planned":[],"operation":{"action":"configure","id":id,"options":operation["options"],"now":now}}),
+            )?;
+            if running {
+                call(command("reload", Value::Null))?;
+            }
+        }
         "pause" | "pause_1h" | "pause_4h" | "pause_24h" | "resume" | "retry" | "sync" => {
             let id = operation["id"]
                 .as_str()
@@ -259,11 +296,46 @@ fn execute(
         }
         _ => unreachable!(),
     }
-    call(status)
+    let mut result = call(status)?;
+    result["transfer_limits"] = call(json!({"op":"transfer_limits","limits":null}))?;
+    Ok(result)
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn configuration_waits_for_worker_and_keeps_job_paused() {
+        for active in [true, false] {
+            let mut calls = Vec::new();
+            let result = execute(
+                "sdk",
+                &json!({"action":"configure","id":"selected","options":{"exclusions":["build"],"daily_utc_minute":120}}),
+                Path::new("/app"),
+                false,
+                &mut |r| {
+                    calls.push(r.clone());
+                    if r["op"] == "data_dir" {
+                        return Ok(json!("/tmp/synthetic-options"));
+                    }
+                    Ok(
+                        json!({"running":true,"current":if active {json!("selected")} else {Value::Null},"jobs":[]}),
+                    )
+                },
+            );
+            assert_eq!(result.is_ok(), !active);
+            assert!(calls
+                .iter()
+                .any(|r| r["action"] == "pause" && r["job_id"] == "selected"));
+            assert!(!calls.iter().any(|r| r["action"] == "resume"));
+            assert_eq!(
+                calls
+                    .iter()
+                    .filter(|r| r["operation"]["action"] == "configure")
+                    .count(),
+                usize::from(!active)
+            );
+        }
+    }
     #[test]
     fn timed_pause_forwards_selected_job_and_rejects_missing_identity() {
         for action in ["pause_1h", "pause_4h", "pause_24h", "retry"] {
