@@ -782,6 +782,15 @@ Item {
                     let appended=photoBenchController.photoEntries.concat([{uid:"bench-2049",name:"Next page",safe:true,previewLoaded:true,thumbnail:""}]);
                     photoBenchController.photoEntries=appended;
                     if(controller.photoBench.viewerIndex!==2049 || controller.photoBench.pendingViewerIndex!==-1)throw new Error("Viewer did not advance after loading page");
+                    // Home/End and direct navigation supersede an earlier request
+                    // to advance after pagination; a late page must not steal focus.
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoOffset:2050};
+                    photoBenchController.requests=[];controller.photoBench.movePreview(1);
+                    if(controller.photoBench.pendingViewerIndex!==2050 || photoBenchController.requests.length!==1)throw new Error("Viewer did not queue another page");
+                    controller.photoBench.showPhoto(0);
+                    photoBenchController.photoEntries=appended.concat([{uid:"bench-late",name:"Late page",safe:true,previewLoaded:true,thumbnail:""}]);
+                    if(controller.photoBench.viewerIndex!==0 || controller.photoBench.pendingViewerIndex!==-1)throw new Error("Late photo page overrode explicit viewer navigation");
+                    console.log("NATIVE_PHOTO_EXPLICIT_NAVIGATION_CANCELS_PENDING_ADVANCE_OK");
                     controller.photoBench.viewState={busy:false,photosMore:false,photoAlbums:[{uid:"open",safe:true},{uid:"other",safe:true}],photoAlbum:"open"};
                     controller.photoBench.albumIndex=1;controller.photoBench.selected=[0];photoBenchController.requests=[];
                     controller.photoBench.changeAlbum("remove");

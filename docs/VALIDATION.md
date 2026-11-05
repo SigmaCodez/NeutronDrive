@@ -1,5 +1,18 @@
 # Validation record
 
+## Unreleased: explicit photo navigation wins over late pages (2026-11-05)
+
+Opening a loaded photo now cancels any pending automatic advance from the last
+photo of an earlier page. Previously, choosing Next at the page boundary and then
+jumping to the first photo could let a late page response override that newer
+navigation. Home/End and other direct viewer navigation now keep the chosen photo.
+
+The actual Qt window regression queues a page, opens photo zero and delivers the
+late response. It fails on the previous implementation and passes with the fix;
+the existing automatic page-advance, gallery origin and full window checks also
+pass. Native development build and diff checks pass. Profiles and photo data are
+isolated synthetic fixtures; no installed package or release was changed.
+
 ## Unreleased: gallery loading after inventory changes (2026-11-05)
 
 Photo preview and pagination calculations now subtract the GridView content

@@ -102,6 +102,8 @@ ColumnLayout {
     readonly property var currentPhoto: viewerIndex >= 0 ? photos[viewerIndex] || ({}) : ({})
     function showPhoto(index) {
         if(index<0 || index>=photos.length)return;
+        // Explicit navigation supersedes an earlier advance waiting for a page.
+        pendingViewerIndex=-1;
         viewerIndex=index; viewerAttempt=-1; previewZoom=1;
         previewViewport.contentX=0; previewViewport.contentY=0;
         viewer.open();
