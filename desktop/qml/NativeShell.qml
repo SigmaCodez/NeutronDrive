@@ -792,10 +792,21 @@ Item {
                     if(controller.photoBench.viewerIndex!==0 || controller.photoBench.pendingViewerIndex!==-1)throw new Error("Late photo page overrode explicit viewer navigation");
                     console.log("NATIVE_PHOTO_EXPLICIT_NAVIGATION_CANCELS_PENDING_ADVANCE_OK");
                     controller.photoBench.viewState={busy:false,photosMore:false,photoAlbums:[{uid:"open",safe:true},{uid:"other",safe:true}],photoAlbum:"open"};
-                    controller.photoBench.albumIndex=1;controller.photoBench.selected=[0];photoBenchController.requests=[];
+                    controller.photoBench.selectedAlbumUid="other";controller.photoBench.selected=[0];photoBenchController.requests=[];
                     controller.photoBench.changeAlbum("remove");
                     if(photoBenchController.requests[0].album!=="open")throw new Error("Remove used another album from the chooser");
                     console.log("NATIVE_PHOTO_VIEWER_PAGING_AND_ALBUM_TARGET_OK");
+                    controller.photoBench.viewState={busy:false,photoAlbums:[{uid:"other",name:"Renamed",safe:true},{uid:"open",safe:true}],photoAlbum:"open"};
+                    photoBenchController.requests=[];
+                    controller.photoBench.changeAlbum("add");
+                    controller.photoBench.changeAlbum("cover");
+                    if(photoBenchController.requests.length!==2 || photoBenchController.requests.some(r=>r.album!=="other"))throw new Error("Album refresh changed the selected target");
+                    if(controller.photoBench.selectedAlbum().name!=="Renamed")throw new Error("Album selection retained stale metadata");
+                    controller.photoBench.viewState={busy:false,photoAlbums:[{uid:"open",safe:true}],photoAlbum:"open"};
+                    photoBenchController.requests=[];
+                    controller.photoBench.changeAlbum("add");controller.photoBench.changeAlbum("cover");
+                    if(controller.photoBench.selectedAlbum() || photoBenchController.requests.length)throw new Error("Deleted album silently selected another target");
+                    console.log("NATIVE_PHOTO_ALBUM_SELECTION_IDENTITY_OK");
                     // Reordering must remap selection and viewer by stable identity,
                     // including during scrolling. Revoked items stay unselected.
                     controller.photoBench.showPhoto(1000);

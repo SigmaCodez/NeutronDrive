@@ -1,5 +1,19 @@
 # Validation record
 
+## Unreleased: stable target album during refresh (2026-11-05)
+
+The photo action chooser now retains the selected album UID instead of its list
+position. Reordering or renaming albums keeps Add to album and Set album cover
+pointed at the same album, with current metadata. If that album disappears, both
+actions become unavailable until a valid album is chosen; Remove from album still
+targets the currently open album.
+
+The actual Qt window regression selects the second album, reorders and renames
+it, checks both action targets, then removes it and checks that neither action
+sends a request. The original implementation fails on the reordered target; the
+fix passes the complete isolated native window check. The development build and
+diff checks pass. Only synthetic data was used; no package or release was changed.
+
 ## Unreleased: explicit photo navigation wins over late pages (2026-11-05)
 
 Opening a loaded photo now cancels any pending automatic advance from the last

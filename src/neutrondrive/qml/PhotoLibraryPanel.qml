@@ -121,7 +121,13 @@ ColumnLayout {
         let date=new Date(value);
         return isNaN(date.getTime()) ? "" : date.toLocaleDateString(Qt.locale(controller.language), Locale.LongFormat);
     }
-    property int albumIndex: 0
+    property var albumEntries: viewState.photoAlbums || []
+    property string selectedAlbumUid: ""
+    readonly property int albumIndex: albumEntries.findIndex(a=>a.uid===selectedAlbumUid)
+    onAlbumEntriesChanged: {
+        // Choose an initial default once; a removed target must not redirect actions.
+        if(!selectedAlbumUid && albumEntries.length)selectedAlbumUid=albumEntries[0].uid;
+    }
     property real savedScroll: 0
     property bool restoring: false
     objectName: "page-photos"
@@ -142,7 +148,7 @@ ColumnLayout {
         selected=items;
     }
     property bool displayOptions: false
-    function selectedAlbum() { return (panel.viewState.photoAlbums || [])[albumIndex]; }
+    function selectedAlbum() { return albumEntries.find(a=>a.uid===selectedAlbumUid); }
     function changeAlbum(action) {
         let album=action==="remove" ? (viewState.photoAlbums || []).find(a=>a.uid===viewState.photoAlbum) : selectedAlbum();
         if(album)request({action:action,album:album.uid,indices:selected});
@@ -209,7 +215,8 @@ ColumnLayout {
         PhotoButton { text: host.tr("Clear selection"); enabled: panel.selected.length>0; onClicked: panel.selected=[] }
         DriveCombo {
             id: albumChoice; theme: host.theme; width: 200
-            model: panel.viewState.photoAlbums || []; textRole: "name"; currentIndex: panel.albumIndex; onActivated: panel.albumIndex=currentIndex
+            model: panel.albumEntries; textRole: "name"; currentIndex: panel.albumIndex
+            onActivated: panel.selectedAlbumUid=panel.albumEntries[currentIndex]?.uid || ""
             Accessible.name: host.tr("Albums")
         }
         PhotoButton { text: host.tr("Add to album"); enabled: !panel.viewState.busy && panel.selected.length>0 && Boolean(panel.selectedAlbum()); onClicked: panel.changeAlbum("add") }
