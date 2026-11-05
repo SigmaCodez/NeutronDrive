@@ -1,5 +1,18 @@
 # Validation record
 
+## Unreleased: keypad Enter opens photo previews (2026-11-05)
+
+The photo grid now handles keypad Enter as well as Return. Previously only the
+main Return key opened the focused photo, leaving keypad users without the same
+keyboard action.
+
+The actual window regression sends Qt Key_Enter to the focused grid, checks the
+opened photo, closes it with Escape and verifies the same grid index and active
+focus. It then sends Key_Return and checks that the original shortcut still
+works. The former implementation fails at keypad Enter; the fix passes the full
+isolated native window test. Build and diff checks pass. All data is synthetic;
+no installed package or release was changed.
+
 ## Unreleased: album action availability follows access (2026-11-05)
 
 Add to album, Remove from album and Set album cover now require an accessible

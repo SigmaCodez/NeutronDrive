@@ -276,6 +276,7 @@ ColumnLayout {
         cacheBuffer: grid.height
         activeFocusOnTab: true; keyNavigationEnabled: true
         Keys.onReturnPressed: if(currentIndex>=0)panel.showPhoto(currentIndex)
+        Keys.onEnterPressed: if(currentIndex>=0)panel.showPhoto(currentIndex)
         Keys.onSpacePressed: if(panel.selectionMode && currentIndex>=0)panel.toggle(currentIndex)
         ScrollBar.vertical: DriveScrollBar { theme: host.theme }
         onContentYChanged: if(!panel.restoring) { panel.savedScroll=Math.max(0,contentY); }

@@ -652,7 +652,21 @@ Item {
                     let panel=controller.childNamed(controller.view.contentItem,"page-photos");
                     let grid=controller.childNamed(panel,"photoGrid");
                     if(panel.viewerIndex!==-1 || grid.currentIndex!==1 || !grid.activeFocus)throw new Error("Closing preview did not return focus to the current photo");
+                    files.windowKey(Qt.Key_Enter,false);controller.stage=210044;
+                }else if(controller.stage===210044){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    if(panel.viewerIndex!==1)throw new Error("Keypad Enter did not open the focused photo");
+                    files.windowKey(Qt.Key_Escape,false);controller.stage=210045;
+                }else if(controller.stage===210045){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    let grid=controller.childNamed(panel,"photoGrid");
+                    if(panel.viewerIndex!==-1 || grid.currentIndex!==1 || !grid.activeFocus)throw new Error("Keypad preview did not restore gallery focus");
+                    files.windowKey(Qt.Key_Return,false);controller.stage=210046;
+                }else if(controller.stage===210046){
+                    let panel=controller.childNamed(controller.view.contentItem,"page-photos");
+                    if(panel.viewerIndex!==1)throw new Error("Return did not open the focused photo");
                     panel.openAlbum("");
+                    console.log("NATIVE_PHOTO_ENTER_KEYS_AND_FOCUS_OK");
                     console.log("NATIVE_PHOTO_SELECTION_AND_VIEWER_OK");controller.stage=21005;
                 }else if(controller.stage===21005){
                     controller.childNamed(controller.view.contentItem,"photoAlbumsButton").clicked();controller.stage=2101;
