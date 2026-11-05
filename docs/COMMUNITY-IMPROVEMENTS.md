@@ -1,6 +1,56 @@
 # Community-informed improvements
 
-Reviewed on 31 October 2026. This is a qualitative sample of public Reddit discussions, not a survey of all Linux users.
+Latest review: **5 November 2026**. This is a qualitative sample of public
+feedback, not a survey or vote-based ranking. Priorities below are maintainer
+recommendations based on usefulness and implementation dependencies.
+
+## Request inventory and implementation assessment
+
+The repository issue search returned only [#19, Hello from Syncative](https://github.com/SigmaCodez/NeutronDrive/issues/19),
+an exchange between developers rather than a feature request. Its follow-up
+suggests comparing related Linux clients; it does not request Android or
+multi-account support for NeutronDrive. Repository metadata reports zero open
+issues and GitHub Discussions disabled at the time of review. The requests below
+come from the **broader Proton Drive community**, not a verified backlog of
+NeutronDrive users.
+
+| Request | Evidence | Current NeutronDrive status | Suggested next step |
+| --- | --- | --- | --- |
+| Exclude files/subfolders, such as node_modules and build output | [Subfolder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1wzc527/add_ability_to_exclude_specific_subfolders_from/), [file-level exclusions](https://www.reddit.com/r/ProtonDrive/comments/1rpszqw/proton_drive_needs_filelevel_sync_exclusions_is/) | Open: no configurable per-job ignore rules found. Existing reserved-name and unsupported-file safeguards are not user-defined exclusions. | First feature priority; implement consistently across local scan, remote scan, reconciliation and saved baselines. |
+| Limit upload/download bandwidth | [Rate-limit request](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Open: no user-configurable transfer bandwidth limit found. Timed pauses do not provide throttling. | Assess SDK/transfer enforcement before adding controls; include concurrent jobs and on-demand reads. |
+| Run synchronization at chosen times | [Scheduling requested alongside bandwidth limits](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Open: automatic resume after a pause exists, but is not a recurring calendar schedule. | Define timezone, daylight-saving, missed-run and manual-pause behavior before implementation. |
+| Pause temporarily and resume automatically | [Timed pause feedback](https://www.reddit.com/r/ProtonDrive/comments/1ulfq23/windows_pause_sync_for_a_limited_time/) | Already implemented in the project: 1, 4 or 24 hours, or manual resume; persisted per-job deadlines. | Retain existing expiration/restart regression coverage; no duplicate feature needed. |
+| Reliable Linux sync with understandable failures | [Linux day-to-day reliability discussion](https://www.reddit.com/r/ProtonDrive/comments/1v0nch0/anyone_here_using_proton_drive_as_their_primary/) | Partly addressed: retry, last successful sync, retry/resume times, expandable issue details and private diagnostic summaries exist. Reliability is an ongoing requirement, not a completed checkbox. | Continue reproducible error/recovery tests and UX fixes. |
+| Independent security review and public findings | [Linux client feedback](https://www.reddit.com/r/ProtonDrive/comments/1t047ri/i_built_an_opensource_proton_drive_sync_client/) | External review request concerning another client, relevant as a trust requirement for this category. This review establishes no independent NeutronDrive audit. | Separate externally conducted review; internal tests must not be described as an independent audit. |
+
+### Proposed acceptance criteria for exclusions
+
+These are a proposed design, **not implemented functionality**:
+
+- Store explicit rules per sync job and explain their scope before saving them.
+  Start with relative paths/subtrees; define glob syntax separately rather than
+  implying full gitignore compatibility.
+- Treat an excluded subtree as outside reconciliation on both sides. Adding a
+  rule must not delete local or cloud content, including files synced previously.
+- Preserve sufficient baseline information so that removing a rule does not
+  silently overwrite changes made while the path was excluded. Apply normal
+  conflict checks when bringing it back into scope.
+- Apply rules consistently to scans, event-triggered work, pending operations and
+  restart recovery. Reject absolute paths and traversal outside the sync root.
+- Test nested paths, rules changed during a job, restart persistence, existing
+  cloud files, changed files on both sides and rule removal with synthetic data.
+- Explain that exclusions affect synchronization, not necessarily visibility in
+  the cloud browser or on-demand mount. Do not advertise disk cleanup as a side
+  effect of excluding a path.
+
+### Outcome of this review
+
+The source-backed request inventory and implementation boundaries were updated.
+No new runtime feature, release or local installation was made in this review.
+The open requests need coordinated engine work or an external review; none was
+represented as implemented merely by adding documentation or a UI control.
+The earlier implementation and validation records below are retained as history.
+
 
 ## Implemented: timed background-sync pauses
 
