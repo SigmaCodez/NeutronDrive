@@ -396,7 +396,10 @@ ColumnLayout {
     function loadVisiblePhotos() {
         if(!panel.visible || panel.viewState.busy || panel.albumsVisible || panel.restoring || viewer.visible)return;
         let columns=Math.max(1,Math.floor(grid.width/panel.tileSize));
-        let first=Math.max(0,Math.floor(grid.contentY/grid.cellHeight)*columns);
+        // Removing/inserting rows above the viewport can shift Qt's content
+        // origin. Inventory indices and contentHeight are relative to it.
+        let viewportY=grid.contentY-grid.originY;
+        let first=Math.max(0,Math.floor(viewportY/grid.cellHeight)*columns);
         let end=Math.min(grid.count,panel.photos.length,first+columns*(Math.ceil(grid.height/grid.cellHeight)+2));
         let missing=-1;
         for(let i=first;i<end;i++)if(!panel.photos[i].previewLoaded){missing=i;break;}
@@ -408,7 +411,7 @@ ColumnLayout {
         // advances, so grid.count alone must not suppress the next page.
         let offset=Number.isFinite(panel.viewState.photoOffset) ? panel.viewState.photoOffset : grid.count;
         if(panel.viewState.photosMore && (panel.moreAttempt!==offset || Date.now()>=panel.retryAt)
-                && grid.contentY+grid.height>=grid.contentHeight-grid.height*2) {
+                && viewportY+grid.height>=grid.contentHeight-grid.height*2) {
             panel.moreAttempt=offset; panel.retryAt=Date.now()+15000;
             panel.request({action:"more"});
         }

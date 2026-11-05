@@ -811,6 +811,47 @@ Item {
                     controller.photoBench.scrolling=true;photoBenchController.photoEntries=[];
                     if(controller.photoBench.pendingPhotos || controller.childNamed(controller.photoBench,"photoGrid").count!==0)throw new Error("Photo inventory reset left stale tiles during scrolling");
                     console.log("NATIVE_PHOTO_DEFERRED_UPDATES_OK");
+                    controller.photoBench.scrolling=false;
+                    controller.photoBench.viewState={busy:true,photosMore:false};
+                    let originItems=[];
+                    for(let i=0;i<1200;i++)originItems.push({uid:"origin-"+i,name:"Photo "+i,safe:true,thumbnail:"",previewLoaded:true});
+                    photoBenchController.photoEntries=originItems;
+                    controller.stage=21027;
+                }else if(controller.stage===21027){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    grid.positionViewAtIndex(900,GridView.Beginning);
+                    controller.stage=21028;
+                }else if(controller.stage===21028){
+                    photoBenchController.photoEntries=photoBenchController.photoEntries.slice(300).map(p=>Object.assign({},p,{previewLoaded:false}));
+                    controller.stage=21029;
+                }else if(controller.stage===21029){
+                    let grid=controller.childNamed(controller.photoBench,"photoGrid");
+                    let first=grid.indexAt(1,grid.contentY+1);
+                    if(first<0 || grid.originY===0)throw new Error("Photo origin regression fixture did not shift the content origin: "+grid.originY+" first="+first);
+                    photoBenchController.requests=[];
+                    controller.photoBench.viewState={busy:false,photosMore:false};
+                    controller.photoBench.previewAttempt=-1;
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].start!==first)throw new Error("Photo prefetch missed visible tiles after origin shift: expected "+first+" got "+JSON.stringify(photoBenchController.requests));
+                    console.log("NATIVE_PHOTO_SHIFTED_ORIGIN_PREFETCH_OK");
+                    controller.photoBench.viewState={busy:true,photosMore:true,photoOffset:900};
+                    photoBenchController.photoEntries=photoBenchController.photoEntries.map(p=>Object.assign({},p,{previewLoaded:true}));
+                    controller.stage=21030;
+                }else if(controller.stage===21030){
+                    photoBenchController.requests=[];
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoOffset:900};
+                    controller.photoBench.moreAttempt=-1;
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length)throw new Error("Shifted photo origin triggered premature pagination");
+                    controller.photoBench.viewState={busy:true,photosMore:true,photoOffset:900};
+                    controller.childNamed(controller.photoBench,"photoGrid").positionViewAtEnd();
+                    controller.stage=21031;
+                }else if(controller.stage===21031){
+                    photoBenchController.requests=[];
+                    controller.photoBench.viewState={busy:false,photosMore:true,photoOffset:900};
+                    controller.photoBench.loadVisiblePhotos();
+                    if(photoBenchController.requests.length!==1 || photoBenchController.requests[0].action!=="more")throw new Error("Shifted photo origin stalled pagination at the bottom");
+                    console.log("NATIVE_PHOTO_SHIFTED_ORIGIN_PAGING_OK");
                     controller.photoBench.destroy();controller.photoBench=null;
                     controller.show_page("files");
                     let index=controller.fileEntries.findIndex(entry=>!entry.isFolder);

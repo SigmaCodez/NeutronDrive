@@ -1,5 +1,21 @@
 # Validation record
 
+## Unreleased: gallery loading after inventory changes (2026-11-05)
+
+Photo preview and pagination calculations now subtract the GridView content
+origin. Qt can shift that origin when earlier rows are removed while the user is
+scrolled down; using absolute contentY can then skip visible previews or request
+additional pages too early.
+
+An actual Qt window regression populates 1,200 photos, scrolls down and removes
+the first 300. It verifies that the origin really shifted and compares the
+requested preview index with GridView.indexAt for the visible row. The previous
+implementation requested nothing despite row 600 being visible. With the fix,
+the preview check passes, pagination remains idle away from the bottom, and
+reaching the bottom requests the next page. The complete isolated native window
+check passes with synthetic data and Qt 6.10.2, as do the native development build
+and diff checks. No live account, installed package or release was changed.
+
 ## Unreleased: file selection during refresh (2026-11-05)
 
 Manual file-list refresh now uses the same identity-based selection reconciliation
