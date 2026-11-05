@@ -807,6 +807,19 @@ Item {
                     controller.photoBench.changeAlbum("add");controller.photoBench.changeAlbum("cover");
                     if(controller.photoBench.selectedAlbum() || photoBenchController.requests.length)throw new Error("Deleted album silently selected another target");
                     console.log("NATIVE_PHOTO_ALBUM_SELECTION_IDENTITY_OK");
+                    controller.photoBench.selectionMode=true;
+                    let albumButtons=["photoAddToAlbum","photoRemoveFromAlbum","photoSetAlbumCover"].map(name=>controller.childNamed(controller.photoBench,name));
+                    if(albumButtons.some(button=>!button))throw new Error("Missing photo album action buttons");
+                    controller.photoBench.viewState={busy:false,photoAlbum:"other",photoAlbums:[{uid:"other",safe:true}]};
+                    if(albumButtons.some(button=>!button.enabled))throw new Error("Accessible album actions are disabled");
+                    controller.photoBench.viewState={busy:false,photoAlbum:"other",photoAlbums:[{uid:"other",safe:false}]};
+                    if(albumButtons.some(button=>button.enabled))throw new Error("Revoked album still offers photo actions");
+                    photoBenchController.requests=[];
+                    for(let action of ["add","remove","cover"])controller.photoBench.changeAlbum(action);
+                    if(photoBenchController.requests.length)throw new Error("Revoked album action was dispatched");
+                    controller.photoBench.viewState={busy:false,photoAlbum:"other",photoAlbums:[{uid:"other",safe:true}]};
+                    if(albumButtons.some(button=>!button.enabled))throw new Error("Restored album actions remain disabled");
+                    console.log("NATIVE_PHOTO_ALBUM_ACCESS_ACTIONS_OK");
                     // Reordering must remap selection and viewer by stable identity,
                     // including during scrolling. Revoked items stay unselected.
                     controller.photoBench.showPhoto(1000);

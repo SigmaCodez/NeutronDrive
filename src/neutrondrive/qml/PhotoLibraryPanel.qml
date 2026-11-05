@@ -149,9 +149,12 @@ ColumnLayout {
     }
     property bool displayOptions: false
     function selectedAlbum() { return albumEntries.find(a=>a.uid===selectedAlbumUid); }
+    function actionAlbum(action) {
+        return action==="remove" ? (viewState.photoAlbums || []).find(a=>a.uid===viewState.photoAlbum) : selectedAlbum();
+    }
     function changeAlbum(action) {
-        let album=action==="remove" ? (viewState.photoAlbums || []).find(a=>a.uid===viewState.photoAlbum) : selectedAlbum();
-        if(album)request({action:action,album:album.uid,indices:selected});
+        let album=actionAlbum(action);
+        if(album?.safe===true)request({action:action,album:album.uid,indices:selected});
     }
     RowLayout {
         PhotoButton { text: host.tr("Photos"); highlighted: !panel.albumsVisible; enabled: !panel.viewState.busy; onClicked: panel.openAlbum("") }
@@ -219,9 +222,9 @@ ColumnLayout {
             onActivated: panel.selectedAlbumUid=panel.albumEntries[currentIndex]?.uid || ""
             Accessible.name: host.tr("Albums")
         }
-        PhotoButton { text: host.tr("Add to album"); enabled: !panel.viewState.busy && panel.selected.length>0 && Boolean(panel.selectedAlbum()); onClicked: panel.changeAlbum("add") }
-        PhotoButton { text: host.tr("Remove from album"); enabled: !panel.viewState.busy && panel.selected.length>0 && Boolean(panel.viewState.photoAlbum); onClicked: panel.changeAlbum("remove") }
-        PhotoButton { text: host.tr("Set album cover"); enabled: !panel.viewState.busy && panel.selected.length===1 && Boolean(panel.selectedAlbum()); onClicked: panel.changeAlbum("cover") }
+        PhotoButton { objectName: "photoAddToAlbum"; text: host.tr("Add to album"); enabled: !panel.viewState.busy && panel.selected.length>0 && panel.selectedAlbum()?.safe===true; onClicked: panel.changeAlbum("add") }
+        PhotoButton { objectName: "photoRemoveFromAlbum"; text: host.tr("Remove from album"); enabled: !panel.viewState.busy && panel.selected.length>0 && panel.actionAlbum("remove")?.safe===true; onClicked: panel.changeAlbum("remove") }
+        PhotoButton { objectName: "photoSetAlbumCover"; text: host.tr("Set album cover"); enabled: !panel.viewState.busy && panel.selected.length===1 && panel.selectedAlbum()?.safe===true; onClicked: panel.changeAlbum("cover") }
     }
     GridView {
         id: albums; objectName: "photoAlbumsGrid"
@@ -324,7 +327,7 @@ ColumnLayout {
                 id: photoMenu
                 PhotoMenuItem { text: host.tr("Download"); enabled: !panel.viewState.busy && photo.entry.safe; onTriggered: controller.send("photo_download",[photo.index]) }
                 PhotoMenuItem { text: host.tr("Show location on OpenStreetMap"); enabled: Boolean(photo.entry.location); onTriggered: panel.request({action:"map",index:photo.index}) }
-                PhotoMenuItem { text: host.tr("Add to album"); enabled: !panel.viewState.busy; onTriggered: { panel.selectionMode=true; panel.selected=[photo.index]; panel.request({action:"albums"}); } }
+                PhotoMenuItem { text: host.tr("Add to album"); enabled: !panel.viewState.busy && photo.entry.safe; onTriggered: { panel.selectionMode=true; panel.selected=[photo.index]; panel.request({action:"albums"}); } }
             }
         }
         Label { anchors.centerIn: parent; visible: !panel.viewState.busy && grid.count===0; text: host.tr("No photos"); color: host.theme.text }

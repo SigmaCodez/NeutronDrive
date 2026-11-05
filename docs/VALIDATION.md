@@ -1,5 +1,20 @@
 # Validation record
 
+## Unreleased: album action availability follows access (2026-11-05)
+
+Add to album, Remove from album and Set album cover now require an accessible
+target album. The action dispatcher also checks that state before sending a
+request. The photo context menu no longer offers Add to album for an inaccessible
+photo. Backend validation already rejected these requests; the UI now avoids
+offering actions that would silently do nothing.
+
+An actual Qt window regression checks all three buttons before album access is
+revoked, after revocation and after restoration. It also verifies that revoked
+album actions send no requests. The previous UI fails on the enabled buttons
+after revocation; the fix passes the full isolated window test. The native build
+and diff checks pass. Tests use synthetic data, with no installed package or
+release changes.
+
 ## Unreleased: stable target album during refresh (2026-11-05)
 
 The photo action chooser now retains the selected album UID instead of its list
