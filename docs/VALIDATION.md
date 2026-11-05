@@ -1,5 +1,20 @@
 # Validation record
 
+## Unreleased: file selection during refresh (2026-11-05)
+
+Manual file-list refresh now uses the same identity-based selection reconciliation
+as background refresh. Metadata changes and inserted rows retain selected file
+IDs, keyboard focus and the Shift-selection anchor. Replaced or removed IDs lose
+their selection; a new file at the same path is not selected automatically.
+Changes to filtered-out rows preserve the visible model and its selection.
+
+The new manual-refresh regression fails against the previous implementation and
+passes with the fix. All 145 desktop unit tests pass locally with Rust 1.93.1 and
+Qt 6.10.2, including three new regressions. Native development build, formatting
+and diff checks pass. The actual Qt window and sharing-dialog fixture also pass
+with isolated profiles and synthetic data. This is a source change, not a new
+release or installed package update.
+
 ## 1.1.1 validation (2026-11-04)
 
 The [native and Linux package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/41895207945) passed for

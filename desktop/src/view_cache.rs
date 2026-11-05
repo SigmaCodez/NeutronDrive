@@ -2,6 +2,47 @@
 use super::*;
 use std::collections::{HashMap, HashSet};
 impl Files {
+    // Reconcile only the currently displayed folder. Navigation still uses
+    // render() directly, so selection never leaks into a different folder.
+    pub(super) fn update_folder_rows(&mut self, nodes: Vec<Value>) {
+        if self.files_revision != 0 && self.nodes == nodes {
+            return;
+        }
+        let selected: HashSet<_> = self
+            .selected()
+            .iter()
+            .map(|n| text(n, "uid").to_owned())
+            .collect();
+        let anchor = self
+            .selection_anchor
+            .and_then(|i| self.visible.get(i))
+            .map(|n| text(n, "uid").to_owned())
+            .filter(|id| !id.is_empty());
+        let focus = self
+            .visible
+            .get(self.state["focusIndex"].as_u64().unwrap_or(0) as usize)
+            .map(|n| text(n, "uid").to_owned())
+            .filter(|id| !id.is_empty());
+        self.nodes = nodes;
+        let revision = self.files_revision;
+        self.render();
+        if self.files_revision == revision {
+            return;
+        }
+        self.selection = self
+            .visible
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| !text(n, "uid").is_empty() && selected.contains(text(n, "uid")))
+            .map(|(i, _)| i)
+            .collect();
+        if let Some(i) = focus.and_then(|id| self.visible.iter().position(|n| n["uid"] == id)) {
+            self.state["focusIndex"] = json!(i);
+        }
+        self.selection_anchor =
+            anchor.and_then(|id| self.visible.iter().position(|n| n["uid"] == id));
+        self.update_actions();
+    }
     pub fn refresh_cache(&mut self) -> Vec<Effect> {
         if self.busy()
             || self.pending.is_some()
@@ -79,39 +120,8 @@ impl Files {
             let mut nodes = nodes.clone();
             nodes.sort_by_cached_key(|n| (n["type"] != "folder", folded(text(n, "name"))));
             if path == self.path() {
-                let selected: HashSet<_> = self
-                    .selected()
-                    .iter()
-                    .map(|n| text(n, "uid").to_owned())
-                    .collect();
-                let anchor = self
-                    .selection_anchor
-                    .and_then(|i| self.visible.get(i))
-                    .map(|n| text(n, "uid").to_owned());
-                let focus = self
-                    .visible
-                    .get(self.state["focusIndex"].as_u64().unwrap_or(0) as usize)
-                    .map(|n| text(n, "uid").to_owned());
-                self.nodes = nodes;
+                self.update_folder_rows(nodes);
                 self.cache_folder();
-                self.render();
-                self.selection = self
-                    .visible
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, n)| {
-                        !text(n, "uid").is_empty() && selected.contains(text(n, "uid"))
-                    })
-                    .map(|(i, _)| i)
-                    .collect();
-                if let Some(i) =
-                    focus.and_then(|id| self.visible.iter().position(|n| n["uid"] == id))
-                {
-                    self.state["focusIndex"] = json!(i);
-                }
-                self.selection_anchor =
-                    anchor.and_then(|id| self.visible.iter().position(|n| n["uid"] == id));
-                self.update_actions();
             } else if self.folder_cache.iter().any(|c| c.path == path) {
                 self.store_folder(path.to_owned(), nodes);
             }

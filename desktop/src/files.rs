@@ -966,18 +966,12 @@ impl Files {
                             sorted.sort_by_cached_key(|n| {
                                 (n["type"] != "folder", folded(text(n, "name")))
                             });
-                            let changed = self.files_revision == 0 || self.nodes != sorted;
-                            self.nodes = sorted;
+                            self.update_folder_rows(sorted);
                             self.cache_folder();
                             if self.cached_read {
                                 if let Some(entry) = self.folder_cache.back_mut() {
                                     entry.saved = Instant::now() - Duration::from_secs(60);
                                 }
-                            }
-                            // Unchanged metadata must not recreate delegates or
-                            // discard the user's keyboard focus and selection.
-                            if changed {
-                                self.render();
                             }
                         } else {
                             self.message("Invalid native file list", true);
@@ -2528,6 +2522,63 @@ mod tests {
         assert_eq!(m.state["selection"], selected);
         assert_eq!(m.state["focusIndex"], focused);
         assert!(!m.busy());
+    }
+
+    #[test]
+    fn manual_refresh_preserves_selected_identity_focus_and_range_anchor() {
+        let mut m = model();
+        let initial = json!([
+            {"uid":"b","name":"b","path":"/my-files/b","type":"file","safe":true},
+            {"uid":"c","name":"c","path":"/my-files/c","type":"file","safe":true}
+        ]);
+        let request = work(m.refresh());
+        m.complete(request.id, Ok(initial.clone()));
+        m.select(1, false);
+        let revision = m.files_revision;
+        let mut changed = initial.as_array().unwrap().clone();
+        changed[1]["size"] = json!(4096);
+        changed.push(json!({"uid":"a","name":"a","path":"/my-files/a","type":"file","safe":true}));
+        let request = work(m.refresh_live());
+        m.complete(request.id, Ok(json!(changed)));
+        assert!(m.files_revision > revision);
+        assert_eq!(m.state["selection"], json!([2]));
+        assert_eq!(m.state["focusIndex"], 2);
+        assert_eq!(m.selection_anchor, Some(2));
+        assert_eq!(m.paths(), vec!["/my-files/c"]);
+        m.select_range(1);
+        assert_eq!(m.paths(), vec!["/my-files/b", "/my-files/c"]);
+    }
+
+    #[test]
+    fn refresh_never_transfers_selection_to_replacement_at_same_path() {
+        let mut m = model();
+        let original =
+            json!([{"uid":"old","name":"same","path":"/my-files/same","type":"file","safe":true}]);
+        let request = work(m.refresh());
+        m.complete(request.id, Ok(original.clone()));
+        m.select(0, false);
+        let mut replacement = original;
+        replacement[0]["uid"] = json!("replacement");
+        let request = work(m.refresh_live());
+        m.complete(request.id, Ok(replacement));
+        assert_eq!(m.state["selection"], json!([]));
+        assert_eq!(m.selection_anchor, None);
+        assert_eq!(m.state["actions"]["Papierkorb"]["enabled"], false);
+    }
+
+    #[test]
+    fn refreshing_hidden_rows_preserves_selection_without_identity() {
+        let mut m = loaded();
+        m.dispatch("edit", &json!(["search", "alpha"]));
+        m.select(0, false);
+        let revision = m.files_revision;
+        let mut changed = nodes();
+        changed[0]["size"] = json!(4096);
+        let request = work(m.refresh_live());
+        m.complete(request.id, Ok(changed));
+        assert_eq!(m.files_revision, revision);
+        assert_eq!(m.state["selection"], json!([0]));
+        assert_eq!(m.paths(), vec!["/my-files/alpha.txt"]);
     }
 
     #[test]
