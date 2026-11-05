@@ -374,9 +374,15 @@ ColumnLayout {
                     anchors.fill: parent; clip: true
                     contentWidth: width*panel.previewZoom; contentHeight: height*panel.previewZoom
                     boundsBehavior: Flickable.StopAtBounds
-                    Image { width: previewViewport.contentWidth; height: previewViewport.contentHeight; source: panel.currentPhoto.thumbnail || ""; fillMode: Image.PreserveAspectFit; cache: true; asynchronous: true }
+                    Image { id: viewerImage; objectName: "photoViewerImage"; width: previewViewport.contentWidth; height: previewViewport.contentHeight; source: panel.currentPhoto.thumbnail || ""; fillMode: Image.PreserveAspectFit; cache: true; asynchronous: true }
                 }
-                Label { anchors.centerIn: parent; visible: !panel.currentPhoto.thumbnail; text: panel.viewState.busy ? host.tr("Loading preview…") : host.tr("Preview unavailable. Download the original to view it."); color: host.theme.muted; width: parent.width-40; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap }
+                Label {
+                    objectName: "photoViewerStatus"; anchors.centerIn: parent
+                    visible: viewerImage.status!==Image.Ready
+                    text: viewerImage.status===Image.Loading || (viewerImage.status===Image.Null && panel.viewState.busy)
+                        ? host.tr("Loading preview…") : host.tr("Preview unavailable. Download the original to view it.")
+                    color: host.theme.muted; width: parent.width-40; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap
+                }
             }
             RowLayout {
                 PhotoButton { text: "‹"; Accessible.name: host.tr("Previous"); enabled: panel.viewerIndex>0; onClicked: panel.movePreview(-1) }

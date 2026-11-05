@@ -1,5 +1,19 @@
 # Validation record
 
+## Unreleased: feedback for unreadable photo previews (2026-11-05)
+
+The viewer status now follows the Image decoding state instead of checking only
+whether a thumbnail string exists. Unreadable image data shows the existing
+preview-unavailable/download-original guidance; asynchronous image loading shows
+the loading message, and a ready image hides the status.
+
+The actual Qt window regression opens a synthetic truncated JPEG, waits for
+Image.Error, and checks that the unavailable message is visible. Previously this
+left the viewer blank. The corrected build passes that regression and the full
+isolated native window check. The decoder warning for the intentionally damaged
+fixture is expected. Build and diff checks pass; no live data, installed package
+or release was changed.
+
 ## Unreleased: keypad Enter opens photo previews (2026-11-05)
 
 The photo grid now handles keypad Enter as well as Return. Previously only the

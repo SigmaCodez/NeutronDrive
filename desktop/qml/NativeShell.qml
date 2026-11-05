@@ -862,7 +862,22 @@ Item {
                     controller.photoBench.viewState={busy:true,photosMore:false};
                     let originItems=[];
                     for(let i=0;i<1200;i++)originItems.push({uid:"origin-"+i,name:"Photo "+i,safe:true,thumbnail:"",previewLoaded:true});
+                    originItems[0].thumbnail="data:image/jpeg;base64,/9g=";
                     photoBenchController.photoEntries=originItems;
+                    controller.photoBench.viewState={busy:false,photosMore:false};
+                    controller.photoBench.showPhoto(0);
+                    controller.stage=210261;
+                }else if(controller.stage===210261){
+                    let previewWindow=Array.from(controller.photoBench.data).find(item=>item.objectName==="photoViewer");
+                    let preview=controller.childNamed(previewWindow.contentItem,"photoViewerImage");
+                    if(preview.status===Image.Loading)return;
+                    if(preview.status!==Image.Error)throw new Error("Damaged photo fixture did not fail to decode");
+                    let status=controller.childNamed(previewWindow.contentItem,"photoViewerStatus");
+                    if(!status.visible || status.text!==controller.view.tr("Preview unavailable. Download the original to view it."))throw new Error("Damaged preview left an unexplained empty viewer");
+                    controller.childNamed(previewWindow.contentItem,"closePhotoPreview").clicked();
+                    controller.photoBench.viewState={busy:true,photosMore:false};
+                    photoBenchController.photoEntries=photoBenchController.photoEntries.map(p=>Object.assign({},p,{thumbnail:""}));
+                    console.log("NATIVE_PHOTO_DECODE_FAILURE_FEEDBACK_OK");
                     controller.stage=21027;
                 }else if(controller.stage===21027){
                     let grid=controller.childNamed(controller.photoBench,"photoGrid");
