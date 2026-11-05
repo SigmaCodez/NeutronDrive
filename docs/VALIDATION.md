@@ -1,5 +1,20 @@
 # Validation record
 
+## Unreleased: avoid refetching empty previews during cache eviction (2026-11-05)
+
+Photo memory trimming now skips entries with no thumbnail bytes. Previously,
+reaching the memory budget also marked already completed empty/unavailable
+previews as unloaded, despite reclaiming no memory. This could cause unnecessary
+requests and repeated model revisions under memory pressure. Real thumbnail
+eviction and protection of the current batch are preserved.
+
+A regression uses a small memory budget with unavailable, revoked, missing and
+pending previews alongside two stored images. It checks that only an unprotected
+stored image is evicted and that repeated trimming with an oversized protected
+image does not invalidate empty entries. The test fails before the fix and
+passes afterwards. All 146 desktop unit tests, rustfmt and diff checks pass.
+No installed package or release was changed.
+
 ## Unreleased: feedback for unreadable photo previews (2026-11-05)
 
 The viewer status now follows the Image decoding state instead of checking only

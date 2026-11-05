@@ -254,11 +254,14 @@ impl Files {
             if bytes <= limit {
                 break;
             }
-            if protected.contains(&p["uid"]) {
+            let image_bytes = p["thumbnail"].as_str().map_or(0, str::len);
+            // Empty previews reclaim no memory. Preserve their completed state
+            // so unavailable images are not fetched again after every eviction.
+            if image_bytes == 0 || protected.contains(&p["uid"]) {
                 continue;
             }
             self.photos_revision += 1;
-            bytes = bytes.saturating_sub(p["thumbnail"].as_str().map_or(0, str::len));
+            bytes = bytes.saturating_sub(image_bytes);
             p["thumbnail"] = json!("");
             p["previewLoaded"] = json!(false);
         }
@@ -437,6 +440,34 @@ mod tests {
         assert_eq!(m.state["photos"][0]["thumbnail"], "12345678");
         assert_eq!(m.state["photos"][1]["thumbnail"], "");
         assert_eq!(m.state["photos"][1]["previewLoaded"], false);
+    }
+    #[test]
+    fn cache_budget_preserves_completed_previews_without_image_data() {
+        let mut m = model();
+        m.state["photos"] = json!([
+            {"uid":"unavailable","thumbnail":"","previewLoaded":true,"safe":true},
+            {"uid":"revoked","thumbnail":"","previewLoaded":true,"safe":false},
+            {"uid":"missing","previewLoaded":true,"safe":true},
+            {"uid":"pending","thumbnail":"","previewLoaded":false,"safe":true},
+            {"uid":"old","thumbnail":"12345678","previewLoaded":true},
+            {"uid":"current","thumbnail":"12345678","previewLoaded":true}
+        ]);
+        let original = m.state["photos"].clone();
+        let revision = m.photos_revision;
+        m.trim_photo_memory_to(10, &[json!("current")]);
+        for index in 0..4 {
+            assert_eq!(m.state["photos"][index], original[index]);
+        }
+        assert_eq!(m.state["photos"][4]["thumbnail"], "");
+        assert_eq!(m.state["photos"][4]["previewLoaded"], false);
+        assert_eq!(m.state["photos"][5], original[5]);
+        assert_eq!(m.photos_revision, revision + 1);
+        // An oversized protected image must not repeatedly invalidate empty rows.
+        m.trim_photo_memory_to(1, &[json!("current")]);
+        assert_eq!(m.photos_revision, revision + 1);
+        for index in 0..4 {
+            assert_eq!(m.state["photos"][index], original[index]);
+        }
     }
     #[test]
     fn file_changes_preserve_selected_identity_focus_and_shift_anchor() {
