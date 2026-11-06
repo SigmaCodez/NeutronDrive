@@ -1,5 +1,23 @@
 # Validation record
 
+## Unreleased: interrupt stalled paced streams on abort (2026-11-06)
+
+Further review found that the transfer limiter checked its abort signal before
+reading and during pacing, but did not interrupt an already pending source read.
+A stalled source could therefore leave the consumer waiting after cancellation.
+The wrapper now handles abort events immediately, errors the output stream and
+cancels the source. It removes the listener on completion, failure or consumer
+cancellation so later aborts cannot act on a released source reader.
+
+A regression waits until the synthetic source is actually being read, then
+aborts without providing bytes. It times out before the fix and passes afterwards,
+including verification that the original cancellation reason reaches the source.
+Additional checks cover pre-aborted signals, consumer cancellation and normal
+completion followed by an abort. All 33 bridge tests and TypeScript checking pass
+against the pinned SDK; this includes the existing loopback HTTP pacing and byte
+preservation checks. Diff whitespace checks pass. No installed package or release
+was changed.
+
 ## Unreleased: retry manual sync before the daily deadline (2026-11-06)
 
 Review found that a manually started daily-scheduled job could lose retry

@@ -33,13 +33,28 @@ export function pacedStream(source: ReadableStream<Uint8Array>, pacer: BytePacer
     let offset = 0;
     const stop = new AbortController();
     const combined = signal ? AbortSignal.any([signal, stop.signal]) : stop.signal;
+    let onAbort: (() => void) | undefined;
+    const cleanup = () => {
+        if (onAbort) combined.removeEventListener('abort', onAbort);
+    };
     return new ReadableStream<Uint8Array>({
+        start(controller) {
+            onAbort = () => {
+                cleanup();
+                controller.error(combined.reason);
+                // Aborting a signal alone does not interrupt an arbitrary source.read().
+                void reader.cancel(combined.reason).catch(() => {});
+            };
+            if (combined.aborted) onAbort();
+            else combined.addEventListener('abort', onAbort, { once: true });
+        },
         async pull(controller) {
             try {
                 combined.throwIfAborted();
                 if (!pending || offset === pending.byteLength) {
                     const result = await reader.read();
-                    if (result.done) { controller.close(); reader.releaseLock(); return; }
+                    combined.throwIfAborted();
+                    if (result.done) { cleanup(); controller.close(); reader.releaseLock(); return; }
                     pending = result.value; offset = 0;
                 }
                 const chunk = pending.subarray(offset, offset + 16384);
@@ -47,11 +62,12 @@ export function pacedStream(source: ReadableStream<Uint8Array>, pacer: BytePacer
                 offset += chunk.byteLength;
                 controller.enqueue(chunk);
             } catch (error) {
+                cleanup();
                 controller.error(error);
                 await reader.cancel(error).catch(() => {});
             }
         },
-        async cancel(reason) { stop.abort(reason); await reader.cancel(reason); },
+        async cancel(reason) { cleanup(); stop.abort(reason); await reader.cancel(reason); },
     }, { highWaterMark: 0 });
 }
 export function installTransferLimits(uploadKib: number, downloadKib: number): void {

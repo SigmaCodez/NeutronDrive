@@ -40,3 +40,45 @@ test('real HTTP upload and download are paced without changing body or status', 
         expect(performance.now() - start).toBeGreaterThan(400);
     } finally { server.stop(true); }
 });
+test('abort interrupts a paced stream while its source read is pending', async () => {
+    let cancelled: unknown;
+    let started!: () => void;
+    const reading = new Promise<void>(resolve => { started = resolve; });
+    const source = new ReadableStream<Uint8Array>({ pull() { started(); }, cancel(reason) { cancelled = reason; } }, { highWaterMark: 0 });
+    const abort = new AbortController();
+    const reader = pacedStream(source, new BytePacer(1024), abort.signal).getReader();
+    const reason = new Error('Transfer stopped');
+    const pending = reader.read().then(() => 'unexpected completion', error => error);
+    await reading;
+    abort.abort(reason);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        const outcome = await Promise.race([pending, new Promise(resolve => { timer = setTimeout(() => resolve('timeout'), 100); })]);
+        expect(outcome).toBe(reason);
+        expect(cancelled).toBe(reason);
+    } finally {
+        clearTimeout(timer);
+        await reader.cancel().catch(() => {});
+    }
+});
+test('paced stream cleans up abort handling after completion and consumer cancellation', async () => {
+    const immediate = () => new BytePacer(1024, { now: () => 0, wait: async () => {} });
+    const reason = new Error('Stopped');
+    for (const alreadyAborted of [false, true]) {
+        let cancelled: unknown;
+        const abort = new AbortController();
+        if (alreadyAborted) abort.abort(reason);
+        const source = new ReadableStream<Uint8Array>({ cancel(value) { cancelled = value; } });
+        const reader = pacedStream(source, immediate(), abort.signal).getReader();
+        if (alreadyAborted) await expect(reader.read()).rejects.toBe(reason);
+        else await reader.cancel(reason);
+        expect(cancelled).toBe(reason);
+        abort.abort(reason);
+    }
+    const abort = new AbortController();
+    const bytes = new Uint8Array([1, 2, 3]);
+    const result = await new Response(pacedStream(new Response(bytes).body!, immediate(), abort.signal)).arrayBuffer();
+    expect(new Uint8Array(result)).toEqual(bytes);
+    // A completed stream has released its source lock and must not be cancelled again.
+    abort.abort(reason);
+});
