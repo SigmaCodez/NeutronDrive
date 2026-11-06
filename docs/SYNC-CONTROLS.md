@@ -1,7 +1,7 @@
 # Sync scope, schedules and bandwidth
 
-Unreleased implementation, 5 November 2026. These controls are not yet installed
-or published. They require the matching native application and SDK bridge.
+Available in 1.1.2. These controls require the matching native application and
+SDK bridge supplied with the release.
 
 ## Per-job settings
 
@@ -80,8 +80,8 @@ trigger a short-request timeout.
 
 The core sends an explicit capability flag when a nonzero limit is configured.
 Older bridges reject it rather than silently transferring without limits. Use
-the matching bridge candidate for development testing; the published 1.1.1
-backend manifest remains a record of the already published artifacts.
+the matching bridge supplied with the application; older bridge binaries do not
+implement these controls.
 
 New controls are provided in German and English. Other locale catalogs currently
 use English fallback for these new labels; existing translations are preserved.
