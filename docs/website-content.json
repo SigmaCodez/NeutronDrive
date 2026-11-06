@@ -7,7 +7,7 @@
       "features": [
         [
           "Background sync",
-          "Connect local folders to your cloud. Pause jobs, retry transfers and keep track of conflicts."
+          "Synchronize folders with per-job exclusions, daily UTC schedules and shared upload/download limits. Pause jobs, retry transfers and review conflicts."
         ],
         [
           "Online, until you need it offline",
@@ -92,7 +92,7 @@
       "features": [
         [
           "Synchronisiert im Hintergrund",
-          "Verbinde lokale Ordner mit deiner Cloud. Pausiere Jobs, starte sie erneut und behalte Konflikte im Blick."
+          "Synchronisiere Ordner mit Ausschlüssen pro Auftrag, täglichen UTC-Zeitplänen und gemeinsamen Upload-/Download-Limits. Pausiere Aufträge, wiederhole Übertragungen und prüfe Konflikte."
         ],
         [
           "Online, bis du es offline brauchst",
@@ -177,7 +177,7 @@
       "features": [
         [
           "Synchronisation en arrière-plan",
-          "Reliez vos dossiers locaux au cloud. Mettez les tâches en pause, relancez les transferts et suivez les conflits."
+          "Synchronisez des dossiers avec des exclusions par tâche, des horaires quotidiens UTC et des limites de débit partagées. Mettez en pause, réessayez les transferts et examinez les conflits."
         ],
         [
           "En ligne, puis hors ligne au besoin",
@@ -262,7 +262,7 @@
       "features": [
         [
           "Sincronización en segundo plano",
-          "Conecta carpetas locales a tu nube. Pausa tareas, reintenta transferencias y controla los conflictos."
+          "Sincroniza carpetas con exclusiones por tarea, horarios diarios UTC y límites compartidos de subida y descarga. Pausa tareas, reintenta transferencias y revisa conflictos."
         ],
         [
           "En línea, hasta que lo necesites sin conexión",
@@ -347,7 +347,7 @@
       "features": [
         [
           "Sincronizzazione in background",
-          "Collega le cartelle locali al cloud. Metti in pausa le attività, riprova i trasferimenti e tieni sotto controllo i conflitti."
+          "Sincronizza cartelle con esclusioni per attività, orari giornalieri UTC e limiti condivisi di upload e download. Metti in pausa, riprova i trasferimenti e controlla i conflitti."
         ],
         [
           "Online, finché non serve offline",
@@ -432,7 +432,7 @@
       "features": [
         [
           "Sincronização em segundo plano",
-          "Ligue pastas locais à sua nuvem. Pause tarefas, repita transferências e acompanhe os conflitos."
+          "Sincronize pastas com exclusões por tarefa, horários diários UTC e limites partilhados de envio e transferência. Pause tarefas, repita transferências e reveja conflitos."
         ],
         [
           "Online, até precisar de acesso offline",

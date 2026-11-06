@@ -4,13 +4,13 @@ Latest review: **5 November 2026**. This is a qualitative sample of public
 feedback, not a survey or vote-based ranking. Priorities below are maintainer
 recommendations based on usefulness and implementation dependencies.
 
-## Unreleased implementation, 5 November 2026
+## Included in 1.1.2 (6 November 2026)
 
 The open sync controls now have an implementation: per-job relative-path/subtree
 exclusions with preserved baselines, daily UTC schedules with persisted deadlines,
 and shared upload/download stream pacing in the SDK bridge. Existing timed pauses,
 retry and diagnostics remain available. See [usage and exact scope](SYNC-CONTROLS.md).
-This is local development work, not an installed or published release.
+These controls are included in the 1.1.2 release.
 
 The requested independent security review is **not completed**. A
 [review scope and reproduction guide](SECURITY-REVIEW-SCOPE.md) is prepared for an
@@ -30,9 +30,9 @@ NeutronDrive users.
 
 | Request | Evidence | Current NeutronDrive status | Suggested next step |
 | --- | --- | --- | --- |
-| Exclude files/subfolders, such as node_modules and build output | [Subfolder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1wzc527/add_ability_to_exclude_specific_subfolders_from/), [file-level exclusions](https://www.reddit.com/r/ProtonDrive/comments/1rpszqw/proton_drive_needs_filelevel_sync_exclusions_is/) | Implemented locally: explicit per-job relative paths/subtrees; existing data and baselines are retained. | Validate on a disposable live account before release; glob patterns remain outside this first implementation. |
-| Limit upload/download bandwidth | [Rate-limit request](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Implemented locally: separate persisted upload/download limits with shared stream budgets. | Ship the matching bridge; measure real-network buffering separately from application stream pacing. |
-| Run synchronization at chosen times | [Scheduling requested alongside bandwidth limits](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Implemented locally: daily UTC deadline, missed-run catch-up and manual sync override. | Local-time zones and weekly calendar rules are not part of the daily UTC schedule. |
+| Exclude files/subfolders, such as node_modules and build output | [Subfolder exclusions](https://www.reddit.com/r/ProtonDrive/comments/1wzc527/add_ability_to_exclude_specific_subfolders_from/), [file-level exclusions](https://www.reddit.com/r/ProtonDrive/comments/1rpszqw/proton_drive_needs_filelevel_sync_exclusions_is/) | Implemented in 1.1.2: explicit per-job relative paths/subtrees; existing data and baselines are retained. | Validate on a disposable live account before release; glob patterns remain outside this first implementation. |
+| Limit upload/download bandwidth | [Rate-limit request](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Implemented in 1.1.2: separate persisted upload/download limits with shared stream budgets. | Ship the matching bridge; measure real-network buffering separately from application stream pacing. |
+| Run synchronization at chosen times | [Scheduling requested alongside bandwidth limits](https://www.reddit.com/r/ProtonDrive/comments/1543xp2/proton_drive_needs_a_configurable_ratelimit_option/) | Implemented in 1.1.2: daily UTC deadline, missed-run catch-up and manual sync override. | Local-time zones and weekly calendar rules are not part of the daily UTC schedule. |
 | Pause temporarily and resume automatically | [Timed pause feedback](https://www.reddit.com/r/ProtonDrive/comments/1ulfq23/windows_pause_sync_for_a_limited_time/) | Already implemented in the project: 1, 4 or 24 hours, or manual resume; persisted per-job deadlines. | Retain existing expiration/restart regression coverage; no duplicate feature needed. |
 | Reliable Linux sync with understandable failures | [Linux day-to-day reliability discussion](https://www.reddit.com/r/ProtonDrive/comments/1v0nch0/anyone_here_using_proton_drive_as_their_primary/) | Partly addressed: retry, last successful sync, retry/resume times, expandable issue details and private diagnostic summaries exist. Reliability is an ongoing requirement, not a completed checkbox. | Continue reproducible error/recovery tests and UX fixes. |
 | Independent security review and public findings | [Linux client feedback](https://www.reddit.com/r/ProtonDrive/comments/1t047ri/i_built_an_opensource_proton_drive_sync_client/) | External review request concerning another client, relevant as a trust requirement for this category. This review establishes no independent NeutronDrive audit. | Separate externally conducted review; internal tests must not be described as an independent audit. |
@@ -60,7 +60,7 @@ The relative-path implementation follows these requirements:
 ### Validation and remaining external work
 
 See [VALIDATION.md](VALIDATION.md) for test results and [SYNC-CONTROLS.md](SYNC-CONTROLS.md)
-for exact behavior and limitations. No release or installation has been performed.
+for exact behavior and limitations. Earlier local validation records describe the development stage; release validation is recorded separately.
 An independent security audit still needs an external reviewer; the internal test
 record and prepared review scope do not complete that request.
 

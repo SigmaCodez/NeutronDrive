@@ -114,7 +114,7 @@ claim. [Cache design and privacy](docs/ARCHITECTURE.md#desktop-view-cache).
   recursively; **Free up space** removes eligible cached copies.
 - **Synchronize local folders:** automatic background jobs, local filesystem
   notifications, remote events, pause/resume, retry and visible conflicts.
-  [Unreleased exclusions, daily schedules and transfer limits](docs/SYNC-CONTROLS.md).
+  [Exclusions, daily schedules and transfer limits](docs/SYNC-CONTROLS.md).
 - **Back up computer folders:** register a Linux computer through the SDK and
   synchronize selected folders under Proton Drive's Computers section.
 - **Manage photos:** a continuously scrolling timeline, total count, selection
