@@ -1,5 +1,23 @@
 # Validation record
 
+## Unreleased: retry manual sync before the daily deadline (2026-11-06)
+
+Review found that a manually started daily-scheduled job could lose retry
+eligibility after a temporary failure: beginning a run clears the manual reason,
+and its replacement retry reason was not allowed through the daily-time gate.
+The automatic retry therefore waited until the next daily deadline.
+
+The scheduler now also admits an active retry cycle through that gate. The normal
+selector still enforces retry backoff, manual pauses and blocked jobs. A regression
+uses the real begin/failure transitions and selector, fails before the fix and
+passes afterwards. It also verifies the retry delay and that paused, blocked and
+ordinary startup work do not bypass their restrictions.
+
+All 228 core unit tests and 16 native runtime tests pass. The three targeted
+transfer-limit tests also pass, including byte preservation, concurrent budgets,
+cancellation and paced loopback HTTP upload/download. Rust formatting and diff
+checks pass. Tests use synthetic data; no installed package or release changed.
+
 ## Unreleased: community sync controls (2026-11-05)
 
 Implemented per-job relative-path/subtree exclusions, daily UTC scheduling with

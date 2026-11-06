@@ -71,6 +71,21 @@ struct Job {
     watcher: Option<u64>,
     token: u64,
 }
+impl Job {
+    fn candidate(&self, id: &str, timestamp: u64) -> Value {
+        let scheduled = self.config["options"]["daily_utc_minute"].is_u64();
+        let due = self.config["next_scheduled_at"].as_u64().unwrap_or(0) <= timestamp;
+        // A failed manual run must keep retrying before the daily deadline.
+        // The selector still enforces retry backoff, pauses and blocked jobs.
+        let active_cycle = self.runtime["reasons"].as_array().is_some_and(|reasons| {
+            reasons
+                .iter()
+                .any(|reason| reason == "manual" || reason == "retry")
+        });
+        let eligible = !scheduled || due || active_cycle;
+        json!({"id":id,"pending":eligible && (self.runtime["pending"] == true || (scheduled && due)),"paused":self.config["paused"],"state":self.runtime["state"],"due":self.runtime["due"]})
+    }
+}
 fn initial() -> Value {
     json!({"state":"pending","pending":true,"due":0.0,"first_dirty":0.0,"paths":[],"reasons":["startup"],"known_uids":[],"failures":0,"last_sync":null,"error":"","conflicts":[],"skipped":[],"completed":0,"rebuild_watch":false,"local_snapshot":{},"snapshot_ready":false})
 }
@@ -965,13 +980,11 @@ impl Shared {
                 continue;
             }
             let timestamp = wall() as u64;
-            let candidates: Vec<_> = state.order.iter().filter_map(|id| state.jobs.get(id).map(|job| (id, job))).map(|(id, j)| {
-                let scheduled = j.config["options"]["daily_utc_minute"].is_u64();
-                let due = j.config["next_scheduled_at"].as_u64().unwrap_or(0) <= timestamp;
-                let manual = j.runtime["reasons"].as_array().is_some_and(|r| r.iter().any(|r| r == "manual"));
-                let eligible = !scheduled || due || manual;
-                json!({"id":id,"pending":eligible && (j.runtime["pending"] == true || (scheduled && due)),"paused":j.config["paused"],"state":j.runtime["state"],"due":j.runtime["due"]})
-            }).collect();
+            let candidates: Vec<_> = state
+                .order
+                .iter()
+                .filter_map(|id| state.jobs.get(id).map(|job| job.candidate(id, timestamp)))
+                .collect();
             let decision = policy_call(json!({"op":"select","jobs":candidates,"now":clock()}))?;
             if decision.is_null() || decision["delay"].as_f64().unwrap_or(0.0) > 0.0 {
                 let delay = decision["delay"].as_f64().unwrap_or(0.25).min(0.25);
@@ -1128,6 +1141,47 @@ pub fn run(config: Config, callback: &mut impl FnMut(Value) -> i32) -> Result<Va
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn failed_manual_daily_sync_retries_before_next_daily_deadline() {
+        let mut job = Job {
+            config: json!({"paused":false,"options":{"daily_utc_minute":60},"next_scheduled_at":90000}),
+            runtime: initial(),
+            watcher: None,
+            token: 0,
+        };
+        job.runtime["reasons"] = json!(["manual"]);
+        assert_eq!(job.candidate("selected", 100)["pending"], true);
+        let context = || {
+            serde_json::from_value(json!({"paused":false,"stopping":false,"root":"/unused","now":10.0,"wall":100.0,"debounce":1.0,"retry_base":5.0,"retry_max":60.0,"jitter":1.0})).unwrap()
+        };
+        job.runtime = daemon_job::transition(
+            serde_json::from_value(job.runtime).unwrap(),
+            daemon_job::Outcome::Begin,
+            context(),
+        )
+        .unwrap();
+        job.runtime = daemon_job::transition(
+            serde_json::from_value(job.runtime).unwrap(),
+            daemon_job::Outcome::Retry {
+                error: "Temporary connection failure".into(),
+            },
+            context(),
+        )
+        .unwrap();
+        let select = |job: &Job, now: f64| {
+            policy_call(json!({"op":"select","jobs":[job.candidate("selected", 100)],"now":now}))
+                .unwrap()
+        };
+        assert_eq!(select(&job, 10.0), json!({"id":"selected","delay":5.0}));
+        assert_eq!(select(&job, 15.0), json!({"id":"selected","delay":0.0}));
+        job.config["paused"] = json!(true);
+        assert!(select(&job, 15.0).is_null());
+        job.config["paused"] = json!(false);
+        job.runtime["state"] = json!("blocked");
+        assert!(select(&job, 15.0).is_null());
+        job.runtime = initial();
+        assert!(select(&job, 15.0).is_null());
+    }
     #[test]
     fn job_status_keeps_configuration_order_through_updates_and_removal() {
         let shared = Arc::new(Shared {
