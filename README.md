@@ -66,7 +66,9 @@ also lets you choose System, Light or Dark manually. Theme changes apply immedia
 
 [Setup: sign in](docs/previews/development/setup-sign-in-light.png) ·
 [Setup: choose folder, dark mode](docs/previews/development/setup-folder-dark.png) ·
-[Sync settings](docs/background-demo.png) ·
+[Background sync](docs/background-demo.png) ·
+[Exclusions and daily schedule](docs/previews/light-sync-options.png) ·
+[Transfer limits](docs/previews/light-transfer-limits.png) ·
 [Computer backup](docs/previews/computer-backup-light.png) ·
 [Online drive](docs/ondemand-demo.png) ·
 [Sharing window](docs/previews/sharing-light.png) ·
@@ -89,7 +91,15 @@ example files and offline-status fixtures rendered by the real extension.
 They illustrate the integration, not a live cloud download. Appearance varies
 with the file manager and desktop theme. [Capture details](docs/FILE-MANAGER-PREVIEWS.json).
 
-## New in 1.1.0
+## New in 1.1.2
+
+Per-job exclusions preserve existing files; daily UTC schedules catch up after
+missed runs. Shared upload/download limits apply to new SDK operations. Invalid
+settings no longer pause jobs, and failed saves retain entered values. Photo
+navigation, preview feedback, cancellation and refresh selection are improved.
+See [sync controls and limitations](docs/SYNC-CONTROLS.md).
+
+## Persistent views (since 1.1.0)
 
 - Keep visited file lists, incoming/outgoing shares, computers and cloud trash available after restarting the app or PC.
 - Reuse saved photo inventories, albums and thumbnails without waiting for a cloud query first.

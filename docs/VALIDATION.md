@@ -1,5 +1,33 @@
 # Validation record
 
+## 1.1.2 release validation (2026-11-06)
+
+Both native architecture jobs passed at `8d06dadbc8f8f441bb108be64d8ef612757e6173` in
+[the native build run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/42182006638): core, Qt interface, Linux services,
+regression contracts, portable frontend and SDK bridge tests/builds. The provisional
+package jobs were stopped after native success so SDK checksums could be pinned.
+
+[The final package run](https://github.com/SigmaCodez/NeutronDrive/actions/runs/42186532098) passed at
+`1ffa2cdd6556d9842029d94ad2001a027bd9ea72`. It verifies unchanged native/build inputs before reusing
+the exact tested artifacts. DEB installation passed on amd64 and ARM64, including
+Ubuntu 26.10; Fedora/openSUSE RPM, Flatpak, strict Snap, AppImage and Arch checks
+also passed. The final SDK download manifest pins the actual produced bytes.
+
+Fresh English captures come from the unmodified final amd64 DEB, with isolated
+profiles and synthetic data. All 17 distinct captures (27 documented image paths)
+were visually inspected, including the new sync settings and transfer-limit
+dialogs. GUI-PREVIEWS.json records executable/package hashes and the application
+build commit. A symlinked local capture profile was rejected by the application's
+existing directory checks; using short private profiles resolved the capture setup
+without changing application bytes. All 17 website publisher/consumer tests pass.
+
+Release documentation, screenshots and Arch download hashes were finalized after
+the tested package build. BUILD_INFO.json and TEST_RESULTS.json identify the native
+source, package source, release commit and validation runs. No new live-account
+sync test or independent security audit is claimed. Store review/publication is
+separate from the verified downloadable artifacts.
+
+
 ## Unreleased: retain settings after operational save failures (2026-11-06)
 
 Saving valid sync settings while a transfer was still stopping returned an error
