@@ -1126,7 +1126,13 @@ impl Files {
             Answer::MountFolder=>{if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("mount_label",json!(path));self.mount_local=Some(path);}vec![]},
             Answer::ComputerFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.background_local=Some(path);return self.activate_background(true);}vec![]},
             Answer::TransferLimits => self.submit_background("Transfer limits", json!({"action":"limits","limits":value})),
-            Answer::SyncOptions(id) => self.submit_background("Sync settings", json!({"action":"configure","id":id,"options":value})),
+            Answer::SyncOptions(id) => {
+                // Pure validation: keep the user's input and captured job on errors.
+                if let Err(error) = crate::runtime::value(json!({"op":"validate_sync_options","options":value})) {
+                    return self.dialog("sync_options", "Sync settings", &error.message, json!({"options":value}), Answer::SyncOptions(id));
+                }
+                self.submit_background("Sync settings", json!({"action":"configure","id":id,"options":value}))
+            },
             Answer::BackgroundRemoval(operation) => self.submit_background("Remove backup",operation),
             Answer::BackgroundFolder => {if let Some(path)=Self::local_paths(value).into_iter().next(){self.field("background_local_label",json!(path));self.background_local=Some(path);}vec![]},
             Answer::ActivateBackground{local,remote,computer}=>self.submit_background(if computer {"Computersicherung einrichten"} else {"Hintergrund-Sync aktivieren"},json!({"action":if computer {"computer"} else {"add"},"local":local,"remote":remote})),
@@ -1890,6 +1896,22 @@ mod tests {
             request.operation,
             json!({"action":"configure","id":"first","options":options})
         );
+    }
+    #[test]
+    fn invalid_sync_settings_preserve_input_and_target_for_correction() {
+        let mut m = model();
+        m.state["jobs"] = json!([{"id":"first","options":{}}]);
+        let opened = dialog(m.dispatch("job_action", &json!(["configure", "first"])));
+        let invalid = json!({"exclusions":["*.tmp","Project/build"],"daily_utc_minute":123});
+        let retry = dialog(m.answer(opened["token"].as_u64().unwrap(), true, &invalid));
+        assert_eq!(retry["options"], invalid);
+        assert!(retry["description"].as_str().unwrap().contains("wildcards"));
+        assert!(!m.busy());
+        m.state["jobs"] = json!([{"id":"other"}]);
+        let valid = json!({"exclusions":["Project/build"],"daily_utc_minute":123});
+        let request = work(m.answer(retry["token"].as_u64().unwrap(), true, &valid));
+        assert_eq!(request.operation["id"], "first");
+        assert_eq!(request.operation["options"], valid);
     }
     #[test]
     fn transfer_limits_require_loaded_settings_and_cancel_is_read_only() {

@@ -23,7 +23,7 @@ impl Options {
                     .any(|p| p.is_empty() || matches!(p, "." | ".."))
             {
                 return Err(
-                    "Exclusions must be relative paths without empty or parent components".into(),
+                    "Exclusions must be relative paths without wildcards, empty or parent components".into(),
                 );
             }
         }

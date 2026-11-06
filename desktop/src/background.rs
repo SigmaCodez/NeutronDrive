@@ -230,6 +230,8 @@ fn execute(
             }
         }
         "configure" => {
+            // Reject invalid input before pausing or otherwise mutating the job.
+            call(json!({"op":"validate_sync_options","options":operation["options"]}))?;
             let id = operation["id"]
                 .as_str()
                 .filter(|s| !s.is_empty())
@@ -303,6 +305,47 @@ fn execute(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn invalid_settings_never_pause_or_update_a_job() {
+        for running in [false, true] {
+            for options in [
+                json!({"exclusions":["../private"]}),
+                json!({"exclusions":["*.tmp"]}),
+                json!({"exclusions":["build"],"daily_utc_minute":1440}),
+                json!({"exclusions":"build"}),
+            ] {
+                let mut mutations = Vec::new();
+                let result = execute(
+                    "sdk",
+                    &json!({"action":"configure","id":"selected","options":options}),
+                    Path::new("/app"),
+                    false,
+                    &mut |request| {
+                        if request["op"] == "validate_sync_options" {
+                            return runtime::value(request);
+                        }
+                        if request["op"] == "data_dir" {
+                            return Ok(json!("/unused"));
+                        }
+                        if request["op"] == "control_command" || request["op"] == "jobs" {
+                            mutations.push(request.clone());
+                        }
+                        if request["operation"]["action"] == "configure" {
+                            return runtime::value(
+                                json!({"op":"validate_sync_options","options":request["operation"]["options"]}),
+                            );
+                        }
+                        Ok(json!({"running":running,"current":null,"jobs":[]}))
+                    },
+                );
+                assert!(result.is_err());
+                assert!(
+                    mutations.is_empty(),
+                    "Invalid settings mutated job state: {mutations:?}"
+                );
+            }
+        }
+    }
     #[test]
     fn configuration_waits_for_worker_and_keeps_job_paused() {
         for active in [true, false] {

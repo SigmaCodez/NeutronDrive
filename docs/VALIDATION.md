@@ -1,5 +1,24 @@
 # Validation record
 
+## Unreleased: validate sync settings before pausing (2026-11-06)
+
+Invalid exclusions previously reached job configuration only after the desktop
+had paused the selected job. A typo could therefore stop synchronization even
+though saving failed. A new pure core validation operation is used both by the
+dialog and before the worker sends any pause/update command; the persistence
+boundary retains its own validation.
+
+Invalid dialog input now reopens the settings with the entered paths/time and
+original captured job identity intact. The path error explicitly mentions
+unsupported wildcards, with German text and English fallback in the catalogs.
+The worker regression fails before the fix and passes afterwards for active and
+stopped services, invalid parent paths, wildcards, times and field types. A dialog
+regression checks preserved input, no work submission, and correction after the
+visible job selection changes.
+
+All 151 desktop, 228 core unit and 16 native runtime tests pass. Rust formatting
+and diff checks pass. No installed package or release changed.
+
 ## Unreleased: interrupt stalled paced streams on abort (2026-11-06)
 
 Further review found that the transfer limiter checked its abort signal before

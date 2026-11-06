@@ -10,6 +10,9 @@ that job. If a transfer is still stopping, wait for it to finish and save again.
 Review the result and choose **Resume** when ready. Cancelling the settings dialog
 makes no changes.
 
+Invalid rules are rejected before pausing. The dialog retains the entered paths
+and schedule so they can be corrected without entering everything again.
+
 Enter one relative path per line, for example:
 
 ```text

@@ -16,6 +16,9 @@ pub struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
+    ValidateSyncOptions {
+        options: crate::sync_options::Options,
+    },
     TransferLimits {
         limits: Option<crate::transfer_limits::Limits>,
     },
@@ -741,6 +744,10 @@ pub fn dispatch(request: Request, callback: &mut impl FnMut(Value) -> i32) -> Re
             message,
             cancelled,
         } => crate::host::fail(id, message, cancelled),
+        Command::ValidateSyncOptions { options } => {
+            options.validate()?;
+            Ok(json!(options))
+        }
         Command::TransferLimits { limits } => crate::transfer_limits::run(limits),
         Command::SyncPlan {
             state,
