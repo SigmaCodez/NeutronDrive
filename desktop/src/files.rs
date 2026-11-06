@@ -788,6 +788,31 @@ impl Files {
                     )),
                 );
                 self.message(&message, true);
+                // Keep failed settings editable without retrying a mutation or
+                // replacing a newer dialog (for example the close confirmation).
+                if !error.cancelled && self.pending.is_none() && work.target == Target::Background {
+                    match work.operation["action"].as_str() {
+                        Some("configure") => {
+                            return self.dialog(
+                                "sync_options",
+                                "Sync settings",
+                                &message,
+                                json!({"options":work.operation["options"]}),
+                                Answer::SyncOptions(text(&work.operation, "id").into()),
+                            )
+                        }
+                        Some("limits") => {
+                            return self.dialog(
+                                "transfer_limits",
+                                "Transfer limits",
+                                &message,
+                                json!({"limits":work.operation["limits"]}),
+                                Answer::TransferLimits,
+                            )
+                        }
+                        _ => {}
+                    }
+                }
                 vec![]
             }
             Ok(value) => {
@@ -1912,6 +1937,72 @@ mod tests {
         let request = work(m.answer(retry["token"].as_u64().unwrap(), true, &valid));
         assert_eq!(request.operation["id"], "first");
         assert_eq!(request.operation["options"], valid);
+    }
+    #[test]
+    fn failed_settings_save_restores_values_without_automatic_retry() {
+        for (operation, field, kind) in [
+            (
+                json!({"action":"configure","id":"original","options":{"exclusions":["build","Project/cache"],"daily_utc_minute":321}}),
+                "options",
+                "sync_options",
+            ),
+            (
+                json!({"action":"limits","limits":{"upload_kib":128,"download_kib":512}}),
+                "limits",
+                "transfer_limits",
+            ),
+        ] {
+            let mut m = model();
+            let save = work(m.submit_background("Settings", operation.clone()));
+            m.state["jobs"] = json!([{"id":"other"}]);
+            let retry = dialog(m.complete(
+                save.id,
+                Err(Failure {
+                    message: "Still stopping; please retry".into(),
+                    cancelled: false,
+                }),
+            ));
+            assert_eq!(retry["kind"], kind);
+            assert_eq!(retry[field], operation[field]);
+            assert!(retry["description"]
+                .as_str()
+                .unwrap()
+                .contains("Still stopping"));
+            assert!(!m.busy());
+            assert!(m.active.is_none());
+            let retried = work(m.answer(retry["token"].as_u64().unwrap(), true, &retry[field]));
+            assert_eq!(retried.operation, operation);
+        }
+    }
+    #[test]
+    fn settings_failure_does_not_reopen_after_cancel_or_replace_another_dialog() {
+        for cancelled in [false, true] {
+            let mut m = model();
+            let save = work(m.submit_background(
+                "Settings",
+                json!({"action":"configure","id":"original","options":{}}),
+            ));
+            let token = if !cancelled {
+                Some(
+                    dialog(m.dialog("confirm", "Other dialog", "", json!({}), Answer::Close))
+                        ["token"]
+                        .as_u64()
+                        .unwrap(),
+                )
+            } else {
+                None
+            };
+            assert!(m
+                .complete(
+                    save.id,
+                    Err(Failure {
+                        message: "Stopped".into(),
+                        cancelled
+                    })
+                )
+                .is_empty());
+            assert_eq!(m.pending.as_ref().map(|(token, _)| *token), token);
+        }
     }
     #[test]
     fn transfer_limits_require_loaded_settings_and_cancel_is_read_only() {

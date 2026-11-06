@@ -12,6 +12,10 @@ makes no changes.
 
 Invalid rules are rejected before pausing. The dialog retains the entered paths
 and schedule so they can be corrected without entering everything again.
+If saving fails, for example because a transfer is still stopping, the dialog
+reopens with those values and the error. Confirm again when ready; no automatic
+retry or resume occurs. Transfer-limit values are likewise retained after a
+failed save. Cancellation does not reopen the dialog.
 
 Enter one relative path per line, for example:
 

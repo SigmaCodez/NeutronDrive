@@ -1,5 +1,22 @@
 # Validation record
 
+## Unreleased: retain settings after operational save failures (2026-11-06)
+
+Saving valid sync settings while a transfer was still stopping returned an error
+after closing the dialog, losing the entered exclusions and schedule. Failed
+transfer-limit saves similarly discarded the edited values. The desktop now
+reopens either settings dialog with its submitted values and the failure message.
+The original sync job remains captured even if the visible selection changes;
+retry requires explicit confirmation. Cancelled work and an already pending
+dialog, such as a close confirmation, never trigger a replacement dialog.
+
+The regression fails before the fix and passes afterwards for both settings
+types. It checks retained values/identity, idle state before confirmation and the
+explicit retry operation. A second regression covers cancellation and pending
+dialog protection. All 153 desktop tests, Rust formatting and diff checks pass.
+The stopping-transfer message now has a German translation with English fallback
+in the other catalogs. No installed package or release was changed.
+
 ## Unreleased: validate sync settings before pausing (2026-11-06)
 
 Invalid exclusions previously reached job configuration only after the desktop
